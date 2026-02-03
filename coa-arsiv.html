@@ -921,6 +921,55 @@
             border: 1px dashed #e5e7eb;
             border-radius: 12px;
         }
+
+        .analysis-report {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 16px 0 8px;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+        }
+
+        .analysis-report-title {
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .analysis-report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px 16px;
+        }
+
+        .report-item {
+            font-size: 0.95em;
+            color: #334155;
+        }
+
+        .report-item strong {
+            color: #1f2937;
+        }
+
+        .report-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .report-badge {
+            background: #eef2ff;
+            color: #3730a3;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
         
         /* Toast */
         .toast-container {
@@ -1665,6 +1714,7 @@
         let selectedItems = new Set();
         let currentTDSMaterial = null; // Şu an düzenlenen TDS hammaddesi
         let lastOCRMaterialCode = null; // Son OCR yapılan hammadde (modal açılışta değerleri korumak için)
+        let lastAnalysisSummary = null; // COA analiz rapor özeti
         
         // Dosya tipine göre ikon oluştur
         function getFileIcon(fileName, fileType, itemId) {
@@ -6935,6 +6985,7 @@
             document.getElementById('analysisStats').style.display = 'block';
             
             let allValues = [];
+            let totalOutOfTolerance = 0;
             
             // Her özellik için ayrı grafik oluştur
             selectedProperties.forEach((property, propIndex) => {
@@ -6959,7 +7010,7 @@
                 
                 // Grafik container oluştur (grid layout: grafik + istatistikler)
                 const chartDiv = document.createElement('div');
-                chartDiv.style.cssText = 'background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start;';
+                chartDiv.style.cssText = 'background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; border: 1px solid #e5e7eb; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);';
                 
                 // Grafik bölümü
                 const chartSection = document.createElement('div');
@@ -7052,6 +7103,8 @@
                         outOfToleranceCount++;
                     }
                 });
+                
+                totalOutOfTolerance += outOfToleranceCount;
                 
                 // Operatör kontrolü - range ise line, diğerleri bar
                 const firstOperator = propData[0]?.operator || 'range';
@@ -7203,8 +7256,54 @@
                 document.getElementById('statMax').textContent = max;
                 document.getElementById('statCount').textContent = allValues.length;
             }
+
+            const supplierText = document.getElementById('analysisSupplierSelect').selectedOptions[0]?.text || supplier;
+            const materialText = document.getElementById('analysisMaterialSelect').selectedOptions[0]?.text || material;
+            const locationText = document.getElementById('analysisLocationSelect').selectedOptions[0]?.text || (location || 'Tümü');
+            const dateRangeText = `${startDate || 'Tümü'} - ${endDate || 'Tümü'}`;
+
+            lastAnalysisSummary = {
+                supplier: supplierText,
+                material: materialText,
+                location: locationText,
+                dateRange: dateRangeText,
+                properties: selectedProperties,
+                totalCharts: selectedProperties.length,
+                totalRecords: allValues.length,
+                totalOutOfTolerance: totalOutOfTolerance
+            };
             
             showToast(`✅ ${selectedProperties.length} özellik için grafik oluşturuldu`, 'success');
+        }
+
+        function buildAnalysisReportHTML() {
+            const summary = lastAnalysisSummary || {};
+            const properties = Array.isArray(summary.properties) ? summary.properties : [];
+            const propertiesText = properties.length > 0 ? properties.join(', ') : '-';
+            const totalCharts = summary.totalCharts || 0;
+            const totalRecords = summary.totalRecords || 0;
+            const totalOut = summary.totalOutOfTolerance || 0;
+            const now = new Date();
+            const generatedAt = now.toLocaleString('tr-TR');
+
+            return `
+                <div class="analysis-report">
+                    <div class="analysis-report-title">🧾 COA Analiz Raporu</div>
+                    <div class="analysis-report-grid">
+                        <div class="report-item"><strong>Tedarikçi:</strong> ${summary.supplier || '-'}</div>
+                        <div class="report-item"><strong>Hammadde:</strong> ${summary.material || '-'}</div>
+                        <div class="report-item"><strong>Lokasyon:</strong> ${summary.location || '-'}</div>
+                        <div class="report-item"><strong>Tarih Aralığı:</strong> ${summary.dateRange || '-'}</div>
+                        <div class="report-item"><strong>Oluşturma:</strong> ${generatedAt}</div>
+                        <div class="report-item"><strong>Özellikler:</strong> ${propertiesText}</div>
+                    </div>
+                    <div class="report-badges">
+                        <div class="report-badge">Grafik: ${totalCharts}</div>
+                        <div class="report-badge">Kayıt: ${totalRecords}</div>
+                        <div class="report-badge">Tolerans Dışı: ${totalOut}</div>
+                    </div>
+                </div>
+            `;
         }
 
         async function exportCOAAnalysisPDF() {
@@ -7226,6 +7325,20 @@
 
             try {
                 showToast('PDF hazırlanıyor...', 'success');
+
+                let reportEl = document.getElementById('analysisPdfReport');
+                if (!reportEl) {
+                    reportEl = document.createElement('div');
+                    reportEl.id = 'analysisPdfReport';
+                }
+                reportEl.innerHTML = buildAnalysisReportHTML();
+                reportEl.style.display = 'block';
+
+                const toolbar = exportArea.querySelector('.analysis-toolbar');
+                if (toolbar && reportEl.parentElement !== exportArea) {
+                    exportArea.insertBefore(reportEl, toolbar.nextSibling);
+                }
+
                 const canvas = await html2canvas(exportArea, {
                     scale: 2,
                     useCORS: true,
@@ -7264,8 +7377,11 @@
 
                 const fileName = `COA_Analiz_${new Date().toISOString().slice(0, 10)}.pdf`;
                 pdf.save(fileName);
+                reportEl.style.display = 'none';
                 showToast('PDF dışa aktarıldı', 'success');
             } catch (error) {
+                const reportEl = document.getElementById('analysisPdfReport');
+                if (reportEl) reportEl.style.display = 'none';
                 console.error('PDF export error:', error);
                 showToast('PDF oluşturulurken hata oluştu', 'error');
             }
