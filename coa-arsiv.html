@@ -6802,14 +6802,27 @@
                 
                 if (propData.length === 0) return;
                 
-                // Grafik container oluştur
+                // Grafik container oluştur (grid layout: grafik + istatistikler)
                 const chartDiv = document.createElement('div');
-                chartDiv.style.cssText = 'background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; height: 450px;';
+                chartDiv.style.cssText = 'background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start;';
+                
+                // Grafik bölümü
+                const chartSection = document.createElement('div');
+                chartSection.style.cssText = 'height: 450px;';
                 
                 const canvas = document.createElement('canvas');
                 canvas.id = `analysisChart_${propIndex}`;
-                canvas.style.height = '400px';
-                chartDiv.appendChild(canvas);
+                canvas.style.height = '100%';
+                chartSection.appendChild(canvas);
+                chartDiv.appendChild(chartSection);
+                
+                // İstatistikler paneli
+                const statsPanel = document.createElement('div');
+                statsPanel.id = `statsPanel_${propIndex}`;
+                statsPanel.style.cssText = 'background: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 4px solid #2196f3; height: fit-content;';
+                statsPanel.innerHTML = '<div style="font-weight: 600; margin-bottom: 15px; color: #333;">📊 İstatistikler</div>';
+                chartDiv.appendChild(statsPanel);
+                
                 chartsContainer.appendChild(chartDiv);
                 
                 // Label'lar
@@ -6832,6 +6845,8 @@
                     { bg: 'rgba(156, 39, 176, 0.7)', border: 'rgba(156, 39, 176, 1)' },
                     { bg: 'rgba(0, 188, 212, 0.7)', border: 'rgba(0, 188, 212, 1)' }
                 ];
+                
+                let outOfToleranceCount = 0;
                 
                 propData.forEach(r => {
                     const val = parseFloat(r.coaValue);
@@ -6879,6 +6894,7 @@
                         borderColors.push('rgba(244, 67, 54, 1)');
                         pointBackgroundColors.push('rgba(244, 67, 54, 1)');
                         pointBorderColors.push('rgba(244, 67, 54, 1)');
+                        outOfToleranceCount++;
                     }
                 });
                 
@@ -6992,6 +7008,33 @@
                 });
                 
                 analysisCharts.push(chart);
+                
+                // İstatistikleri panele yaz
+                const numValues = values.filter(v => v !== null && !isNaN(v)).map(v => parseFloat(v));
+                if (numValues.length > 0) {
+                    const minVal = Math.min(...numValues);
+                    const maxVal = Math.max(...numValues);
+                    const avgVal = numValues.reduce((a, b) => a + b, 0) / numValues.length;
+                    
+                    const firstRecord = propData[0];
+                    const target = firstRecord.standardValue ? parseFloat(firstRecord.standardValue).toFixed(2) : '-';
+                    const minLimit = firstRecord.minLimit ? parseFloat(firstRecord.minLimit).toFixed(2) : '-';
+                    const maxLimit = firstRecord.maxLimit ? parseFloat(firstRecord.maxLimit).toFixed(2) : '-';
+                    
+                    // statsPanel içine HTML ekle
+                    statsPanel.innerHTML += `
+                    <div style="margin: 8px 0; border-top: 1px solid #ddd; padding-top: 8px;">
+                        <div style="margin: 6px 0;"><strong>Hedef:</strong> <span style="float: right;">${target}</span></div>
+                        <div style="margin: 6px 0;"><strong>Alt Limit:</strong> <span style="float: right;">${minLimit}</span></div>
+                        <div style="margin: 6px 0;"><strong>Üst Limit:</strong> <span style="float: right;">${maxLimit}</span></div>
+                        <div style="margin: 6px 0;"><strong>Min Değer:</strong> <span style="float: right;">${minVal.toFixed(2)}</span></div>
+                        <div style="margin: 6px 0;"><strong>Max Değer:</strong> <span style="float: right;">${maxVal.toFixed(2)}</span></div>
+                        <div style="margin: 6px 0;"><strong>Ortalama:</strong> <span style="float: right;">${avgVal.toFixed(2)}</span></div>
+                        <div style="margin: 6px 0;"><strong>Kayıt Sayısı:</strong> <span style="float: right;">${propData.length}</span></div>
+                        <div style="margin: 6px 0; color: #d32f2f; font-weight: bold;"><strong>Tolerans Dışı:</strong> <span style="float: right;">${outOfToleranceCount}</span></div>
+                    </div>
+                    `;
+                }
             });
             
             // İstatistikler (tüm seçili özellikler için)
