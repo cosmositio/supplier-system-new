@@ -1148,6 +1148,12 @@
 
         .chart-canvas-section {
             min-height: 350px;
+            width: 100%;
+        }
+
+        .chart-canvas-section canvas {
+            width: 100% !important;
+            height: 100% !important;
         }
 
         /* Report Styles for PDF */
@@ -7740,7 +7746,21 @@
                 // Her chart kartını kopyala
                 const chartCards = chartsContainer.querySelectorAll('.chart-card');
                 chartCards.forEach(card => {
-                    const cardClone = card.cloneNode(true);\n                    \n                    // Canvas'ları img'e çevir\n                    const canvases = cardClone.querySelectorAll('canvas');\n                    canvases.forEach((canvas) => {\n                        const img = document.createElement('img');\n                        img.src = canvas.toDataURL('image/png');\n                        img.style.cssText = 'width: 100%; height: auto; display: block; border: 1px solid #e5e7eb; border-radius: 8px;';\n                        canvas.parentElement.replaceChild(img, canvas);\n                    });\n                    \n                    pdfContent.appendChild(cardClone);\n                });
+                    const cardClone = card.cloneNode(true);
+
+                    // Canvas'ları img'e çevir (orijinal canvas verisini kullan)
+                    const originalCanvases = card.querySelectorAll('canvas');
+                    const clonedCanvases = cardClone.querySelectorAll('canvas');
+                    clonedCanvases.forEach((canvas, idx) => {
+                        const originalCanvas = originalCanvases[idx];
+                        const img = document.createElement('img');
+                        img.src = originalCanvas ? originalCanvas.toDataURL('image/png') : '';
+                        img.style.cssText = 'width: 100%; height: auto; display: block; border: 1px solid #e5e7eb; border-radius: 8px;';
+                        canvas.parentElement.replaceChild(img, canvas);
+                    });
+
+                    pdfContent.appendChild(cardClone);
+                });
 
                 // html2canvas ile PDF oluştur\n                const canvas = await html2canvas(pdfContent, {
                     scale: 2,
