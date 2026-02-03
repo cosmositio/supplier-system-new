@@ -7231,7 +7231,13 @@
                     useCORS: true,
                     backgroundColor: '#ffffff',
                     windowWidth: exportArea.scrollWidth,
-                    windowHeight: exportArea.scrollHeight
+                    windowHeight: exportArea.scrollHeight,
+                    ignoreElements: (el) => {
+                        if (!el) return false;
+                        const tag = (el.tagName || '').toLowerCase();
+                        if (tag === 'video' || tag === 'canvas') return true;
+                        return el.id === 'cameraStream' || el.id === 'scannerVideo';
+                    }
                 });
 
                 const imgData = canvas.toDataURL('image/png');
