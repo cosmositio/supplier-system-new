@@ -786,189 +786,324 @@
             cursor: pointer;
         }
 
-        /* COA Analysis - Engaged Layout */
+        /* COA Analysis - Premium Engaged Layout */
         .analysis-modal-content {
-            background: #f6f7fb;
-            border-radius: 16px;
-            padding: 24px;
+            background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+            border-radius: 20px;
+            padding: 28px;
             max-width: 95%;
             width: 1800px;
             max-height: 95vh;
             overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            box-shadow: 0 25px 80px rgba(0,0,0,0.3);
         }
 
         .analysis-toolbar {
             position: sticky;
             top: 0;
-            background: #f6f7fb;
+            background: linear-gradient(135deg, rgba(248,250,255,0.95) 0%, rgba(240,244,255,0.95) 100%);
+            backdrop-filter: blur(10px);
             z-index: 2;
-            padding-bottom: 10px;
-            margin-bottom: 8px;
+            padding: 16px 20px;
+            margin: -28px -28px 20px -28px;
+            border-radius: 20px 20px 0 0;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.1);
         }
 
         .analysis-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 12px;
+            gap: 16px;
             flex-wrap: wrap;
         }
 
         .analysis-title {
-            font-size: 1.5em;
-            font-weight: 700;
-            color: #1f2937;
+            font-size: 1.6em;
+            font-weight: 800;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
         .analysis-subtitle {
-            color: #6b7280;
-            margin-top: 4px;
+            color: #64748b;
+            margin-top: 6px;
             font-size: 0.95em;
+            font-weight: 500;
         }
 
         .analysis-actions {
             display: flex;
-            gap: 10px;
+            gap: 12px;
             flex-wrap: wrap;
         }
 
         .btn-export {
-            background: #7c3aed;
+            background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
             color: white;
             border: none;
-            border-radius: 10px;
-            padding: 10px 16px;
-            font-weight: 600;
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-weight: 700;
             cursor: pointer;
-            box-shadow: 0 6px 18px rgba(124, 58, 237, 0.25);
+            box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .btn-export:hover {
-            background: #6d28d9;
+            background: linear-gradient(135deg, #6d28d9 0%, #9333ea 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(124, 58, 237, 0.45);
         }
 
         .analysis-card {
             background: white;
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.08);
+            transition: all 0.3s ease;
+        }
+
+        .analysis-card:hover {
+            box-shadow: 0 12px 40px rgba(99, 102, 241, 0.12);
         }
 
         .analysis-section-title {
-            font-weight: 600;
-            color: #334155;
-            margin-bottom: 10px;
+            font-weight: 700;
+            font-size: 1.1em;
+            color: #1e293b;
+            margin-bottom: 14px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e7ff;
         }
 
         .analysis-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 14px;
+            gap: 16px;
         }
 
         .analysis-input {
             width: 100%;
-            padding: 10px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
+            padding: 12px 14px;
+            border: 2px solid #e0e7ff;
+            border-radius: 10px;
+            background: #fafbff;
+            font-size: 0.95em;
+            transition: all 0.2s ease;
+        }
+
+        .analysis-input:focus {
+            outline: none;
+            border-color: #818cf8;
             background: white;
+            box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
         }
 
         .analysis-property-container {
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 10px;
+            border: 2px solid #e0e7ff;
+            border-radius: 12px;
+            padding: 12px;
             max-height: 200px;
             overflow-y: auto;
-            background: white;
+            background: #fafbff;
         }
 
         .analysis-actions-row {
             display: flex;
-            gap: 10px;
+            gap: 12px;
             align-items: center;
             flex-wrap: wrap;
-            margin-top: 12px;
+            margin-top: 16px;
         }
 
         .analysis-primary-btn {
-            background: #2196f3;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
             color: white;
             border: none;
-            border-radius: 8px;
-            padding: 10px 18px;
-            font-weight: 600;
+            border-radius: 10px;
+            padding: 12px 24px;
+            font-weight: 700;
             cursor: pointer;
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .analysis-primary-btn:hover {
-            background: #1d87dd;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(59, 130, 246, 0.45);
         }
 
         .analysis-charts-container {
-            margin-top: 20px;
+            margin-top: 24px;
         }
 
         .analysis-empty {
             background: white;
-            border: 1px dashed #e5e7eb;
-            border-radius: 12px;
+            border: 2px dashed #c7d2fe;
+            border-radius: 16px;
         }
 
         .analysis-report {
-            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 16px;
-            margin: 16px 0 8px;
-            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
+            border: none;
+            border-radius: 16px;
+            padding: 24px;
+            margin: 20px 0 16px;
+            box-shadow: 0 12px 40px rgba(79, 70, 229, 0.3);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .analysis-report::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            pointer-events: none;
         }
 
         .analysis-report-title {
-            font-weight: 700;
-            color: #0f172a;
-            margin-bottom: 8px;
+            font-weight: 800;
+            font-size: 1.3em;
+            color: white;
+            margin-bottom: 16px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .analysis-report-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 10px 16px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px 20px;
         }
 
         .report-item {
             font-size: 0.95em;
-            color: #334155;
+            color: rgba(255,255,255,0.9);
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
         }
 
         .report-item strong {
-            color: #1f2937;
+            color: white;
+            font-weight: 600;
         }
 
         .report-badges {
             display: flex;
-            gap: 8px;
+            gap: 10px;
             flex-wrap: wrap;
-            margin-top: 8px;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.2);
         }
 
         .report-badge {
-            background: #eef2ff;
-            color: #3730a3;
-            padding: 4px 10px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 8px 16px;
             border-radius: 999px;
-            font-size: 0.85em;
-            font-weight: 600;
+            font-size: 0.9em;
+            font-weight: 700;
+            border: 1px solid rgba(255,255,255,0.3);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .report-badge.danger {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        /* Chart Card Styling */
+        .chart-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.08);
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 24px;
+            align-items: start;
+            transition: all 0.3s ease;
+        }
+
+        .chart-card:hover {
+            box-shadow: 0 16px 48px rgba(99, 102, 241, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .chart-stats-panel {
+            background: linear-gradient(135deg, #f8faff 0%, #eef2ff 100%);
+            border-radius: 14px;
+            padding: 20px;
+            border: 1px solid #e0e7ff;
+        }
+
+        .chart-stats-title {
+            font-weight: 700;
+            color: #4f46e5;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.05em;
+        }
+
+        .chart-stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e7ff;
+            font-size: 0.95em;
+        }
+
+        .chart-stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .chart-stat-label {
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .chart-stat-value {
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .chart-stat-value.danger {
+            color: #ef4444;
+        }
+
+        .chart-stat-value.success {
+            color: #22c55e;
         }
         
         /* Toast */
@@ -7010,7 +7145,7 @@
                 
                 // Grafik container oluştur (grid layout: grafik + istatistikler)
                 const chartDiv = document.createElement('div');
-                chartDiv.style.cssText = 'background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; border: 1px solid #e5e7eb; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);';
+                chartDiv.className = 'chart-card';
                 
                 // Grafik bölümü
                 const chartSection = document.createElement('div');
@@ -7025,8 +7160,8 @@
                 // İstatistikler paneli
                 const statsPanel = document.createElement('div');
                 statsPanel.id = `statsPanel_${propIndex}`;
-                statsPanel.style.cssText = 'background: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 4px solid #2196f3; height: fit-content;';
-                statsPanel.innerHTML = '<div style="font-weight: 600; margin-bottom: 15px; color: #333;">📊 İstatistikler</div>';
+                statsPanel.className = 'chart-stats-panel';
+                statsPanel.innerHTML = '<div class="chart-stats-title">📊 İstatistikler</div>';
                 chartDiv.appendChild(statsPanel);
                 
                 chartsContainer.appendChild(chartDiv);
@@ -7230,17 +7365,16 @@
                     const maxLimit = firstRecord.maxLimit ? parseFloat(firstRecord.maxLimit).toFixed(2) : '-';
                     
                     // statsPanel içine HTML ekle
+                    const outClass = outOfToleranceCount > 0 ? 'danger' : 'success';
                     statsPanel.innerHTML += `
-                    <div style="margin: 8px 0; border-top: 1px solid #ddd; padding-top: 8px;">
-                        <div style="margin: 6px 0;"><strong>Hedef:</strong> <span style="float: right;">${target}</span></div>
-                        <div style="margin: 6px 0;"><strong>Alt Limit:</strong> <span style="float: right;">${minLimit}</span></div>
-                        <div style="margin: 6px 0;"><strong>Üst Limit:</strong> <span style="float: right;">${maxLimit}</span></div>
-                        <div style="margin: 6px 0;"><strong>Min Değer:</strong> <span style="float: right;">${minVal.toFixed(2)}</span></div>
-                        <div style="margin: 6px 0;"><strong>Max Değer:</strong> <span style="float: right;">${maxVal.toFixed(2)}</span></div>
-                        <div style="margin: 6px 0;"><strong>Ortalama:</strong> <span style="float: right;">${avgVal.toFixed(2)}</span></div>
-                        <div style="margin: 6px 0;"><strong>Kayıt Sayısı:</strong> <span style="float: right;">${propData.length}</span></div>
-                        <div style="margin: 6px 0; color: #d32f2f; font-weight: bold;"><strong>Tolerans Dışı:</strong> <span style="float: right;">${outOfToleranceCount}</span></div>
-                    </div>
+                    <div class="chart-stat-row"><span class="chart-stat-label">Hedef</span><span class="chart-stat-value">${target}</span></div>
+                    <div class="chart-stat-row"><span class="chart-stat-label">Alt Limit</span><span class="chart-stat-value">${minLimit}</span></div>
+                    <div class="chart-stat-row"><span class="chart-stat-label">Üst Limit</span><span class="chart-stat-value">${maxLimit}</span></div>
+                    <div class="chart-stat-row"><span class="chart-stat-label">Min Değer</span><span class="chart-stat-value">${minVal.toFixed(2)}</span></div>
+                    <div class="chart-stat-row"><span class="chart-stat-label">Max Değer</span><span class="chart-stat-value">${maxVal.toFixed(2)}</span></div>
+                    <div class="chart-stat-row"><span class="chart-stat-label">Ortalama</span><span class="chart-stat-value">${avgVal.toFixed(2)}</span></div>
+                    <div class="chart-stat-row"><span class="chart-stat-label">Kayıt Sayısı</span><span class="chart-stat-value">${propData.length}</span></div>
+                    <div class="chart-stat-row"><span class="chart-stat-label">Tolerans Dışı</span><span class="chart-stat-value ${outClass}">${outOfToleranceCount}</span></div>
                     `;
                 }
             });
@@ -7285,22 +7419,23 @@
             const totalOut = summary.totalOutOfTolerance || 0;
             const now = new Date();
             const generatedAt = now.toLocaleString('tr-TR');
+            const outClass = totalOut > 0 ? 'report-badge danger' : 'report-badge';
 
             return `
                 <div class="analysis-report">
                     <div class="analysis-report-title">🧾 COA Analiz Raporu</div>
                     <div class="analysis-report-grid">
-                        <div class="report-item"><strong>Tedarikçi:</strong> ${summary.supplier || '-'}</div>
-                        <div class="report-item"><strong>Hammadde:</strong> ${summary.material || '-'}</div>
-                        <div class="report-item"><strong>Lokasyon:</strong> ${summary.location || '-'}</div>
-                        <div class="report-item"><strong>Tarih Aralığı:</strong> ${summary.dateRange || '-'}</div>
-                        <div class="report-item"><strong>Oluşturma:</strong> ${generatedAt}</div>
-                        <div class="report-item"><strong>Özellikler:</strong> ${propertiesText}</div>
+                        <div class="report-item"><strong>📦 Tedarikçi:</strong> ${summary.supplier || '-'}</div>
+                        <div class="report-item"><strong>🧪 Hammadde:</strong> ${summary.material || '-'}</div>
+                        <div class="report-item"><strong>📍 Lokasyon:</strong> ${summary.location || '-'}</div>
+                        <div class="report-item"><strong>📅 Tarih Aralığı:</strong> ${summary.dateRange || '-'}</div>
+                        <div class="report-item"><strong>🕐 Oluşturma:</strong> ${generatedAt}</div>
+                        <div class="report-item"><strong>🔬 Özellikler:</strong> ${propertiesText}</div>
                     </div>
                     <div class="report-badges">
-                        <div class="report-badge">Grafik: ${totalCharts}</div>
-                        <div class="report-badge">Kayıt: ${totalRecords}</div>
-                        <div class="report-badge">Tolerans Dışı: ${totalOut}</div>
+                        <div class="report-badge">📊 Grafik: ${totalCharts}</div>
+                        <div class="report-badge">📋 Kayıt: ${totalRecords}</div>
+                        <div class="${outClass}">⚠️ Tolerans Dışı: ${totalOut}</div>
                     </div>
                 </div>
             `;
