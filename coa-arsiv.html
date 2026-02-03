@@ -952,6 +952,9 @@
 
         .analysis-charts-container {
             margin-top: 24px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
         }
 
         .analysis-empty {
@@ -1042,15 +1045,15 @@
         .chart-card {
             background: white;
             border-radius: 16px;
-            padding: 24px;
+            padding: 20px;
             margin-bottom: 20px;
             box-shadow: 0 8px 32px rgba(99, 102, 241, 0.1);
             border: 1px solid rgba(99, 102, 241, 0.08);
-            display: grid;
-            grid-template-columns: 1fr 320px;
-            gap: 24px;
-            align-items: start;
+            display: flex;
+            flex-direction: column;
             transition: all 0.3s ease;
+            width: 100%;
+            min-width: 0;
         }
 
         .chart-card:hover {
@@ -1130,9 +1133,17 @@
 
         .chart-grid-content {
             display: grid;
-            grid-template-columns: 1fr 320px;
-            gap: 24px;
+            grid-template-columns: 1fr 280px;
+            gap: 20px;
             align-items: start;
+            width: 100%;
+        }
+
+        @media (max-width: 1200px) {
+            .chart-grid-content {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
         }
 
         .chart-canvas-section {
@@ -7707,49 +7718,37 @@
             try {
                 showToast('PDF hazırlanıyor...', 'success');
                 
-                // Chart.js canvaslarını img'e çevir
-                const chartCanvases = chartsContainer.querySelectorAll('canvas');
-                const chartImages = [];
-                chartCanvases.forEach((canvas, idx) => {
-                    const img = document.createElement('img');
-                    img.src = canvas.toDataURL('image/png');
-                    img.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
-                    img.className = 'chart-export-img';
-                    chartImages.push({ canvas, img, parent: canvas.parentElement });
-                    canvas.parentElement.appendChild(img);
-                    canvas.style.display = 'none';
-                });
-
                 // Toolbar ve filtreleri gizle
                 const toolbar = exportArea.querySelector('.analysis-toolbar');
-                const filterCards = exportArea.querySelectorAll('.analysis-card');
+                const filterCards = exportArea.querySelectorAll(':scope > .analysis-card');
                 const statsSection = document.getElementById('analysisStats');
                 if (toolbar) toolbar.style.display = 'none';
                 filterCards.forEach(card => card.style.display = 'none');
                 if (statsSection) statsSection.style.display = 'none';
 
-                // Rapor header ekle
-                let reportEl = document.getElementById('analysisPdfReport');
-                if (!reportEl) {
-                    reportEl = document.createElement('div');
-                    reportEl.id = 'analysisPdfReport';
-                }
-                reportEl.innerHTML = buildAnalysisReportHTML();
-                reportEl.style.display = 'block';
-                chartsContainer.insertBefore(reportEl, chartsContainer.firstChild);
+                // PDF content konteyner oluştur
+                const pdfContent = document.createElement('div');
+                pdfContent.style.cssText = 'background: white; padding: 60px 40px; width: 1400px; position: absolute; left: -9999px; top: 0;';
+                document.body.appendChild(pdfContent);
 
-                const canvas = await html2canvas(exportArea, {
+                // Rapor header ekle
+                const reportHTML = buildAnalysisReportHTML();
+                const reportEl = document.createElement('div');
+                reportEl.innerHTML = reportHTML;
+                pdfContent.appendChild(reportEl);
+
+                // Her chart kartını kopyala
+                const chartCards = chartsContainer.querySelectorAll('.chart-card');
+                chartCards.forEach(card => {
+                    const cardClone = card.cloneNode(true);\n                    \n                    // Canvas'ları img'e çevir\n                    const canvases = cardClone.querySelectorAll('canvas');\n                    canvases.forEach((canvas) => {\n                        const img = document.createElement('img');\n                        img.src = canvas.toDataURL('image/png');\n                        img.style.cssText = 'width: 100%; height: auto; display: block; border: 1px solid #e5e7eb; border-radius: 8px;';\n                        canvas.parentElement.replaceChild(img, canvas);\n                    });\n                    \n                    pdfContent.appendChild(cardClone);\n                });
+
+                // html2canvas ile PDF oluştur\n                const canvas = await html2canvas(pdfContent, {
                     scale: 2,
                     useCORS: true,
                     backgroundColor: '#ffffff',
-                    windowWidth: exportArea.scrollWidth,
-                    windowHeight: exportArea.scrollHeight,
-                    ignoreElements: (el) => {
-                        if (!el) return false;
-                        const tag = (el.tagName || '').toLowerCase();
-                        if (tag === 'video') return true;
-                        return el.id === 'cameraStream' || el.id === 'scannerVideo';
-                    }
+                    width: 1400,
+                    windowWidth: 1400,
+                    allowTaint: true
                 });
 
                 const imgData = canvas.toDataURL('image/png');
@@ -7777,38 +7776,27 @@
                 const fileName = `COA_Analiz_${new Date().toISOString().slice(0, 10)}.pdf`;
                 pdf.save(fileName);
                 
-                // Restore: Canvas'ları geri getir, img'leri kaldır
-                chartImages.forEach(({ canvas, img, parent }) => {
-                    canvas.style.display = 'block';
-                    if (img.parentElement) img.parentElement.removeChild(img);
-                });
+                // Temizle
+                pdfContent.remove();
                 
-                // Toolbar ve filtreleri geri getir
+                // Restore: Toolbar ve filtreleri geri getir
                 if (toolbar) toolbar.style.display = '';
                 filterCards.forEach(card => card.style.display = '');
                 if (statsSection) statsSection.style.display = 'block';
                 
-                reportEl.style.display = 'none';
-                if (reportEl.parentElement === chartsContainer) {
-                    chartsContainer.removeChild(reportEl);
-                }
-                
                 showToast('PDF dışa aktarıldı', 'success');
             } catch (error) {
-                const reportEl = document.getElementById('analysisPdfReport');
-                if (reportEl) reportEl.style.display = 'none';
-                
-                // Restore on error
-                const toolbar = document.querySelector('.analysis-toolbar');
-                const filterCards = document.querySelectorAll('.analysis-card');
+                // Cleanup on error
+                const toolbar = exportArea.querySelector('.analysis-toolbar');
+                const filterCards = exportArea.querySelectorAll(':scope > .analysis-card');
                 const statsSection = document.getElementById('analysisStats');
                 if (toolbar) toolbar.style.display = '';
                 filterCards.forEach(card => card.style.display = '');
                 if (statsSection) statsSection.style.display = 'block';
                 
-                // Restore canvases
-                document.querySelectorAll('.chart-export-img').forEach(img => img.remove());
-                document.querySelectorAll('#analysisChartsContainer canvas').forEach(c => c.style.display = 'block');
+                // Remove temp element
+                const tempEl = document.querySelector('div[style*="left: -9999px"]');
+                if (tempEl) tempEl.remove();
                 
                 console.error('PDF export error:', error);
                 showToast('PDF oluşturulurken hata oluştu', 'error');
