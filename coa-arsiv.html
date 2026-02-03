@@ -14,6 +14,9 @@
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <!-- Chart.js for COA Analysis -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- html2canvas + jsPDF for COA Analysis PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -782,6 +785,142 @@
             color: white;
             cursor: pointer;
         }
+
+        /* COA Analysis - Engaged Layout */
+        .analysis-modal-content {
+            background: #f6f7fb;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 95%;
+            width: 1800px;
+            max-height: 95vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+        }
+
+        .analysis-toolbar {
+            position: sticky;
+            top: 0;
+            background: #f6f7fb;
+            z-index: 2;
+            padding-bottom: 10px;
+            margin-bottom: 8px;
+        }
+
+        .analysis-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .analysis-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .analysis-subtitle {
+            color: #6b7280;
+            margin-top: 4px;
+            font-size: 0.95em;
+        }
+
+        .analysis-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-export {
+            background: #7c3aed;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(124, 58, 237, 0.25);
+        }
+
+        .btn-export:hover {
+            background: #6d28d9;
+        }
+
+        .analysis-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+        }
+
+        .analysis-section-title {
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+        }
+
+        .analysis-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .analysis-property-container {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+        }
+
+        .analysis-actions-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .analysis-primary-btn {
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .analysis-primary-btn:hover {
+            background: #1d87dd;
+        }
+
+        .analysis-charts-container {
+            margin-top: 20px;
+        }
+
+        .analysis-empty {
+            background: white;
+            border: 1px dashed #e5e7eb;
+            border-radius: 12px;
+        }
         
         /* Toast */
         .toast-container {
@@ -1400,58 +1539,74 @@
     <!-- COA Analysis Modal -->
     <div class="modal" id="coaAnalysisModal">
         <span class="modal-close" onclick="closeCOAAnalysisModal()">&times;</span>
-        <div class="modal-content" style="max-width: 95%; width: 1800px; max-height: 95vh; overflow-y: auto;">
-            <h2 style="margin-bottom: 20px;">📈 COA Analiz - Özellik Trendleri</h2>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-                <div>
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Tedarikçi Seç:</label>
-                    <select id="analysisSupplierSelect" onchange="loadAnalysisMaterials()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                        <option value="">Tedarikçi seçin...</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Hammadde Kodu Seç:</label>
-                    <select id="analysisMaterialSelect" onchange="loadAnalysisProperties()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                        <option value="">Önce tedarikçi seçin...</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Lokasyon:</label>
-                    <select id="analysisLocationSelect" onchange="loadAnalysisChart()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                        <option value="">Tümü</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Başlangıç Tarihi:</label>
-                    <input type="date" id="analysisStartDate" onchange="loadAnalysisChart()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                </div>
-                <div>
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Bitiş Tarihi:</label>
-                    <input type="date" id="analysisEndDate" onchange="loadAnalysisChart()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+        <div class="modal-content analysis-modal-content" id="analysisExportArea">
+            <div class="analysis-toolbar">
+                <div class="analysis-header">
+                    <div>
+                        <div class="analysis-title">📈 COA Analiz - Özellik Trendleri</div>
+                        <div class="analysis-subtitle">COA verilerinizin trendlerini analiz edin ve PDF olarak dışa aktarın</div>
+                    </div>
+                    <div class="analysis-actions">
+                        <button class="btn-export" onclick="exportCOAAnalysisPDF()">🧾 PDF Dışa Aktar</button>
+                    </div>
                 </div>
             </div>
             
-            <div style="margin-bottom: 20px;">
+            <div class="analysis-card">
+                <div class="analysis-section-title">🔎 Filtreler</div>
+                <div class="analysis-grid">
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Tedarikçi Seç:</label>
+                        <select id="analysisSupplierSelect" onchange="loadAnalysisMaterials()" class="analysis-input">
+                            <option value="">Tedarikçi seçin...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Hammadde Kodu Seç:</label>
+                        <select id="analysisMaterialSelect" onchange="loadAnalysisProperties()" class="analysis-input">
+                            <option value="">Önce tedarikçi seçin...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Lokasyon:</label>
+                        <select id="analysisLocationSelect" onchange="loadAnalysisChart()" class="analysis-input">
+                            <option value="">Tümü</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Başlangıç Tarihi:</label>
+                        <input type="date" id="analysisStartDate" onchange="loadAnalysisChart()" class="analysis-input">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Bitiş Tarihi:</label>
+                        <input type="date" id="analysisEndDate" onchange="loadAnalysisChart()" class="analysis-input">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="analysis-card" style="margin-top: 16px;">
+                <div class="analysis-section-title">🧪 Özellikler</div>
                 <label style="display: block; margin-bottom: 8px; font-weight: 500;">Özellikler Seç (Çoklu):</label>
-                <div id="analysisPropertyContainer" style="border: 1px solid #ddd; border-radius: 5px; padding: 10px; max-height: 200px; overflow-y: auto; background: white;">
+                <div id="analysisPropertyContainer" class="analysis-property-container">
                     <div style="color: #999; text-align: center; padding: 20px;">Önce hammadde seçin...</div>
                 </div>
-                <button onclick="loadAnalysisChart()" style="margin-top: 10px; padding: 10px 20px; background: #2196f3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">📊 Grafik Oluştur</button>
+                <div class="analysis-actions-row">
+                    <button onclick="loadAnalysisChart()" class="analysis-primary-btn">📊 Grafik Oluştur</button>
+                </div>
             </div>
             
-            <div id="analysisChartsContainer" style="display: none;">
+            <div id="analysisChartsContainer" class="analysis-charts-container" style="display: none;">
                 <!-- Her özellik için ayrı grafik buraya eklenecek -->
             </div>
             
-            <div id="analysisEmptyState" style="text-align: center; padding: 60px; color: #999;">
+            <div id="analysisEmptyState" class="analysis-empty" style="text-align: center; padding: 60px; color: #999;">
                 <div style="font-size: 64px; margin-bottom: 15px;">📊</div>
                 <p style="font-size: 1.1em;">Tedarikçi, hammadde ve özellik seçin</p>
                 <p style="font-size: 0.9em; margin-top: 10px;">COA kayıtlarınızdaki özelliklerin zaman içindeki değişimini görün</p>
             </div>
             
-            <div id="analysisStats" style="display: none; background: #f5f5f5; padding: 15px; border-radius: 8px; margin-top: 20px;">
-                <h3 style="margin-bottom: 10px; color: #333;">📊 İstatistikler</h3>
+            <div id="analysisStats" class="analysis-card" style="display: none; margin-top: 20px;">
+                <div class="analysis-section-title">📊 Genel İstatistikler</div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
                     <div>
                         <div style="font-size: 0.85em; color: #666;">Ortalama</div>
@@ -7050,6 +7205,64 @@
             }
             
             showToast(`✅ ${selectedProperties.length} özellik için grafik oluşturuldu`, 'success');
+        }
+
+        async function exportCOAAnalysisPDF() {
+            const exportArea = document.getElementById('analysisExportArea');
+            const chartsContainer = document.getElementById('analysisChartsContainer');
+            if (!exportArea) {
+                showToast('PDF alanı bulunamadı', 'error');
+                return;
+            }
+            if (!chartsContainer || chartsContainer.style.display === 'none' || chartsContainer.children.length === 0) {
+                showToast('Önce grafik oluşturun', 'warning');
+                return;
+            }
+
+            if (typeof html2canvas === 'undefined' || !window.jspdf || !window.jspdf.jsPDF) {
+                showToast('PDF kütüphanesi yüklenemedi', 'error');
+                return;
+            }
+
+            try {
+                showToast('PDF hazırlanıyor...', 'success');
+                const canvas = await html2canvas(exportArea, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    windowWidth: exportArea.scrollWidth,
+                    windowHeight: exportArea.scrollHeight
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('l', 'pt', 'a4');
+
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const imgWidth = pageWidth;
+                const imgHeight = canvas.height * (imgWidth / canvas.width);
+
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft > 0) {
+                    position -= pageHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                const fileName = `COA_Analiz_${new Date().toISOString().slice(0, 10)}.pdf`;
+                pdf.save(fileName);
+                showToast('PDF dışa aktarıldı', 'success');
+            } catch (error) {
+                console.error('PDF export error:', error);
+                showToast('PDF oluşturulurken hata oluştu', 'error');
+            }
         }
     </script>
 </body>
