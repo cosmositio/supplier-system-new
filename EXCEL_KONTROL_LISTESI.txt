@@ -1,0 +1,103 @@
+✅ EXCEL DOSYA HAZIRLIK KONTROL LİSTESİ
+
+Dosyayı hazırlamadan önce bu kontrol listesini kullanın:
+
+□ SÜTUN ADLARI
+  □ "Tedarikçi" sütunu var mı?
+  □ "Sevk" sütunu var mı?
+  □ "İade" sütunu var mı?
+  □ "Hata" sütunu var mı?
+  □ (İsteğe bağlı) "Durum" sütunu var mı?
+
+□ AY BİLGİSİ
+  □ Sevk/İade/Hata sütunlarında ay numarası var mı?
+  □ Ay numaraları 1-12 arasında mı?
+  □ Örnek: "1 Sevk", "Sevk 1", "Ocak Sevk"
+
+□ VERİ
+  □ En az 1 tedarikçi satırı var mı?
+  □ Tedarikçi adları boş değil mi?
+  □ Sayısal değerler doğru girilmiş mi?
+
+□ DOSYA FORMATÜ
+  □ Dosya Excel formatında mı? (.xlsx veya .xls)
+  □ Dosya adında Türkçe karakterler var ise, kaydedilmiş mi?
+
+---
+
+SÜTUN ADLARI KONTROL
+
+Uygulama şu yazımları anlar (büyük-küçük harf önemli değil):
+
+✅ Tedarikçi Sütunu İçin:
+   - "Tedarikçi"
+   - "Firma"
+   - "Supplier"
+   - "Company"
+
+✅ Sevk Sütunu İçin:
+   - "Sevk"
+   - "Sevkiyat"
+   - "Shipment"
+   - Başında/sonunda ay numarası: "1 Sevk", "Sevk 1"
+
+✅ İade Sütunu İçin:
+   - "İade"
+   - "Return"
+   - Başında/sonunda ay numarası: "1 İade", "İade 1"
+
+✅ Hata Sütunu İçin:
+   - "Hata"
+   - "Error"
+   - "Defect"
+   - Başında/sonunda ay numarası: "1 Hata", "Hata 1"
+
+✅ Durum Sütunu İçin (isteğe bağlı):
+   - "Durum"
+   - "Status"
+
+---
+
+ÖRNEK DOSYA YAPILARI
+
+Yapı 1:
+┌─────────────────┬────────┬─────────┬───────────┬───────────┬─────────┬──────────┐
+│ Tedarikçi       │ Durum  │ 1 Sevk  │ 1 İade    │ 1 Hata    │ 2 Sevk  │ 2 İade   │
+├─────────────────┼────────┼─────────┼───────────┼───────────┼─────────┼──────────┤
+│ A Firma         │ ONAYLI │ 1000    │ 5         │ 2         │ 1100    │ 6        │
+│ B Şirketi       │ ONAYLI │ 2000    │ 10        │ 1         │ 2100    │ 12       │
+│ C Ticaret       │ BEKLEM │ 500     │ 3         │ 1         │ 550     │ 4        │
+└─────────────────┴────────┴─────────┴───────────┴───────────┴─────────┴──────────┘
+
+Yapı 2:
+┌─────────────────┬────────┬────────────┬──────────────┬──────────────┬─────────────┐
+│ Tedarikçi       │ Durum  │ Ocak Sevk  │ Ocak İade    │ Ocak Hata    │ Şubat Sevk  │
+├─────────────────┼────────┼────────────┼──────────────┼──────────────┼─────────────┤
+│ A Firma         │ ONAYLI │ 1000       │ 5            │ 2            │ 1100        │
+│ B Şirketi       │ ONAYLI │ 2000       │ 10           │ 1            │ 2100        │
+│ C Ticaret       │ BEKLEM │ 500        │ 3            │ 1            │ 550         │
+└─────────────────┴────────┴────────────┴──────────────┴──────────────┴─────────────┘
+
+---
+
+DOSYA HAZIR MI?
+
+Tüm kontrol listesi maddeleri tamamladıysanız:
+1. Dosyayı kaydedin
+2. index.html'i tarayıcıda açın
+3. Dosyayı yükleyin
+4. Hesaplamaları görmelisiniz!
+
+HÂLÂ SORUN YAŞIYORSANIZ:
+
+1. debug.html dosyasını açın
+2. Excel dosyasını yükleyin
+3. Mevcut sütunları kontrol edin
+4. README.md veya SORUN_COZUMU.md dosyalarını okuyun
+
+---
+
+DİKKAT: 
+• Sütun adlarında yazım hatası varsa (örneğin "Sevkk", "İdde") tanınmaz!
+• Ay bilgisi yoksa (örneğin sadece "Sevk" başlığı) tanınmaz!
+• Türkçe karakterler "İ", "ş", "ğ", "ü", "ö", "ç" için Excel'i UTF-8 ile kaydedin.

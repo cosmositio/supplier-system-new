@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Performance Modal Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .modal-overlay.open {
+            display: flex;
+        }
+        .modal-dialog {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .supplier-name {
+            cursor: pointer;
+            color: blue;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Performance Modal Test</h1>
+    <p>Aşağıdaki tedarikçilere tıklayın:</p>
+    <ul>
+        <li><span class="supplier-name" onclick="openModal(this.textContent)">SAMPLE SUPPLIER 1</span></li>
+        <li><span class="supplier-name" onclick="openModal(this.textContent)">SAMPLE SUPPLIER 2</span></li>
+    </ul>
+
+    <div id="performanceDialog" class="modal-overlay">
+        <div class="modal-dialog">
+            <h2>📊 Tedarikçi Performansı - <span id="perfSupplierName"></span></h2>
+            <p>Modal açıldı!</p>
+            <button onclick="closeModal()">Kapat</button>
+        </div>
+    </div>
+
+    <script>
+        function openModal(supplierName) {
+            console.log('openModal çağrıldı:', supplierName);
+            const dialog = document.getElementById('performanceDialog');
+            const perfSupplierName = document.getElementById('perfSupplierName');
+            
+            perfSupplierName.textContent = supplierName;
+            dialog.classList.add('open');
+        }
+
+        function closeModal() {
+            const dialog = document.getElementById('performanceDialog');
+            dialog.classList.remove('open');
+        }
+    </script>
+</body>
+</html>

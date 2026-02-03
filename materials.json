@@ -1,0 +1,20 @@
+{
+  "materials": [
+    {
+      "code": "MDE",
+      "name": "MANANGA DİSÜLFİT ASETALDEHYDE DEPO"
+    },
+    {
+      "code": "SAH",
+      "name": "HAMMADDE ŞAHARANPUR DİSÜLFİT 01.0001"
+    },
+    {
+      "code": "ABC",
+      "name": "ÖRNEK HAMMADDE KODU ABC"
+    },
+    {
+      "code": "K015120000STD000",
+      "name": "STANDART HAMMADDE ÖRNEĞİ"
+    }
+  ]
+}

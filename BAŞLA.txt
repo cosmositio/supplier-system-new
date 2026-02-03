@@ -1,0 +1,75 @@
+🚀 BAŞLAMADAN ÖNCE OKUYUN
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SORUN: "Dosya yükledim ama hesaplamalar görünmüyor!"
+
+ÇÖZÜM: Excel dosyasının sütun adlarını kontrol edin.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3 ADIMDA ÇÖZÜM:
+
+1️⃣  debug.html'i tarayıcıda aç
+    → Excel dosyasını yükle
+    → Hangi sütunlar olduğunu kontrol et
+
+2️⃣  Eksik sütun var ise → Excel'i düzenle
+    ✅ "Tedarikçi" sütunu lazım
+    ✅ "Sevk" sütunu lazım (ay numarası ile: "1 Sevk", "Sevk 1" vb.)
+    ✅ "İade" sütunu lazım (ay numarası ile)
+    ✅ "Hata" sütunu lazım (ay numarası ile)
+
+3️⃣  index.html'i aç ve dosyayı yükle
+    → Artık hesaplamaları görmelisin!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HIZLI TEST DOSYASI:
+
+Excel'de bu yapıda bir dosya oluştur:
+
+Tedarikçi  | Durum   | 1 Sevk | 1 İade | 1 Hata | 2 Sevk | 2 İade | 2 Hata
+-----------|---------|--------|--------|--------|--------|--------|--------
+Test A     | ONAYLI  | 1000   | 5      | 2      | 1100   | 6      | 3
+Test B     | ONAYLI  | 2000   | 10     | 1      | 2100   | 12     | 2
+
+Kaydet → index.html'de yükle → İşe yarayacak!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DOSYA AÇMA SIRALAMASI:
+
+İlk Kez Kullanıyorsanız:
+1. README.md dosyasını oku
+2. EXCEL_KONTROL_LISTESI.txt dosyasını oku
+3. debug.html ile test et
+4. index.html'de dosya yükle
+
+Sorun Yaşıyorsanız:
+1. debug.html ile dosya yapısını kontrol et
+2. SORUN_COZUMU.md dosyasını oku
+3. Console'da (F12) hataları kontrol et
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 KONSOLdA MESAJ KONTROLÜ (F12 > Console):
+
+Dosya yüklendikten sonra şunu gör:
+"Sevk sütunları: 12" ← Bu 0 değilse OK!
+"İade sütunları: 12" ← Bu 0 değilse OK!
+"Hata sütunları: 12" ← Bu 0 değilse OK!
+
+Hepsi 0 ise → Sütun adlarını debug.html ile kontrol et!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 ÖNEMLİ NOKTALAR:
+
+✅ Sütun adlarında yazım hatası olmasın ("Sevk" ≠ "Sevkk")
+✅ Ay numarası olmalı: "1 Sevk" veya "Sevk 1" (sadece "Sevk" yetmiyor!)
+✅ Ay numaraları 1-12 arasında olmalı
+✅ Dosya Excel formatında olmalı (.xlsx)
+✅ Tedarikçi adları boş olmasın
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

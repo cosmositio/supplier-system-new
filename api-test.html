@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>COA API Test</title>
+    <style>
+        body { font-family: Arial; max-width: 800px; margin: 20px auto; padding: 20px; }
+        .btn { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; border: none; }
+        .btn-success { background: #28a745; color: white; border: none; }
+        .btn-danger { background: #dc3545; color: white; border: none; }
+        #result { 
+            background: #f5f5f5; 
+            padding: 15px; 
+            border-radius: 5px; 
+            white-space: pre-wrap; 
+            font-family: monospace;
+            max-height: 400px;
+            overflow: auto;
+        }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #cce5ff; color: #004085; }
+    </style>
+</head>
+<body>
+    <h1>🧪 COA API Test</h1>
+    
+    <div id="statusDiv" class="status info">Hazır</div>
+    
+    <h3>API URL:</h3>
+    <input type="text" id="apiUrl" style="width:100%; padding:10px;" 
+           value="https://script.google.com/macros/s/AKfycbyiIoDA9C1dMI8im4slUmFZNksh9JxI3qWMUt1dpz0U1R_9wdK-tC3H9xjfmZACF9kAWw/exec">
+    
+    <h3>Testler:</h3>
+    <button class="btn btn-primary" onclick="testConnection()">🔗 Bağlantı Testi</button>
+    <button class="btn btn-primary" onclick="testGetAll()">📋 Tüm Kayıtlar</button>
+    <button class="btn btn-success" onclick="testAddRecord()">➕ Test Kaydı Ekle</button>
+    <button class="btn btn-primary" onclick="testStats()">📊 İstatistikler</button>
+    
+    <h3>Sonuç:</h3>
+    <div id="result">Bir test butonuna tıklayın...</div>
+    
+    <script>
+        const statusDiv = document.getElementById('statusDiv');
+        const resultDiv = document.getElementById('result');
+        
+        function getApiUrl() {
+            return document.getElementById('apiUrl').value.trim();
+        }
+        
+        function setStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + type;
+        }
+        
+        // JSONP fonksiyonu
+        function jsonp(url) {
+            return new Promise((resolve, reject) => {
+                const callback = 'cb_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+                const script = document.createElement('script');
+                
+                window[callback] = (data) => {
+                    delete window[callback];
+                    document.head.removeChild(script);
+                    resolve(data);
+                };
+                
+                script.onerror = () => {
+                    delete window[callback];
+                    document.head.removeChild(script);
+                    reject(new Error('JSONP request failed'));
+                };
+                
+                const separator = url.includes('?') ? '&' : '?';
+                script.src = url + separator + 'callback=' + callback;
+                document.head.appendChild(script);
+                
+                // Timeout
+                setTimeout(() => {
+                    if (window[callback]) {
+                        delete window[callback];
+                        reject(new Error('Timeout'));
+                    }
+                }, 30000);
+            });
+        }
+        
+        async function testConnection() {
+            setStatus('⏳ Bağlantı test ediliyor...', 'info');
+            try {
+                const result = await jsonp(getApiUrl() + '?action=test');
+                resultDiv.textContent = JSON.stringify(result, null, 2);
+                if (result.success) {
+                    setStatus('✅ Bağlantı başarılı! Sheet: ' + result.sheetName, 'success');
+                } else {
+                    setStatus('❌ Hata: ' + result.error, 'error');
+                }
+            } catch (err) {
+                resultDiv.textContent = 'HATA: ' + err.message;
+                setStatus('❌ Bağlantı hatası', 'error');
+            }
+        }
+        
+        async function testGetAll() {
+            setStatus('⏳ Kayıtlar alınıyor...', 'info');
+            try {
+                const result = await jsonp(getApiUrl() + '?action=getAllCOA');
+                resultDiv.textContent = JSON.stringify(result, null, 2);
+                if (result.success) {
+                    setStatus('✅ ' + result.count + ' kayıt bulundu', 'success');
+                } else {
+                    setStatus('❌ Hata: ' + result.error, 'error');
+                }
+            } catch (err) {
+                resultDiv.textContent = 'HATA: ' + err.message;
+                setStatus('❌ Veri alma hatası', 'error');
+            }
+        }
+        
+        async function testAddRecord() {
+            setStatus('⏳ Test kaydı ekleniyor...', 'info');
+            
+            const testData = {
+                supplier: 'HTML Test ' + new Date().toLocaleTimeString(),
+                materialCode: 'TEST-' + Math.floor(Math.random() * 1000),
+                deliveryDate: new Date().toISOString().split('T')[0],
+                lotNumber: 'LOT-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+                notes: 'HTML test sayfasından eklendi'
+            };
+            
+            try {
+                const params = new URLSearchParams();
+                params.append('action', 'addCOA');
+                params.append('data', JSON.stringify(testData));
+                
+                const url = getApiUrl() + '?' + params.toString();
+                console.log('URL:', url);
+                
+                const result = await jsonp(url);
+                resultDiv.textContent = 'Gönderilen veri:\n' + JSON.stringify(testData, null, 2) + '\n\nYanıt:\n' + JSON.stringify(result, null, 2);
+                
+                if (result.success) {
+                    setStatus('✅ Kayıt eklendi! ID: ' + result.id, 'success');
+                } else {
+                    setStatus('❌ Hata: ' + result.error, 'error');
+                }
+            } catch (err) {
+                resultDiv.textContent = 'HATA: ' + err.message;
+                setStatus('❌ Kayıt ekleme hatası', 'error');
+            }
+        }
+        
+        async function testStats() {
+            setStatus('⏳ İstatistikler alınıyor...', 'info');
+            try {
+                const result = await jsonp(getApiUrl() + '?action=getStats');
+                resultDiv.textContent = JSON.stringify(result, null, 2);
+                if (result.success) {
+                    setStatus('✅ Toplam: ' + result.data.total + ' kayıt, ' + result.data.suppliers + ' tedarikçi', 'success');
+                } else {
+                    setStatus('❌ Hata: ' + result.error, 'error');
+                }
+            } catch (err) {
+                resultDiv.textContent = 'HATA: ' + err.message;
+                setStatus('❌ İstatistik hatası', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

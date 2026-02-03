@@ -1,0 +1,2616 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COA - Analiz Sertifikas? Y?netimi</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+    <!-- Shared Config -->
+    <script src="shared-config.js"></script>
+    <!-- Tesseract.js - ?cretsiz OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- PDF.js for PDF reading -->
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2d5a3d 0%, #4a8f5c 100%);
+            color: white;
+            padding: 20px 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .header-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .header h1 {
+            font-size: 1.8em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header h1 img {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95em;
+            margin-left: 72px;
+        }
+        
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        
+        .tab-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tab-btn {
+            padding: 12px 24px;
+            border: none;
+            background: white;
+            color: #333;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .tab-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        
+        .tab-btn.active {
+            background: linear-gradient(135deg, #2d5a3d 0%, #4a8f5c 100%);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Upload Section */
+        .upload-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        .upload-area {
+            border: 3px dashed #4a8f5c;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8fdf9;
+        }
+        
+        .upload-area:hover {
+            border-color: #2d5a3d;
+            background: #eef7f0;
+        }
+        
+        .upload-area.dragover {
+            border-color: #2d5a3d;
+            background: #e0f2e5;
+        }
+        
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 15px;
+        }
+        
+        .upload-text {
+            font-size: 1.2em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .upload-hint {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        /* Preview Section */
+        .preview-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        @media (max-width: 1000px) {
+            .preview-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .preview-box {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        .preview-box h3 {
+            color: #2d5a3d;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .preview-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        /* Mobile Scan Buttons */
+        .scan-btn {
+            width: 100%;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, #2d5a3d 0%, #4a8f5c 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(45, 90, 61, 0.3);
+            margin-bottom: 10px;
+        }
+        
+        .scan-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(45, 90, 61, 0.4);
+        }
+        
+        .scan-btn:active {
+            transform: translateY(0);
+        }
+        
+        .scan-btn.secondary {
+            background: linear-gradient(135deg, #5a6a7a 0%, #7a8a9a 100%);
+            box-shadow: 0 4px 15px rgba(90, 106, 122, 0.3);
+        }
+        
+        .scan-btn.secondary:hover {
+            box-shadow: 0 6px 20px rgba(90, 106, 122, 0.4);
+        }
+        
+        .scan-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+        
+        /* OCR Loading */
+        .ocr-loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .ocr-loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4a8f5c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #2d5a3d, #4a8f5c);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        /* Form Styles */
+        .form-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        .form-section h3 {
+            color: #2d5a3d;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e8f5e9;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9em;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4a8f5c;
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        /* Analiz Parametreleri Tablosu */
+        .params-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .params-table th,
+        .params-table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .params-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .params-table input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .add-param-btn {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background: #e8f5e9;
+            color: #2d5a3d;
+            border: 1px solid #4a8f5c;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s;
+        }
+        
+        .add-param-btn:hover {
+            background: #c8e6c9;
+        }
+        
+        .remove-param-btn {
+            padding: 6px 12px;
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        
+        .remove-param-btn:hover {
+            background: #ffcdd2;
+        }
+        
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #2d5a3d 0%, #4a8f5c 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(74, 143, 92, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .btn-danger {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+        
+        .btn-danger:hover {
+            background: #ffcdd2;
+        }
+        
+        /* COA List Table */
+        .coa-list-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        .coa-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .search-filter-bar {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .search-input {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.95em;
+            min-width: 250px;
+        }
+        
+        .filter-select {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.95em;
+            min-width: 150px;
+        }
+        
+        .coa-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+        }
+        
+        .coa-table th,
+        .coa-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .coa-table th {
+            background: #f8fdf9;
+            font-weight: 600;
+            color: #2d5a3d;
+            position: sticky;
+            top: 0;
+        }
+        
+        .coa-table tr:hover {
+            background: #f5f5f5;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        
+        .status-approved {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .status-pending {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+        
+        .status-rejected {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .action-btns {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+        
+        .action-btn.view {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        
+        .action-btn.edit {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+        
+        .action-btn.delete {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .action-btn:hover {
+            opacity: 0.8;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 900px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 30px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e8f5e9;
+        }
+        
+        .modal-header h2 {
+            color: #2d5a3d;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        /* Stats Cards */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        .stat-card h4 {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+        }
+        
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #2d5a3d;
+        }
+        
+        .stat-card .trend {
+            font-size: 0.85em;
+            margin-top: 5px;
+        }
+        
+        .trend.up {
+            color: #2e7d32;
+        }
+        
+        .trend.down {
+            color: #c62828;
+        }
+        
+        /* DB Config Section */
+        .config-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        .config-section h3 {
+            color: #2d5a3d;
+            margin-bottom: 15px;
+        }
+        
+        .config-info {
+            background: #e8f5e9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .config-info p {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+        
+        .config-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .status-indicator.connected {
+            background: #4caf50;
+        }
+        
+        .status-indicator.disconnected {
+            background: #f44336;
+        }
+        
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 2000;
+        }
+        
+        .toast {
+            background: #333;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            margin-top: 10px;
+            animation: slideIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .toast.success {
+            background: #2e7d32;
+        }
+        
+        .toast.error {
+            background: #c62828;
+        }
+        
+        .toast.warning {
+            background: #ef6c00;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+        
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        /* Table responsive */
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        /* AI Badge */
+        .ai-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+        
+        /* Confidence indicator */
+        .confidence-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .confidence-track {
+            width: 100px;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #4caf50, #8bc34a);
+            border-radius: 3px;
+        }
+        
+        .confidence-text {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        /* LocalStorage indicator */
+        .storage-mode {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #fff3e0;
+            border: 1px solid #ffcc80;
+            border-radius: 8px;
+            color: #e65100;
+            font-size: 0.85em;
+            margin-bottom: 15px;
+        }
+
+        .storage-mode.supabase {
+            background: #e8f5e9;
+            border-color: #a5d6a7;
+            color: #2e7d32;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>
+                <img src="assets/supplier_icon.png" alt="Logo" onerror="this.style.display='none'">
+                ?? COA - Analiz Sertifikas? Y?netimi
+            </h1>
+            <p>Tedarik?i analiz sertifikalar?n? AI destekli olarak y?netin</p>
+        </div>
+        <a href="index.html" class="back-btn">
+            ? Ana Sayfaya D?n
+        </a>
+    </div>
+
+    <div class="container">
+        <!-- Tab Buttons -->
+        <div class="tab-container">
+            <button class="tab-btn active" onclick="showTab('upload')">?? Sertifika Y?kle</button>
+            <button class="tab-btn" onclick="showTab('list')">?? Sertifika Listesi</button>
+            <button class="tab-btn" onclick="showTab('reports')">?? Raporlar</button>
+            <button class="tab-btn" onclick="showTab('settings')">?? Ayarlar</button>
+        </div>
+
+        <!-- Upload Tab -->
+        <div id="tab-upload" class="tab-content active">
+            <div class="upload-section">
+                <h3 style="color: #2d5a3d; margin-bottom: 20px;">?? Analiz Sertifikas? Y?kle</h3>
+                
+                <!-- Mobile Scan Buttons - HER ZAMAN G?R?N?R -->
+                <div id="mobileScanSection">
+                    <button type="button" id="scanButton" class="scan-btn" style="width: 100%; margin-bottom: 10px;" onclick="openDocumentScanner()">
+                        ?? Belge Tara (OSS Scanner)
+                    </button>
+                    <button type="button" id="fileSelectButton" class="scan-btn secondary" style="width: 100%; margin-bottom: 15px;">
+                        ?? Dosya Se?
+                    </button>
+                </div>
+                
+                <!-- Desktop Upload Area - Ba?lang??ta gizli -->
+                <div class="upload-area" id="uploadArea" style="display: none;">
+                    <div class="upload-icon">??</div>
+                    <div class="upload-text">Foto?raf, PDF veya resim dosyas? s?r?kleyin</div>
+                    <div class="upload-hint">veya t?klayarak dosya se?in (JPG, PNG, PDF desteklenir)</div>
+                    <input type="file" id="fileInput" accept="image/*,.pdf" style="display:none">
+                    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+                </div>
+                
+                <script>
+                    // Desktop'ta upload area g?ster, mobile section gizle
+                    if (window.innerWidth > 1024 && !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                        document.getElementById('mobileScanSection').style.display = 'none';
+                        document.getElementById('uploadArea').style.display = 'block';
+                    }
+                </script>
+                
+                <div class="ocr-loading" id="ocrLoading">
+                    <div class="spinner"></div>
+                    <p>?? AI ile belge analiz ediliyor...</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p id="ocrStatus" style="margin-top: 10px; color: #666;"></p>
+                </div>
+            </div>
+
+            <div class="preview-container" id="previewContainer" style="display: none;">
+                <div class="preview-box">
+                    <h3>??? Y?klenen Belge</h3>
+                    <img id="previewImage" class="preview-image" alt="Preview">
+                </div>
+                <div class="preview-box">
+                    <h3>
+                        ?? AI Taraf?ndan ??kar?lan Metin 
+                        <span class="ai-badge">?? Tesseract.js</span>
+                    </h3>
+                    <div class="confidence-bar" id="confidenceBar" style="margin-bottom: 15px;">
+                        <span>G?ven:</span>
+                        <div class="confidence-track">
+                            <div class="confidence-fill" id="confidenceFill" style="width: 0%"></div>
+                        </div>
+                        <span class="confidence-text" id="confidenceText">0%</span>
+                    </div>
+                    <textarea id="extractedText" style="width:100%; min-height: 300px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace;"></textarea>
+                </div>
+            </div>
+
+            <!-- COA Form -->
+            <div class="form-section" id="coaForm" style="display: none;">
+                <h3>?? Analiz Sertifikas? Bilgileri</h3>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Tedarik?i Firma *</label>
+                        <input type="text" id="supplierName" list="supplierList" placeholder="Firma ad? yaz?n veya se?in" required>
+                        <datalist id="supplierList"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label>?r?n / Malzeme Ad? *</label>
+                        <input type="text" id="productName" placeholder="?r?n ad?">
+                    </div>
+                    <div class="form-group">
+                        <label>Hammadde Kodu (TDS i?in)</label>
+                        <input type="text" id="materialCode" placeholder="Örn: MDE, SAH" title="TDS kar??la?t?rmas? i?in hammadde kodunu girin">
+                    </div>
+                    <div class="form-group">
+                        <label>Lot / Parti Numaras? *</label>
+                        <input type="text" id="lotNumber" placeholder="Lot no">
+                    </div>
+                    <div class="form-group">
+                        <label>Sertifika Numaras?</label>
+                        <input type="text" id="certNumber" placeholder="Sertifika no">
+                    </div>
+                    <div class="form-group">
+                        <label>Analiz Tarihi *</label>
+                        <input type="date" id="analysisDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Son Kullanma Tarihi</label>
+                        <input type="date" id="expiryDate">
+                    </div>
+                    <div class="form-group">
+                        <label>?retim Tarihi</label>
+                        <input type="date" id="productionDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Durum</label>
+                        <select id="coaStatus">
+                            <option value="pending">? Beklemede</option>
+                            <option value="approved">? Onayland?</option>
+                            <option value="rejected">? Reddedildi</option>
+                        </select>
+                    </div>
+                </div>
+
+                <h4 style="margin-top: 25px; margin-bottom: 15px; color: #2d5a3d;">?? Analiz Parametreleri</h4>
+                <table class="params-table" id="paramsTable">
+                    <thead>
+                        <tr>
+                            <th>Parametre</th>
+                            <th>Birim</th>
+                            <th>Spesifikasyon</th>
+                            <th>Sonu?</th>
+                            <th>Durum</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="paramsBody">
+                        <tr>
+                            <td><input type="text" placeholder="?r: Nem"></td>
+                            <td><input type="text" placeholder="?r: %"></td>
+                            <td><input type="text" placeholder="?r: Max 5%"></td>
+                            <td><input type="text" placeholder="?r: 3.2%"></td>
+                            <td>
+                                <select>
+                                    <option value="pass">? Uygun</option>
+                                    <option value="fail">? Uygun De?il</option>
+                                </select>
+                            </td>
+                            <td><button class="remove-param-btn" onclick="removeParamRow(this)">???</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button class="add-param-btn" onclick="addParamRow()">+ Parametre Ekle</button>
+                    <button class="btn btn-secondary" onclick="checkTDSCompliance()" style="background: #4a8f5c;">📊 TDS Kontrolü</button>
+                </div>
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>Notlar / A??klamalar</label>
+                    <textarea id="coaNotes" placeholder="Ek notlar..."></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="saveCOA()">?? Kaydet</button>
+                    <button class="btn btn-secondary" onclick="clearForm()">?? Temizle</button>
+                    <button class="btn btn-secondary" onclick="parseExtractedText()">?? AI ile Doldur</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- List Tab -->
+        <div id="tab-list" class="tab-content">
+            <div class="stats-container">
+                <div class="stat-card">
+                    <h4>?? Toplam Sertifika</h4>
+                    <div class="value" id="statTotal">0</div>
+                </div>
+                <div class="stat-card">
+                    <h4>? Onaylanan</h4>
+                    <div class="value" id="statApproved">0</div>
+                </div>
+                <div class="stat-card">
+                    <h4>? Bekleyen</h4>
+                    <div class="value" id="statPending">0</div>
+                </div>
+                <div class="stat-card">
+                    <h4>? Reddedilen</h4>
+                    <div class="value" id="statRejected">0</div>
+                </div>
+            </div>
+
+            <div class="coa-list-section">
+                <div class="coa-list-header">
+                    <h3 style="color: #2d5a3d;">?? Kay?tl? Analiz Sertifikalar?</h3>
+                    <div class="search-filter-bar">
+                        <input type="text" class="search-input" id="searchCOA" placeholder="?? Ara (firma, ?r?n, lot no...)">
+                        <select class="filter-select" id="filterStatus" onchange="filterCOAList()">
+                            <option value="">T?m Durumlar</option>
+                            <option value="approved">? Onaylanan</option>
+                            <option value="pending">? Bekleyen</option>
+                            <option value="rejected">? Reddedilen</option>
+                        </select>
+                        <select class="filter-select" id="filterSupplier" onchange="filterCOAList()">
+                            <option value="">T?m Tedarik?iler</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="exportCOAList()">?? Excel ?ndir</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="coa-table" id="coaTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Tedarik?i</th>
+                                <th>?r?n</th>
+                                <th>Lot No</th>
+                                <th>Analiz Tarihi</th>
+                                <th>SKT</th>
+                                <th>Durum</th>
+                                <th>Kay?t Tarihi</th>
+                                <th>??lemler</th>
+                            </tr>
+                        </thead>
+                        <tbody id="coaTableBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-state-icon">??</div>
+                    <h3>Hen?z kay?tl? sertifika yok</h3>
+                    <p>Yeni bir analiz sertifikas? y?klemek i?in "Sertifika Y?kle" sekmesini kullan?n.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div id="tab-reports" class="tab-content">
+            <div class="form-section">
+                <h3>?? Tedarik?i Bazl? COA Raporu</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                    <div>
+                        <canvas id="supplierChart"></canvas>
+                    </div>
+                    <div>
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="tab-settings" class="tab-content">
+            <div class="config-section">
+                <h3>?? Google Sheets Veritaban?</h3>
+                
+                <div id="storageIndicator" class="storage-mode local">
+                    ?? ?u an LocalStorage kullan?l?yor (taray?c? belle?i)
+                </div>
+
+                <div class="config-info">
+                    <p><strong>?? Google Sheets Kurulumu (15GB ?cretsiz + Geni?letilebilir):</strong></p>
+                    <p>1. <a href="https://docs.google.com/spreadsheets" target="_blank">Google Sheets</a>'te yeni tablo olu?tur</p>
+                    <p>2. Uzant?lar ? Apps Script'e git</p>
+                    <p>3. A?a??daki kodu yap??t?r ve "Web App" olarak da??t</p>
+                    <p>4. Web App URL'sini a?a??ya yap??t?r</p>
+                    <p style="color: #28a745; margin-top: 10px;">?? Depolama alan? doldu?unda Google One ile geni?letebilirsiniz (100GB ~70?/ay)</p>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Google Apps Script Web App URL:</label>
+                        <input type="text" id="googleScriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="connectGoogleSheets()">?? Ba?lan</button>
+                    <button class="btn btn-secondary" onclick="disconnectGoogleSheets()">?? Ba?lant?y? Kes</button>
+                </div>
+
+                <div class="config-status" id="dbStatus" style="margin-top: 20px;">
+                    <div class="status-indicator disconnected"></div>
+                    <span>Ba?l? de?il - Yerel depolama kullan?l?yor</span>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h3>?? Veri Yedekleme</h3>
+                <p style="color: #666; margin-bottom: 15px;">Verilerinizi yedekleyin veya geri y?kleyin.</p>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="exportBackup()">?? Yede?i ?ndir (JSON)</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('importBackup').click()">?? Yedek Y?kle</button>
+                    <input type="file" id="importBackup" accept=".json" style="display:none" onchange="importBackup(event)">
+                    <button class="btn btn-danger" onclick="clearAllData()">??? T?m Verileri Sil</button>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h3>??? Google Apps Script Kodu</h3>
+                <p style="color: #666; margin-bottom: 15px;">Apps Script edit?r?ne bu kodu yap??t?r?n:</p>
+                <pre id="appsScriptCode" style="background: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; max-height: 400px;">
+const SHEET_NAME = 'COA_Data';
+
+function doGet(e) {
+  const action = e.parameter.action;
+  if (action === 'test') return jsonResponse({ success: true, message: 'OK' });
+  if (action === 'getAll') return getAllRecords();
+  return jsonResponse({ success: false, error: 'Invalid action' });
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    if (data.action === 'add') return addRecord(data);
+    if (data.action === 'update') return updateRecord(data);
+    if (data.action === 'delete') return deleteRecord(data.id);
+    return jsonResponse({ success: false, error: 'Invalid action' });
+  } catch (error) {
+    return jsonResponse({ success: false, error: error.message });
+  }
+}
+
+function getOrCreateSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
+    const headers = ['id', 'supplierName', 'productName', 'lotNumber', 
+                     'certNumber', 'analysisDate', 'expiryDate', 
+                     'productionDate', 'status', 'notes', 'extractedText',
+                     'imageData', 'parameters', 'createdAt', 'updatedAt'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getAllRecords() {
+  const sheet = getOrCreateSheet();
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const records = [];
+  for (let i = 1; i &lt; data.length; i++) {
+    const record = {};
+    headers.forEach((header, index) =&gt; record[header] = data[i][index]);
+    records.push(record);
+  }
+  return jsonResponse({ success: true, data: records });
+}
+
+function addRecord(data) {
+  const sheet = getOrCreateSheet();
+  const id = 'coa_' + Date.now();
+  const now = new Date().toISOString();
+  const row = [id, data.supplierName, data.productName, data.lotNumber,
+    data.certNumber, data.analysisDate, data.expiryDate,
+    data.productionDate, data.status, data.notes, data.extractedText,
+    data.imageData, data.parameters, now, now];
+  sheet.appendRow(row);
+  return jsonResponse({ success: true, id: id });
+}
+
+function updateRecord(data) {
+  const sheet = getOrCreateSheet();
+  const allData = sheet.getDataRange().getValues();
+  for (let i = 1; i &lt; allData.length; i++) {
+    if (allData[i][0] === data.id) {
+      const now = new Date().toISOString();
+      const row = [data.id, data.supplierName, data.productName, data.lotNumber,
+        data.certNumber, data.analysisDate, data.expiryDate,
+        data.productionDate, data.status, data.notes, data.extractedText,
+        data.imageData, data.parameters, allData[i][13], now];
+      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+      return jsonResponse({ success: true });
+    }
+  }
+  return jsonResponse({ success: false, error: 'Not found' });
+}
+
+function deleteRecord(id) {
+  const sheet = getOrCreateSheet();
+  const allData = sheet.getDataRange().getValues();
+  for (let i = 1; i &lt; allData.length; i++) {
+    if (allData[i][0] === id) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse({ success: true });
+    }
+  }
+  return jsonResponse({ success: false, error: 'Not found' });
+}
+
+function jsonResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+                </pre>
+                <button class="btn btn-secondary" onclick="copyAppsScript()" style="margin-top: 10px;">?? Kodu Kopyala</button>
+            </div>
+
+            <div class="config-section">
+                <h3>?? Da??t?m Ad?mlar?</h3>
+                <ol style="color: #666; line-height: 2;">
+                    <li>Apps Script edit?r?nde kodu yap??t?r</li>
+                    <li><strong>Da??t ? Yeni da??t?m</strong> t?kla</li>
+                    <li>T?r: <strong>Web uygulamas?</strong> se?</li>
+                    <li>Eri?im: <strong>Herkes</strong> se?</li>
+                    <li><strong>Da??t</strong> t?kla ve URL'yi kopyala</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>?? Sertifika Detaylar?</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // ==================== Global Variables ====================
+        let coaData = [];
+        let useGoogleSheets = false;
+        let googleScriptUrl = '';
+        let currentEditId = null;
+        let supplierChart = null;
+        let statusChart = null;
+        let timelineChart = null;
+
+        // ==================== Initialization ====================
+        document.addEventListener('DOMContentLoaded', async function() {
+            // TDS verilerini yükle
+            loadTDSData();
+            
+            // Kay?tl? Google Sheets URL'yi kontrol et
+            const savedUrl = localStorage.getItem('google_script_url');
+            if (savedUrl) {
+                document.getElementById('googleScriptUrl').value = savedUrl;
+                await connectGoogleSheets(true);
+            }
+            
+            if (!useGoogleSheets) {
+                loadFromLocalStorage();
+            }
+            
+            initUploadArea();
+            updateStats();
+            renderCOAList();
+            initCharts();
+            loadSupplierDatalist(); // Tedarik?i autocomplete listesi
+            
+            // Search event
+            document.getElementById('searchCOA').addEventListener('input', filterCOAList);
+        });
+
+        // ==================== Supplier Datalist ====================
+        async function loadSupplierDatalist() {
+            const datalist = document.getElementById('supplierList');
+            if (!datalist) return;
+            
+            // Mevcut COA verilerinden tedarik?ileri al
+            const suppliersFromCOA = [...new Set(coaData.map(c => c.supplierName).filter(Boolean))];
+            
+            // Datalist'i doldur
+            datalist.innerHTML = suppliersFromCOA.map(s => `<option value="${s}">`).join('');
+        }
+
+        // ==================== Google Sheets API Functions ====================
+        // JSONP helper function for CORS bypass
+        function jsonp(url) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonpCallback_' + Date.now();
+                const script = document.createElement('script');
+                
+                window[callbackName] = (data) => {
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                    resolve(data);
+                };
+                
+                script.onerror = () => {
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                    reject(new Error('JSONP request failed'));
+                };
+                
+                script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + callbackName;
+                document.body.appendChild(script);
+            });
+        }
+
+        async function connectGoogleSheets(silent = false) {
+            const url = document.getElementById('googleScriptUrl').value.trim();
+            if (!url) {
+                if (!silent) showToast('? Google Apps Script URL gerekli!', 'error');
+                return;
+            }
+            
+            try {
+                const data = await jsonp(url + '?action=test');
+                
+                if (data.success) {
+                    useGoogleSheets = true;
+                    googleScriptUrl = url;
+                    localStorage.setItem('google_script_url', url);
+                    
+                    document.getElementById('storageIndicator').className = 'storage-mode supabase';
+                    document.getElementById('storageIndicator').innerHTML = '?? Google Sheets Aktif';
+                    document.getElementById('dbStatus').innerHTML = `
+                        <div class="status-indicator connected"></div>
+                        <span>Google Sheets ba?lant?s? aktif ?</span>
+                    `;
+                    await loadFromGoogleSheets();
+                    if (!silent) showToast('? Google Sheets ba?lant?s? ba?ar?l?!', 'success');
+                } else {
+                    throw new Error(data.error || 'Ba?lant? hatas?');
+                }
+            } catch (error) {
+                console.error('Google Sheets ba?lant? hatas?:', error);
+                useGoogleSheets = false;
+                if (!silent) showToast('? Google Sheets ba?lant? hatas?: ' + error.message, 'error');
+            }
+        }
+
+        async function loadFromGoogleSheets() {
+            try {
+                const data = await jsonp(googleScriptUrl + '?action=getAll');
+                
+                if (data.success) {
+                    coaData = (data.data || []).map(record => ({
+                        id: record.id,
+                        supplierName: record.supplierName,
+                        productName: record.productName,
+                        lotNumber: record.lotNumber,
+                        certNumber: record.certNumber,
+                        analysisDate: record.analysisDate,
+                        expiryDate: record.expiryDate,
+                        productionDate: record.productionDate,
+                        status: record.status,
+                        notes: record.notes,
+                        extractedText: record.extractedText,
+                        imageData: record.imageData,
+                        parameters: record.parameters ? (typeof record.parameters === 'string' ? JSON.parse(record.parameters) : record.parameters) : [],
+                        createdAt: record.createdAt,
+                        updatedAt: record.updatedAt
+                    }));
+                    
+                    updateStats();
+                    renderCOAList();
+                    updateSupplierFilter();
+                    loadSupplierDatalist(); // Tedarik?i autocomplete g?ncelle
+                }
+            } catch (error) {
+                console.error('Google Sheets y?kleme hatas?:', error);
+                showToast('? Veri y?kleme hatas?', 'error');
+            }
+        }
+
+        async function saveToGoogleSheets(data) {
+            try {
+                const payload = {
+                    action: currentEditId ? 'update' : 'add',
+                    id: currentEditId,
+                    ...data,
+                    parameters: JSON.stringify(data.parameters)
+                };
+                
+                // URL encode the data for GET request (JSONP)
+                const params = new URLSearchParams();
+                params.append('action', payload.action);
+                params.append('data', JSON.stringify(payload));
+                
+                const result = await jsonp(googleScriptUrl + '?' + params.toString());
+                
+                if (!result.success) throw new Error(result.error || 'Kay?t hatas?');
+                
+                showToast('? Google Sheets\'e kaydedildi!', 'success');
+                clearForm();
+                await loadFromGoogleSheets();
+            } catch (error) {
+                console.error('Google Sheets kay?t hatas?:', error);
+                showToast('? Kay?t hatas?: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteFromGoogleSheets(id) {
+            try {
+                const params = new URLSearchParams();
+                params.append('action', 'delete');
+                params.append('id', id);
+                
+                const result = await jsonp(googleScriptUrl + '?' + params.toString());
+                if (!result.success) throw new Error(result.error || 'Silme hatas?');
+                await loadFromGoogleSheets();
+                showToast('? Kay?t silindi', 'success');
+            } catch (error) {
+                showToast('? Silme hatas?: ' + error.message, 'error');
+            }
+        }
+
+        function disconnectGoogleSheets() {
+            useGoogleSheets = false;
+            googleScriptUrl = '';
+            localStorage.removeItem('google_script_url');
+            document.getElementById('googleScriptUrl').value = '';
+            document.getElementById('storageIndicator').className = 'storage-mode local';
+            document.getElementById('storageIndicator').innerHTML = '?? Yerel Depolama';
+            document.getElementById('dbStatus').innerHTML = `
+                <div class="status-indicator disconnected"></div>
+                <span>Ba?l? de?il - Yerel depolama kullan?l?yor</span>
+            `;
+            loadFromLocalStorage();
+            showToast('? Google Sheets ba?lant?s? kesildi', 'success');
+        }
+
+        // ==================== Tab Navigation ====================
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tabName === 'list') {
+                renderCOAList();
+            } else if (tabName === 'reports') {
+                updateCharts();
+            }
+        }
+
+        // ==================== File Upload & OCR ====================
+        // ==================== OSS-DocumentScanner Integration ====================
+        function openDocumentScanner() {
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            
+            if (isAndroid) {
+                // Normal kamera kullan - OCR zaten mevcut
+                showToast('📷 Kamera açılıyor...', 'info');
+                document.getElementById('cameraInput').click();
+                
+            } else {
+                showToast('⚠️ Sadece mobil cihazlarda çalışır', 'warning');
+                document.getElementById('cameraInput').click();
+            }
+        }
+        
+        // ==================== Upload Area Init ====================
+        function initUploadArea() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const cameraInput = document.getElementById('cameraInput');
+            const scanButton = document.getElementById('scanButton');
+            const fileSelectButton = document.getElementById('fileSelectButton');
+            
+            // Desktop drag & drop
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if (file) processFile(file);
+            });
+            
+            uploadArea.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) processFile(file);
+            });
+            
+            // Mobile scan button - opens native camera
+            if (scanButton) {
+                scanButton.addEventListener('click', () => {
+                    cameraInput.click();
+                });
+            }
+            
+            // Mobile file select button
+            if (fileSelectButton) {
+                fileSelectButton.addEventListener('click', () => {
+                    fileInput.click();
+                });
+            }
+            
+            // Camera input handler
+            if (cameraInput) {
+                cameraInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) processFile(file);
+                });
+            }
+        }
+
+        async function processFile(file) {
+            const previewContainer = document.getElementById('previewContainer');
+            const coaForm = document.getElementById('coaForm');
+            const ocrLoading = document.getElementById('ocrLoading');
+            const previewImage = document.getElementById('previewImage');
+            
+            // Show preview
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImage.src = e.target.result;
+                    previewContainer.style.display = 'grid';
+                };
+                reader.readAsDataURL(file);
+                
+                // Start OCR
+                ocrLoading.classList.add('active');
+                await performOCR(file);
+            } else if (file.type === 'application/pdf') {
+                showToast('PDF dosyas? alg?land?. OCR i?lemi ba?lat?l?yor...', 'warning');
+                ocrLoading.classList.add('active');
+                await processPDF(file);
+            }
+            
+            coaForm.style.display = 'block';
+            
+            // Set today's date
+            document.getElementById('analysisDate').value = new Date().toISOString().split('T')[0];
+        }
+
+        async function performOCR(file) {
+            const progressFill = document.getElementById('progressFill');
+            const ocrStatus = document.getElementById('ocrStatus');
+            const extractedText = document.getElementById('extractedText');
+            const confidenceFill = document.getElementById('confidenceFill');
+            const confidenceText = document.getElementById('confidenceText');
+            
+            try {
+                const result = await Tesseract.recognize(file, 'tur+eng', {
+                    logger: (m) => {
+                        if (m.status === 'recognizing text') {
+                            const progress = Math.round(m.progress * 100);
+                            progressFill.style.width = `${progress}%`;
+                            ocrStatus.textContent = `Metin tan?n?yor... ${progress}%`;
+                        } else {
+                            ocrStatus.textContent = m.status;
+                        }
+                    }
+                });
+                
+                extractedText.value = result.data.text;
+                
+                const confidence = Math.round(result.data.confidence);
+                confidenceFill.style.width = `${confidence}%`;
+                confidenceText.textContent = `${confidence}%`;
+                
+                document.getElementById('ocrLoading').classList.remove('active');
+                showToast('? OCR i?lemi tamamland?!', 'success');
+                
+                // Try to auto-parse
+                parseExtractedText();
+                
+            } catch (error) {
+                console.error('OCR Error:', error);
+                document.getElementById('ocrLoading').classList.remove('active');
+                showToast('? OCR i?lemi ba?ar?s?z: ' + error.message, 'error');
+            }
+        }
+
+        async function processPDF(file) {
+            // PDF.js initialization
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                const page = await pdf.getPage(1);
+                
+                const scale = 2;
+                const viewport = page.getViewport({ scale });
+                
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                await page.render({ canvasContext: context, viewport }).promise;
+                
+                // Show preview
+                document.getElementById('previewImage').src = canvas.toDataURL();
+                document.getElementById('previewContainer').style.display = 'grid';
+                
+                // Convert to blob and OCR
+                canvas.toBlob(async (blob) => {
+                    await performOCR(blob);
+                }, 'image/png');
+                
+            } catch (error) {
+                console.error('PDF Error:', error);
+                document.getElementById('ocrLoading').classList.remove('active');
+                showToast('? PDF i?leme hatas?: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== AI Text Parsing ====================
+        function parseExtractedText() {
+            const text = document.getElementById('extractedText').value;
+            if (!text) return;
+            
+            // Pattern matching for common COA fields
+            const patterns = {
+                lotNumber: [
+                    /lot\s*(?:no|number|numaras[?i])?\s*[:\.]?\s*([A-Z0-9\-]+)/i,
+                    /parti\s*(?:no|numaras[?i])?\s*[:\.]?\s*([A-Z0-9\-]+)/i,
+                    /batch\s*(?:no|number)?\s*[:\.]?\s*([A-Z0-9\-]+)/i
+                ],
+                certNumber: [
+                    /sertifika\s*(?:no|numaras[?i])?\s*[:\.]?\s*([A-Z0-9\-]+)/i,
+                    /certificate\s*(?:no|number)?\s*[:\.]?\s*([A-Z0-9\-]+)/i,
+                    /coa\s*(?:no|number)?\s*[:\.]?\s*([A-Z0-9\-]+)/i
+                ],
+                productName: [
+                    /(?:?r?n|malzeme|product|material)\s*(?:ad[?i]|name)?\s*[:\.]?\s*([^\n]+)/i,
+                    /(?:madde|ham\s*madde)\s*[:\.]?\s*([^\n]+)/i
+                ],
+                analysisDate: [
+                    /(?:analiz|test|analysis)\s*tarihi?\s*[:\.]?\s*(\d{1,2}[\.\/-]\d{1,2}[\.\/-]\d{2,4})/i,
+                    /(?:date|tarih)\s*[:\.]?\s*(\d{1,2}[\.\/-]\d{1,2}[\.\/-]\d{2,4})/i
+                ],
+                expiryDate: [
+                    /(?:skt|son kullan[?i]m|expiry|exp)\s*(?:tarihi?)?\s*[:\.]?\s*(\d{1,2}[\.\/-]\d{1,2}[\.\/-]\d{2,4})/i,
+                    /(?:valid until|ge[c?]erlilik)\s*[:\.]?\s*(\d{1,2}[\.\/-]\d{1,2}[\.\/-]\d{2,4})/i
+                ],
+                productionDate: [
+                    /(?:?retim|production|manufacturing)\s*tarihi?\s*[:\.]?\s*(\d{1,2}[\.\/-]\d{1,2}[\.\/-]\d{2,4})/i
+                ]
+            };
+            
+            // Try to match patterns
+            for (const [field, patternList] of Object.entries(patterns)) {
+                for (const pattern of patternList) {
+                    const match = text.match(pattern);
+                    if (match && match[1]) {
+                        let value = match[1].trim();
+                        
+                        // Convert date format if needed
+                        if (field.includes('Date')) {
+                            value = convertToISODate(value);
+                        }
+                        
+                        const element = document.getElementById(field);
+                        if (element && !element.value) {
+                            element.value = value;
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            // Try to extract parameters from table-like structures
+            extractParameters(text);
+            
+            showToast('?? AI otomatik doldurma tamamland?', 'success');
+        }
+
+        function convertToISODate(dateStr) {
+            // Handle various date formats
+            const parts = dateStr.split(/[\.\/-]/);
+            if (parts.length === 3) {
+                let [d, m, y] = parts;
+                if (y.length === 2) y = '20' + y;
+                if (d.length === 1) d = '0' + d;
+                if (m.length === 1) m = '0' + m;
+                return `${y}-${m}-${d}`;
+            }
+            return dateStr;
+        }
+
+        function extractParameters(text) {
+            // Common parameter patterns
+            const paramPatterns = [
+                /(\w+[\w\s]*)\s*[:\-]\s*([\d\.,]+)\s*(%|mg|g|ml|ppm|pH)?/gi,
+                /(\w+)\s+([\d\.,]+)\s*(%|mg\/kg|g\/l|ppm)/gi
+            ];
+            
+            const commonParams = ['nem', 'k?l', 'protein', 'ya?', 'ph', 'asitlik', 'yo?unluk', 
+                                  'moisture', 'ash', 'density', 'acidity', 'viscosity'];
+            
+            const lines = text.split('\n');
+            const foundParams = [];
+            
+            for (const line of lines) {
+                const lowerLine = line.toLowerCase();
+                for (const param of commonParams) {
+                    if (lowerLine.includes(param)) {
+                        const numbers = line.match(/[\d\.,]+/g);
+                        if (numbers && numbers.length > 0) {
+                            foundParams.push({
+                                name: param.charAt(0).toUpperCase() + param.slice(1),
+                                result: numbers[0],
+                                unit: line.match(/%|mg|g|ml|ppm|pH/i)?.[0] || ''
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // Add found parameters to table
+            if (foundParams.length > 0) {
+                const tbody = document.getElementById('paramsBody');
+                foundParams.forEach((p, i) => {
+                    if (i === 0) {
+                        // Use existing first row
+                        const firstRow = tbody.querySelector('tr');
+                        if (firstRow) {
+                            const inputs = firstRow.querySelectorAll('input');
+                            inputs[0].value = p.name;
+                            inputs[1].value = p.unit;
+                            inputs[3].value = p.result;
+                        }
+                    } else {
+                        addParamRow(p);
+                    }
+                });
+            }
+        }
+
+        // ==================== Form Operations ====================
+        function addParamRow(data = {}) {
+            const tbody = document.getElementById('paramsBody');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" placeholder="Parametre" value="${data.name || ''}"></td>
+                <td><input type="text" placeholder="Birim" value="${data.unit || ''}"></td>
+                <td><input type="text" placeholder="Spesifikasyon" value="${data.spec || ''}"></td>
+                <td><input type="text" placeholder="Sonu?" value="${data.result || ''}"></td>
+                <td>
+                    <select>
+                        <option value="pass" ${data.status === 'pass' ? 'selected' : ''}>? Uygun</option>
+                        <option value="fail" ${data.status === 'fail' ? 'selected' : ''}>? Uygun De?il</option>
+                    </select>
+                </td>
+                <td><button class="remove-param-btn" onclick="removeParamRow(this)">???</button></td>
+            `;
+            tbody.appendChild(row);
+        }
+
+        function removeParamRow(btn) {
+            const tbody = document.getElementById('paramsBody');
+            if (tbody.children.length > 1) {
+                btn.closest('tr').remove();
+            }
+        }
+
+        function clearForm() {
+            document.getElementById('supplierName').value = '';
+            document.getElementById('productName').value = '';
+            document.getElementById('materialCode').value = '';
+            document.getElementById('lotNumber').value = '';
+            document.getElementById('certNumber').value = '';
+            document.getElementById('analysisDate').value = '';
+            document.getElementById('expiryDate').value = '';
+            document.getElementById('productionDate').value = '';
+            document.getElementById('coaStatus').value = 'pending';
+            document.getElementById('coaNotes').value = '';
+            document.getElementById('extractedText').value = '';
+            
+            // Reset parameters table
+            const tbody = document.getElementById('paramsBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td><input type="text" placeholder="?r: Nem"></td>
+                    <td><input type="text" placeholder="?r: %"></td>
+                    <td><input type="text" placeholder="?r: Max 5%"></td>
+                    <td><input type="text" placeholder="?r: 3.2%"></td>
+                    <td>
+                        <select>
+                            <option value="pass">? Uygun</option>
+                            <option value="fail">? Uygun De?il</option>
+                        </select>
+                    </td>
+                    <td><button class="remove-param-btn" onclick="removeParamRow(this)">???</button></td>
+                </tr>
+            `;
+            
+            document.getElementById('previewContainer').style.display = 'none';
+            document.getElementById('coaForm').style.display = 'none';
+            currentEditId = null;
+            
+            showToast('Form temizlendi', 'success');
+        }
+
+        function getFormData() {
+            // Get parameters
+            const params = [];
+            document.querySelectorAll('#paramsBody tr').forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                const select = row.querySelector('select');
+                if (inputs[0].value) {
+                    params.push({
+                        name: inputs[0].value,
+                        unit: inputs[1].value,
+                        specification: inputs[2].value,
+                        result: inputs[3].value,
+                        status: select.value
+                    });
+                }
+            });
+            
+            return {
+                id: currentEditId || Date.now(),
+                supplierName: document.getElementById('supplierName').value,
+                productName: document.getElementById('productName').value,
+                materialCode: document.getElementById('materialCode').value,
+                lotNumber: document.getElementById('lotNumber').value,
+                certNumber: document.getElementById('certNumber').value,
+                analysisDate: document.getElementById('analysisDate').value,
+                expiryDate: document.getElementById('expiryDate').value,
+                productionDate: document.getElementById('productionDate').value,
+                status: document.getElementById('coaStatus').value,
+                notes: document.getElementById('coaNotes').value,
+                extractedText: document.getElementById('extractedText').value,
+                imageData: document.getElementById('previewImage').src,
+                parameters: params,
+                createdAt: currentEditId ? (coaData.find(c => c.id === currentEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+        }
+
+        // ==================== Data Operations ====================
+        async function saveCOA() {
+            const data = getFormData();
+            
+            // Validation
+            if (!data.supplierName) {
+                showToast('? Tedarik?i firma ad? gerekli!', 'error');
+                return;
+            }
+            
+            if (useGoogleSheets) {
+                await saveToGoogleSheets(data);
+            } else {
+                saveToLocalStorage(data);
+            }
+        }
+
+        function saveToLocalStorage(data) {
+            if (currentEditId) {
+                const index = coaData.findIndex(c => c.id === currentEditId);
+                if (index !== -1) {
+                    coaData[index] = data;
+                }
+            } else {
+                coaData.push(data);
+            }
+            
+            localStorage.setItem('coa_data', JSON.stringify(coaData));
+            
+            showToast('? Sertifika kaydedildi!', 'success');
+            clearForm();
+            updateStats();
+            renderCOAList();
+            updateSupplierFilter();
+        }
+
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('coa_data');
+            if (saved) {
+                coaData = JSON.parse(saved);
+            }
+        }
+
+        async function deleteCOA(id) {
+            if (!confirm('Bu sertifikay? silmek istedi?inizden emin misiniz?')) return;
+            
+            if (useGoogleSheets) {
+                await deleteFromGoogleSheets(id);
+            } else {
+                coaData = coaData.filter(c => c.id !== id);
+                localStorage.setItem('coa_data', JSON.stringify(coaData));
+                updateStats();
+                renderCOAList();
+                showToast('? Sertifika silindi', 'success');
+            }
+        }
+
+        // ==================== UI Rendering ====================
+        function updateStats() {
+            document.getElementById('statTotal').textContent = coaData.length;
+            document.getElementById('statApproved').textContent = coaData.filter(c => c.status === 'approved').length;
+            document.getElementById('statPending').textContent = coaData.filter(c => c.status === 'pending').length;
+            document.getElementById('statRejected').textContent = coaData.filter(c => c.status === 'rejected').length;
+        }
+
+        function renderCOAList() {
+            const tbody = document.getElementById('coaTableBody');
+            const emptyState = document.getElementById('emptyState');
+            const table = document.getElementById('coaTable');
+            
+            const searchTerm = document.getElementById('searchCOA').value.toLowerCase();
+            const statusFilter = document.getElementById('filterStatus').value;
+            const supplierFilter = document.getElementById('filterSupplier').value;
+            
+            let filtered = coaData.filter(c => {
+                const matchSearch = !searchTerm || 
+                    c.supplierName?.toLowerCase().includes(searchTerm) ||
+                    c.productName?.toLowerCase().includes(searchTerm) ||
+                    c.lotNumber?.toLowerCase().includes(searchTerm);
+                
+                const matchStatus = !statusFilter || c.status === statusFilter;
+                const matchSupplier = !supplierFilter || c.supplierName === supplierFilter;
+                
+                return matchSearch && matchStatus && matchSupplier;
+            });
+            
+            if (filtered.length === 0) {
+                emptyState.style.display = 'block';
+                table.style.display = 'none';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            table.style.display = 'table';
+            
+            tbody.innerHTML = filtered.map(c => {
+                const statusClass = c.status === 'approved' ? 'status-approved' : 
+                                   c.status === 'pending' ? 'status-pending' : 'status-rejected';
+                const statusText = c.status === 'approved' ? '? Onayl?' : 
+                                  c.status === 'pending' ? '? Beklemede' : '? Reddedildi';
+                
+                return `
+                    <tr>
+                        <td>${c.id}</td>
+                        <td><strong>${c.supplierName || '-'}</strong></td>
+                        <td>${c.productName || '-'}</td>
+                        <td>${c.lotNumber || '-'}</td>
+                        <td>${c.analysisDate || '-'}</td>
+                        <td>${c.expiryDate || '-'}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>${new Date(c.createdAt).toLocaleDateString('tr-TR')}</td>
+                        <td>
+                            <div class="action-btns">
+                                <button class="action-btn view" onclick="viewCOA(${c.id})">???</button>
+                                <button class="action-btn edit" onclick="editCOA(${c.id})">??</button>
+                                <button class="action-btn delete" onclick="deleteCOA(${c.id})">???</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            updateSupplierFilter();
+        }
+
+        function filterCOAList() {
+            renderCOAList();
+        }
+
+        function updateSupplierFilter() {
+            const select = document.getElementById('filterSupplier');
+            const suppliers = [...new Set(coaData.map(c => c.supplierName).filter(Boolean))];
+            
+            select.innerHTML = '<option value="">T?m Tedarik?iler</option>' +
+                suppliers.map(s => `<option value="${s}">${s}</option>`).join('');
+        }
+
+        function viewCOA(id) {
+            const coa = coaData.find(c => c.id === id);
+            if (!coa) return;
+            
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = `
+                <div class="form-grid" style="margin-bottom: 20px;">
+                    <div><strong>Tedarik?i:</strong> ${coa.supplierName || '-'}</div>
+                    <div><strong>?r?n:</strong> ${coa.productName || '-'}</div>
+                    <div><strong>Lot No:</strong> ${coa.lotNumber || '-'}</div>
+                    <div><strong>Sertifika No:</strong> ${coa.certNumber || '-'}</div>
+                    <div><strong>Analiz Tarihi:</strong> ${coa.analysisDate || '-'}</div>
+                    <div><strong>SKT:</strong> ${coa.expiryDate || '-'}</div>
+                    <div><strong>?retim Tarihi:</strong> ${coa.productionDate || '-'}</div>
+                    <div><strong>Durum:</strong> ${coa.status === 'approved' ? '? Onayl?' : coa.status === 'pending' ? '? Beklemede' : '? Reddedildi'}</div>
+                </div>
+                
+                ${coa.parameters && coa.parameters.length > 0 ? `
+                    <h4 style="margin-bottom: 10px;">?? Analiz Parametreleri</h4>
+                    <table class="params-table">
+                        <thead>
+                            <tr>
+                                <th>Parametre</th>
+                                <th>Birim</th>
+                                <th>Spesifikasyon</th>
+                                <th>Sonu?</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${coa.parameters.map(p => `
+                                <tr>
+                                    <td>${p.name}</td>
+                                    <td>${p.unit}</td>
+                                    <td>${p.specification}</td>
+                                    <td>${p.result}</td>
+                                    <td>${p.status === 'pass' ? '? Uygun' : '? Uygun De?il'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                ` : ''}
+                
+                ${coa.notes ? `<div style="margin-top: 20px;"><strong>Notlar:</strong><p>${coa.notes}</p></div>` : ''}
+                
+                ${coa.imageData ? `
+                    <div style="margin-top: 20px;">
+                        <strong>Belge G?r?nt?s?:</strong>
+                        <img src="${coa.imageData}" style="max-width: 100%; margin-top: 10px; border-radius: 8px;">
+                    </div>
+                ` : ''}
+                
+                <div class="btn-group" style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="printCOA(${id})">??? Yazd?r</button>
+                    <button class="btn btn-secondary" onclick="exportSingleCOA(${id})">?? PDF ?ndir</button>
+                </div>
+            `;
+            
+            document.getElementById('detailModal').classList.add('active');
+        }
+
+        function editCOA(id) {
+            const coa = coaData.find(c => c.id === id);
+            if (!coa) return;
+            
+            currentEditId = id;
+            
+            // Fill form
+            document.getElementById('supplierName').value = coa.supplierName || '';
+            document.getElementById('productName').value = coa.productName || '';
+            document.getElementById('materialCode').value = coa.materialCode || '';
+            document.getElementById('lotNumber').value = coa.lotNumber || '';
+            document.getElementById('certNumber').value = coa.certNumber || '';
+            document.getElementById('analysisDate').value = coa.analysisDate || '';
+            document.getElementById('expiryDate').value = coa.expiryDate || '';
+            document.getElementById('productionDate').value = coa.productionDate || '';
+            document.getElementById('coaStatus').value = coa.status || 'pending';
+            document.getElementById('coaNotes').value = coa.notes || '';
+            document.getElementById('extractedText').value = coa.extractedText || '';
+            
+            // Fill parameters
+            const tbody = document.getElementById('paramsBody');
+            tbody.innerHTML = '';
+            if (coa.parameters && coa.parameters.length > 0) {
+                coa.parameters.forEach(p => addParamRow({
+                    name: p.name,
+                    unit: p.unit,
+                    spec: p.specification,
+                    result: p.result,
+                    status: p.status
+                }));
+            } else {
+                addParamRow();
+            }
+            
+            // Show image if exists
+            if (coa.imageData) {
+                document.getElementById('previewImage').src = coa.imageData;
+                document.getElementById('previewContainer').style.display = 'grid';
+            }
+            
+            document.getElementById('coaForm').style.display = 'block';
+            showTab('upload');
+            document.querySelector('.tab-btn').click();
+            
+            showToast('?? D?zenleme modu aktif', 'warning');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        // ==================== Charts ====================
+        function initCharts() {
+            const supplierCtx = document.getElementById('supplierChart').getContext('2d');
+            const statusCtx = document.getElementById('statusChart').getContext('2d');
+            const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+            
+            supplierChart = new Chart(supplierCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Sertifika Say?s?',
+                        data: [],
+                        backgroundColor: 'rgba(74, 143, 92, 0.7)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Tedarik?i Bazl? Sertifika Da??l?m?'
+                        }
+                    }
+                }
+            });
+            
+            statusChart = new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Onayl?', 'Beklemede', 'Reddedildi'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#4caf50', '#ff9800', '#f44336']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Durum Da??l?m?'
+                        }
+                    }
+                }
+            });
+            
+            timelineChart = new Chart(timelineCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Ayl?k Sertifika Giri?i',
+                        data: [],
+                        borderColor: 'rgba(74, 143, 92, 1)',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Zaman ?izelgesi'
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCharts() {
+            // Supplier chart
+            const supplierCounts = {};
+            coaData.forEach(c => {
+                if (c.supplierName) {
+                    supplierCounts[c.supplierName] = (supplierCounts[c.supplierName] || 0) + 1;
+                }
+            });
+            
+            supplierChart.data.labels = Object.keys(supplierCounts);
+            supplierChart.data.datasets[0].data = Object.values(supplierCounts);
+            supplierChart.update();
+            
+            // Status chart
+            const approved = coaData.filter(c => c.status === 'approved').length;
+            const pending = coaData.filter(c => c.status === 'pending').length;
+            const rejected = coaData.filter(c => c.status === 'rejected').length;
+            
+            statusChart.data.datasets[0].data = [approved, pending, rejected];
+            statusChart.update();
+            
+            // Timeline chart
+            const monthCounts = {};
+            coaData.forEach(c => {
+                const date = new Date(c.createdAt);
+                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
+            });
+            
+            const sortedMonths = Object.keys(monthCounts).sort();
+            timelineChart.data.labels = sortedMonths;
+            timelineChart.data.datasets[0].data = sortedMonths.map(m => monthCounts[m]);
+            timelineChart.update();
+        }
+
+        // ==================== PostgreSQL Connection Test ====================
+        async function testAPIHealth() {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                
+                if (data.status === 'healthy') {
+                    showToast(`? PostgreSQL ba?lant?s? aktif! Veritaban?: ${data.database}`, 'success');
+                } else {
+                    showToast('?? API ?al???yor ama veritaban? ba?lant?s? yok', 'warning');
+                }
+            } catch (error) {
+                showToast('? API\'ye ula??lam?yor. python coa_api.py ?al??t?r?n.', 'error');
+            }
+        }
+
+        // ==================== Export Functions ====================
+        function exportCOAList() {
+            if (coaData.length === 0) {
+                showToast('? D??a aktar?lacak veri yok!', 'error');
+                return;
+            }
+            
+            // Create CSV
+            const headers = ['ID', 'Tedarik?i', '?r?n', 'Lot No', 'Sertifika No', 'Analiz Tarihi', 'SKT', 'Durum', 'Kay?t Tarihi'];
+            const rows = coaData.map(c => [
+                c.id,
+                c.supplierName,
+                c.productName,
+                c.lotNumber,
+                c.certNumber,
+                c.analysisDate,
+                c.expiryDate,
+                c.status === 'approved' ? 'Onayl?' : c.status === 'pending' ? 'Beklemede' : 'Reddedildi',
+                new Date(c.createdAt).toLocaleDateString('tr-TR')
+            ]);
+            
+            const csvContent = [headers, ...rows]
+                .map(row => row.map(cell => `"${cell || ''}"`).join(','))
+                .join('\n');
+            
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `coa_listesi_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            
+            showToast('? Excel dosyas? indirildi!', 'success');
+        }
+
+        function exportSingleCOA(id) {
+            const coa = coaData.find(c => c.id === id);
+            if (!coa) return;
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(18);
+            doc.text('Analiz Sertifikas? (COA)', 105, 20, { align: 'center' });
+            
+            doc.setFontSize(12);
+            let y = 40;
+            
+            doc.text(`Tedarik?i: ${coa.supplierName || '-'}`, 20, y); y += 10;
+            doc.text(`?r?n: ${coa.productName || '-'}`, 20, y); y += 10;
+            doc.text(`Lot No: ${coa.lotNumber || '-'}`, 20, y); y += 10;
+            doc.text(`Sertifika No: ${coa.certNumber || '-'}`, 20, y); y += 10;
+            doc.text(`Analiz Tarihi: ${coa.analysisDate || '-'}`, 20, y); y += 10;
+            doc.text(`SKT: ${coa.expiryDate || '-'}`, 20, y); y += 20;
+            
+            if (coa.parameters && coa.parameters.length > 0) {
+                doc.autoTable({
+                    startY: y,
+                    head: [['Parametre', 'Birim', 'Spesifikasyon', 'Sonu?', 'Durum']],
+                    body: coa.parameters.map(p => [
+                        p.name,
+                        p.unit,
+                        p.specification,
+                        p.result,
+                        p.status === 'pass' ? 'Uygun' : 'Uygun De?il'
+                    ])
+                });
+            }
+            
+            doc.save(`COA_${coa.lotNumber || coa.id}.pdf`);
+            showToast('? PDF indirildi!', 'success');
+        }
+
+        function printCOA(id) {
+            const coa = coaData.find(c => c.id === id);
+            if (!coa) return;
+            
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>COA - ${coa.lotNumber || coa.id}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        h1 { color: #2d5a3d; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+                        th { background: #f5f5f5; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Analiz Sertifikas? (COA)</h1>
+                    <p><strong>Tedarik?i:</strong> ${coa.supplierName || '-'}</p>
+                    <p><strong>?r?n:</strong> ${coa.productName || '-'}</p>
+                    <p><strong>Lot No:</strong> ${coa.lotNumber || '-'}</p>
+                    <p><strong>Analiz Tarihi:</strong> ${coa.analysisDate || '-'}</p>
+                    <p><strong>SKT:</strong> ${coa.expiryDate || '-'}</p>
+                    ${coa.parameters && coa.parameters.length > 0 ? `
+                        <table>
+                            <tr><th>Parametre</th><th>Birim</th><th>Spesifikasyon</th><th>Sonu?</th><th>Durum</th></tr>
+                            ${coa.parameters.map(p => `
+                                <tr>
+                                    <td>${p.name}</td>
+                                    <td>${p.unit}</td>
+                                    <td>${p.specification}</td>
+                                    <td>${p.result}</td>
+                                    <td>${p.status === 'pass' ? '?' : '?'}</td>
+                                </tr>
+                            `).join('')}
+                        </table>
+                    ` : ''}
+                    <scr` + `ipt>window.print();</scr` + `ipt>
+                </body>
+                </html>
+            `);
+        }
+
+        // ==================== Backup Functions ====================
+        function copyAppsScript() {
+            const codeElement = document.getElementById('appsScriptCode');
+            const code = codeElement.innerText
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&');
+            
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('? Kod panoya kopyaland?!', 'success');
+            }).catch(() => {
+                showToast('? Kopyalama hatas?', 'error');
+            });
+        }
+
+        function exportBackup() {
+            const backup = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                data: coaData
+            };
+            
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `coa_backup_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            showToast('? Yedek dosyas? indirildi!', 'success');
+        }
+
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const backup = JSON.parse(e.target.result);
+                    if (backup.data && Array.isArray(backup.data)) {
+                        if (confirm(`${backup.data.length} kay?t i?e aktar?lacak. Mevcut veriler silinecek. Devam edilsin mi?`)) {
+                            coaData = backup.data;
+                            localStorage.setItem('coa_data', JSON.stringify(coaData));
+                            updateStats();
+                            renderCOAList();
+                            showToast('? Yedek ba?ar?yla y?klendi!', 'success');
+                        }
+                    } else {
+                        throw new Error('Ge?ersiz yedek dosyas?');
+                    }
+                } catch (error) {
+                    showToast('? Yedek y?kleme hatas?: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function clearAllData() {
+            if (confirm('T?M VER?LER S?L?NECEK! Bu i?lem geri al?namaz. Devam edilsin mi?')) {
+                coaData = [];
+                localStorage.removeItem('coa_data');
+                updateStats();
+                renderCOAList();
+                showToast('??? T?m veriler silindi', 'warning');
+            }
+        }
+
+        function copySQL() {
+            const sql = document.querySelector('.config-section pre').textContent;
+            navigator.clipboard.writeText(sql).then(() => {
+                showToast('? SQL kopyaland?!', 'success');
+            });
+        }
+
+        // ==================== TDS Management ====================
+        let tdsData = {};
+
+        // TDS verilerini yükle
+        function loadTDSData() {
+            const saved = localStorage.getItem('tdsData');
+            if (saved) {
+                try {
+                    tdsData = JSON.parse(saved);
+                } catch (error) {
+                    console.error('TDS yükleme hatası:', error);
+                }
+            }
+        }
+
+        // TDS kontrol butonuna basıldığında
+        function checkTDSCompliance() {
+            const materialCode = document.getElementById('materialCode').value.trim();
+            
+            if (!materialCode) {
+                showToast('⚠️ Lütfen hammadde kodunu girin', 'warning');
+                return;
+            }
+
+            autoCheckParameters(materialCode);
+        }
+
+        // TDS limitlerine göre parametre uygunluğunu kontrol et
+        function checkParameterCompliance(paramName, value, specification, materialCode) {
+            // Önce TDS verilerini kontrol et
+            if (!tdsData || !materialCode || !tdsData[materialCode]) {
+                console.log('TDS verisi bulunamadı, manuel kontrol kullanılıyor');
+                return null; // Manuel kontrol gerekli
+            }
+
+            const tds = tdsData[materialCode];
+            if (!tds.properties || tds.properties.length === 0) {
+                return null;
+            }
+
+            // Parametre adını normalize et
+            const paramNameLower = paramName.toLowerCase().trim();
+            const paramNameClean = paramNameLower.replace(/\s*\([^)]*\)/g, '').trim();
+
+            // TDS'de eşleşen özelliği bul
+            const tdsProperty = tds.properties.find(prop => {
+                const propNameLower = prop.name.toLowerCase().trim();
+                const propNameClean = propNameLower.replace(/\s*\([^)]*\)/g, '').trim();
+                return propNameClean === paramNameClean || propNameLower === paramNameLower;
+            });
+
+            if (!tdsProperty) {
+                console.log(`TDS'de "${paramName}" özelliği bulunamadı`);
+                return null;
+            }
+
+            // Değeri parse et
+            const numValue = parseFloat(String(value).replace(/,/g, '.'));
+            if (isNaN(numValue)) {
+                return null;
+            }
+
+            // Limitleri hesapla
+            const operator = tdsProperty.operator || 'range';
+            const stdValue = parseFloat(String(tdsProperty.standardValue || 0).replace(/,/g, '.'));
+            const lowerTol = parseFloat(String(tdsProperty.lowerTolerance || 0).replace(/,/g, '.'));
+            const upperTol = parseFloat(String(tdsProperty.upperTolerance || 0).replace(/,/g, '.'));
+            
+            const lowerLimit = tdsProperty.min ? parseFloat(String(tdsProperty.min).replace(/,/g, '.')) : (stdValue - lowerTol);
+            const upperLimit = tdsProperty.max ? parseFloat(String(tdsProperty.max).replace(/,/g, '.')) : (stdValue + upperTol);
+
+            console.log(`Kontrol: ${paramName} = ${numValue}, Limit: ${lowerLimit}-${upperLimit}, Op: ${operator}`);
+
+            // Operatöre göre kontrol
+            if (operator === '>' || operator === '>=') {
+                return operator === '>' ? numValue > lowerLimit : numValue >= lowerLimit;
+            } else if (operator === '<' || operator === '<=') {
+                return operator === '<' ? numValue < upperLimit : numValue <= upperLimit;
+            } else if (operator === '=') {
+                return numValue === stdValue;
+            } else {
+                // range kontrolü
+                return numValue >= lowerLimit && numValue <= upperLimit;
+            }
+        }
+
+        // Parametrelerin uygunluğunu otomatik kontrol et
+        function autoCheckParameters(materialCode) {
+            if (!materialCode) {
+                console.log('Hammadde kodu belirtilmedi');
+                return;
+            }
+
+            loadTDSData();
+
+            if (!tdsData[materialCode]) {
+                showToast(`⚠️ "${materialCode}" için TDS verisi bulunamadı`, 'warning');
+                return;
+            }
+
+            const rows = document.querySelectorAll('#paramsBody tr');
+            let checkedCount = 0;
+            let passCount = 0;
+            let failCount = 0;
+
+            rows.forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                const select = row.querySelector('select');
+                
+                if (inputs.length >= 4 && inputs[0].value && inputs[3].value) {
+                    const paramName = inputs[0].value;
+                    const result = inputs[3].value;
+                    const specification = inputs[2].value;
+
+                    const isCompliant = checkParameterCompliance(paramName, result, specification, materialCode);
+                    
+                    if (isCompliant !== null) {
+                        select.value = isCompliant ? 'pass' : 'fail';
+                        checkedCount++;
+                        if (isCompliant) {
+                            passCount++;
+                            console.log(`✓ ${paramName}: ${result} → UYGUN`);
+                        } else {
+                            failCount++;
+                            console.log(`✗ ${paramName}: ${result} → UYGUN DEĞİL`);
+                        }
+                    }
+                }
+            });
+
+            if (checkedCount > 0) {
+                showToast(`✅ ${passCount} uygun, ❌ ${failCount} uygun değil (${checkedCount} parametre kontrol edildi)`, 'success', 5000);
+            } else {
+                showToast('⚠️ TDS verisi bulunamadı veya parametreler eşleştirilemedi', 'warning');
+            }
+        }
+
+        // ==================== Toast Notifications ====================
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, duration);
+        }
+
+        // Close modal on outside click
+        document.getElementById('detailModal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
+
