@@ -2030,6 +2030,28 @@
     
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // COA Analysis modal fallback (ensures button works even if later script fails)
+        window.openCOAAnalysisModal = async function () {
+            const modal = document.getElementById('coaAnalysisModal');
+            if (modal) modal.classList.add('active');
+            if (typeof window.loadAnalysisSuppliers === 'function') {
+                await window.loadAnalysisSuppliers();
+            }
+        };
+
+        window.closeCOAAnalysisModal = function () {
+            const modal = document.getElementById('coaAnalysisModal');
+            if (modal) modal.classList.remove('active');
+            if (Array.isArray(window.analysisCharts)) {
+                window.analysisCharts.forEach(chart => {
+                    if (chart) chart.destroy();
+                });
+                window.analysisCharts = [];
+            }
+        };
+    </script>
     
     <script>
         // ==================== Global Variables ====================
@@ -7762,7 +7784,8 @@
                     pdfContent.appendChild(cardClone);
                 });
 
-                // html2canvas ile PDF oluştur\n                const canvas = await html2canvas(pdfContent, {
+                // html2canvas ile PDF oluştur
+                const canvas = await html2canvas(pdfContent, {
                     scale: 2,
                     useCORS: true,
                     backgroundColor: '#ffffff',
