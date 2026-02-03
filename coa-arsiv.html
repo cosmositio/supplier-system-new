@@ -1635,102 +1635,91 @@
             </div>
         </div>
         
-        <div class="main-grid">
-            <!-- Form -->
-            <div class="card">
-                <h2>📤 Yeni Sertifika Ekle</h2>
-                
-                <div class="form-group">
-                    <label>Tedarikçi Firma * <span id="supplierCount" style="color:#2196F3; font-weight:normal; font-size:0.9em;"></span></label>
-                    <div class="supplier-input-container">
-                        <div class="supplier-input-wrapper">
-                            <input type="text" 
-                                   id="supplierInput" 
-                                   placeholder="Tedarikçi ara veya yazın..." 
-                                   autocomplete="off"
-                                   onfocus="showSupplierDropdown()"
-                                   oninput="filterSupplierDropdown()"
-                                   onchange="filterMaterialsBySupplier()">
-                            <span class="supplier-dropdown-arrow">▼</span>
-                            <div class="supplier-dropdown-list" id="supplierDropdownList">
-                                <div class="supplier-dropdown-count" id="supplierDropdownCount"></div>
-                                <div id="supplierDropdownItems"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px; flex-wrap: wrap;">
-                        <small style="color:#666; font-size:0.85em; flex: 1; min-width: 200px;">Excel dosyası yükleyerek tedarikçi ve hammadde listelerini otomatik doldurun</small>
-                        <label for="excelFileInput" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); color: white; padding: 10px 20px; border-radius: 8px; font-size: 0.9em; cursor: pointer; white-space: nowrap; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(46, 204, 113, 0.3);" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(46, 204, 113, 0.4)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(46, 204, 113, 0.3)'">
-                            📊 Excel Yükle
-                        </label>
-                        <input type="file" id="excelFileInput" accept=".xlsx,.xls" onchange="loadExcelFile(event)" style="display: none;">
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Hammadde Kodu * <span id="materialCount" style="font-size: 0.8em; color: #666;"></span></label>
-                    <div class="supplier-dropdown-wrapper" style="position: relative;">
-                        <input type="text" id="materialCode" placeholder="🔍 Hammadde ara veya yazın..." 
-                               autocomplete="off" 
-                               oninput="filterMaterials(this.value)" 
-                               onfocus="showMaterialDropdown()" 
-                               onblur="handleMaterialBlur()"
-                               style="width: 100%;">
-                        <div id="materialDropdown" class="supplier-dropdown-list" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; max-height: 250px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                            <div style="padding: 8px; background: #f8f9fa; border-bottom: 1px solid #ddd;">
-                                <span id="materialDropdownCount" style="font-size: 0.85em; color: #666; font-weight: 500;">0 hammadde</span>
-                            </div>
-                            <div id="materialDropdownItems"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>
-                        İrsaliye Tarihi *
-                        <input type="checkbox" id="autoFillDeliveryDate" style="margin-left: 10px; width: 18px; height: 18px; vertical-align: middle; cursor: pointer;">
-                        <span style="font-size: 0.85em; color: #666; margin-left: 5px;">Excel'den otomatik doldur</span>
-                    </label>
-                    <input type="date" id="deliveryDate">
-                </div>
-                
-                <div class="form-group">
-                    <label>
-                        İrsaliye No
-                        <input type="checkbox" id="autoFillDeliveryNo" style="margin-left: 10px; width: 18px; height: 18px; vertical-align: middle; cursor: pointer;">
-                        <span style="font-size: 0.85em; color: #666; margin-left: 5px;">Excel'den otomatik doldur</span>
-                    </label>
-                    <input type="text" id="deliveryNo" placeholder="Örn: IRS-2024-001">
-                </div>
-                
-                <div class="form-group">
-                    <label>Parti/Lot No</label>
-                    <input type="text" id="lotNumber" placeholder="Örn: 2I02618">
-                </div>
-                
-                <div class="form-group">
-                    <label>Lokasyon</label>
-                    <select id="location">
-                        <option value="">Lokasyon seçin...</option>
-                        <option value="Çerkezköy">Çerkezköy</option>
-                        <option value="Veliköy">Veliköy</option>
-                        <option value="Ankara">Ankara</option>
-                        <option value="Bursa">Bursa</option>
-                        <option value="Adana">Adana</option>
-                        <option value="Eskişehir">Eskişehir</option>
+                        const toolbar = exportArea.querySelector('.analysis-toolbar');
+                        const filterCards = exportArea.querySelectorAll(':scope > .analysis-card');
+                        const statsSection = document.getElementById('analysisStats');
+                        if (toolbar) toolbar.style.display = 'none';
+                        filterCards.forEach(card => card.style.display = 'none');
+                        if (statsSection) statsSection.style.display = 'none';
+
+                        const { jsPDF } = window.jspdf;
+                        const pdf = new jsPDF('l', 'pt', 'a4');
+                        const pageWidth = pdf.internal.pageSize.getWidth();
+                        const pageHeight = pdf.internal.pageSize.getHeight();
+                        const margin = 24;
+
+                        // Rapor başlığı sayfası
+                        const reportWrapper = document.createElement('div');
+                        reportWrapper.style.cssText = 'background: white; padding: 40px; width: 1200px; position: absolute; left: -9999px; top: 0;';
+                        reportWrapper.innerHTML = buildAnalysisReportHTML();
+                        document.body.appendChild(reportWrapper);
+
+                        const reportCanvas = await html2canvas(reportWrapper, {
+                            scale: 2,
+                            useCORS: true,
+                            backgroundColor: '#ffffff',
+                            width: 1200
+                        });
+                        const reportImg = reportCanvas.toDataURL('image/png');
+                        const reportRatio = Math.min((pageWidth - margin * 2) / reportCanvas.width, (pageHeight - margin * 2) / reportCanvas.height);
+                        const reportW = reportCanvas.width * reportRatio;
+                        const reportH = reportCanvas.height * reportRatio;
+                        pdf.addImage(reportImg, 'PNG', margin, margin, reportW, reportH);
+                        reportWrapper.remove();
+
+                        const chartCards = chartsContainer.querySelectorAll('.chart-card');
+                        for (let i = 0; i < chartCards.length; i++) {
+                            const card = chartCards[i];
+                            const cardClone = card.cloneNode(true);
+
+                            // Canvas'ları img'e çevir (orijinal canvas verisini kullan)
+                            const originalCanvases = card.querySelectorAll('canvas');
+                            const clonedCanvases = cardClone.querySelectorAll('canvas');
+                            clonedCanvases.forEach((canvas, idx) => {
+                                const originalCanvas = originalCanvases[idx];
+                                const img = document.createElement('img');
+                                img.src = originalCanvas ? originalCanvas.toDataURL('image/png') : '';
+                                img.style.cssText = 'width: 100%; height: auto; display: block; border: 1px solid #e5e7eb; border-radius: 8px;';
+                                canvas.parentElement.replaceChild(img, canvas);
+                            });
+
+                            const temp = document.createElement('div');
+                            temp.style.cssText = 'background: white; padding: 24px; width: 1200px; position: absolute; left: -9999px; top: 0;';
+                            temp.appendChild(cardClone);
+                            document.body.appendChild(temp);
+
+                            const cardCanvas = await html2canvas(temp, {
+                                scale: 2,
+                                useCORS: true,
+                                backgroundColor: '#ffffff',
+                                width: 1200
+                            });
+
+                            const cardImg = cardCanvas.toDataURL('image/png');
+                            const ratio = Math.min((pageWidth - margin * 2) / cardCanvas.width, (pageHeight - margin * 2) / cardCanvas.height);
+                            const drawW = cardCanvas.width * ratio;
+                            const drawH = cardCanvas.height * ratio;
+
+                            pdf.addPage();
+                            pdf.addImage(cardImg, 'PNG', margin, margin, drawW, drawH);
+                            temp.remove();
+                        }
+
+                        const fileName = `COA_Analiz_${new Date().toISOString().slice(0, 10)}.pdf`;
+                        pdf.save(fileName);
+
+                        if (toolbar) toolbar.style.display = '';
+                        filterCards.forEach(card => card.style.display = '');
+                        if (statsSection) statsSection.style.display = 'block';
+
+                        showToast('PDF dışa aktarıldı', 'success');
                         <option value="Ultech1">Ultech1</option>
-                        <option value="Ultech2">Ultech2</option>
                     </select>
                 </div>
                 
                 <div class="form-group">
                     <label>Sertifika Dosyası *</label>
                     <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                        <button type="button" class="btn btn-secondary" onclick="openDocumentScanner()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            📷 Belge Tara
-                        </button>
-                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('fileInput').click()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            📁 Dosya Yükle
                         </button>
                     </div>
                     <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="handleCameraCapture(event)">
