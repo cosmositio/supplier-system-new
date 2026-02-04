@@ -5445,6 +5445,14 @@
                                     
                                     // Bu özellikten sonraki 300 karakteri al
                                     const afterProperty = text.substring(matchIndex + match[0].length, matchIndex + match[0].length + 300);
+                                    
+                                    // ÖNEMLİ: Eğer "INSPECTED VALUES" varsa, bu parsing'i atla
+                                    // Çünkü INSPECTED VALUES bloğu daha doğru sonuç verecek
+                                    if (/INSPECTED VALUES|AVERAGE VALUE|TEST RESULTS|MEASURED VALUES/i.test(afterProperty)) {
+                                        console.log(`  ⏭️ INSPECTED VALUES tespit edildi, bu property atlanıyor (fallback bloğu kullanılacak)`);
+                                        continue;
+                                    }
+                                    
                                     console.log(`  📦 Chunk (${afterProperty.length} karakter):`, afterProperty.substring(0, 100));
                                     
                                     // TAB veya çok boşlukla ayrılmış kolonları parse et
