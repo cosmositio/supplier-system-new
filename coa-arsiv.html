@@ -4903,6 +4903,26 @@
             
             console.log(`  🔍 Compliance check: "${test}" vs "${req}"`);
             
+            // 0) First: Exact string match for lambda values (λ10 ≤ 0,035 W/mK)
+            // Normalize: remove whitespace, replace λ/Λ with 'lambda', normalize comma/period
+            const normalizeStr = (str) => {
+                return str
+                    .replace(/\s+/g, '')
+                    .replace(/[λΛ]/g, 'lambda')
+                    .replace(/,/g, '.')
+                    .toLowerCase();
+            };
+            
+            const normalizedTest = normalizeStr(test);
+            const normalizedReq = normalizeStr(req);
+            
+            console.log(`    🔧 Normalized: "${normalizedTest}" vs "${normalizedReq}"`);
+            
+            if (normalizedTest === normalizedReq) {
+                console.log(`    ✅ Exact match (normalized) → Uygun`);
+                return 'Uygun';
+            }
+            
             // 1) Range check (7,5 - 10,5 kg/m3)
             const rangeMatch = req.match(/(\d+[.,]\d+)\s*-\s*(\d+[.,]\d+)/);
             if (rangeMatch) {
@@ -4963,23 +4983,7 @@
                 return result;
             }
             
-            // 5) Exact string match (case-insensitive, ignore whitespace and special chars)
-            const normalizeStr = (str) => str.replace(/\s+/g, '').replace(/[λΛ]/g, 'lambda').toLowerCase();
-            const normalizedTest = normalizeStr(test);
-            const normalizedReq = normalizeStr(req);
-            
-            if (normalizedTest === normalizedReq) {
-                console.log(`    ✅ Exact match (normalized) → Uygun`);
-                return 'Uygun';
-            }
-            
-            // Also check cleaned versions
-            if (cleanTest === cleanReq) {
-                console.log(`    ✅ Exact match → Uygun`);
-                return 'Uygun';
-            }
-            
-            // 6) Contains match
+            // 5) Contains match
             if (cleanTest.includes(cleanReq) || cleanReq.includes(cleanTest)) {
                 console.log(`    ✅ Contains match → Uygun`);
                 return 'Uygun';
@@ -4987,6 +4991,8 @@
             
             // Default: Unknown
             console.log(`    ❓ No match pattern found → Bilinmiyor`);
+            console.log(`    📋 Test="${test}", Req="${req}"`);
+            console.log(`    📋 Normalized: "${normalizedTest}" vs "${normalizedReq}"`);
             return 'Bilinmiyor';
         }
         
