@@ -5294,14 +5294,44 @@
                     if (Object.keys(properties).length === 0) {
                         console.log('⚠️ Fallback parsing kullanılıyor...');
                         
-                        // Her özellik için arama patterns
+                        // Her özellik için arama patterns (çoklu varyasyonlarla)
                         const propertyPatterns = [
-                            { tr: 'Dansite', en: 'DENSITY', key: 'Density' },
-                            { tr: 'Sertlik', en: 'HARDNESS', key: 'Sertlik' },
-                            { tr: 'Kopma Direnci', en: 'TENSILE STRENGHT', key: 'Kopma Direnci' },
-                            { tr: 'Kopma Uzama', en: 'ELONGATION AT BREAK', key: 'Kopma Uzama' },
-                            { tr: 'Elastikiyet', en: 'RESILIENCE', key: 'Elastikiyet' },
-                            { tr: 'Deformasyon', en: 'COMPRESSION SET', key: 'Deformasyon' }
+                            { 
+                                tr: 'Dansite', 
+                                en: ['DENSITY', 'TOTAL WEIGHT', 'WEIGHT'], 
+                                key: 'Density',
+                                aliases: ['dansite', 'density', 'total weight', 'weight', 'ağırlık']
+                            },
+                            { 
+                                tr: 'Sertlik', 
+                                en: ['HARDNESS'], 
+                                key: 'Sertlik',
+                                aliases: ['sertlik', 'hardness']
+                            },
+                            { 
+                                tr: 'Kopma Direnci', 
+                                en: ['TENSILE STRENGTH', 'TENSILE STRENGHT', 'TENSILE'], 
+                                key: 'Kopma Direnci',
+                                aliases: ['kopma direnci', 'tensile strength', 'tensile', 'çekme mukavemeti']
+                            },
+                            { 
+                                tr: 'Kopma Uzama', 
+                                en: ['ELONGATION AT BREAK', 'ELONGATION', 'BREAK ELONGATION'], 
+                                key: 'Kopma Uzama',
+                                aliases: ['kopma uzama', 'elongation', 'uzama']
+                            },
+                            { 
+                                tr: 'Elastikiyet', 
+                                en: ['RESILIENCE', 'REBOUND'], 
+                                key: 'Elastikiyet',
+                                aliases: ['elastikiyet', 'resilience', 'rebound']
+                            },
+                            { 
+                                tr: 'Deformasyon', 
+                                en: ['COMPRESSION SET', 'COMPRESSION'], 
+                                key: 'Deformasyon',
+                                aliases: ['deformasyon', 'compression set', 'compression']
+                            }
                         ];
                         
                         // Azure: line-based parsing (satır satır yapılandırılmış)
@@ -5311,18 +5341,32 @@
                             console.log('📋 İlk 15 satır:', lines.slice(0, 15));
                             
                             for (const pattern of propertyPatterns) {
-                                // Bu özelliğin Türkçe veya İngilizce adını içeren satırı bul
+                                // Bu özelliğin herhangi bir varyasyonunu içeren satırı bul
                                 let propertyLineIndex = -1;
                                 
                                 for (let i = 0; i < lines.length; i++) {
                                     const line = lines[i];
                                     const lineUpper = line.toUpperCase();
+                                    const lineLower = line.toLowerCase();
                                     
-                                    if (line.includes(pattern.tr) || lineUpper.includes(pattern.en)) {
+                                    // Türkçe adı kontrol et
+                                    if (line.includes(pattern.tr)) {
                                         propertyLineIndex = i;
-                                        console.log(`🎯 ${pattern.key} bulundu (satır ${i}): "${line}"`);
+                                        console.log(`🎯 ${pattern.key} bulundu (TR, satır ${i}): "${line}"`);
                                         break;
                                     }
+                                    
+                                    // İngilizce varyasyonları kontrol et
+                                    const enVariants = Array.isArray(pattern.en) ? pattern.en : [pattern.en];
+                                    for (const enVariant of enVariants) {
+                                        if (lineUpper.includes(enVariant)) {
+                                            propertyLineIndex = i;
+                                            console.log(`🎯 ${pattern.key} bulundu (EN: "${enVariant}", satır ${i}): "${line}"`);
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if (propertyLineIndex !== -1) break;
                                 }
                                 
                                 if (propertyLineIndex === -1) {
@@ -5376,8 +5420,10 @@
                             for (const pattern of propertyPatterns) {
                                 console.log(`\n🔍 ${pattern.key} aranıyor...`);
                                 
-                                // Hem Türkçe hem İngilizce adı ara
-                                const searchPattern = `(${pattern.tr}|${pattern.en})`;
+                                // Tüm varyasyonları içeren regex oluştur
+                                const enVariants = Array.isArray(pattern.en) ? pattern.en : [pattern.en];
+                                const allVariants = [pattern.tr, ...enVariants];
+                                const searchPattern = `(${allVariants.join('|')})`;
                                 const regex = new RegExp(searchPattern, 'i');
                                 const match = text.match(regex);
                                 
