@@ -5378,162 +5378,118 @@
                         
                         // Parse BASF table structure
                         for (const pattern of basfPatterns) {
-                            console.log(`\n🔍 Searching for "${pattern.name}"...`);
+                            const regex = new RegExp(pattern.name, 'i');
+                            const match = text.match(regex);
                             
-                            let testResult = '';
-                            let requirement = '';
-                            
-                            // Strategy 1: Use Azure words with coordinates (if available)
-                            if (words && words.length > 0) {
-                                console.log(`  📍 Using Azure coordinate-based parsing (${words.length} words available)`);
+                            if (match) {
+                                const idx = match.index;
                                 
-                                // Find the property name in words
-                                const propertyWords = words.filter(w => 
-                                    w.text.toLowerCase().includes(pattern.name.toLowerCase().substring(0, 6))
-                                );
+                                // Extract surrounding context (before and after property name)
+                                const contextBefore = text.substring(Math.max(0, idx - 100), idx);
+                                const contextAfter = text.substring(idx, idx + 400);
                                 
-                                if (propertyWords.length > 0) {
-                                    const propWord = propertyWords[0];
-                                    const propY = propWord.boundingBox[1]; // Y coordinate
-                                    const propX = propWord.boundingBox[0]; // X coordinate (left edge)
-                                    
-                                    console.log(`  ✓ Property "${pattern.name}" found at X:${propX}, Y:${propY}`);
-                                    
-                                    // Find words on the same row (±10px tolerance)
-                                    const rowWords = words.filter(w => 
-                                        Math.abs(w.boundingBox[1] - propY) < 10 && 
-                                        w.boundingBox[0] > propX + 100 // Skip property name column
-                                    ).sort((a, b) => a.boundingBox[0] - b.boundingBox[0]); // Sort by X
-                                    
-                                    console.log(`  📊 Found ${rowWords.length} words in same row:`, 
-                                        rowWords.map(w => `${w.text}(X:${w.boundingBox[0]})`).join(', '));
-                                    
-                                    // Group words by X position into columns (tolerance: 50px)
-                                    const columns = [];
-                                    let currentColumn = [];
-                                    let lastX = -1000;
-                                    
-                                    for (const word of rowWords) {
-                                        const wordX = word.boundingBox[0];
-                                        if (wordX - lastX > 50) {
-                                            // New column
-                                            if (currentColumn.length > 0) {
-                                                columns.push(currentColumn.map(w => w.text).join(' '));
-                                                currentColumn = [];
-                                            }
-                                        }
-                                        currentColumn.push(word);
-                                        lastX = wordX;
-                                    }
-                                    if (currentColumn.length > 0) {
-                                        columns.push(currentColumn.map(w => w.text).join(' '));
-                                    }
-                                    
-                                    console.log(`  🔧 Extracted columns (${columns.length}):`, columns);
-                                    
-                                    // Assign to testResult and requirement
-                                    if (columns.length >= 2) {
-                                        testResult = columns[0].trim();
-                                        requirement = columns[1].trim();
-                                    } else if (columns.length === 1) {
-                                        testResult = columns[0].trim();
+                                console.log(`\n🔍 Searching for "${pattern.name}"...`);
+                                console.log(`  Context: ...${contextBefore.slice(-50)}[MATCH]${contextAfter.slice(0, 100)}...`);
+                                
+                                // Find the line containing the property name
+                                // Try different line break patterns (Azure vs OCR.space)
+                                const lines = (contextBefore + contextAfter).split(/[\n\r]+/);
+                                let propertyLine = '';
+                                
+                                for (const line of lines) {
+                                    if (line.toLowerCase().includes(pattern.name.toLowerCase())) {
+                                        propertyLine = line.trim();
+                                        break;
                                     }
                                 }
-                            }
-                            
-                            // Strategy 2: Text-based fallback (for OCR.space or if coordinates failed)
-                            if (!testResult && !requirement) {
-                                console.log(`  📝 Falling back to text-based parsing...`);
                                 
-                                const regex = new RegExp(pattern.name, 'i');
-                                const match = text.match(regex);
+                                if (!propertyLine) {
+                                    console.log(`⚠️ Property line not found for ${pattern.name}`);
+                                    continue;
+                                }
                                 
-                                if (match) {
-                                    const idx = match.index;
-                                    const contextBefore = text.substring(Math.max(0, idx - 100), idx);
-                                    const contextAfter = text.substring(idx, idx + 400);
-                                    const lines = (contextBefore + contextAfter).split(/[\n\r]+/);
-                                    let propertyLine = '';
+                                console.log(`  📝 Full line: "${propertyLine}"`);
+                                
+                                // Split the property line by TAB or multiple spaces
+                                let parts = propertyLine.split(/[\t]+/).map(p => p.trim()).filter(p => p);
+                                
+                                console.log(`  🔧 TAB split → ${parts.length} parts:`, parts);
+                                
+                                // If TAB split didn't work well, try multiple spaces (2+)
+                                if (parts.length < 2) {
+                                    parts = propertyLine.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
+                                    console.log(`  🔧 Space split → ${parts.length} parts:`, parts);
+                                }
+                                
+                                let testResult = '';
+                                let requirement = '';
+                                
+                                // Skip if first part doesn't contain property name (wrong line)
+                                if (parts.length > 0) {
+                                    const firstPartLower = parts[0].toLowerCase();
+                                    const patternNameLower = pattern.name.toLowerCase().substring(0, Math.min(8, pattern.name.length));
                                     
-                                    for (const line of lines) {
-                                        if (line.toLowerCase().includes(pattern.name.toLowerCase())) {
-                                            propertyLine = line.trim();
-                                            break;
-                                        }
-                                    }
-                                    
-                                    if (propertyLine) {
-                                        console.log(`  📝 Full line: "${propertyLine}"`);
-                                        
-                                        // Split by TAB or multiple spaces
-                                        let parts = propertyLine.split(/[\t]+/).map(p => p.trim()).filter(p => p);
-                                        if (parts.length < 2) {
-                                            parts = propertyLine.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
-                                        }
-                                        
-                                        console.log(`  🔧 Split → ${parts.length} parts:`, parts);
-                                        
-                                        // Validate first part contains property name
-                                        if (parts.length > 0) {
-                                            const firstPartLower = parts[0].toLowerCase();
-                                            const patternNameLower = pattern.name.toLowerCase().substring(0, Math.min(8, pattern.name.length));
-                                            
-                                            if (firstPartLower.includes(patternNameLower)) {
-                                                // Use column positions or fallback
-                                                if (pruefergebnisCol > -1 && requirementCol > -1 && parts.length > Math.max(pruefergebnisCol, requirementCol)) {
-                                                    testResult = parts[pruefergebnisCol] || '';
-                                                    requirement = parts[requirementCol] || '';
-                                                } else if (parts.length >= 3) {
-                                                    testResult = parts[1] || '';
-                                                    requirement = parts[2] || '';
-                                                } else if (parts.length === 2) {
-                                                    testResult = parts[1] || '';
-                                                }
-                                            }
-                                        }
+                                    if (!firstPartLower.includes(patternNameLower)) {
+                                        console.log(`  ⚠️ First column "${parts[0]}" doesn't match property name, skipping`);
+                                        continue;
                                     }
                                 }
-                            }
                                 
-                            }
-                            
-                            // Apply lambda fix and check compliance (common for both strategies)
-                            if (testResult || requirement) {
-                                // Fix OCR errors: Lambda symbol (λ) for thermal conductivity
-                                if (pattern.name.toLowerCase().includes('wärmeleit') || 
-                                    testResult.includes('W/mK') || testResult.includes('W/mk') ||
-                                    requirement.includes('W/mK') || requirement.includes('W/mk')) {
+                                // Use detected column positions or fallback
+                                if (pruefergebnisCol > -1 && requirementCol > -1 && parts.length > Math.max(pruefergebnisCol, requirementCol)) {
+                                    // Use column positions from header
+                                    testResult = parts[pruefergebnisCol] || '';
+                                    requirement = parts[requirementCol] || '';
+                                    console.log(`  ✅ Using header columns: Pruefergebnis[${pruefergebnisCol}]="${testResult}", Requirement[${requirementCol}]="${requirement}"`);
+                                } else if (parts.length >= 3) {
+                                    // Fallback: col 0 = property name, col 1 = test result, col 2 = requirement
+                                    testResult = parts[1] || '';
+                                    requirement = parts[2] || '';
+                                    console.log(`  ✅ Using fallback: parts[1]="${testResult}", parts[2]="${requirement}"`);
+                                } else if (parts.length === 2) {
+                                    // Only 2 columns: col 0 = property, col 1 = either result or requirement
+                                    // Assume it's the test result
+                                    testResult = parts[1] || '';
+                                    console.log(`  ⚠️ Only 2 parts: parts[1]="${testResult}"`);
+                                }
+                                
+                                if (testResult || requirement) {
+                                    // Fix OCR errors: Lambda symbol (λ) for thermal conductivity
+                                    if (propertyLine.includes('W/mK') || propertyLine.includes('W/mk') || 
+                                        testResult.includes('W/mK') || requirement.includes('W/mK')) {
+                                        // λ10 is often read as "110", "A10", "l10", or "λ10"
+                                        // Apply fix to both testResult and requirement
+                                        const fixLambda = (str) => {
+                                            return str
+                                                .replace(/^(110|A10|l10|L10)\s*([≤<=])/i, 'λ10 $2')
+                                                .replace(/([≤<=])\s*(110|A10|l10|L10)\s/gi, '$1 λ10 ')
+                                                .replace(/\b(110|A10|l10|L10)\b/g, 'λ10');
+                                        };
+                                        
+                                        testResult = fixLambda(testResult);
+                                        requirement = fixLambda(requirement);
+                                        
+                                        console.log(`  🔧 Lambda fix applied - Result: "${testResult}", Req: "${requirement}"`);
+                                    }
                                     
-                                    const fixLambda = (str) => {
-                                        return str
-                                            .replace(/^(110|A10|l10|L10)\s*([≤<=])/i, 'λ10 $2')
-                                            .replace(/([≤<=])\s*(110|A10|l10|L10)\s/gi, '$1 λ10 ')
-                                            .replace(/\b(110|A10|l10|L10)\b/g, 'λ10');
+                                    console.log(`  📊 Test Result: "${testResult}"`);
+                                    console.log(`  📋 Requirement: "${requirement}"`);
+                                    
+                                    // Check compliance
+                                    const compliance = checkCompliance(testResult, requirement);
+                                    console.log(`  ${compliance === 'Uygun' ? '✅' : '❌'} Compliance: ${compliance}`);
+                                    
+                                    // Store in properties with compliance status
+                                    properties[pattern.tdsProp] = {
+                                        value: testResult,
+                                        requirement: requirement,
+                                        compliance: compliance
                                     };
                                     
-                                    testResult = fixLambda(testResult);
-                                    requirement = fixLambda(requirement);
-                                    
-                                    console.log(`  🔧 Lambda fix applied`);
-                                }
-                                
-                                console.log(`  📊 Test Result: "${testResult}"`);
-                                console.log(`  📋 Requirement: "${requirement}"`);
-                                
-                                // Check compliance
-                                const compliance = checkCompliance(testResult, requirement);
-                                console.log(`  ${compliance === 'Uygun' ? '✅' : '❌'} Compliance: ${compliance}`);
-                                
-                                // Store in properties with compliance status
-                                properties[pattern.tdsProp] = {
-                                    value: testResult,
-                                    requirement: requirement,
-                                    compliance: compliance
-                                };
-                                
-                                // Also store under aliases for TDS matching
-                                for (const alias of pattern.aliases) {
-                                    properties[alias] = properties[pattern.tdsProp];
+                                    // Also store under aliases for TDS matching
+                                    for (const alias of pattern.aliases) {
+                                        properties[alias] = properties[pattern.tdsProp];
+                                    }
                                 }
                             }
                         }
