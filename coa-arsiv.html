@@ -5290,100 +5290,145 @@
                         }
                     }
                     
-                    // Fallback: Eski line-based parsing (koordinat bazlı başarısızsa)
+                    // Fallback: Eski parsing (koordinat bazlı başarısızsa veya OCR.space kullanılıyorsa)
                     if (Object.keys(properties).length === 0) {
-                        console.log('⚠️ Fallback: Line-based parsing kullanılıyor...');
-                        const textLines = lines.length > 0 ? lines : text.split('\n');
-                        console.log('📋 Toplam satır:', textLines.length);
-                        console.log('📋 İlk 15 satır:', textLines.slice(0, 15));
-                    
-                    // Her özellik için arama - satır satır
-                    const propertyPatterns = [
-                        { tr: 'Dansite', en: 'DENSITY', key: 'Density' },
-                        { tr: 'Sertlik', en: 'HARDNESS', key: 'Sertlik' },
-                        { tr: 'Kopma Direnci', en: 'TENSILE STRENGHT', key: 'Kopma Direnci' },
-                        { tr: 'Kopma Uzama', en: 'ELONGATION AT BREAK', key: 'Kopma Uzama' },
-                        { tr: 'Elastikiyet', en: 'RESILIENCE', key: 'Elastikiyet' },
-                        { tr: 'Deformasyon', en: 'COMPRESSION SET', key: 'Deformasyon' }
-                    ];
-                    
-                    // Azure table format: Her property bir satırda, sonraki satırlar değerler
-                    // Örnek satırlar:
-                    // "Dansite"
-                    // "DENSITY"
-                    // "kg/m3"
-                    // "ISO845"
-                    // "15+1,5"
-                    // "14,38"  ← TEST RESULT
-                    // "Sertlik (%40)"
-                    // "HARDNESS(%40)"
-                    // ...
-                    
-                    for (const pattern of propertyPatterns) {
-                        // Bu özelliğin Türkçe veya İngilizce adını içeren satırı bul
-                        let propertyLineIndex = -1;
+                        console.log('⚠️ Fallback parsing kullanılıyor...');
                         
-                        for (let i = 0; i < textLines.length; i++) {
-                            const line = textLines[i];
-                            const lineUpper = line.toUpperCase();
-                            
-                            if (line.includes(pattern.tr) || lineUpper.includes(pattern.en)) {
-                                propertyLineIndex = i;
-                                console.log(`🎯 ${pattern.key} bulundu (satır ${i}): "${line}"`);
-                                break;
-                            }
-                        }
+                        // Her özellik için arama patterns
+                        const propertyPatterns = [
+                            { tr: 'Dansite', en: 'DENSITY', key: 'Density' },
+                            { tr: 'Sertlik', en: 'HARDNESS', key: 'Sertlik' },
+                            { tr: 'Kopma Direnci', en: 'TENSILE STRENGHT', key: 'Kopma Direnci' },
+                            { tr: 'Kopma Uzama', en: 'ELONGATION AT BREAK', key: 'Kopma Uzama' },
+                            { tr: 'Elastikiyet', en: 'RESILIENCE', key: 'Elastikiyet' },
+                            { tr: 'Deformasyon', en: 'COMPRESSION SET', key: 'Deformasyon' }
+                        ];
                         
-                        if (propertyLineIndex === -1) {
-                            console.log(`⚠️ ${pattern.key} bulunamadı`);
-                            continue;
-                        }
-                        
-                        // Bu satırdan SONRA, ilk SADE SAYIYI bul (±, >, < içermeyen)
-                        // Standart değerler ±, >, < içerir - onları atla
-                        // TEST RESULT = sonraki satırlardaki ilk sade sayı
-                        
-                        let testValue = null;
-                        for (let i = propertyLineIndex + 1; i < Math.min(propertyLineIndex + 8, textLines.length); i++) {
-                            const line = textLines[i].trim();
+                        // Azure: line-based parsing (satır satır yapılandırılmış)
+                        if (lines.length > 0) {
+                            console.log('📋 Azure line-based parsing (satır satır)');
+                            console.log('📋 Toplam satır:', lines.length);
+                            console.log('📋 İlk 15 satır:', lines.slice(0, 15));
                             
-                            // Boş satır atla
-                            if (!line) continue;
-                            
-                            // ISO/ASTM standardı atla
-                            if (/ISO\s*\d+|ASTM|SO\d+/i.test(line)) {
-                                console.log(`    ⏭️ Standart atlandı: "${line}"`);
-                                continue;
-                            }
-                            
-                            // Standart değer atla (±, >, <, +, %, ( içerenler)
-                            if (/[±≤≥><+%()]/.test(line)) {
-                                console.log(`    ⏭️ Standart değer atlandı: "${line}"`);
-                                continue;
-                            }
-                            
-                            // Sadece sayı + virgül/nokta mı?
-                            if (/^[\d.,]+$/.test(line)) {
-                                const cleaned = line.replace(/,/g, '.');
-                                const value = parseFloat(cleaned);
+                            for (const pattern of propertyPatterns) {
+                                // Bu özelliğin Türkçe veya İngilizce adını içeren satırı bul
+                                let propertyLineIndex = -1;
                                 
-                                if (!isNaN(value) && value >= 0.001 && value <= 500) {
-                                    testValue = cleaned;
-                                    console.log(`    ✅ ${pattern.key} TEST RESULT bulundu: "${line}" → ${testValue} (satır ${i})`);
-                                    break;
+                                for (let i = 0; i < lines.length; i++) {
+                                    const line = lines[i];
+                                    const lineUpper = line.toUpperCase();
+                                    
+                                    if (line.includes(pattern.tr) || lineUpper.includes(pattern.en)) {
+                                        propertyLineIndex = i;
+                                        console.log(`🎯 ${pattern.key} bulundu (satır ${i}): "${line}"`);
+                                        break;
+                                    }
+                                }
+                                
+                                if (propertyLineIndex === -1) {
+                                    console.log(`⚠️ ${pattern.key} bulunamadı`);
+                                    continue;
+                                }
+                                
+                                // Bu satırdan SONRA, ilk SADE SAYIYI bul (±, >, < içermeyen)
+                                let testValue = null;
+                                for (let i = propertyLineIndex + 1; i < Math.min(propertyLineIndex + 8, lines.length); i++) {
+                                    const line = lines[i].trim();
+                                    
+                                    if (!line) continue;
+                                    if (/ISO\s*\d+|ASTM|SO\d+/i.test(line)) {
+                                        console.log(`    ⏭️ Standart atlandı: "${line}"`);
+                                        continue;
+                                    }
+                                    if (/[±≤≥><+%()]/.test(line)) {
+                                        console.log(`    ⏭️ Standart değer atlandı: "${line}"`);
+                                        continue;
+                                    }
+                                    
+                                    if (/^[\d.,]+$/.test(line)) {
+                                        const cleaned = line.replace(/,/g, '.');
+                                        const value = parseFloat(cleaned);
+                                        
+                                        if (!isNaN(value) && value >= 0.001 && value <= 500) {
+                                            testValue = cleaned;
+                                            console.log(`    ✅ ${pattern.key} TEST RESULT bulundu: "${line}" → ${testValue} (satır ${i})`);
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                if (testValue) {
+                                    properties[pattern.key] = testValue;
+                                    properties[pattern.key.toLowerCase()] = testValue;
+                                    properties[pattern.tr] = testValue;
+                                    properties[pattern.tr.toLowerCase()] = testValue;
+                                } else {
+                                    console.log(`    ❌ ${pattern.key} için TEST RESULT bulunamadı`);
+                                }
+                            }
+                        } 
+                        // OCR.space: regex-based parsing (tüm text tek blok)
+                        else {
+                            console.log('🟢 OCR.space regex-based parsing');
+                            console.log('📝 Text uzunluğu:', text.length, 'karakter');
+                            console.log('📝 İlk 500 karakter:', text.substring(0, 500));
+                            
+                            for (const pattern of propertyPatterns) {
+                                console.log(`\n🔍 ${pattern.key} aranıyor...`);
+                                
+                                // Hem Türkçe hem İngilizce adı ara
+                                const searchPattern = `(${pattern.tr}|${pattern.en})`;
+                                const regex = new RegExp(searchPattern, 'i');
+                                const match = text.match(regex);
+                                
+                                if (match) {
+                                    const matchIndex = match.index;
+                                    console.log(`  ✅ "${match[0]}" bulundu (index: ${matchIndex})`);
+                                    
+                                    // Bu özellikten sonraki 400 karakteri al
+                                    const chunk = text.substring(matchIndex, matchIndex + 400);
+                                    console.log(`  📦 Chunk (${chunk.length} karakter):`, chunk.substring(0, 150));
+                                    
+                                    // Chunk içinde SADECE SADE SAYILARI ara (±, >, <, %, ( içermeyenler)
+                                    // Regex: Satır başında veya boşluktan sonra başlayan sayılar
+                                    const numberMatches = chunk.match(/(?:^|\s)(\d+[.,]\d+|\d+)(?:\s|$)/g);
+                                    
+                                    if (numberMatches && numberMatches.length > 0) {
+                                        console.log(`  📊 Bulunan sayılar:`, numberMatches.map(n => n.trim()));
+                                        
+                                        // Tüm sayıları test et, standart değerleri atla
+                                        for (const numStr of numberMatches) {
+                                            const cleaned = numStr.trim().replace(/,/g, '.');
+                                            const value = parseFloat(cleaned);
+                                            
+                                            if (!isNaN(value) && value >= 0.001 && value <= 500) {
+                                                // Bu sayının etrafındaki texti kontrol et
+                                                const numIndex = chunk.indexOf(numStr);
+                                                const context = chunk.substring(Math.max(0, numIndex - 30), numIndex + 30);
+                                                
+                                                // Standart değer mi? (±, >, <, % içeriyorsa)
+                                                if (/[±≤≥><+%()]/.test(context)) {
+                                                    console.log(`    ⏭️ Standart değer atlandı: ${cleaned} (context: "${context}")`);
+                                                    continue;
+                                                }
+                                                
+                                                // İlk temiz sayıyı al (TEST RESULT olmalı)
+                                                console.log(`    ✅ ${pattern.key} TEST RESULT = ${cleaned}`);
+                                                properties[pattern.key] = cleaned;
+                                                properties[pattern.key.toLowerCase()] = cleaned;
+                                                properties[pattern.tr] = cleaned;
+                                                properties[pattern.tr.toLowerCase()] = cleaned;
+                                                break;
+                                            }
+                                        }
+                                    } else {
+                                        console.log(`  ⚠️ Chunk içinde sayı bulunamadı`);
+                                    }
+                                } else {
+                                    console.log(`  ❌ "${pattern.tr}" veya "${pattern.en}" bulunamadı`);
                                 }
                             }
                         }
-                        
-                        if (testValue) {
-                            properties[pattern.key] = testValue;
-                            properties[pattern.key.toLowerCase()] = testValue;
-                            properties[pattern.tr] = testValue;
-                            properties[pattern.tr.toLowerCase()] = testValue;
-                        } else {
-                            console.log(`    ❌ ${pattern.key} için TEST RESULT bulunamadı`);
-                        }
-                    }
                     } // Fallback bloğu sonu
                     
                     console.log('📊 Çıkarılan Özellikler:', properties);
