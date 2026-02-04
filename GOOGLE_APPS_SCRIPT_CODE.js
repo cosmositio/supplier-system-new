@@ -1493,6 +1493,7 @@ function getCOARecordsSheet() {
       'Standart Değer',
       'Alt Limit',
       'Üst Limit',
+      'Requirement',
       'COA Değeri',
       'Durum',
       'Kayıt Zamanı'
@@ -1521,8 +1522,10 @@ function getCOARecordsSheet() {
     sheet.setColumnWidth(11, 100); // Standart Değer
     sheet.setColumnWidth(12, 80);  // Alt Limit
     sheet.setColumnWidth(13, 80);  // Üst Limit
-    sheet.setColumnWidth(14, 80);  // Durum
-    sheet.setColumnWidth(15, 150); // Kayıt
+    sheet.setColumnWidth(14, 150); // Requirement
+    sheet.setColumnWidth(15, 80);  // COA Değeri
+    sheet.setColumnWidth(16, 80);  // Durum
+    sheet.setColumnWidth(17, 150); // Kayıt
     
     // Freeze başlık
     sheet.setFrozenRows(1);
@@ -1559,15 +1562,16 @@ function saveCOARecord(data) {
         prop.standardValue || '',
         prop.min || '',
         prop.max || '',
-        "'" + (prop.coaValue || ''),  // Tek tırnak = TEXT formatı (0.090 sayı olmasın)
-        prop.status || '-',
+        prop.requirement || '',  // Yeni: Compliance mode için
+        prop.coaValue || '',
+        prop.status || '',
         now
       ]);
     });
     
     // Tüm satırları ekle
     if (rows.length > 0) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 16).setValues(rows);
+      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 17).setValues(rows);
     }
     
     return { 
