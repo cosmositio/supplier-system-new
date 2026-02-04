@@ -1450,27 +1450,7 @@
                 <p style="font-size: 0.9em; margin-top: 10px;">COA kayıtlarınızdaki özelliklerin zaman içindeki değişimini görün</p>
             </div>
             
-            <div id="analysisStats" style="display: none; background: #f5f5f5; padding: 15px; border-radius: 8px; margin-top: 20px;">
-                <h3 style="margin-bottom: 10px; color: #333;">📊 İstatistikler</h3>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
-                    <div>
-                        <div style="font-size: 0.85em; color: #666;">Ortalama</div>
-                        <div style="font-size: 1.3em; font-weight: 600; color: #2196f3;" id="statAvg">-</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 0.85em; color: #666;">Minimum</div>
-                        <div style="font-size: 1.3em; font-weight: 600; color: #4caf50;" id="statMin">-</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 0.85em; color: #666;">Maksimum</div>
-                        <div style="font-size: 1.3em; font-weight: 600; color: #f44336;" id="statMax">-</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 0.85em; color: #666;">Kayıt Sayısı</div>
-                        <div style="font-size: 1.3em; font-weight: 600; color: #ff9800;" id="statCount">-</div>
-                    </div>
-                </div>
-            </div>
+
         </div>
     </div>
     
@@ -6467,12 +6447,6 @@
                 emptyState.style.display = 'block';
             }
             
-            // İstatistikleri gizle
-            const statsDiv = document.getElementById('analysisStats');
-            if (statsDiv) {
-                statsDiv.style.display = 'none';
-            }
-            
             await loadAnalysisSuppliers();
         }
         
@@ -6631,7 +6605,6 @@
             chartsContainer.style.display = 'block';
             
             document.getElementById('analysisEmptyState').style.display = 'none';
-            document.getElementById('analysisStats').style.display = 'block';
             
             let allValues = [];
             
@@ -7016,18 +6989,6 @@
                     </div>
                 `;
             });
-            
-            // İstatistikler (tüm seçili özellikler için)
-            if (allValues.length > 0) {
-                const avg = (allValues.reduce((a, b) => a + b, 0) / allValues.length).toFixed(2);
-                const min = Math.min(...allValues).toFixed(2);
-                const max = Math.max(...allValues).toFixed(2);
-                
-                document.getElementById('statAvg').textContent = avg;
-                document.getElementById('statMin').textContent = min;
-                document.getElementById('statMax').textContent = max;
-                document.getElementById('statCount').textContent = allValues.length;
-            }
             
             showToast(`✅ ${selectedProperties.length} özellik için grafik oluşturuldu`, 'success');
         }
