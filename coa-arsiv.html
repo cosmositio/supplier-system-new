@@ -5368,41 +5368,35 @@
                             
                             if (match) {
                                 const idx = match.index;
-                                const chunk = text.substring(idx, idx + 500);
-                                console.log(`\n🔍 ${pattern.name} found:`, chunk.substring(0, 200));
+                                // Get entire line containing property name
+                                const beforeProp = text.substring(Math.max(0, idx - 50), idx);
+                                const afterProp = text.substring(idx, idx + 300);
+                                const lineStart = beforeProp.lastIndexOf('\n') + 1;
+                                const fullLine = text.substring(Math.max(0, idx - 50) + lineStart, idx + 300);
+                                const propertyLine = fullLine.split(/[\n\r]+/)[0];
                                 
-                                // Extract Pruefergebnis (test result) and Requirement
-                                const lines = chunk.split(/[\n\r]+/);
+                                console.log(`\n🔍 ${pattern.name} found, full line:`, propertyLine);
+                                
+                                // Split the property line by TAB
+                                const parts = propertyLine.split(/[\t]+/).map(p => p.trim()).filter(p => p);
+                                console.log(`  🔧 Line parts (${parts.length}):`, parts);
+                                
                                 let testResult = '';
                                 let requirement = '';
                                 
-                                for (let i = 0; i < lines.length; i++) {
-                                    const line = lines[i].trim();
-                                    
-                                    // Skip header line and empty lines
-                                    if (!line || line.includes(pattern.name) || line.includes('Pruefmerkmale')) continue;
-                                    
-                                    // Split by TAB
-                                    const parts = line.split(/[\t]+/).map(p => p.trim()).filter(p => p);
-                                    
-                                    console.log(`  🔧 Line parts (${parts.length}):`, parts);
-                                    
-                                    // Use detected column positions or fallback
-                                    if (pruefergebnisCol > -1 && requirementCol > -1) {
-                                        // Use column positions from header
-                                        if (parts.length > Math.max(pruefergebnisCol, requirementCol)) {
-                                            testResult = parts[pruefergebnisCol] || '';
-                                            requirement = parts[requirementCol] || '';
-                                            if (testResult || requirement) break;
-                                        }
-                                    } else {
-                                        // Fallback: Assume Pruefergebnis = col 0, Requirement = col 1
-                                        if (parts.length >= 2) {
-                                            testResult = parts[0];
-                                            requirement = parts[1];
-                                            break;
-                                        }
-                                    }
+                                // Use detected column positions or fallback
+                                if (pruefergebnisCol > -1 && requirementCol > -1 && parts.length > Math.max(pruefergebnisCol, requirementCol)) {
+                                    // Use column positions from header
+                                    testResult = parts[pruefergebnisCol] || '';
+                                    requirement = parts[requirementCol] || '';
+                                } else if (parts.length >= 3) {
+                                    // Fallback: col 0 = property name, col 1 = test result, col 2 = requirement
+                                    testResult = parts[1] || '';
+                                    requirement = parts[2] || '';
+                                } else if (parts.length === 2) {
+                                    // Only 2 columns: col 0 = property, col 1 = either result or requirement
+                                    // Assume it's the test result
+                                    testResult = parts[1] || '';
                                 }
                                 
                                 if (testResult || requirement) {
