@@ -6865,11 +6865,16 @@
                             title: {
                                 display: true,
                                 text: `${supplier} - ${material} - ${property}`,
-                                font: { size: 16, weight: 'bold' }
+                                font: { size: 18, weight: 'bold' },
+                                padding: { top: 10, bottom: 15 }
                             },
                             legend: {
                                 display: true,
-                                position: 'top'
+                                position: 'top',
+                                labels: {
+                                    font: { size: 13 },
+                                    padding: 15
+                                }
                             },
                             tooltip: {
                                 callbacks: {
@@ -6891,13 +6896,18 @@
                                 beginAtZero: true,
                                 title: {
                                     display: true,
-                                    text: propData[0]?.unit || ''
+                                    text: propData[0]?.unit || '',
+                                    font: { size: 13, weight: 'bold' }
+                                },
+                                ticks: {
+                                    font: { size: 12 }
                                 }
                             },
                             x: {
                                 ticks: {
                                     maxRotation: 45,
-                                    minRotation: 45
+                                    minRotation: 45,
+                                    font: { size: 11 }
                                 }
                             }
                         }
