@@ -5510,14 +5510,16 @@
                                     console.log(`  ❌ "${pattern.tr}" veya "${pattern.en}" bulunamadı`);
                                 }
                             }
+                        }
+                        
+                        // ÖNEMLİ: "INSPECTED VALUES" parsing - TÜM OCR MOTORLARI İÇİN
+                        // Bu format: Carcano gibi firmaların COA'larında kullanılır
+                        // Azure veya OCR.space hiçbir değer bulamadıysa burası çalışır
+                        if (Object.keys(properties).length === 0) {
+                            console.log('\n🔍 INSPECTED VALUES başlığı aranıyor...');
                             
-                            // ÖNEMLİ: "INSPECTED VALUES" veya "AVERAGE VALUE" başlığı altındaki değerleri de dene
-                            // Bu format: Carcano gibi firmaların COA'larında kullanılır
-                            if (Object.keys(properties).length === 0) {
-                                console.log('\n🔍 INSPECTED VALUES başlığı aranıyor...');
-                                
-                                // "INSPECTED VALUES" veya "AVERAGE VALUE" başlığını bul
-                                const inspectedMatch = text.match(/(INSPECTED VALUES|AVERAGE VALUE OF THE LOT|TEST RESULTS|MEASURED VALUES)/i);
+                            // "INSPECTED VALUES" veya "AVERAGE VALUE" başlığını bul
+                            const inspectedMatch = text.match(/(INSPECTED VALUES|AVERAGE VALUE OF THE LOT|TEST RESULTS|MEASURED VALUES)/i);
                                 
                                 if (inspectedMatch) {
                                     console.log(`✅ "${inspectedMatch[0]}" başlığı bulundu (index: ${inspectedMatch.index})!`);
@@ -5585,7 +5587,6 @@
                                 } else {
                                     console.log('⚠️ INSPECTED VALUES başlığı bulunamadı');
                                 }
-                            }
                         }
                     } // Fallback bloğu sonu
                     
