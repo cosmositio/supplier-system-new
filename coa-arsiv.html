@@ -5385,34 +5385,35 @@
                                     const matchIndex = match.index;
                                     console.log(`  ✅ "${match[0]}" bulundu (index: ${matchIndex})`);
                                     
-                                    // Bu özellikten sonraki 400 karakteri al
-                                    const chunk = text.substring(matchIndex, matchIndex + 400);
-                                    console.log(`  📦 Chunk (${chunk.length} karakter):`, chunk.substring(0, 150));
+                                    // Bu özellikten sonraki 300 karakteri al
+                                    const afterProperty = text.substring(matchIndex + match[0].length, matchIndex + match[0].length + 300);
+                                    console.log(`  📦 Chunk (${afterProperty.length} karakter):`, afterProperty.substring(0, 100));
                                     
-                                    // Chunk içinde SADECE SADE SAYILARI ara (±, >, <, %, ( içermeyenler)
-                                    // Regex: Satır başında veya boşluktan sonra başlayan sayılar
-                                    const numberMatches = chunk.match(/(?:^|\s)(\d+[.,]\d+|\d+)(?:\s|$)/g);
+                                    // TAB veya çok boşlukla ayrılmış kolonları parse et
+                                    // Format: Dansite\tDENSITY\tkg/m3\tISO845\t18+1,5\t17,54
+                                    const parts = afterProperty.split(/[\t\n]+/).map(p => p.trim()).filter(p => p);
+                                    console.log(`  🔧 Parse edilen parçalar:`, parts);
                                     
-                                    if (numberMatches && numberMatches.length > 0) {
-                                        console.log(`  📊 Bulunan sayılar:`, numberMatches.map(n => n.trim()));
+                                    // Parçalardan SADE SAYILARI bul (±, >, <, +, % içermeyenler)
+                                    for (const part of parts) {
+                                        // İçinde ±, >, <, +, % varsa atla (standart değer)
+                                        if (/[±≤≥><+%()]/.test(part)) {
+                                            console.log(`    ⏭️ Standart atlandı: "${part}"`);
+                                            continue;
+                                        }
                                         
-                                        // Tüm sayıları test et, standart değerleri atla
-                                        for (const numStr of numberMatches) {
-                                            const cleaned = numStr.trim().replace(/,/g, '.');
+                                        // ISO/ASTM atla
+                                        if (/ISO|ASTM|STANDARD/i.test(part)) {
+                                            console.log(`    ⏭️ ISO/ASTM atlandı: "${part}"`);
+                                            continue;
+                                        }
+                                        
+                                        // Sadece sayı + virgül/nokta mı?
+                                        if (/^\d+[.,]?\d*$/.test(part)) {
+                                            const cleaned = part.replace(/,/g, '.');
                                             const value = parseFloat(cleaned);
                                             
                                             if (!isNaN(value) && value >= 0.001 && value <= 500) {
-                                                // Bu sayının etrafındaki texti kontrol et
-                                                const numIndex = chunk.indexOf(numStr);
-                                                const context = chunk.substring(Math.max(0, numIndex - 30), numIndex + 30);
-                                                
-                                                // Standart değer mi? (±, >, <, % içeriyorsa)
-                                                if (/[±≤≥><+%()]/.test(context)) {
-                                                    console.log(`    ⏭️ Standart değer atlandı: ${cleaned} (context: "${context}")`);
-                                                    continue;
-                                                }
-                                                
-                                                // İlk temiz sayıyı al (TEST RESULT olmalı)
                                                 console.log(`    ✅ ${pattern.key} TEST RESULT = ${cleaned}`);
                                                 properties[pattern.key] = cleaned;
                                                 properties[pattern.key.toLowerCase()] = cleaned;
@@ -5421,8 +5422,31 @@
                                                 break;
                                             }
                                         }
-                                    } else {
-                                        console.log(`  ⚠️ Chunk içinde sayı bulunamadı`);
+                                    }
+                                    
+                                    // Eğer yukarıdaki yöntem başarısızsa, fallback: regex ile sayı ara
+                                    if (!properties[pattern.key]) {
+                                        console.log(`  🔄 Fallback: Regex ile sayı aranıyor...`);
+                                        const numberMatches = afterProperty.match(/\b\d+[.,]\d+\b/g);
+                                        
+                                        if (numberMatches && numberMatches.length > 0) {
+                                            console.log(`  📊 Bulunan sayılar:`, numberMatches);
+                                            
+                                            // İlk sade sayıyı al
+                                            for (const numStr of numberMatches) {
+                                                const cleaned = numStr.replace(/,/g, '.');
+                                                const value = parseFloat(cleaned);
+                                                
+                                                if (!isNaN(value) && value >= 0.001 && value <= 500) {
+                                                    console.log(`    ✅ ${pattern.key} TEST RESULT (fallback) = ${cleaned}`);
+                                                    properties[pattern.key] = cleaned;
+                                                    properties[pattern.key.toLowerCase()] = cleaned;
+                                                    properties[pattern.tr] = cleaned;
+                                                    properties[pattern.tr.toLowerCase()] = cleaned;
+                                                    break;
+                                                }
+                                            }
+                                        }
                                     }
                                 } else {
                                     console.log(`  ❌ "${pattern.tr}" veya "${pattern.en}" bulunamadı`);
