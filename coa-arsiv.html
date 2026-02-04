@@ -5264,7 +5264,7 @@
                         // Bu satırlardan sayıları çıkar (ters sıradan - en son sayı TEST RESULT)
                         const allNumbers = [];
                         for (let i = propertyLines.length - 1; i >= 0; i--) {
-                            const line = propertyLines[i];
+                            const line = propertyLines[i].trim();
                             
                             // ISO/ASTM standart satırlarını atla
                             if (/ISO\s*\d+|ASTM\s*[A-Z]\d+|SO\d+/i.test(line)) {
@@ -5272,26 +5272,33 @@
                                 continue;
                             }
                             
-                            const nums = line.match(/[\d.,]+/g);
-                            if (nums) {
-                                nums.forEach(n => {
-                                    const cleaned = n.replace(/,/g, '.');
-                                    const value = parseFloat(cleaned);
-                                    // 0.001-500 arası (daha geniş aralık - 0.07, 0.090 gibi değerler için)
-                                    if (!isNaN(value) && value >= 0.001 && value <= 500) {
-                                        allNumbers.push({ 
-                                            original: n, 
-                                            cleaned: cleaned, 
-                                            value: value,
-                                            lineIndex: i,
-                                            line: line
-                                        });
-                                    }
-                                });
+                            // STANDART DEĞER satırlarını atla (±, >, <, %20 gibi içerenler)
+                            if (/[±≤≥><]/.test(line) || /\(\%/.test(line)) {
+                                console.log(`    ⏭️ Standart değer atlandı: "${line}"`);
+                                continue;
+                            }
+                            
+                            // Sadece sayı + virgül/nokta olan satırları al (TEST RESULT)
+                            // Örnek: "14,38" veya "122" veya "0,090"
+                            const pureNumberMatch = line.match(/^[\d.,]+$/);
+                            if (pureNumberMatch) {
+                                const cleaned = line.replace(/,/g, '.');
+                                const value = parseFloat(cleaned);
+                                
+                                if (!isNaN(value) && value >= 0.001 && value <= 500) {
+                                    allNumbers.push({ 
+                                        original: line, 
+                                        cleaned: cleaned, 
+                                        value: value,
+                                        lineIndex: i,
+                                        line: line
+                                    });
+                                    console.log(`    ✅ TEST RESULT bulundu: "${line}" → ${cleaned}`);
+                                }
                             }
                         }
                         
-                        console.log(`  📊 Bulunan sayılar (ters sıra):`, allNumbers.map(n => `${n.original} (satır ${n.lineIndex})`));
+                        console.log(`  📊 Bulunan TEST RESULT değerleri:`, allNumbers.map(n => n.cleaned));
                         
                         if (allNumbers.length > 0) {
                             // İLK sayı test result'tır (ters sıradan aradık, yani en son satırdan)
