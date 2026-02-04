@@ -5529,68 +5529,69 @@
                                     const inspectedChunk = text.substring(startIndex, startIndex + 500);
                                     console.log('📦 Inspected chunk:', inspectedChunk.substring(0, 200));
                                     
-                                    // Bu chunk içinde TAB-separated değerleri parse et
-                                    // Format: Total weight (g/m²) | Tensile strength (N/mm²) | Elongation (%)
-                                    //         137.0               | 86.7                     | 13.3
-                                    
+                                    // Bu chunk içinde TAB-separated veya satır-separated değerleri parse et
                                     const inspectedLines = inspectedChunk.split(/[\n\r]+/).map(l => l.trim()).filter(l => l);
                                     console.log('📋 Inspected lines:', inspectedLines.slice(0, 10));
                                     
-                                    // İlk satır genelde başlıklar (optional)
-                                    // Sonraki satırlarda sayılar var
-                                    
-                                    // Her satırı parse et, TAB ile ayrılmış sayıları bul
+                                    // Tüm sayıları topla (satır satır veya TAB-separated)
+                                    const allNumbers = [];
                                     for (const line of inspectedLines) {
                                         // "Average value of the lot" gibi başlık satırları atla
-                                        if (/average|value|lot/i.test(line)) continue;
+                                        if (/average|value|lot|weight|tensile|strength|elongation|total/i.test(line) && !/^\d+[.,]?\d*$/.test(line)) {
+                                            continue;
+                                        }
                                         
-                                        // TAB ile ayrılmış parçalara böl
-                                        const parts = line.split(/[\t]+/).map(p => p.trim()).filter(p => p);
+                                        // Parantez içindeki birimler atla: (g/m2), (N/mm2), (%)
+                                        if (/^\([^)]+\)$/.test(line)) {
+                                            continue;
+                                        }
                                         
-                                        // Sadece sayıları al
-                                        const numbers = parts.filter(p => /^\d+[.,]?\d*$/.test(p));
+                                        // TAB ile ayrılmış mı?
+                                        if (line.includes('\t')) {
+                                            const parts = line.split(/[\t]+/).map(p => p.trim());
+                                            for (const part of parts) {
+                                                if (/^\d+[.,]?\d*$/.test(part)) {
+                                                    allNumbers.push(part);
+                                                }
+                                            }
+                                        } 
+                                        // Tek başına sayı mı?
+                                        else if (/^\d+[.,]?\d*$/.test(line)) {
+                                            allNumbers.push(line);
+                                        }
+                                    }
+                                    
+                                    console.log(`🔢 Toplanan sayılar:`, allNumbers);
+                                    
+                                    if (allNumbers.length >= 2) {
+                                        // İlk 3 sayıyı özelliklere eşle
+                                        if (allNumbers[0]) {
+                                            const val0 = allNumbers[0].replace(/,/g, '.');
+                                            properties['Total Weight'] = val0;
+                                            properties['total weight'] = val0;
+                                            properties['Density'] = val0;
+                                            properties['density'] = val0;
+                                            properties['Dansite'] = val0;
+                                            properties['dansite'] = val0;
+                                            console.log(`  ✅ Total Weight (inspected) = ${val0}`);
+                                        }
                                         
-                                        if (numbers.length >= 2) {
-                                            console.log(`🔢 Sayılar bulundu:`, numbers);
-                                            
-                                            // İlk 3 sayıyı özelliklere eşle:
-                                            // numbers[0] = Total weight (g/m²)
-                                            // numbers[1] = Tensile strength (N/mm²)
-                                            // numbers[2] = Elongation (%)
-                                            
-                                            if (numbers[0]) {
-                                                const val0 = numbers[0].replace(/,/g, '.');
-                                                // TDS'deki gerçek isimlerle kaydet
-                                                properties['Total Weight'] = val0;
-                                                properties['total weight'] = val0;
-                                                properties['Density'] = val0;
-                                                properties['density'] = val0;
-                                                properties['Dansite'] = val0;
-                                                properties['dansite'] = val0;
-                                                console.log(`  ✅ Total Weight (inspected) = ${val0}`);
-                                            }
-                                            
-                                            if (numbers[1]) {
-                                                const val1 = numbers[1].replace(/,/g, '.');
-                                                // TDS'deki gerçek isimlerle kaydet
-                                                properties['Tensile strength'] = val1;
-                                                properties['tensile strength'] = val1;
-                                                properties['Kopma Direnci'] = val1;
-                                                properties['kopma direnci'] = val1;
-                                                console.log(`  ✅ Tensile strength (inspected) = ${val1}`);
-                                            }
-                                            
-                                            if (numbers[2]) {
-                                                const val2 = numbers[2].replace(/,/g, '.');
-                                                // TDS'deki gerçek isimlerle kaydet
-                                                properties['Elongation'] = val2;
-                                                properties['elongation'] = val2;
-                                                properties['Kopma Uzama'] = val2;
-                                                properties['kopma uzama'] = val2;
-                                                console.log(`  ✅ Elongation (inspected) = ${val2}`);
-                                            }
-                                            
-                                            break; // İlk sayı satırını bulduk, çık
+                                        if (allNumbers[1]) {
+                                            const val1 = allNumbers[1].replace(/,/g, '.');
+                                            properties['Tensile strength'] = val1;
+                                            properties['tensile strength'] = val1;
+                                            properties['Kopma Direnci'] = val1;
+                                            properties['kopma direnci'] = val1;
+                                            console.log(`  ✅ Tensile strength (inspected) = ${val1}`);
+                                        }
+                                        
+                                        if (allNumbers[2]) {
+                                            const val2 = allNumbers[2].replace(/,/g, '.');
+                                            properties['Elongation'] = val2;
+                                            properties['elongation'] = val2;
+                                            properties['Kopma Uzama'] = val2;
+                                            properties['kopma uzama'] = val2;
+                                            console.log(`  ✅ Elongation (inspected) = ${val2}`);
                                         }
                                     }
                                 } else {
