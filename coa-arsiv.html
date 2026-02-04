@@ -5030,21 +5030,42 @@
                     console.log('✅ Azure OCR tamamlandı');
                     console.log('📝 Azure yanıtı:', result);
                     
-                    // Line-by-line array döndür (parsing için gerekli)
+                    // Line-by-line array + full result döndür
                     const linesArray = [];
+                    const wordsArray = [];
+                    
                     if (result.analyzeResult && result.analyzeResult.readResults) {
                         result.analyzeResult.readResults.forEach(page => {
+                            // Satırları topla
                             page.lines.forEach(line => {
                                 linesArray.push(line.text);
                             });
+                            
+                            // Kelimeleri topla (koordinatlarıyla birlikte)
+                            if (page.words) {
+                                page.words.forEach(word => {
+                                    wordsArray.push({
+                                        text: word.text,
+                                        x: word.boundingBox[0], // Sol üst x koordinatı
+                                        y: word.boundingBox[1], // Sol üst y koordinatı
+                                        confidence: word.confidence
+                                    });
+                                });
+                            }
                         });
                     }
                     
                     console.log('📝 Azure OCR toplam satır:', linesArray.length);
+                    console.log('📝 Azure OCR toplam kelime:', wordsArray.length);
                     console.log('📝 İlk 10 satır:', linesArray.slice(0, 10));
                     
-                    // Parse etmek için satırları newline ile birleştir
-                    return { text: linesArray.join('\n'), lines: linesArray };
+                    // Parse etmek için satırları, kelimeleri ve tam result'ı döndür
+                    return { 
+                        text: linesArray.join('\n'), 
+                        lines: linesArray,
+                        words: wordsArray,
+                        fullResult: result
+                    };
                 } else if (result.status === 'failed') {
                     throw new Error('Azure OCR başarısız oldu');
                 }
@@ -5112,6 +5133,7 @@
                     
                     let text = '';
                     let lines = []; // Azure için satır dizisi
+                    let words = []; // Azure words (koordinatlarıyla)
                     let ocrSuccess = false;
                     
                     // OCR motoruna göre işlem yap
@@ -5121,7 +5143,8 @@
                             console.log('🔵 Azure OCR kullanılıyor...');
                             const azureResult = await performAzureOCR(imageData);
                             text = azureResult.text;
-                            lines = azureResult.lines; // Satır dizisi
+                            lines = azureResult.lines;
+                            words = azureResult.words || [];
                             ocrSuccess = true;
                         } catch (azureError) {
                             console.error('❌ Azure OCR hatası:', azureError);
@@ -5192,7 +5215,83 @@
                     // Özellikleri parse et
                     const properties = {};
                     
-                    // Azure lines varsa kullan (daha doğru), yoksa text'i split et
+                    // Azure words varsa koordinatlarla parse et (EN DOĞRU YÖNTEM)
+                    if (words && words.length > 0) {
+                        console.log('🎯 Azure word koordinatları kullanılıyor...');
+                        console.log('📦 Toplam kelime:', words.length);
+                        
+                        // "TEST RESULT" başlığının x koordinatını bul
+                        let testResultX = null;
+                        for (let i = 0; i < words.length; i++) {
+                            const word = words[i];
+                            if (word.text.toUpperCase().includes('RESULT') || 
+                                word.text.toUpperCase().includes('SONUÇ')) {
+                                testResultX = word.x;
+                                console.log(`✅ TEST RESULT sütunu bulundu, x = ${testResultX}`);
+                                break;
+                            }
+                        }
+                        
+                        if (testResultX === null) {
+                            console.warn('⚠️ TEST RESULT başlığı bulunamadı, fallback mode');
+                        } else {
+                            // Her özellik için TEST RESULT sütunundaki değeri bul
+                            const propertyPatterns = [
+                                { tr: 'Dansite', en: 'DENSITY', key: 'Density' },
+                                { tr: 'Sertlik', en: 'HARDNESS', key: 'Sertlik' },
+                                { tr: 'Kopma Direnci', en: 'TENSILE', key: 'Kopma Direnci' },
+                                { tr: 'Kopma Uzama', en: 'ELONGATION', key: 'Kopma Uzama' },
+                                { tr: 'Elastikiyet', en: 'RESILIENCE', key: 'Elastikiyet' },
+                                { tr: 'Deformasyon', en: 'COMPRESSION', key: 'Deformasyon' }
+                            ];
+                            
+                            for (const pattern of propertyPatterns) {
+                                // Bu özelliğin y koordinatını bul
+                                let propertyY = null;
+                                for (let i = 0; i < words.length; i++) {
+                                    const word = words[i];
+                                    if (word.text.includes(pattern.tr) || 
+                                        word.text.toUpperCase().includes(pattern.en)) {
+                                        propertyY = word.y;
+                                        console.log(`🎯 ${pattern.key} bulundu, y = ${propertyY}`);
+                                        break;
+                                    }
+                                }
+                                
+                                if (propertyY !== null) {
+                                    // Bu satırda (y±20 tolerance) ve TEST RESULT sütununda (x±50) olan sayıyı bul
+                                    for (let i = 0; i < words.length; i++) {
+                                        const word = words[i];
+                                        
+                                        // Aynı satırda mı? (y koordinatı yakın)
+                                        if (Math.abs(word.y - propertyY) > 30) continue;
+                                        
+                                        // TEST RESULT sütununda mı? (x koordinatı yakın)
+                                        if (Math.abs(word.x - testResultX) > 100) continue;
+                                        
+                                        // Sayı mı?
+                                        const cleaned = word.text.replace(/,/g, '.');
+                                        const value = parseFloat(cleaned);
+                                        
+                                        if (!isNaN(value) && value >= 0.001 && value <= 500) {
+                                            console.log(`  ✅ ${pattern.key} = ${cleaned} (x=${word.x}, y=${word.y})`);
+                                            properties[pattern.key] = cleaned;
+                                            properties[pattern.key.toLowerCase()] = cleaned;
+                                            properties[pattern.tr] = cleaned;
+                                            properties[pattern.tr.toLowerCase()] = cleaned;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            console.log('📊 Koordinat bazlı çıkarım tamamlandı:', properties);
+                        }
+                    }
+                    
+                    // Fallback: Eski line-based parsing
+                    if (Object.keys(properties).length === 0) {
+                        console.log('⚠️ Fallback: Line-based parsing kullanılıyor...');
                     const textLines = lines.length > 0 ? lines : text.split('\n');
                     console.log('📋 Toplam satır:', textLines.length);
                     console.log('📋 İlk 15 satır:', textLines.slice(0, 15));
