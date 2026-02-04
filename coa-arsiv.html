@@ -6630,15 +6630,27 @@
                 
                 if (propData.length === 0) return;
                 
-                // Grafik container oluştur
+                // Grafik container oluştur (flex layout ile grafik + istatistikler)
+                const chartWrapper = document.createElement('div');
+                chartWrapper.style.cssText = 'background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; display: flex; gap: 20px;';
+                
+                // Sol taraf - Grafik
                 const chartDiv = document.createElement('div');
-                chartDiv.style.cssText = 'background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; height: 450px;';
+                chartDiv.style.cssText = 'flex: 1; height: 450px;';
                 
                 const canvas = document.createElement('canvas');
                 canvas.id = `analysisChart_${propIndex}`;
                 canvas.style.height = '400px';
                 chartDiv.appendChild(canvas);
-                chartsContainer.appendChild(chartDiv);
+                
+                // Sağ taraf - İstatistikler
+                const statsDiv = document.createElement('div');
+                statsDiv.style.cssText = 'width: 250px; background: #f8f9fa; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px;';
+                statsDiv.id = `stats_${propIndex}`;
+                
+                chartWrapper.appendChild(chartDiv);
+                chartWrapper.appendChild(statsDiv);
+                chartsContainer.appendChild(chartWrapper);
                 
                 // Label'lar
                 const labels = propData.map(r => {
@@ -6869,7 +6881,7 @@
                         },
                         scales: {
                             y: {
-                                beginAtZero: false,
+                                beginAtZero: true,
                                 title: {
                                     display: true,
                                     text: propData[0]?.unit || ''
@@ -6886,6 +6898,97 @@
                 });
                 
                 analysisCharts.push(chart);
+                
+                // Bu grafik için istatistikleri hesapla ve göster
+                const validValues = values.filter(v => v !== null);
+                const propStats = {
+                    count: validValues.length,
+                    min: validValues.length > 0 ? Math.min(...validValues) : 0,
+                    max: validValues.length > 0 ? Math.max(...validValues) : 0,
+                    avg: validValues.length > 0 ? validValues.reduce((a, b) => a + b, 0) / validValues.length : 0,
+                    target: propData[0]?.standardValue || '-',
+                    minLimit: propData[0]?.minLimit || '-',
+                    maxLimit: propData[0]?.maxLimit || '-',
+                    operator: propData[0]?.operator || 'range'
+                };
+                
+                // Tolerans dışı sayısı
+                let outOfSpec = 0;
+                propData.forEach(r => {
+                    const val = parseFloat(r.coaValue);
+                    if (isNaN(val)) return;
+                    
+                    const operator = r.operator || 'range';
+                    const stdValue = parseFloat(r.standardValue);
+                    const minLimit = parseFloat(r.minLimit);
+                    const maxLimit = parseFloat(r.maxLimit);
+                    let isCompliant = false;
+                    
+                    if (operator === 'range') {
+                        isCompliant = val >= minLimit && val <= maxLimit;
+                    } else if (operator === '>') {
+                        isCompliant = val > stdValue;
+                    } else if (operator === '<') {
+                        isCompliant = val < stdValue;
+                    } else if (operator === '>=') {
+                        isCompliant = val >= stdValue;
+                    } else if (operator === '<=') {
+                        isCompliant = val <= stdValue;
+                    } else if (operator === '=') {
+                        isCompliant = Math.abs(val - stdValue) < 0.01;
+                    }
+                    
+                    if (!isCompliant) outOfSpec++;
+                });
+                
+                propStats.outOfSpec = outOfSpec;
+                
+                // İstatistikleri statsDiv'e ekle
+                const statsContainer = document.getElementById(`stats_${propIndex}`);
+                statsContainer.innerHTML = `
+                    <div style="text-align: center; font-weight: bold; color: #2d5a3d; border-bottom: 2px solid #2d5a3d; padding-bottom: 8px; margin-bottom: 8px;">
+                        📊 İstatistikler
+                    </div>
+                    ${propStats.operator === 'range' ? `
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
+                        <span style="color: #666; font-size: 0.9em;">🎯 Hedef:</span>
+                        <span style="font-weight: 600;">${typeof propStats.target === 'number' ? propStats.target.toFixed(2) : propStats.target}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
+                        <span style="color: #666; font-size: 0.9em;">📉 Alt Limit:</span>
+                        <span style="font-weight: 600; color: #ff9800;">${typeof propStats.minLimit === 'number' ? propStats.minLimit.toFixed(2) : propStats.minLimit}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
+                        <span style="color: #666; font-size: 0.9em;">📈 Üst Limit:</span>
+                        <span style="font-weight: 600; color: #f44336;">${typeof propStats.maxLimit === 'number' ? propStats.maxLimit.toFixed(2) : propStats.maxLimit}</span>
+                    </div>
+                    ` : `
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
+                        <span style="color: #666; font-size: 0.9em;">🎯 ${propStats.operator === '>' || propStats.operator === '>=' ? 'Min' : propStats.operator === '<' || propStats.operator === '<=' ? 'Max' : 'Hedef'}:</span>
+                        <span style="font-weight: 600;">${typeof propStats.target === 'number' ? propStats.target.toFixed(2) : propStats.target}</span>
+                    </div>
+                    `}
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
+                        <span style="color: #666; font-size: 0.9em;">⬇️ Min Değer:</span>
+                        <span style="font-weight: 600; color: #2196f3;">${propStats.min.toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
+                        <span style="color: #666; font-size: 0.9em;">⬆️ Max Değer:</span>
+                        <span style="font-weight: 600; color: #9c27b0;">${propStats.max.toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
+                        <span style="color: #666; font-size: 0.9em;">📊 Ortalama:</span>
+                        <span style="font-weight: 600; color: #4caf50;">${propStats.avg.toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
+                        <span style="color: #666; font-size: 0.9em;">🔢 Kayıt Sayısı:</span>
+                        <span style="font-weight: 600;">${propStats.count}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; background: ${propStats.outOfSpec > 0 ? '#ffebee' : '#e8f5e9'}; margin: 8px -8px -8px -8px; padding: 10px 8px; border-radius: 0 0 8px 8px;">
+                        <span style="color: #666; font-size: 0.9em; font-weight: 600;">❌ Hedef Dışı:</span>
+                        <span style="font-weight: 700; font-size: 1.1em; color: ${propStats.outOfSpec > 0 ? '#d32f2f' : '#2e7d32'};">${propStats.outOfSpec}</span>
+                    </div>
+                `;
             });
             
             // İstatistikler (tüm seçili özellikler için)
