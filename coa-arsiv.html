@@ -5183,18 +5183,13 @@
                     console.log('📝 OCR Text uzunluğu:', text.length, 'karakter');
                     console.log('📝 OCR Text (tam):', text);
                     
-                    // Özellikleri parse et
-                    const lines = text.split('\n');
-                    
-                    console.log('📋 Toplam satır sayısı:', lines.length);
-                    console.log('📋 İLK 10 SATIR:', lines.slice(0, 10));
-                    
+                    // Özellikleri parse et - Azure formatı için özel regex
                     const properties = {};
-                    let tableStarted = false;
                     
-                    // Tablo özellik pattern'ları - Azure OCR formatında
+                    // Azure OCR formatı: Her özellik için Türkçe isim + İngilizce isim + değerler aynı bölgede
+                    // Örnek: "Dansite\nDENSITY\nkg/m3\nISO845\n15+1,5\n14,38"
+                    
                     const propertyPatterns = [
-                        // Türkçe - İngilizce eşleştirmesi (Azure tek satırda veriyor)
                         { tr: 'Dansite', en: 'DENSITY', key: 'Density' },
                         { tr: 'Sertlik', en: 'HARDNESS', key: 'Sertlik' },
                         { tr: 'Kopma Direnci', en: 'TENSILE STRENGHT', key: 'Kopma Direnci' },
@@ -5203,167 +5198,65 @@
                         { tr: 'Deformasyon', en: 'COMPRESSION SET', key: 'Deformasyon' }
                     ];
                     
-                    // Her pattern için metin içinde ara
                     for (const pattern of propertyPatterns) {
-                        // Özellik satırını bul (Türkçe + İngilizce beraber)
-                        for (let i = 0; i < lines.length; i++) {
-                            const line = lines[i];
-                            const lineUpper = line.toUpperCase();
+                        // Pattern: Türkçe isim + İngilizce isim + birkaç satır + TEST RESULT değeri
+                        // Türkçe veya İngilizce isimden sonra 200 karakter içinde son sayıyı bul
+                        
+                        // Önce Türkçe ismi bul
+                        const trIndex = text.indexOf(pattern.tr);
+                        const enIndex = text.toUpperCase().indexOf(pattern.en);
+                        
+                        if (trIndex === -1 && enIndex === -1) {
+                            console.log(`⚠️ ${pattern.key} bulunamadı`);
+                            continue;
+                        }
+                        
+                        // Hangi index daha önce geliyorsa ondan başla
+                        let startIndex = -1;
+                        if (trIndex !== -1 && enIndex !== -1) {
+                            startIndex = Math.min(trIndex, enIndex);
+                        } else if (trIndex !== -1) {
+                            startIndex = trIndex;
+                        } else {
+                            startIndex = enIndex;
+                        }
+                        
+                        // Bu noktadan sonraki 400 karakteri al (bir sonraki özelliğe kadar)
+                        const chunk = text.substring(startIndex, startIndex + 400);
+                        console.log(`🎯 ${pattern.key} chunk:`, chunk.substring(0, 150));
+                        
+                        // Bu chunk içindeki TÜM sayıları bul
+                        const numbers = chunk.match(/[\d.,]+/g);
+                        if (numbers && numbers.length > 0) {
+                            // Sayıları temizle ve parse et
+                            const cleanNumbers = numbers.map(n => {
+                                const cleaned = n.replace(/,/g, '.');
+                                return { original: n, cleaned: cleaned, value: parseFloat(cleaned) };
+                            }).filter(n => !isNaN(n.value));
                             
-                            // Bu satır özellik satırı mı?
-                            if (lineUpper.includes(pattern.tr.toUpperCase()) || lineUpper.includes(pattern.en)) {
-                                console.log(`🎯 ${pattern.key} satırı bulundu (${i}): "${line}"`);
+                            console.log(`  📊 Bulunan sayılar:`, cleanNumbers.map(n => n.original));
+                            
+                            // TEST RESULT genelde en son sayıdır (tablonun en sağ sütunu)
+                            // AMA standart değerleri atla (çok büyükler: ISO845, ISO1798 gibi)
+                            // Ve çok küçükler de atla (0 gibi)
+                            const validNumbers = cleanNumbers.filter(n => 
+                                n.value > 0.01 &&  // Çok küçük değil
+                                n.value < 10000    // Çok büyük değil (ISO numaraları vs)
+                            );
+                            
+                            if (validNumbers.length > 0) {
+                                // En son geçerli sayıyı al
+                                const testValue = validNumbers[validNumbers.length - 1].cleaned;
+                                console.log(`  ✅ ${pattern.key} = ${testValue}`);
                                 
-                                // Sonraki birkaç satırda test sonucunu ara
-                                // Azure format: özellik adı ve değerler ayrı satırlarda olabilir
-                                let testValue = null;
-                                
-                                // 1) Aynı satırda değer var mı? (genelde en sondaki sayı test sonucudur)
-                                const sameLineNumbers = line.match(/[\d.,]+/g);
-                                if (sameLineNumbers && sameLineNumbers.length > 0) {
-                                    // En son sayıyı al (TEST RESULT sütunu genelde en sağda)
-                                    testValue = sameLineNumbers[sameLineNumbers.length - 1].replace(/,/g, '.');
-                                    console.log(`  ✅ Aynı satırda bulundu: ${testValue}`);
-                                }
-                                
-                                // 2) Sonraki satırlarda ara (Azure bazen böyle veriyor)
-                                if (!testValue) {
-                                    for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
-                                        const nextLine = lines[j].trim();
-                                        // Sadece sayı içeren satır
-                                        const numMatch = nextLine.match(/^[\d.,]+$/);
-                                        if (numMatch) {
-                                            testValue = numMatch[0].replace(/,/g, '.');
-                                            console.log(`  ✅ Sonraki satırda bulundu (${j}): ${testValue}`);
-                                            break;
-                                        }
-                                    }
-                                }
-                                
-                                // Değer bulunduysa kaydet
-                                if (testValue) {
-                                    // Başta nokta varsa 0 ekle
-                                    if (testValue.startsWith('.')) {
-                                        testValue = '0' + testValue;
-                                    }
-                                    
-                                    // Hem Türkçe hem İngilizce key'lerle kaydet
-                                    properties[pattern.key] = testValue;
-                                    properties[pattern.key.toLowerCase()] = testValue;
-                                    properties[pattern.tr] = testValue;
-                                    properties[pattern.tr.toLowerCase()] = testValue;
-                                    
-                                    console.log(`  💾 ${pattern.key} = ${testValue}`);
-                                }
-                                
-                                break; // Bu pattern için başka satır arama
+                                // Kaydet
+                                properties[pattern.key] = testValue;
+                                properties[pattern.key.toLowerCase()] = testValue;
+                                properties[pattern.tr] = testValue;
+                                properties[pattern.tr.toLowerCase()] = testValue;
                             }
                         }
                     }
-                    
-                    // Eski TAB-based parsing (fallback)
-                    for (let i = 0; i < lines.length; i++) {
-                        const line = lines[i].trim();
-                        if (!line) continue;
-                        
-                        // Tablo başlangıcı
-                        if (line.toUpperCase().includes('PHYSICAL PROPERTIES') || line.toUpperCase().includes('FİZİKSEL ÖZELLİKLER')) {
-                            tableStarted = true;
-                            console.log('📊 Tablo başladı (satır ' + i + ')');
-                            continue;
-                        }
-                        
-                        // Başlık satırlarını atla
-                        if (line.toUpperCase().includes('UNIT') && line.toUpperCase().includes('STANDARD')) {
-                            console.log('  ⏭️ Başlık satırı atlandı');
-                            continue;
-                        }
-                        
-                        // SERTLİK İÇİN ÖZEL TESPİT - Shore A/D pattern'ı
-                        // Örnek: "Sertlik (Hardness)\tShore A\t65±5" gibi
-                        if (tableStarted && (line.toUpperCase().includes('SERTLİK') || line.toUpperCase().includes('HARDNESS'))) {
-                            console.log('🎯 SERTLİK satırı bulundu:', line);
-                            
-                            // Shore A veya Shore D ile devam ediyorsa (virgül desteği ile)
-                            const shoreMatch = line.match(/Shore\s*[AD][\s\t]+([\d.,]+)/i);
-                            if (shoreMatch) {
-                                // Virgülleri noktaya çevir
-                                const hardnessValue = shoreMatch[1].replace(/,/g, '.');
-                                console.log('  ✅ Sertlik değeri bulundu (Shore):', hardnessValue);
-                                
-                                // Hem Türkçe hem İngilizce olarak ekle
-                                properties['Sertlik'] = hardnessValue;
-                                properties['sertlik'] = hardnessValue;
-                                properties['Hardness'] = hardnessValue;
-                                properties['hardness'] = hardnessValue;
-                            } else {
-                                // TAB split deneme
-                                const cols = line.split('\t');
-                                console.log('  🔍 Sertlik sütunları:', cols);
-                                
-                                // Son sütunda sayı varsa (test sonucu)
-                                for (let j = cols.length - 1; j >= 0; j--) {
-                                    // TÜM virgülleri noktaya çevir
-                                    const cleaned = cols[j].trim().replace(/[±≤≥]/g, '').replace(/,/g, '.');
-                                    const numMatch = cleaned.match(/(\d+\.?\d*)/);
-                                    if (numMatch) {
-                                        const hardnessValue = numMatch[1];
-                                        console.log('  ✅ Sertlik değeri bulundu (TAB):', hardnessValue);
-                                        properties['Sertlik'] = hardnessValue;
-                                        properties['sertlik'] = hardnessValue;
-                                        properties['Hardness'] = hardnessValue;
-                                        properties['hardness'] = hardnessValue;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Tablo içinde TAB karakteri varsa parse et (normal özellikler için)
-                        if (tableStarted && line.includes('\t')) {
-                            const columns = line.split('\t');
-                            console.log(`📝 Satır parse: ${columns.length} sütun`);
-                            
-                            if (columns.length >= 6) {
-                                const turkishName = columns[0].trim();
-                                const englishName = columns[1].trim();
-                                // TÜM virgülleri noktaya çevir (Türkçe ondalık ayırıcısı)
-                                const testResult = columns[5].trim().replace(/,/g, '.');
-                                
-                                // Sadece sayı varsa ekle (±, ≤, ≥ karakterlerini temizle, virgül/nokta dönüşümü)
-                                const cleanResult = testResult.replace(/[±≤≥]/g, '').replace(/,/g, '.').trim();
-                                
-                                // Sayı formatı kontrolü - başta nokta olabilir (.090), sonda sıfır olabilir (0.090)
-                                // Pattern: opsiyonel rakamlar, opsiyonel nokta, opsiyonel rakamlar (en az bir rakam olmalı)
-                                if (/^\.?\d+\.?\d*$/.test(cleanResult) || /^\d*\.\d+$/.test(cleanResult)) {
-                                    // Başta nokta varsa 0 ekle (.090 → 0.090)
-                                    let finalValue = cleanResult;
-                                    if (finalValue.startsWith('.')) {
-                                        finalValue = '0' + finalValue;
-                                        console.log(`  🔧 Başa 0 eklendi: "${cleanResult}" → "${finalValue}"`);
-                                    }
-                                    
-                                    // Türkçe isimle
-                                    properties[turkishName] = finalValue;
-                                    properties[turkishName.toLowerCase()] = finalValue;
-                                    
-                                    // Parantez temizlenmiş Türkçe
-                                    const cleanTr = turkishName.replace(/\s*\([^)]*\)/g, '').trim();
-                                    properties[cleanTr] = finalValue;
-                                    properties[cleanTr.toLowerCase()] = finalValue;
-                                    
-                                    // İngilizce isimle
-                                    properties[englishName] = finalValue;
-                                    properties[englishName.toLowerCase()] = finalValue;
-                                    
-                                    // Parantez temizlenmiş İngilizce
-                                    const cleanEn = englishName.replace(/\s*\([^)]*\)/g, '').trim();
-                                    properties[cleanEn] = finalValue;
-                                    properties[cleanEn.toLowerCase()] = finalValue;
-                                    
-                                    console.log(`  ✅ "${turkishName}" / "${englishName}" = ${finalValue}`);
-                                }
-                            }
                         }
                     }
                     
