@@ -5030,20 +5030,21 @@
                     console.log('✅ Azure OCR tamamlandı');
                     console.log('📝 Azure yanıtı:', result);
                     
-                    // Tüm text'i birleştir
-                    let fullText = '';
+                    // Line-by-line array döndür (parsing için gerekli)
+                    const linesArray = [];
                     if (result.analyzeResult && result.analyzeResult.readResults) {
                         result.analyzeResult.readResults.forEach(page => {
                             page.lines.forEach(line => {
-                                fullText += line.text + '\\n';
+                                linesArray.push(line.text);
                             });
                         });
                     }
                     
-                    console.log('📝 Azure OCR Text uzunluğu:', fullText.length, 'karakter');
-                    console.log('📝 Azure OCR Text (ilk 500 karakter):', fullText.substring(0, 500));
+                    console.log('📝 Azure OCR toplam satır:', linesArray.length);
+                    console.log('📝 İlk 10 satır:', linesArray.slice(0, 10));
                     
-                    return fullText;
+                    // Parse etmek için satırları newline ile birleştir
+                    return { text: linesArray.join('\n'), lines: linesArray };
                 } else if (result.status === 'failed') {
                     throw new Error('Azure OCR başarısız oldu');
                 }
@@ -5110,6 +5111,7 @@
                     console.log('🔧 Seçili OCR motoru:', ocrEngine);
                     
                     let text = '';
+                    let lines = []; // Azure için satır dizisi
                     let ocrSuccess = false;
                     
                     // OCR motoruna göre işlem yap
@@ -5117,7 +5119,9 @@
                         // Sadece Azure kullan
                         try {
                             console.log('🔵 Azure OCR kullanılıyor...');
-                            text = await performAzureOCR(imageData);
+                            const azureResult = await performAzureOCR(imageData);
+                            text = azureResult.text;
+                            lines = azureResult.lines; // Satır dizisi
                             ocrSuccess = true;
                         } catch (azureError) {
                             console.error('❌ Azure OCR hatası:', azureError);
@@ -5181,14 +5185,16 @@
                     }
                     
                     console.log('📝 OCR Text uzunluğu:', text.length, 'karakter');
-                    console.log('📝 OCR Text (tam):', text);
                     
-                    // Özellikleri parse et - Azure formatı için özel regex
+                    // Özellikleri parse et
                     const properties = {};
                     
-                    // Azure OCR formatı: Her özellik için Türkçe isim + İngilizce isim + değerler aynı bölgede
-                    // Örnek: "Dansite\nDENSITY\nkg/m3\nISO845\n15+1,5\n14,38"
+                    // Azure lines varsa kullan (daha doğru), yoksa text'i split et
+                    const textLines = lines.length > 0 ? lines : text.split('\n');
+                    console.log('📋 Toplam satır:', textLines.length);
+                    console.log('📋 İlk 15 satır:', textLines.slice(0, 15));
                     
+                    // Her özellik için arama - satır satır
                     const propertyPatterns = [
                         { tr: 'Dansite', en: 'DENSITY', key: 'Density' },
                         { tr: 'Sertlik', en: 'HARDNESS', key: 'Sertlik' },
@@ -5198,62 +5204,68 @@
                         { tr: 'Deformasyon', en: 'COMPRESSION SET', key: 'Deformasyon' }
                     ];
                     
+                    // Azure table format: Her property bir satırda, sonraki satırlar değerler
+                    // Örnek satırlar:
+                    // "Dansite"
+                    // "DENSITY"
+                    // "kg/m3"
+                    // "ISO845"
+                    // "15+1,5"
+                    // "14,38"  ← TEST RESULT
+                    // "Sertlik (%40)"
+                    // "HARDNESS(%40)"
+                    // ...
+                    
                     for (const pattern of propertyPatterns) {
-                        // Pattern: Türkçe isim + İngilizce isim + birkaç satır + TEST RESULT değeri
-                        // Türkçe veya İngilizce isimden sonra 200 karakter içinde son sayıyı bul
+                        // Bu özelliğin Türkçe veya İngilizce adını içeren satırı bul
+                        let propertyLineIndex = -1;
                         
-                        // Önce Türkçe ismi bul
-                        const trIndex = text.indexOf(pattern.tr);
-                        const enIndex = text.toUpperCase().indexOf(pattern.en);
+                        for (let i = 0; i < textLines.length; i++) {
+                            const line = textLines[i];
+                            const lineUpper = line.toUpperCase();
+                            
+                            if (line.includes(pattern.tr) || lineUpper.includes(pattern.en)) {
+                                propertyLineIndex = i;
+                                console.log(`🎯 ${pattern.key} bulundu (satır ${i}): "${line}"`);
+                                break;
+                            }
+                        }
                         
-                        if (trIndex === -1 && enIndex === -1) {
+                        if (propertyLineIndex === -1) {
                             console.log(`⚠️ ${pattern.key} bulunamadı`);
                             continue;
                         }
                         
-                        // Hangi index daha önce geliyorsa ondan başla
-                        let startIndex = -1;
-                        if (trIndex !== -1 && enIndex !== -1) {
-                            startIndex = Math.min(trIndex, enIndex);
-                        } else if (trIndex !== -1) {
-                            startIndex = trIndex;
-                        } else {
-                            startIndex = enIndex;
+                        // Bu satırdan sonraki 10 satıra bak - son geçerli sayı test result'tır
+                        const searchLines = textLines.slice(propertyLineIndex, propertyLineIndex + 10);
+                        console.log(`  🔍 ${pattern.key} için arama satırları:`, searchLines);
+                        
+                        // Her satırdan sayıları çıkar
+                        const allNumbers = [];
+                        for (const line of searchLines) {
+                            const nums = line.match(/[\d.,]+/g);
+                            if (nums) {
+                                nums.forEach(n => {
+                                    const cleaned = n.replace(/,/g, '.');
+                                    const value = parseFloat(cleaned);
+                                    if (!isNaN(value) && value > 0.01 && value < 10000) {
+                                        allNumbers.push({ original: n, cleaned: cleaned, value: value });
+                                    }
+                                });
+                            }
                         }
                         
-                        // Bu noktadan sonraki 400 karakteri al (bir sonraki özelliğe kadar)
-                        const chunk = text.substring(startIndex, startIndex + 400);
-                        console.log(`🎯 ${pattern.key} chunk:`, chunk.substring(0, 150));
+                        console.log(`  📊 Geçerli sayılar:`, allNumbers.map(n => n.original));
                         
-                        // Bu chunk içindeki TÜM sayıları bul
-                        const numbers = chunk.match(/[\d.,]+/g);
-                        if (numbers && numbers.length > 0) {
-                            // Sayıları temizle ve parse et
-                            const cleanNumbers = numbers.map(n => {
-                                const cleaned = n.replace(/,/g, '.');
-                                return { original: n, cleaned: cleaned, value: parseFloat(cleaned) };
-                            }).filter(n => !isNaN(n.value));
+                        if (allNumbers.length > 0) {
+                            // Son sayı test result'tır
+                            const testValue = allNumbers[allNumbers.length - 1].cleaned;
+                            console.log(`  ✅ ${pattern.key} = ${testValue}`);
                             
-                            console.log(`  📊 Bulunan sayılar:`, cleanNumbers.map(n => n.original));
-                            
-                            // TEST RESULT genelde en son sayıdır (tablonun en sağ sütunu)
-                            // AMA standart değerleri atla (çok büyükler: ISO845, ISO1798 gibi)
-                            // Ve çok küçükler de atla (0 gibi)
-                            const validNumbers = cleanNumbers.filter(n => 
-                                n.value > 0.01 &&  // Çok küçük değil
-                                n.value < 10000    // Çok büyük değil (ISO numaraları vs)
-                            );
-                            
-                            if (validNumbers.length > 0) {
-                                // En son geçerli sayıyı al
-                                const testValue = validNumbers[validNumbers.length - 1].cleaned;
-                                console.log(`  ✅ ${pattern.key} = ${testValue}`);
-                                
-                                // Kaydet
-                                properties[pattern.key] = testValue;
-                                properties[pattern.key.toLowerCase()] = testValue;
-                                properties[pattern.tr] = testValue;
-                                properties[pattern.tr.toLowerCase()] = testValue;
+                            properties[pattern.key] = testValue;
+                            properties[pattern.key.toLowerCase()] = testValue;
+                            properties[pattern.tr] = testValue;
+                            properties[pattern.tr.toLowerCase()] = testValue;
                             }
                         }
                     }
