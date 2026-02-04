@@ -7020,6 +7020,28 @@
                 document.querySelectorAll('#analysisPropertyContainer input[type="checkbox"]:checked')
             ).map(cb => cb.value);
             
+            // Türkçe karakter dönüştürme fonksiyonu
+            function toAscii(text) {
+                if (!text) return '';
+                return text
+                    .replace(/ş/g, 's').replace(/Ş/g, 'S')
+                    .replace(/ı/g, 'i').replace(/İ/g, 'I')
+                    .replace(/ö/g, 'o').replace(/Ö/g, 'O')
+                    .replace(/ü/g, 'u').replace(/Ü/g, 'U')
+                    .replace(/ç/g, 'c').replace(/Ç/g, 'C')
+                    .replace(/ğ/g, 'g').replace(/Ğ/g, 'G');
+            }
+            
+            // Birim bilgilerini al (analysisData'dan)
+            function getUnitForProperty(propName) {
+                const propData = analysisData.find(r => 
+                    r.supplier === supplier && 
+                    r.materialCode === material && 
+                    r.propertyName === propName
+                );
+                return propData?.unit || '';
+            }
+            
             // PDF oluştur (A4 boyut)
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pageWidth = pdf.internal.pageSize.getWidth();
@@ -7037,16 +7059,16 @@
             pdf.text('COA Analiz Raporu', pageWidth / 2, 15, { align: 'center' });
             pdf.setFontSize(11);
             pdf.setFont('helvetica', 'normal');
-            pdf.text(`Olusturulma Tarihi: ${new Date().toLocaleDateString('tr-TR')} ${new Date().toLocaleTimeString('tr-TR')}`, pageWidth / 2, 25, { align: 'center' });
+            pdf.text('Olusturulma Tarihi: ' + new Date().toLocaleDateString('tr-TR') + ' ' + new Date().toLocaleTimeString('tr-TR'), pageWidth / 2, 25, { align: 'center' });
             
             yPosition = 45;
             
             // Hammadde Bilgileri Kutusu
             pdf.setFillColor(248, 249, 250);
-            pdf.roundedRect(margin, yPosition, contentWidth, 40, 3, 3, 'F');
+            pdf.roundedRect(margin, yPosition, contentWidth, 45, 3, 3, 'F');
             pdf.setDrawColor(45, 90, 61);
             pdf.setLineWidth(0.5);
-            pdf.roundedRect(margin, yPosition, contentWidth, 40, 3, 3, 'S');
+            pdf.roundedRect(margin, yPosition, contentWidth, 45, 3, 3, 'S');
             
             pdf.setTextColor(45, 90, 61);
             pdf.setFontSize(12);
@@ -7054,46 +7076,50 @@
             pdf.text('Hammadde Bilgileri', margin + 5, yPosition + 8);
             
             pdf.setTextColor(51, 51, 51);
-            pdf.setFontSize(10);
-            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(9);
             
-            const infoStartY = yPosition + 15;
+            const infoStartY = yPosition + 16;
+            const labelWidth = 35;
             const col1X = margin + 5;
-            const col2X = margin + contentWidth / 2;
+            const col2X = margin + contentWidth / 2 + 10;
             
+            // Satır 1
             pdf.setFont('helvetica', 'bold');
             pdf.text('Tedarikci:', col1X, infoStartY);
             pdf.setFont('helvetica', 'normal');
-            pdf.text(supplier || '-', col1X + 25, infoStartY);
+            pdf.text(toAscii(supplier) || '-', col1X + labelWidth, infoStartY);
             
             pdf.setFont('helvetica', 'bold');
             pdf.text('Hammadde Kodu:', col2X, infoStartY);
             pdf.setFont('helvetica', 'normal');
-            pdf.text(material || '-', col2X + 40, infoStartY);
+            pdf.text(material || '-', col2X + 35, infoStartY);
             
+            // Satır 2
             pdf.setFont('helvetica', 'bold');
             pdf.text('Lokasyon:', col1X, infoStartY + 8);
             pdf.setFont('helvetica', 'normal');
-            pdf.text(location || 'Tumu', col1X + 25, infoStartY + 8);
+            pdf.text(toAscii(location) || 'Tumu', col1X + labelWidth, infoStartY + 8);
             
             pdf.setFont('helvetica', 'bold');
             pdf.text('Tarih Araligi:', col2X, infoStartY + 8);
             pdf.setFont('helvetica', 'normal');
-            const dateRange = (startDate || 'Baslangic') + ' - ' + (endDate || 'Bitis');
-            pdf.text(dateRange, col2X + 35, infoStartY + 8);
+            const startDateText = startDate ? new Date(startDate).toLocaleDateString('tr-TR') : 'Baslangic';
+            const endDateText = endDate ? new Date(endDate).toLocaleDateString('tr-TR') : 'Bitis';
+            pdf.text(startDateText + ' - ' + endDateText, col2X + 35, infoStartY + 8);
             
+            // Satır 3 - Seçili Özellikler
             pdf.setFont('helvetica', 'bold');
             pdf.text('Secili Ozellikler:', col1X, infoStartY + 16);
             pdf.setFont('helvetica', 'normal');
-            const propsText = selectedProperties.join(', ');
-            const maxPropsWidth = contentWidth - 40;
-            if (pdf.getTextWidth(propsText) > maxPropsWidth) {
-                pdf.text(propsText.substring(0, 80) + '...', col1X + 40, infoStartY + 16);
-            } else {
-                pdf.text(propsText, col1X + 40, infoStartY + 16);
+            const propsText = toAscii(selectedProperties.join(', '));
+            const maxPropsWidth = contentWidth - 45;
+            const propsLines = pdf.splitTextToSize(propsText, maxPropsWidth);
+            pdf.text(propsLines[0] || '-', col1X + labelWidth, infoStartY + 16);
+            if (propsLines[1]) {
+                pdf.text(propsLines[1], col1X + labelWidth, infoStartY + 21);
             }
             
-            yPosition = yPosition + 50;
+            yPosition = yPosition + 55;
             
             // Her grafik için
             const chartWrappers = document.querySelectorAll('#analysisChartsContainer > div');
@@ -7106,26 +7132,29 @@
                 if (!canvas) continue;
                 
                 // Yeni sayfa gerekli mi kontrol et
-                const itemHeight = 85;
+                const itemHeight = 90;
                 if (yPosition + itemHeight > pageHeight - margin) {
                     pdf.addPage();
                     yPosition = margin;
                 }
                 
-                // Özellik başlığı
-                const propName = selectedProperties[i] || `Ozellik ${i + 1}`;
+                // Özellik başlığı ve birim
+                const propName = selectedProperties[i] || 'Ozellik ' + (i + 1);
+                const unit = getUnitForProperty(propName);
+                const headerText = toAscii(propName) + (unit ? ' (' + toAscii(unit) + ')' : '');
+                
                 pdf.setFillColor(45, 90, 61);
-                pdf.roundedRect(margin, yPosition, contentWidth, 8, 2, 2, 'F');
+                pdf.roundedRect(margin, yPosition, contentWidth, 10, 2, 2, 'F');
                 pdf.setTextColor(255, 255, 255);
                 pdf.setFontSize(11);
                 pdf.setFont('helvetica', 'bold');
-                pdf.text(propName, margin + 5, yPosition + 5.5);
-                yPosition += 12;
+                pdf.text(headerText, margin + 5, yPosition + 7);
+                yPosition += 14;
                 
                 // Grafik ve istatistik yan yana
                 const chartWidth = contentWidth * 0.65;
                 const statsWidth = contentWidth * 0.32;
-                const rowHeight = 65;
+                const rowHeight = 68;
                 
                 // Grafik
                 try {
@@ -7145,24 +7174,37 @@
                 pdf.setDrawColor(200, 200, 200);
                 pdf.roundedRect(statsX, yPosition, statsWidth, rowHeight, 2, 2, 'S');
                 
+                // İstatistik başlığı
+                pdf.setFillColor(45, 90, 61);
+                pdf.roundedRect(statsX, yPosition, statsWidth, 8, 2, 2, 'F');
+                pdf.rect(statsX, yPosition + 4, statsWidth, 4, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(9);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Istatistikler', statsX + statsWidth / 2, yPosition + 5.5, { align: 'center' });
+                
                 // İstatistik verilerini al
                 if (statsDiv) {
                     const statLines = statsDiv.querySelectorAll('div[style*="display: flex"]');
-                    let statY = yPosition + 8;
+                    let statY = yPosition + 14;
                     pdf.setFontSize(8);
                     
                     statLines.forEach((line, idx) => {
                         if (statY > yPosition + rowHeight - 5) return;
                         
-                        const label = line.querySelector('span:first-child')?.textContent?.replace(/[^\w\s:öüçğışÖÜÇĞİŞ]/g, '') || '';
+                        let label = line.querySelector('span:first-child')?.textContent || '';
+                        // Emoji ve özel karakterleri temizle
+                        label = label.replace(/[^\w\s:öüçğışÖÜÇĞİŞa-zA-Z0-9]/g, '').trim();
+                        label = toAscii(label);
+                        
                         const value = line.querySelector('span:last-child')?.textContent || '';
                         
-                        pdf.setTextColor(100, 100, 100);
+                        pdf.setTextColor(80, 80, 80);
                         pdf.setFont('helvetica', 'normal');
                         pdf.text(label, statsX + 3, statY);
                         
                         // Hedef dışı için özel renk
-                        if (label.includes('Hedef') && label.includes('Di')) {
+                        if (label.toLowerCase().includes('hedef') && label.toLowerCase().includes('dis')) {
                             const numVal = parseFloat(value);
                             if (numVal > 0) {
                                 pdf.setTextColor(211, 47, 47);
@@ -7179,7 +7221,7 @@
                     });
                 }
                 
-                yPosition += rowHeight + 10;
+                yPosition += rowHeight + 8;
             }
             
             // Footer her sayfaya
@@ -7190,12 +7232,12 @@
                 pdf.rect(0, pageHeight - 10, pageWidth, 10, 'F');
                 pdf.setTextColor(255, 255, 255);
                 pdf.setFontSize(8);
-                pdf.text(`Sayfa ${p} / ${totalPages}`, pageWidth / 2, pageHeight - 4, { align: 'center' });
+                pdf.text('Sayfa ' + p + ' / ' + totalPages, pageWidth / 2, pageHeight - 4, { align: 'center' });
                 pdf.text('COA Analiz Sistemi', margin, pageHeight - 4);
             }
             
             // PDF kaydet
-            const fileName = `COA_Analiz_${supplier}_${material}_${new Date().toISOString().split('T')[0]}.pdf`;
+            const fileName = 'COA_Analiz_' + toAscii(supplier) + '_' + material + '_' + new Date().toISOString().split('T')[0] + '.pdf';
             pdf.save(fileName);
             
             showToast('✅ PDF başarıyla oluşturuldu', 'success');
