@@ -5171,13 +5171,21 @@
                         let ocrSpaceText = '';
                         let azureResult = null;
                         
-                        // OCR.space dene
-                        try {
-                            console.log('1️⃣ OCR.space deneniyor...');
-                            ocrSpaceText = await performOCRSpaceOCR(imageData);
-                            console.log('✅ OCR.space tamamlandı:', ocrSpaceText.length, 'karakter');
-                        } catch (ocrSpaceError) {
-                            console.warn('⚠️ OCR.space başarısız:', ocrSpaceError.message);
+                        // Dosya boyutunu kontrol et (OCR.space limit: 1 MB)
+                        const imageSizeKB = Math.round((imageData.length * 3) / 4 / 1024); // Base64 → KB
+                        console.log(`📏 Image boyutu: ${imageSizeKB} KB`);
+                        
+                        // OCR.space dene (sadece dosya <1MB ise)
+                        if (imageSizeKB <= 1024) {
+                            try {
+                                console.log('1️⃣ OCR.space deneniyor...');
+                                ocrSpaceText = await performOCRSpaceOCR(imageData);
+                                console.log('✅ OCR.space tamamlandı:', ocrSpaceText.length, 'karakter');
+                            } catch (ocrSpaceError) {
+                                console.warn('⚠️ OCR.space başarısız:', ocrSpaceError.message);
+                            }
+                        } else {
+                            console.log('⏭️ OCR.space atlandı (dosya çok büyük:', imageSizeKB, 'KB > 1024 KB)');
                         }
                         
                         // Azure dene
