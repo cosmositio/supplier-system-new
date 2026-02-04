@@ -4894,6 +4894,87 @@
             setTimeout(() => toast.remove(), duration);
         }
         
+        // ==================== COMPLIANCE CHECK (BASF) ====================
+        function checkCompliance(testResult, requirement) {
+            if (!testResult || !requirement) return 'Bilinmiyor';
+            
+            const test = testResult.trim();
+            const req = requirement.trim();
+            
+            console.log(`  🔍 Compliance check: "${test}" vs "${req}"`);
+            
+            // 1) Range check (7,5 - 10,5 kg/m3)
+            const rangeMatch = req.match(/(\d+[.,]\d+)\s*-\s*(\d+[.,]\d+)/);
+            if (rangeMatch) {
+                const min = parseFloat(rangeMatch[1].replace(',', '.'));
+                const max = parseFloat(rangeMatch[2].replace(',', '.'));
+                const value = parseFloat(test.replace(',', '.'));
+                
+                if (!isNaN(value) && !isNaN(min) && !isNaN(max)) {
+                    const result = value >= min && value <= max ? 'Uygun' : 'Uygun Değil';
+                    console.log(`    📏 Range: ${min} ≤ ${value} ≤ ${max} → ${result}`);
+                    return result;
+                }
+            }
+            
+            // 2) Greater than or equal (≥ 45 N)
+            const gteMatch = req.match(/[≥>=]\s*(\d+[.,]?\d*)/);
+            if (gteMatch) {
+                const minValue = parseFloat(gteMatch[1].replace(',', '.'));
+                const value = parseFloat(test.replace(',', '.'));
+                
+                if (!isNaN(value) && !isNaN(minValue)) {
+                    const result = value >= minValue ? 'Uygun' : 'Uygun Değil';
+                    console.log(`    ⬆️ Greater than: ${value} ≥ ${minValue} → ${result}`);
+                    return result;
+                }
+            }
+            
+            // 3) Less than or equal (≤ 0,035 W/mK)
+            const lteMatch = req.match(/[≤<=]\s*(\d+[.,]?\d*)/);
+            if (lteMatch) {
+                const maxValue = parseFloat(lteMatch[1].replace(',', '.'));
+                const value = parseFloat(test.replace(',', '.'));
+                
+                if (!isNaN(value) && !isNaN(maxValue)) {
+                    const result = value <= maxValue ? 'Uygun' : 'Uygun Değil';
+                    console.log(`    ⬇️ Less than: ${value} ≤ ${maxValue} → ${result}`);
+                    return result;
+                }
+            }
+            
+            // 4) Text match (Class A, B1, etc.)
+            // Clean both sides (remove language variants)
+            const cleanTest = test.split('/')[0].trim().toUpperCase();
+            const cleanReq = req.split('/')[0].trim().toUpperCase();
+            
+            // Extract codes (B1, Class A, etc.)
+            const testCode = cleanTest.match(/\b(B\d|CLASS\s*[A-Z]|[A-Z]\d+)\b/i);
+            const reqCode = cleanReq.match(/\b(B\d|CLASS\s*[A-Z]|[A-Z]\d+)\b/i);
+            
+            if (testCode && reqCode) {
+                const result = testCode[0].toUpperCase() === reqCode[0].toUpperCase() ? 'Uygun' : 'Uygun Değil';
+                console.log(`    🔤 Text match: "${testCode[0]}" vs "${reqCode[0]}" → ${result}`);
+                return result;
+            }
+            
+            // 5) Exact string match (case-insensitive)
+            if (cleanTest === cleanReq) {
+                console.log(`    ✅ Exact match → Uygun`);
+                return 'Uygun';
+            }
+            
+            // 6) Contains match
+            if (cleanTest.includes(cleanReq) || cleanReq.includes(cleanTest)) {
+                console.log(`    ✅ Contains match → Uygun`);
+                return 'Uygun';
+            }
+            
+            // Default: Unknown
+            console.log(`    ❓ No match pattern found → Bilinmiyor`);
+            return 'Bilinmiyor';
+        }
+        
         // ==================== TDS MANAGEMENT ====================
         
         // OCR.space API ile OCR işlemi
@@ -5235,8 +5316,84 @@
                     // Özellikleri parse et
                     const properties = {};
                     
+                    // ========================================
+                    // BASF FORMAT DETECTION & COMPLIANCE CHECK
+                    // ========================================
+                    const isBASFFormat = /Pruefmerkmale|Pruefergebnis|Requirement/i.test(text) && 
+                                        /Certificate of Analysis|Certificate of Compliance|BASF/i.test(text);
+                    
+                    if (isBASFFormat) {
+                        console.log('🔷 BASF format detected - Using compliance check system');
+                        
+                        // BASF property patterns (DE + aliases)
+                        const basfPatterns = [
+                            { name: 'Materialdichte', aliases: ['density', 'dichte', 'dansite'], tdsProp: 'Density' },
+                            { name: 'Stempeldruckkraft', aliases: ['hardness', 'sertlik', 'druckkraft'], tdsProp: 'Sertlik' },
+                            { name: 'Brandverhalten', aliases: ['fire', 'flammability', 'yanma'], tdsProp: 'Fire Behavior' },
+                            { name: 'Wärmeleitfähigkeit', aliases: ['thermal conductivity', 'ısı iletkenliği'], tdsProp: 'Thermal Conductivity' },
+                            { name: 'Emission', aliases: ['emission', 'voc', 'emisyon'], tdsProp: 'VOC Emission' }
+                        ];
+                        
+                        // Parse BASF table structure
+                        for (const pattern of basfPatterns) {
+                            const regex = new RegExp(pattern.name, 'i');
+                            const match = text.match(regex);
+                            
+                            if (match) {
+                                const idx = match.index;
+                                const chunk = text.substring(idx, idx + 400);
+                                console.log(`\n🔍 ${pattern.name} found:`, chunk.substring(0, 150));
+                                
+                                // Extract Pruefergebnis (test result) and Requirement
+                                const lines = chunk.split(/[\n\r]+/);
+                                let testResult = '';
+                                let requirement = '';
+                                
+                                for (let i = 0; i < lines.length; i++) {
+                                    const line = lines[i].trim();
+                                    
+                                    // Skip header line
+                                    if (line.includes(pattern.name)) continue;
+                                    
+                                    // Try to extract values from tab-separated format
+                                    const parts = line.split(/[\t]+/).filter(p => p.trim());
+                                    
+                                    if (parts.length >= 2) {
+                                        testResult = parts[0].trim();
+                                        requirement = parts[1].trim();
+                                        break;
+                                    }
+                                }
+                                
+                                if (testResult || requirement) {
+                                    console.log(`  📊 Test Result: "${testResult}"`);
+                                    console.log(`  📋 Requirement: "${requirement}"`);
+                                    
+                                    // Check compliance
+                                    const compliance = checkCompliance(testResult, requirement);
+                                    console.log(`  ${compliance === 'Uygun' ? '✅' : '❌'} Compliance: ${compliance}`);
+                                    
+                                    // Store in properties with compliance status
+                                    properties[pattern.tdsProp] = {
+                                        value: testResult,
+                                        requirement: requirement,
+                                        compliance: compliance
+                                    };
+                                    
+                                    // Also store under aliases for TDS matching
+                                    for (const alias of pattern.aliases) {
+                                        properties[alias] = properties[pattern.tdsProp];
+                                    }
+                                }
+                            }
+                        }
+                        
+                        console.log('📊 BASF properties extracted:', properties);
+                    }
+                    
                     // Azure words varsa koordinatlarla parse et (EN DOĞRU YÖNTEM)
-                    if (words && words.length > 0) {
+                    // (Sadece BASF format değilse)
+                    if (!isBASFFormat && words && words.length > 0) {
                         console.log('🎯 Azure word koordinatları kullanılıyor...');
                         console.log('📦 Toplam kelime:', words.length);
                         
@@ -5750,6 +5907,12 @@
             console.log('📋 COA Keys:', Object.keys(coaProperties));
             console.log('📋 COA Values:', Object.values(coaProperties));
             
+            // Check if BASF format (properties have {value, requirement, compliance} structure)
+            const isBASFFormat = Object.values(coaProperties).some(v => 
+                typeof v === 'object' && v !== null && 'compliance' in v
+            );
+            console.log('🔷 BASF Format:', isBASFFormat);
+            
             // Her TDS özelliği için COA'da eşleşme ara
             tds.properties.forEach((prop, propIndex) => {
                 const propName = prop.name.toLowerCase().trim();
@@ -5772,25 +5935,38 @@
                     
                     console.log(`   🔍 COA: "${coaKey}" → clean: "${coaKeyClean}" | TDS clean: "${propNameClean}"`);
                     
+                    // BASF FORMAT: Handle object values
+                    let actualValue = coaValue;
+                    if (isBASFFormat && typeof coaValue === 'object' && coaValue !== null) {
+                        // Store requirement and compliance in TDS
+                        if (coaValue.compliance) {
+                            prop.coaCompliance = coaValue.compliance;
+                        }
+                        if (coaValue.requirement) {
+                            prop.coaRequirement = coaValue.requirement;
+                        }
+                        actualValue = coaValue.value || coaValue.compliance; // Use value or compliance status
+                    }
+                    
                     // ÖZEL DURUM: Sertlik/Hardness çapraz eşleşme
                     const hardnessVariants = ['sertlik', 'sertik', 'sertlık', 'hardness'];
                     const isTdsHardness = hardnessVariants.includes(propNameClean);
                     const isCoaHardness = hardnessVariants.includes(coaKeyClean);
                     
                     if (isTdsHardness && isCoaHardness) {
-                        prop.coaValue = coaValue;
+                        prop.coaValue = actualValue;
                         matchedCount++;
                         exactMatchFound = true;
-                        console.log(`   ✅ SERTLİK ÖZEL eşleşme: "${prop.name}" ↔ "${coaKey}" = ${coaValue}`);
+                        console.log(`   ✅ SERTLİK ÖZEL eşleşme: "${prop.name}" ↔ "${coaKey}" = ${actualValue}`);
                         break;
                     }
                     
                     // Tam eşleşme (temizlenmiş versiyonlarla)
                     if (coaKeyClean === propNameClean || coaKeyLower === propName) {
-                        prop.coaValue = coaValue;
+                        prop.coaValue = actualValue;
                         matchedCount++;
                         exactMatchFound = true;
-                        console.log(`   ✅ TAM eşleşme: "${prop.name}" = ${coaValue}`);
+                        console.log(`   ✅ TAM eşleşme: "${prop.name}" = ${actualValue}`);
                         break; // Tam eşleşme bulundu, döngüden çık
                     }
                     
@@ -5802,7 +5978,7 @@
                     if (similarity >= 0.65) {
                         if (similarity > bestSimilarity) {
                             bestSimilarity = similarity;
-                            bestMatch = { key: coaKey, value: coaValue };
+                            bestMatch = { key: coaKey, value: actualValue };
                             console.log(`   ⭐ Yeni en iyi eşleşme: ${Math.round(similarity * 100)}%`);
                         }
                     }
@@ -5811,7 +5987,7 @@
                     if (coaKeyClean.includes(propNameClean) || propNameClean.includes(coaKeyClean)) {
                         if (0.85 > bestSimilarity) {
                             bestSimilarity = 0.85;
-                            bestMatch = { key: coaKey, value: coaValue };
+                            bestMatch = { key: coaKey, value: actualValue };
                             console.log(`   ⭐ Kısmi eşleşme (85%): "${propNameClean}" ⊆ "${coaKeyClean}"`);
                         }
                     }
@@ -6365,7 +6541,12 @@
                         ${prop.coaValue || '-'}
                     </td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background: #fff3e0; font-weight: 600;">
-                        <span id="compliance_${index}">-</span>
+                        <span id="compliance_${index}" style="padding: 4px 8px; border-radius: 4px; ${
+                            prop.coaCompliance === 'Uygun' ? 'background: #c8e6c9; color: #2e7d32;' :
+                            prop.coaCompliance === 'Uygun Değil' ? 'background: #ffcdd2; color: #c62828;' :
+                            prop.coaCompliance === 'Bilinmiyor' ? 'background: #fff9c4; color: #f57f17;' :
+                            'color: #999;'
+                        }">${prop.coaCompliance || '-'}</span>
                     </td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
                         <button onclick="deleteTDSProperty(${index})" class="btn btn-sm" style="background: #f44336; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">🗑</button>
