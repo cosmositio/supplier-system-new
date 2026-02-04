@@ -1336,15 +1336,41 @@
         <div class="modal-content" style="max-width: 1200px; max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; flex-wrap: wrap;">
                 <h2 style="margin: 0;">📊 TDS (Technical Data Sheet) Yönetimi</h2>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <label style="font-size: 0.9em; color: #666;">🔑 OCR API Key:</label>
-                    <input 
-                        type="text" 
-                        id="ocrApiKeyInput" 
-                        placeholder="K82811583888957" 
-                        style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 0.85em; width: 200px;"
-                        onchange="localStorage.setItem('ocrspace_api_key', this.value); showToast('✅ API key kaydedildi', 'success');">
-                    <a href="https://ocr.space/ocrapi" target="_blank" style="font-size: 0.85em; color: #2196F3; text-decoration: none;">🔗 Ücretsiz Key Al</a>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="font-size: 0.9em; color: #666; width: 120px;">OCR Motor:</label>
+                        <select id="ocrEngineSelect" onchange="localStorage.setItem('ocr_engine', this.value); showToast('✅ OCR motoru kaydedildi', 'success');" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 0.85em; flex: 1;">
+                            <option value="ocrspace">OCR.space (Hızlı)</option>
+                            <option value="azure">Microsoft Azure (Taranmış için güçlü)</option>
+                            <option value="both">İkisini de dene (En iyi sonucu seç)</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="font-size: 0.9em; color: #666; width: 120px;">🔑 OCR.space Key:</label>
+                        <input 
+                            type="text" 
+                            id="ocrApiKeyInput" 
+                            placeholder="K82811583888957" 
+                            style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 0.85em; width: 200px;"
+                            onchange="localStorage.setItem('ocrspace_api_key', this.value); showToast('✅ API key kaydedildi', 'success');">
+                        <a href="https://ocr.space/ocrapi" target="_blank" style="font-size: 0.85em; color: #2196F3; text-decoration: none;">🔗 Key Al</a>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="font-size: 0.9em; color: #666; width: 120px;">🔑 Azure Key:</label>
+                        <input 
+                            type="text" 
+                            id="azureApiKeyInput" 
+                            placeholder="Azure Computer Vision Key" 
+                            style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 0.85em; width: 200px;"
+                            onchange="localStorage.setItem('azure_api_key', this.value); showToast('✅ Azure key kaydedildi', 'success');">
+                        <input 
+                            type="text" 
+                            id="azureEndpointInput" 
+                            placeholder="https://YOUR-RESOURCE.cognitiveservices.azure.com/" 
+                            style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 0.85em; flex: 1;"
+                            onchange="localStorage.setItem('azure_endpoint', this.value); showToast('✅ Azure endpoint kaydedildi', 'success');">
+                        <a href="https://portal.azure.com/" target="_blank" style="font-size: 0.85em; color: #2196F3; text-decoration: none;">🔗 Key Al</a>
+                    </div>
                 </div>
             </div>
             
@@ -4870,7 +4896,165 @@
         
         // ==================== TDS MANAGEMENT ====================
         
+        // OCR.space API ile OCR işlemi
+        async function performOCRSpaceOCR(imageData) {
+            console.log('🟢 OCR.space API isteği hazırlanıyor...');
+            showToast('🔍 OCR işlemi başladı (OCR.space)', 'info', 3000);
+            
+            // API key al
+            const apiKey = localStorage.getItem('ocrspace_api_key') || 'K82811583888957';
+            console.log('🔑 API Key:', apiKey.substring(0, 5) + '...');
+            
+            // Base64'ü blob'a çevir
+            console.log('📦 Blob oluşturuluyor...');
+            const base64Data = imageData.split(',')[1];
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'image/png' });
+            console.log('✅ Blob oluşturuldu:', Math.round(blob.size / 1024), 'KB');
+            
+            // FormData oluştur - mobil için optimize edilmiş parametreler
+            const formData = new FormData();
+            formData.append('file', blob, 'coa.png');
+            formData.append('apikey', apiKey);
+            formData.append('language', 'eng');
+            formData.append('isOverlayRequired', 'false');
+            formData.append('detectOrientation', 'true');
+            formData.append('scale', 'true'); // Otomatik upscaling
+            formData.append('OCREngine', '2'); // Engine 2 daha iyi
+            formData.append('isTable', 'true'); // Tablo modu
+            formData.append('filetype', 'PNG'); // PNG format
+            console.log('✅ FormData hazır');
+            
+            console.log('🌐 API\'ye istek gönderiliyor...');
+            const response = await fetch('https://api.ocr.space/parse/image', {
+                method: 'POST',
+                body: formData
+            });
+            console.log('📡 API yanıt aldı, status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`OCR API hatası: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('🔍 OCR.space Response:', result);
+            
+            if (!result.IsErroredOnProcessing && result.ParsedResults && result.ParsedResults.length > 0) {
+                const text = result.ParsedResults[0].ParsedText;
+                console.log('✅ OCR.space başarılı:', text.length, 'karakter');
+                return text;
+            } else {
+                const errorMsg = result.ErrorMessage || result.OCRExitCode || 'OCR başarısız';
+                console.error('❌ OCR sonucu hatalı:', errorMsg);
+                throw new Error(errorMsg);
+            }
+        }
+        
         // OCR ile COA'dan özellikleri çıkar
+        async function performAzureOCR(imageData) {
+            console.log('🔵 Azure Computer Vision OCR başlatılıyor...');
+            
+            const azureKey = localStorage.getItem('azure_api_key');
+            const azureEndpoint = localStorage.getItem('azure_endpoint');
+            
+            if (!azureKey || !azureEndpoint) {
+                throw new Error('Azure API key veya endpoint tanımlı değil');
+            }
+            
+            // Base64'ü binary'ye çevir
+            const base64Data = imageData.split(',')[1];
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            
+            console.log('📦 Image binary boyutu:', Math.round(byteArray.length / 1024), 'KB');
+            
+            // Azure Read API - async işlem başlat
+            const analyzeUrl = `${azureEndpoint}/vision/v3.2/read/analyze`;
+            
+            console.log('🌐 Azure analyze isteği gönderiliyor...');
+            const analyzeResponse = await fetch(analyzeUrl, {
+                method: 'POST',
+                headers: {
+                    'Ocp-Apim-Subscription-Key': azureKey,
+                    'Content-Type': 'application/octet-stream'
+                },
+                body: byteArray
+            });
+            
+            if (!analyzeResponse.ok) {
+                const errorText = await analyzeResponse.text();
+                console.error('❌ Azure analyze hatası:', errorText);
+                throw new Error(`Azure analyze hatası: ${analyzeResponse.status} - ${errorText}`);
+            }
+            
+            // Operation-Location header'ından sonuç URL'ini al
+            const operationLocation = analyzeResponse.headers.get('Operation-Location');
+            if (!operationLocation) {
+                throw new Error('Azure Operation-Location header bulunamadı');
+            }
+            
+            console.log('⏳ Azure OCR işleniyor, sonuç bekleniyor...');
+            showToast('⏳ Azure OCR işleniyor (5-10 saniye)...', 'info', 10000);
+            
+            // Sonuç için polling yap (max 30 saniye)
+            let resultResponse;
+            let attempts = 0;
+            const maxAttempts = 30;
+            
+            while (attempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 saniye bekle
+                attempts++;
+                
+                resultResponse = await fetch(operationLocation, {
+                    headers: {
+                        'Ocp-Apim-Subscription-Key': azureKey
+                    }
+                });
+                
+                if (!resultResponse.ok) {
+                    throw new Error(`Azure sonuç hatası: ${resultResponse.status}`);
+                }
+                
+                const result = await resultResponse.json();
+                
+                if (result.status === 'succeeded') {
+                    console.log('✅ Azure OCR tamamlandı');
+                    console.log('📝 Azure yanıtı:', result);
+                    
+                    // Tüm text'i birleştir
+                    let fullText = '';
+                    if (result.analyzeResult && result.analyzeResult.readResults) {
+                        result.analyzeResult.readResults.forEach(page => {
+                            page.lines.forEach(line => {
+                                fullText += line.text + '\\n';
+                            });
+                        });
+                    }
+                    
+                    console.log('📝 Azure OCR Text uzunluğu:', fullText.length, 'karakter');
+                    console.log('📝 Azure OCR Text (ilk 500 karakter):', fullText.substring(0, 500));
+                    
+                    return fullText;
+                } else if (result.status === 'failed') {
+                    throw new Error('Azure OCR başarısız oldu');
+                }
+                
+                // Hala running durumunda, bekle
+                console.log(`⏳ Deneme ${attempts}/${maxAttempts}, durum: ${result.status}`);
+            }
+            
+            throw new Error('Azure OCR zaman aşımı (30 saniye)');
+        }
+        
         async function extractCOAProperties(fileData) {
             console.log('🚀 extractCOAProperties fonksiyonu çağrıldı');
             
@@ -4884,13 +5068,12 @@
                     
                     console.log('📄 Dosya tipi:', fileData.substring(0, 50));
                     console.log('📊 Dosya boyutu:', Math.round(fileData.length / 1024), 'KB');
-                    console.log('🔍 OCR.space API başlatılıyor...');
-                    showToast('🔍 COA analiz ediliyor (OCR)...', 'info');
                     
                     // PDF ise önce canvas'a çevir (orijinal dosyayı etkilemeden)
                     let imageData = fileData;
                     if (fileData.startsWith('data:application/pdf')) {
                         console.log('📄 PDF tespit edildi, resme dönüştürülüyor...');
+                        showToast('📄 PDF resme dönüştürülüyor...', 'info');
                         try {
                             // PDF'i canvas'a çevir
                             const base64Data = fileData.split(',')[1];
@@ -4922,65 +5105,83 @@
                         }
                     }
                     
-                    // OCR.space API ile OCR - Tablo için en iyi sonuç
-                    console.log('🔍 OCR.space API isteği hazırlanıyor...');
-                    showToast('🔍 OCR işlemi başladı (5-10 saniye)', 'info', 5000);
+                    // OCR engine seçimi
+                    const ocrEngine = localStorage.getItem('ocr_engine') || 'ocrspace';
+                    console.log('🔧 Seçili OCR motoru:', ocrEngine);
                     
-                    // API key al
-                    const apiKey = localStorage.getItem('ocrspace_api_key') || 'K82811583888957';
-                    console.log('🔑 API Key:', apiKey.substring(0, 5) + '...');
+                    let text = '';
+                    let ocrSuccess = false;
                     
-                    // Base64'ü blob'a çevir
-                    console.log('📦 Blob oluşturuluyor...');
-                    const base64Data = imageData.split(',')[1];
-                    const byteCharacters = atob(base64Data);
-                    const byteNumbers = new Array(byteCharacters.length);
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                        byteNumbers[i] = byteCharacters.charCodeAt(i);
-                    }
-                    const byteArray = new Uint8Array(byteNumbers);
-                    const blob = new Blob([byteArray], { type: 'image/png' });
-                    console.log('✅ Blob oluşturuldu:', Math.round(blob.size / 1024), 'KB');
-                    
-                    // FormData oluştur - mobil için optimize edilmiş parametreler
-                    const formData = new FormData();
-                    formData.append('file', blob, 'coa.png');
-                    formData.append('apikey', apiKey);
-                    formData.append('language', 'eng');
-                    formData.append('isOverlayRequired', 'false');
-                    formData.append('detectOrientation', 'true');
-                    formData.append('scale', 'true'); // Otomatik upscaling
-                    formData.append('OCREngine', '2'); // Engine 2 daha iyi
-                    formData.append('isTable', 'true'); // Tablo modu
-                    formData.append('filetype', 'PNG'); // PNG format
-                    console.log('✅ FormData hazır');
-                    
-                    console.log('🌐 API\'ye istek gönderiliyor...');
-                    const response = await fetch('https://api.ocr.space/parse/image', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    console.log('📡 API yanıt aldı, status:', response.status);
-                    
-                    if (!response.ok) {
-                        throw new Error(`OCR API hatası: ${response.status}`);
-                    }
-                    
-                    const result = await response.json();
-                    console.log('🔍 OCR.space Response:', result);
-                    
-                    if (!result.IsErroredOnProcessing && result.ParsedResults && result.ParsedResults.length > 0) {
-                        const text = result.ParsedResults[0].ParsedText;
-                        console.log('📝 OCR Text uzunluğu:', text.length, 'karakter');
-                        console.log('📝 OCR Text (ilk 500 karakter):', text.substring(0, 500));
-                        console.log('📝 OCR Text (tam):', text);
+                    // OCR motoruna göre işlem yap
+                    if (ocrEngine === 'azure') {
+                        // Sadece Azure kullan
+                        try {
+                            console.log('🔵 Azure OCR kullanılıyor...');
+                            text = await performAzureOCR(imageData);
+                            ocrSuccess = true;
+                        } catch (azureError) {
+                            console.error('❌ Azure OCR hatası:', azureError);
+                            showToast('❌ Azure OCR hatası: ' + azureError.message, 'error');
+                            reject(azureError);
+                            return;
+                        }
+                    } else if (ocrEngine === 'both') {
+                        // İkisini de dene, hangisi daha fazla özellik bulursa onu kullan
+                        console.log('🔄 Her iki OCR motoru da denenecek...');
+                        
+                        let ocrSpaceText = '';
+                        let azureText = '';
+                        
+                        // OCR.space dene
+                        try {
+                            console.log('1️⃣ OCR.space deneniyor...');
+                            ocrSpaceText = await performOCRSpaceOCR(imageData);
+                            console.log('✅ OCR.space tamamlandı:', ocrSpaceText.length, 'karakter');
+                        } catch (ocrSpaceError) {
+                            console.warn('⚠️ OCR.space başarısız:', ocrSpaceError.message);
+                        }
+                        
+                        // Azure dene
+                        try {
+                            console.log('2️⃣ Azure deneniyor...');
+                            azureText = await performAzureOCR(imageData);
+                            console.log('✅ Azure tamamlandı:', azureText.length, 'karakter');
+                        } catch (azureError) {
+                            console.warn('⚠️ Azure başarısız:', azureError.message);
+                        }
+                        
+                        // Hangisi daha uzun sonuç verdi? (genelde daha fazla özellik demektir)
+                        if (azureText.length > ocrSpaceText.length) {
+                            console.log('🏆 Azure daha iyi sonuç verdi');
+                            text = azureText;
+                            ocrSuccess = true;
+                        } else if (ocrSpaceText.length > 0) {
+                            console.log('🏆 OCR.space daha iyi sonuç verdi');
+                            text = ocrSpaceText;
+                            ocrSuccess = true;
+                        } else {
+                            throw new Error('Her iki OCR motoru da başarısız oldu');
+                        }
                     } else {
-                        const errorMsg = result.ErrorMessage || result.OCRExitCode || 'OCR başarısız';
-                        console.error('❌ OCR sonucu hatalı:', errorMsg);
-                        throw new Error(errorMsg);
+                        // Varsayılan: OCR.space kullan
+                        try {
+                            console.log('🟢 OCR.space kullanılıyor...');
+                            text = await performOCRSpaceOCR(imageData);
+                            ocrSuccess = true;
+                        } catch (ocrSpaceError) {
+                            console.error('❌ OCR.space hatası:', ocrSpaceError);
+                            showToast('❌ OCR.space hatası: ' + ocrSpaceError.message, 'error');
+                            reject(ocrSpaceError);
+                            return;
+                        }
                     }
                     
-                    const text = result.ParsedResults[0].ParsedText;
+                    if (!ocrSuccess || !text) {
+                        throw new Error('OCR metni alınamadı');
+                    }
+                    
+                    console.log('📝 OCR Text uzunluğu:', text.length, 'karakter');
+                    console.log('📝 OCR Text (tam):', text);
                     
                     // Özellikleri parse et - TAB ile ayrılmış sütunlar
                     const lines = text.split('\n');
@@ -5652,10 +5853,25 @@
                 return;
             }
             
-            // API key'i input'a yükle
+            // API key'leri ve OCR engine'i input'lara yükle
             const apiKeyInput = document.getElementById('ocrApiKeyInput');
             if (apiKeyInput) {
                 apiKeyInput.value = localStorage.getItem('ocrspace_api_key') || 'K82811583888957';
+            }
+            
+            const azureKeyInput = document.getElementById('azureApiKeyInput');
+            if (azureKeyInput) {
+                azureKeyInput.value = localStorage.getItem('azure_api_key') || '';
+            }
+            
+            const azureEndpointInput = document.getElementById('azureEndpointInput');
+            if (azureEndpointInput) {
+                azureEndpointInput.value = localStorage.getItem('azure_endpoint') || '';
+            }
+            
+            const ocrEngineSelect = document.getElementById('ocrEngineSelect');
+            if (ocrEngineSelect) {
+                ocrEngineSelect.value = localStorage.getItem('ocr_engine') || 'ocrspace';
             }
             
             // Eğer parametre gönderilmediyse, COA formundaki hammaddeyi kontrol et
