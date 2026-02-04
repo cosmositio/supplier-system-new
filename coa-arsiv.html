@@ -5109,7 +5109,19 @@
                             const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
                             const page = await pdf.getPage(1); // İlk sayfa
                             
-                            const scale = 5.0; // Çok yüksek kalite için 5x (PDF tablolar için kritik)
+                            // OCR engine'e göre scale ayarla
+                            const ocrEngine = localStorage.getItem('ocr_engine') || 'ocrspace';
+                            let scale = 5.0; // Varsayılan: ultra yüksek kalite
+                            
+                            // OCR.space için dosya boyutu limiti var (1 MB), scale'i düşür
+                            if (ocrEngine === 'ocrspace') {
+                                scale = 2.0; // Daha düşük scale = daha küçük dosya (genelde 300-600 KB)
+                                console.log('🔧 OCR.space için scale=2.0 kullanılıyor (dosya boyutu optimizasyonu)');
+                            } else {
+                                scale = 5.0; // Azure için yüksek kalite
+                                console.log('🔧 Azure için scale=5.0 kullanılıyor (maksimum kalite)');
+                            }
+                            
                             const viewport = page.getViewport({ scale: scale });
                             const canvas = document.createElement('canvas');
                             canvas.width = viewport.width;
@@ -5118,7 +5130,7 @@
                             
                             await page.render({ canvasContext: ctx, viewport: viewport }).promise;
                             imageData = canvas.toDataURL('image/png');
-                            console.log('✅ PDF resme dönüştürüldü (5x kalite - ultra yüksek çözünürlük)');
+                            console.log(`✅ PDF resme dönüştürüldü (scale=${scale})`);
                         } catch (pdfError) {
                             console.error('❌ PDF dönüştürme hatası:', pdfError);
                             showToast('❌ PDF okunamadı', 'error');
@@ -5496,6 +5508,58 @@
                                     }
                                 } else {
                                     console.log(`  ❌ "${pattern.tr}" veya "${pattern.en}" bulunamadı`);
+                                }
+                            }
+                            
+                            // ÖNEMLİ: "INSPECTED VALUES" veya "AVERAGE VALUE" başlığı altındaki değerleri de dene
+                            // Bu format: Carcano gibi firmaların COA'larında kullanılır
+                            if (Object.keys(properties).length === 0) {
+                                console.log('\n🔍 INSPECTED VALUES başlığı aranıyor...');
+                                
+                                // "INSPECTED VALUES" veya "AVERAGE VALUE" başlığını bul
+                                const inspectedMatch = text.match(/(INSPECTED VALUES|AVERAGE VALUE OF THE LOT|TEST RESULTS|MEASURED VALUES)/i);
+                                
+                                if (inspectedMatch) {
+                                    console.log(`✅ "${inspectedMatch[0]}" başlığı bulundu!`);
+                                    
+                                    // Bu başlıktan sonraki 500 karakteri al
+                                    const startIndex = inspectedMatch.index + inspectedMatch[0].length;
+                                    const inspectedChunk = text.substring(startIndex, startIndex + 500);
+                                    console.log('📦 Inspected chunk:', inspectedChunk.substring(0, 200));
+                                    
+                                    // Bu chunk içinde her özellik için değer ara
+                                    for (const pattern of propertyPatterns) {
+                                        const enVariants = Array.isArray(pattern.en) ? pattern.en : [pattern.en];
+                                        const allVariants = [pattern.tr, ...enVariants];
+                                        
+                                        // Her varyasyonu dene
+                                        for (const variant of allVariants) {
+                                            const variantRegex = new RegExp(variant, 'i');
+                                            const match = inspectedChunk.match(variantRegex);
+                                            
+                                            if (match) {
+                                                console.log(`  🎯 "${variant}" inspected values içinde bulundu`);
+                                                
+                                                // Bu özellikten sonraki 150 karakterde sayı ara
+                                                const afterProp = inspectedChunk.substring(match.index + match[0].length, match.index + match[0].length + 150);
+                                                const numbers = afterProp.match(/\b\d+[.,]\d+\b/g);
+                                                
+                                                if (numbers && numbers.length > 0) {
+                                                    const firstNum = numbers[0].replace(/,/g, '.');
+                                                    const value = parseFloat(firstNum);
+                                                    
+                                                    if (!isNaN(value) && value >= 0.001 && value <= 500) {
+                                                        console.log(`    ✅ ${pattern.key} (inspected) = ${firstNum}`);
+                                                        properties[pattern.key] = firstNum;
+                                                        properties[pattern.key.toLowerCase()] = firstNum;
+                                                        properties[pattern.tr] = firstNum;
+                                                        properties[pattern.tr.toLowerCase()] = firstNum;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
