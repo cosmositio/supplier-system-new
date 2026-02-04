@@ -5554,31 +5554,40 @@
                                             console.log(`🔢 Sayılar bulundu:`, numbers);
                                             
                                             // İlk 3 sayıyı özelliklere eşle:
-                                            // numbers[0] = Total weight (Density)
-                                            // numbers[1] = Tensile strength (Kopma Direnci)
-                                            // numbers[2] = Elongation (Kopma Uzama)
+                                            // numbers[0] = Total weight (g/m²)
+                                            // numbers[1] = Tensile strength (N/mm²)
+                                            // numbers[2] = Elongation (%)
                                             
                                             if (numbers[0]) {
                                                 const val0 = numbers[0].replace(/,/g, '.');
+                                                // TDS'deki gerçek isimlerle kaydet
+                                                properties['Total Weight'] = val0;
+                                                properties['total weight'] = val0;
                                                 properties['Density'] = val0;
                                                 properties['density'] = val0;
                                                 properties['Dansite'] = val0;
                                                 properties['dansite'] = val0;
-                                                console.log(`  ✅ Density (inspected) = ${val0}`);
+                                                console.log(`  ✅ Total Weight (inspected) = ${val0}`);
                                             }
                                             
                                             if (numbers[1]) {
                                                 const val1 = numbers[1].replace(/,/g, '.');
+                                                // TDS'deki gerçek isimlerle kaydet
+                                                properties['Tensile strength'] = val1;
+                                                properties['tensile strength'] = val1;
                                                 properties['Kopma Direnci'] = val1;
                                                 properties['kopma direnci'] = val1;
-                                                console.log(`  ✅ Kopma Direnci (inspected) = ${val1}`);
+                                                console.log(`  ✅ Tensile strength (inspected) = ${val1}`);
                                             }
                                             
                                             if (numbers[2]) {
                                                 const val2 = numbers[2].replace(/,/g, '.');
+                                                // TDS'deki gerçek isimlerle kaydet
+                                                properties['Elongation'] = val2;
+                                                properties['elongation'] = val2;
                                                 properties['Kopma Uzama'] = val2;
                                                 properties['kopma uzama'] = val2;
-                                                console.log(`  ✅ Kopma Uzama (inspected) = ${val2}`);
+                                                console.log(`  ✅ Elongation (inspected) = ${val2}`);
                                             }
                                             
                                             break; // İlk sayı satırını bulduk, çık
