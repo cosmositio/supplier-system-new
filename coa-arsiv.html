@@ -5400,6 +5400,18 @@
                                 }
                                 
                                 if (testResult || requirement) {
+                                    // Fix OCR errors: Lambda symbol (λ) for thermal conductivity
+                                    if (propertyLine.includes('W/mK') || propertyLine.includes('W/mk')) {
+                                        // λ10 is often read as "110", "A10", "l10", or "λ10"
+                                        testResult = testResult.replace(/^(110|A10|l10|L10)\s*([≤<=])/i, 'λ10 $2');
+                                        testResult = testResult.replace(/([≤<=])\s*(110|A10|l10|L10)\s/gi, '$1 λ10 ');
+                                        
+                                        requirement = requirement.replace(/^(110|A10|l10|L10)\s*([≤<=])/i, 'λ10 $2');
+                                        requirement = requirement.replace(/([≤<=])\s*(110|A10|l10|L10)\s/gi, '$1 λ10 ');
+                                        
+                                        console.log(`  🔧 Lambda fix applied - Result: "${testResult}", Req: "${requirement}"`);
+                                    }
+                                    
                                     console.log(`  📊 Test Result: "${testResult}"`);
                                     console.log(`  📋 Requirement: "${requirement}"`);
                                     
