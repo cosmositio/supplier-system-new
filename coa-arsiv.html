@@ -5437,7 +5437,44 @@
                             console.log('📝 Text uzunluğu:', text.length, 'karakter');
                             console.log('📝 İlk 500 karakter:', text.substring(0, 500));
                             
-                            for (const pattern of propertyPatterns) {
+                            // Check for INSPECTED VALUES format FIRST (Carcano format)
+                            const inspectedMatch = text.match(/(INSPECTED VALUES|AVERAGE VALUE OF THE LOT|TEST RESULTS)/i);
+                            if (inspectedMatch) {
+                                console.log('🎯 INSPECTED VALUES section detected in OCR.space text');
+                                const inspectedIdx = inspectedMatch.index;
+                                
+                                // Extract text after heading (skip ~100 chars for column headers)
+                                const afterSection = text.substring(inspectedIdx + inspectedMatch[0].length + 100);
+                                
+                                // Find all clean numbers (skip units in parentheses)
+                                const numberMatches = afterSection.match(/\b(\d+[.,]\d+)\b/g);
+                                
+                                if (numberMatches && numberMatches.length >= 3) {
+                                    const numbers = numberMatches.map(n => n.replace(',', '.')).slice(0, 3);
+                                    console.log('🔢 INSPECTED VALUES numbers found:', numbers);
+                                    
+                                    // Map to properties (Carcano order: Total Weight, Tensile strength, Elongation)
+                                    const mappings = [
+                                        { value: numbers[0], patterns: ["Density", "DENSITY", "Total Weight", "TOTAL WEIGHT", "Dansite", "DANSITE"] },
+                                        { value: numbers[1], patterns: ["Tensile strength", "TENSILE STRENGTH", "Kopma Direnci", "KOPMA DIRENCI"] },
+                                        { value: numbers[2], patterns: ["Elongation", "ELONGATION", "Kopma Uzama", "KOPMA UZAMA"] }
+                                    ];
+                                    
+                                    for (let mapping of mappings) {
+                                        for (let name of mapping.patterns) {
+                                            properties[name] = mapping.value;
+                                            properties[name.toLowerCase()] = mapping.value;
+                                        }
+                                        console.log(`✅ ${mapping.patterns[0]} (inspected) = ${mapping.value}`);
+                                    }
+                                }
+                            }
+                            
+                            // If INSPECTED VALUES parser didn't work, use standard table parsing
+                            if (Object.keys(properties).length === 0) {
+                                console.log('📋 Using standard table format parser');
+                                
+                                for (const pattern of propertyPatterns) {
                                 console.log(`\n🔍 ${pattern.key} aranıyor...`);
                                 
                                 // Tüm varyasyonları içeren regex oluştur
@@ -5518,7 +5555,8 @@
                                     console.log(`  ❌ "${pattern.tr}" veya "${pattern.en}" bulunamadı`);
                                 }
                             }
-                        }
+                        } // End: if (Object.keys(properties).length === 0)
+                        } // End: else (OCR.space parsing)
                         
                         // ÖNEMLİ: "INSPECTED VALUES" parsing - TÜM OCR MOTORLARI İÇİN
                         // Bu format: Carcano gibi firmaların COA'larında kullanılır
