@@ -5239,17 +5239,36 @@
                             continue;
                         }
                         
-                        // Bu satırdan sonraki 5 satıra bak - son geçerli sayı test result'tır
-                        // (10 satır çok uzun - başka özelliklerin değerlerini de alıyor)
-                        const searchLines = textLines.slice(propertyLineIndex, propertyLineIndex + 5);
-                        console.log(`  🔍 ${pattern.key} için arama satırları:`, searchLines);
+                        // Azure table format: Her satır ayrı
+                        // Strateji: Bu özellikten SONRAKİ özelliğe kadar olan satırları al
+                        // Son satırdaki sayı genelde TEST RESULT'tır
                         
-                        // Her satırdan sayıları çıkar
+                        // Bir sonraki özelliğin başladığı satırı bul
+                        let nextPropertyIndex = textLines.length;
+                        for (let i = propertyLineIndex + 1; i < textLines.length; i++) {
+                            const line = textLines[i];
+                            // Başka bir özellik mi başladı?
+                            const isAnotherProperty = propertyPatterns.some(p => 
+                                line.includes(p.tr) || line.toUpperCase().includes(p.en)
+                            );
+                            if (isAnotherProperty) {
+                                nextPropertyIndex = i;
+                                break;
+                            }
+                        }
+                        
+                        // Bu özelliğe ait tüm satırlar
+                        const propertyLines = textLines.slice(propertyLineIndex, nextPropertyIndex);
+                        console.log(`  🔍 ${pattern.key} satırları (${propertyLines.length} satır):`, propertyLines);
+                        
+                        // Bu satırlardan sayıları çıkar (ters sıradan - en son sayı TEST RESULT)
                         const allNumbers = [];
-                        for (const line of searchLines) {
-                            // ISO/ASTM standart numaralarını atla
+                        for (let i = propertyLines.length - 1; i >= 0; i--) {
+                            const line = propertyLines[i];
+                            
+                            // ISO/ASTM standart satırlarını atla
                             if (/ISO\s*\d+|ASTM\s*[A-Z]\d+|SO\d+/i.test(line)) {
-                                console.log(`    ⏭️ Standart satırı atlandı: "${line}"`);
+                                console.log(`    ⏭️ Standart atlandı: "${line}"`);
                                 continue;
                             }
                             
@@ -5258,20 +5277,26 @@
                                 nums.forEach(n => {
                                     const cleaned = n.replace(/,/g, '.');
                                     const value = parseFloat(cleaned);
-                                    // Daha akıllı filtre: 0.01-500 arası (ISO numaraları çok büyük)
-                                    if (!isNaN(value) && value >= 0.01 && value <= 500) {
-                                        allNumbers.push({ original: n, cleaned: cleaned, value: value });
+                                    // 0.001-500 arası (daha geniş aralık - 0.07, 0.090 gibi değerler için)
+                                    if (!isNaN(value) && value >= 0.001 && value <= 500) {
+                                        allNumbers.push({ 
+                                            original: n, 
+                                            cleaned: cleaned, 
+                                            value: value,
+                                            lineIndex: i,
+                                            line: line
+                                        });
                                     }
                                 });
                             }
                         }
                         
-                        console.log(`  📊 Geçerli sayılar:`, allNumbers.map(n => n.original));
+                        console.log(`  📊 Bulunan sayılar (ters sıra):`, allNumbers.map(n => `${n.original} (satır ${n.lineIndex})`));
                         
                         if (allNumbers.length > 0) {
-                            // Son sayı test result'tır
-                            const testValue = allNumbers[allNumbers.length - 1].cleaned;
-                            console.log(`  ✅ ${pattern.key} = ${testValue}`);
+                            // İLK sayı test result'tır (ters sıradan aradık, yani en son satırdan)
+                            const testValue = allNumbers[0].cleaned;
+                            console.log(`  ✅ ${pattern.key} = ${testValue} (satır ${allNumbers[0].lineIndex}: "${allNumbers[0].line}")`);
                             
                             properties[pattern.key] = testValue;
                             properties[pattern.key.toLowerCase()] = testValue;
