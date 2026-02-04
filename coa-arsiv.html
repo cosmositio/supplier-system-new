@@ -4934,12 +4934,17 @@
             const lteMatch = req.match(/[≤<=]\s*(\d+[.,]?\d*)/);
             if (lteMatch) {
                 const maxValue = parseFloat(lteMatch[1].replace(',', '.'));
-                const value = parseFloat(test.replace(',', '.'));
                 
-                if (!isNaN(value) && !isNaN(maxValue)) {
-                    const result = value <= maxValue ? 'Uygun' : 'Uygun Değil';
-                    console.log(`    ⬇️ Less than: ${value} ≤ ${maxValue} → ${result}`);
-                    return result;
+                // Extract numeric value from test result (handle "λ10 ≤ 0,035 W/mK" format)
+                const testNumMatch = test.match(/(\d+[.,]?\d*)/);
+                if (testNumMatch) {
+                    const value = parseFloat(testNumMatch[0].replace(',', '.'));
+                    
+                    if (!isNaN(value) && !isNaN(maxValue)) {
+                        const result = value <= maxValue ? 'Uygun' : 'Uygun Değil';
+                        console.log(`    ⬇️ Less than: ${value} ≤ ${maxValue} → ${result}`);
+                        return result;
+                    }
                 }
             }
             
@@ -5435,11 +5440,16 @@
                         }
                         
                         console.log('📊 BASF properties extracted:', properties);
+                        
+                        // BASF için properties dolu, diğer parsing'leri atla
+                        if (Object.keys(properties).length > 0) {
+                            console.log('✅ BASF parsing başarılı, diğer yöntemler atlanıyor');
+                        }
                     }
                     
                     // Azure words varsa koordinatlarla parse et (EN DOĞRU YÖNTEM)
-                    // (Sadece BASF format değilse)
-                    if (!isBASFFormat && words && words.length > 0) {
+                    // (Sadece BASF format değilse VE properties boşsa)
+                    if (!isBASFFormat && Object.keys(properties).length === 0 && words && words.length > 0) {
                         console.log('🎯 Azure word koordinatları kullanılıyor...');
                         console.log('📦 Toplam kelime:', words.length);
                         
