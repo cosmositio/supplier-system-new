@@ -5134,7 +5134,7 @@
                         console.log('🔄 Her iki OCR motoru da denenecek...');
                         
                         let ocrSpaceText = '';
-                        let azureText = '';
+                        let azureResult = null;
                         
                         // OCR.space dene
                         try {
@@ -5148,20 +5148,22 @@
                         // Azure dene
                         try {
                             console.log('2️⃣ Azure deneniyor...');
-                            azureText = await performAzureOCR(imageData);
-                            console.log('✅ Azure tamamlandı:', azureText.length, 'karakter');
+                            azureResult = await performAzureOCR(imageData);
+                            console.log('✅ Azure tamamlandı:', azureResult.text.length, 'karakter');
                         } catch (azureError) {
                             console.warn('⚠️ Azure başarısız:', azureError.message);
                         }
                         
                         // Hangisi daha uzun sonuç verdi? (genelde daha fazla özellik demektir)
-                        if (azureText.length > ocrSpaceText.length) {
+                        if (azureResult && azureResult.text.length > ocrSpaceText.length) {
                             console.log('🏆 Azure daha iyi sonuç verdi');
-                            text = azureText;
+                            text = azureResult.text;
+                            lines = azureResult.lines;
                             ocrSuccess = true;
                         } else if (ocrSpaceText.length > 0) {
                             console.log('🏆 OCR.space daha iyi sonuç verdi');
                             text = ocrSpaceText;
+                            lines = []; // OCR.space satır dizisi yok
                             ocrSuccess = true;
                         } else {
                             throw new Error('Her iki OCR motoru da başarısız oldu');
@@ -5171,6 +5173,7 @@
                         try {
                             console.log('🟢 OCR.space kullanılıyor...');
                             text = await performOCRSpaceOCR(imageData);
+                            lines = []; // OCR.space satır dizisi yok
                             ocrSuccess = true;
                         } catch (ocrSpaceError) {
                             console.error('❌ OCR.space hatası:', ocrSpaceError);
@@ -5178,6 +5181,7 @@
                             reject(ocrSpaceError);
                             return;
                         }
+                    }
                     }
                     
                     if (!ocrSuccess || !text) {
