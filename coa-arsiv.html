@@ -5183,48 +5183,85 @@
                     console.log('📝 OCR Text uzunluğu:', text.length, 'karakter');
                     console.log('📝 OCR Text (tam):', text);
                     
-                    // Özellikleri parse et - TAB ile ayrılmış sütunlar
+                    // Özellikleri parse et
                     const lines = text.split('\n');
                     
                     console.log('📋 Toplam satır sayısı:', lines.length);
-                    console.log('📋 TAM METIN:', text); // Tüm metni göster
+                    console.log('📋 İLK 10 SATIR:', lines.slice(0, 10));
                     
-                    // Her satırı TAB ile split et
                     const properties = {};
                     let tableStarted = false;
                     
-                    // Önce tüm metinde agresif Sertlik araması yap
-                    console.log('\n🔍 AGRESIF SERTLİK ARAMASI BAŞLIYOR...');
-                    for (let i = 0; i < lines.length; i++) {
-                        const line = lines[i];
-                        const lineUpper = line.toUpperCase();
-                        
-                        // Sertlik veya Hardness içeren herhangi bir satır
-                        if (lineUpper.includes('SERTLİK') || lineUpper.includes('SERTLIK') || 
-                            lineUpper.includes('HARDNESS') || lineUpper.includes('SERTIK')) {
-                            console.log(`🎯 Satır ${i}: "${line}"`);
+                    // Tablo özellik pattern'ları - Azure OCR formatında
+                    const propertyPatterns = [
+                        // Türkçe - İngilizce eşleştirmesi (Azure tek satırda veriyor)
+                        { tr: 'Dansite', en: 'DENSITY', key: 'Density' },
+                        { tr: 'Sertlik', en: 'HARDNESS', key: 'Sertlik' },
+                        { tr: 'Kopma Direnci', en: 'TENSILE STRENGHT', key: 'Kopma Direnci' },
+                        { tr: 'Kopma Uzama', en: 'ELONGATION AT BREAK', key: 'Kopma Uzama' },
+                        { tr: 'Elastikiyet', en: 'RESILIENCE', key: 'Elastikiyet' },
+                        { tr: 'Deformasyon', en: 'COMPRESSION SET', key: 'Deformasyon' }
+                    ];
+                    
+                    // Her pattern için metin içinde ara
+                    for (const pattern of propertyPatterns) {
+                        // Özellik satırını bul (Türkçe + İngilizce beraber)
+                        for (let i = 0; i < lines.length; i++) {
+                            const line = lines[i];
+                            const lineUpper = line.toUpperCase();
                             
-                            // Bu satırda herhangi bir sayı var mı? (±, ≤, ≥ sembolleri ile birlikte, virgül desteği ile)
-                            const numbers = line.match(/([\d.,]+)\s*[±≤≥]?\s*\d*/g);
-                            if (numbers && numbers.length > 0) {
-                                console.log('  📊 Bulunan sayılar:', numbers);
+                            // Bu satır özellik satırı mı?
+                            if (lineUpper.includes(pattern.tr.toUpperCase()) || lineUpper.includes(pattern.en)) {
+                                console.log(`🎯 ${pattern.key} satırı bulundu (${i}): "${line}"`);
                                 
-                                // En büyük sayıyı al (genelde test sonucu en büyük değer olur)
-                                // Virgülleri noktaya çevir
-                                const cleanNumbers = numbers.map(n => parseFloat(n.replace(/[±≤≥]/g, '').replace(/,/g, '.').trim()));
-                                const maxNumber = Math.max(...cleanNumbers);
+                                // Sonraki birkaç satırda test sonucunu ara
+                                // Azure format: özellik adı ve değerler ayrı satırlarda olabilir
+                                let testValue = null;
                                 
-                                console.log('  ✅ Sertlik değeri (max):', maxNumber);
-                                properties['Sertlik'] = String(maxNumber);
-                                properties['sertlik'] = String(maxNumber);
-                                properties['Sertik'] = String(maxNumber);
-                                properties['sertik'] = String(maxNumber);
-                                properties['Hardness'] = String(maxNumber);
-                                properties['hardness'] = String(maxNumber);
+                                // 1) Aynı satırda değer var mı? (genelde en sondaki sayı test sonucudur)
+                                const sameLineNumbers = line.match(/[\d.,]+/g);
+                                if (sameLineNumbers && sameLineNumbers.length > 0) {
+                                    // En son sayıyı al (TEST RESULT sütunu genelde en sağda)
+                                    testValue = sameLineNumbers[sameLineNumbers.length - 1].replace(/,/g, '.');
+                                    console.log(`  ✅ Aynı satırda bulundu: ${testValue}`);
+                                }
+                                
+                                // 2) Sonraki satırlarda ara (Azure bazen böyle veriyor)
+                                if (!testValue) {
+                                    for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+                                        const nextLine = lines[j].trim();
+                                        // Sadece sayı içeren satır
+                                        const numMatch = nextLine.match(/^[\d.,]+$/);
+                                        if (numMatch) {
+                                            testValue = numMatch[0].replace(/,/g, '.');
+                                            console.log(`  ✅ Sonraki satırda bulundu (${j}): ${testValue}`);
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                // Değer bulunduysa kaydet
+                                if (testValue) {
+                                    // Başta nokta varsa 0 ekle
+                                    if (testValue.startsWith('.')) {
+                                        testValue = '0' + testValue;
+                                    }
+                                    
+                                    // Hem Türkçe hem İngilizce key'lerle kaydet
+                                    properties[pattern.key] = testValue;
+                                    properties[pattern.key.toLowerCase()] = testValue;
+                                    properties[pattern.tr] = testValue;
+                                    properties[pattern.tr.toLowerCase()] = testValue;
+                                    
+                                    console.log(`  💾 ${pattern.key} = ${testValue}`);
+                                }
+                                
+                                break; // Bu pattern için başka satır arama
                             }
                         }
                     }
                     
+                    // Eski TAB-based parsing (fallback)
                     for (let i = 0; i < lines.length; i++) {
                         const line = lines[i].trim();
                         if (!line) continue;
