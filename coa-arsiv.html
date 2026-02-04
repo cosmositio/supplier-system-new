@@ -5944,8 +5944,18 @@
                         }
                         if (coaValue.requirement) {
                             prop.coaRequirement = coaValue.requirement;
+                            // If TDS property doesn't have requirement yet, store from COA
+                            if (!prop.requirement && prop.operator === 'compliance') {
+                                prop.requirement = coaValue.requirement;
+                            }
                         }
                         actualValue = coaValue.value || coaValue.compliance; // Use value or compliance status
+                        
+                        // Auto-set operator to compliance mode if not already set
+                        if (!prop.operator || prop.operator === '=') {
+                            prop.operator = 'compliance';
+                            console.log(`   🔧 Auto-switched to compliance mode for "${prop.name}"`);
+                        }
                     }
                     
                     // ÖZEL DURUM: Sertlik/Hardness çapraz eşleşme
@@ -6509,7 +6519,7 @@
                                style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;" placeholder="ISO845">
                     </td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
-                        <select value="${prop.operator || '='}" onchange="updateTDSProperty(${index}, 'operator', this.value)"
+                        <select value="${prop.operator || '='}" onchange="toggleTDSMode(${index}, this.value)"
                                 style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
                             <option value="=" ${prop.operator === '=' ? 'selected' : ''}>=</option>
                             <option value="<" ${prop.operator === '<' ? 'selected' : ''}>&lt;</option>
@@ -6517,26 +6527,38 @@
                             <option value="<=" ${prop.operator === '<=' ? 'selected' : ''}>≤</option>
                             <option value=">=" ${prop.operator === '>=' ? 'selected' : ''}>≥</option>
                             <option value="range" ${prop.operator === 'range' ? 'selected' : ''}>Aralık</option>
+                            <option value="compliance" ${prop.operator === 'compliance' ? 'selected' : ''}>Uygunluk Kontrolü</option>
                         </select>
                     </td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">
-                        <input type="number" step="0.01" value="${prop.standardValue || ''}" oninput="updateTDSPropertyWithCalc(${index}, 'standardValue', this.value)"
-                               style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; text-align: center;" placeholder="15">
-                    </td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">
-                        <input type="number" step="0.01" value="${prop.lowerTolerance || ''}" oninput="updateTDSPropertyWithCalc(${index}, 'lowerTolerance', this.value)"
-                               style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; text-align: center;" placeholder="1.5">
-                    </td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">
-                        <input type="number" step="0.01" value="${prop.upperTolerance || ''}" oninput="updateTDSPropertyWithCalc(${index}, 'upperTolerance', this.value)"
-                               style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; text-align: center;" placeholder="1.5">
-                    </td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background: #f1f8e9; font-weight: 600; color: #33691e;">
-                        ${isNaN(parseFloat(lowerLimit)) ? '-' : lowerLimit}
-                    </td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background: #f1f8e9; font-weight: 600; color: #33691e;">
-                        ${isNaN(parseFloat(upperLimit)) ? '-' : upperLimit}
-                    </td>
+                    ${prop.operator === 'compliance' ? `
+                        <td colspan="5" style="padding: 8px; border: 1px solid #ddd; background: #f5f5f5;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-weight: 600; color: #666; white-space: nowrap;">Requirement:</span>
+                                <input type="text" value="${prop.requirement || ''}" onchange="updateTDSProperty(${index}, 'requirement', this.value)"
+                                       style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;" 
+                                       placeholder="Örn: 7,5 - 10,5 kg/m3 veya ≥ 45 N veya Class A">
+                            </div>
+                        </td>
+                    ` : `
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            <input type="number" step="0.01" value="${prop.standardValue || ''}" oninput="updateTDSPropertyWithCalc(${index}, 'standardValue', this.value)"
+                                   style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; text-align: center;" placeholder="15">
+                        </td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            <input type="number" step="0.01" value="${prop.lowerTolerance || ''}" oninput="updateTDSPropertyWithCalc(${index}, 'lowerTolerance', this.value)"
+                                   style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; text-align: center;" placeholder="1.5">
+                        </td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            <input type="number" step="0.01" value="${prop.upperTolerance || ''}" oninput="updateTDSPropertyWithCalc(${index}, 'upperTolerance', this.value)"
+                                   style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; text-align: center;" placeholder="1.5">
+                        </td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background: #f1f8e9; font-weight: 600; color: #33691e;">
+                            ${isNaN(parseFloat(lowerLimit)) ? '-' : lowerLimit}
+                        </td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background: #f1f8e9; font-weight: 600; color: #33691e;">
+                            ${isNaN(parseFloat(upperLimit)) ? '-' : upperLimit}
+                        </td>
+                    `}
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background: #e3f2fd; font-weight: 600; color: #1565c0;">
                         ${prop.coaValue || '-'}
                     </td>
@@ -6555,7 +6577,29 @@
                 tbody.appendChild(row);
                 
                 // Uygunluk kontrolü yap
-                if (prop.coaValue && prop.standardValue) {
+                if (prop.operator === 'compliance') {
+                    // Compliance mode: Use checkCompliance function
+                    if (prop.coaValue && prop.requirement) {
+                        const compliance = checkCompliance(prop.coaValue, prop.requirement);
+                        prop.coaCompliance = compliance;
+                        
+                        const complianceSpan = document.getElementById(`compliance_${index}`);
+                        if (complianceSpan) {
+                            complianceSpan.textContent = compliance;
+                            if (compliance === 'Uygun') {
+                                complianceSpan.style.background = '#c8e6c9';
+                                complianceSpan.style.color = '#2e7d32';
+                            } else if (compliance === 'Uygun Değil') {
+                                complianceSpan.style.background = '#ffcdd2';
+                                complianceSpan.style.color = '#c62828';
+                            } else {
+                                complianceSpan.style.background = '#fff9c4';
+                                complianceSpan.style.color = '#f57f17';
+                            }
+                        }
+                    }
+                } else if (prop.coaValue && prop.standardValue) {
+                    // Numeric mode: Use standard calculation
                     const complianceSpan = document.getElementById(`compliance_${index}`);
                     const value = parseFloat(prop.coaValue);
                     const operator = prop.operator || 'range';
@@ -6615,6 +6659,30 @@
                 }
                 tdsData[currentTDSMaterial].properties[index][field] = value;
             }
+        }
+        
+        // TDS mode toggle (compliance vs numeric)
+        function toggleTDSMode(index, operator) {
+            if (!currentTDSMaterial || !tdsData[currentTDSMaterial]) return;
+            
+            const prop = tdsData[currentTDSMaterial].properties[index];
+            prop.operator = operator;
+            
+            // Compliance modunda numeric alanları temizle
+            if (operator === 'compliance') {
+                prop.standardValue = '';
+                prop.lowerTolerance = '';
+                prop.upperTolerance = '';
+                prop.min = '';
+                prop.max = '';
+            } else {
+                // Numeric modunda requirement'ı temizle
+                prop.requirement = '';
+                prop.coaCompliance = '';
+            }
+            
+            // Tabloyu yeniden render et
+            renderTDSProperties(tdsData[currentTDSMaterial].properties);
         }
         
         // Özellik güncelle ve limitleri yeniden hesapla
