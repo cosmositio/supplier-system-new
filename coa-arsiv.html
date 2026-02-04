@@ -4963,7 +4963,17 @@
                 return result;
             }
             
-            // 5) Exact string match (case-insensitive)
+            // 5) Exact string match (case-insensitive, ignore whitespace and special chars)
+            const normalizeStr = (str) => str.replace(/\s+/g, '').replace(/[λΛ]/g, 'lambda').toLowerCase();
+            const normalizedTest = normalizeStr(test);
+            const normalizedReq = normalizeStr(req);
+            
+            if (normalizedTest === normalizedReq) {
+                console.log(`    ✅ Exact match (normalized) → Uygun`);
+                return 'Uygun';
+            }
+            
+            // Also check cleaned versions
             if (cleanTest === cleanReq) {
                 console.log(`    ✅ Exact match → Uygun`);
                 return 'Uygun';
@@ -5373,46 +5383,91 @@
                             
                             if (match) {
                                 const idx = match.index;
-                                // Get entire line containing property name
-                                const beforeProp = text.substring(Math.max(0, idx - 50), idx);
-                                const afterProp = text.substring(idx, idx + 300);
-                                const lineStart = beforeProp.lastIndexOf('\n') + 1;
-                                const fullLine = text.substring(Math.max(0, idx - 50) + lineStart, idx + 300);
-                                const propertyLine = fullLine.split(/[\n\r]+/)[0];
                                 
-                                console.log(`\n🔍 ${pattern.name} found, full line:`, propertyLine);
+                                // Extract surrounding context (before and after property name)
+                                const contextBefore = text.substring(Math.max(0, idx - 100), idx);
+                                const contextAfter = text.substring(idx, idx + 400);
                                 
-                                // Split the property line by TAB
-                                const parts = propertyLine.split(/[\t]+/).map(p => p.trim()).filter(p => p);
-                                console.log(`  🔧 Line parts (${parts.length}):`, parts);
+                                console.log(`\n🔍 Searching for "${pattern.name}"...`);
+                                console.log(`  Context: ...${contextBefore.slice(-50)}[MATCH]${contextAfter.slice(0, 100)}...`);
+                                
+                                // Find the line containing the property name
+                                // Try different line break patterns (Azure vs OCR.space)
+                                const lines = (contextBefore + contextAfter).split(/[\n\r]+/);
+                                let propertyLine = '';
+                                
+                                for (const line of lines) {
+                                    if (line.toLowerCase().includes(pattern.name.toLowerCase())) {
+                                        propertyLine = line.trim();
+                                        break;
+                                    }
+                                }
+                                
+                                if (!propertyLine) {
+                                    console.log(`⚠️ Property line not found for ${pattern.name}`);
+                                    continue;
+                                }
+                                
+                                console.log(`  📝 Full line: "${propertyLine}"`);
+                                
+                                // Split the property line by TAB or multiple spaces
+                                let parts = propertyLine.split(/[\t]+/).map(p => p.trim()).filter(p => p);
+                                
+                                console.log(`  🔧 TAB split → ${parts.length} parts:`, parts);
+                                
+                                // If TAB split didn't work well, try multiple spaces (2+)
+                                if (parts.length < 2) {
+                                    parts = propertyLine.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
+                                    console.log(`  🔧 Space split → ${parts.length} parts:`, parts);
+                                }
                                 
                                 let testResult = '';
                                 let requirement = '';
+                                
+                                // Skip if first part doesn't contain property name (wrong line)
+                                if (parts.length > 0) {
+                                    const firstPartLower = parts[0].toLowerCase();
+                                    const patternNameLower = pattern.name.toLowerCase().substring(0, Math.min(8, pattern.name.length));
+                                    
+                                    if (!firstPartLower.includes(patternNameLower)) {
+                                        console.log(`  ⚠️ First column "${parts[0]}" doesn't match property name, skipping`);
+                                        continue;
+                                    }
+                                }
                                 
                                 // Use detected column positions or fallback
                                 if (pruefergebnisCol > -1 && requirementCol > -1 && parts.length > Math.max(pruefergebnisCol, requirementCol)) {
                                     // Use column positions from header
                                     testResult = parts[pruefergebnisCol] || '';
                                     requirement = parts[requirementCol] || '';
+                                    console.log(`  ✅ Using header columns: Pruefergebnis[${pruefergebnisCol}]="${testResult}", Requirement[${requirementCol}]="${requirement}"`);
                                 } else if (parts.length >= 3) {
                                     // Fallback: col 0 = property name, col 1 = test result, col 2 = requirement
                                     testResult = parts[1] || '';
                                     requirement = parts[2] || '';
+                                    console.log(`  ✅ Using fallback: parts[1]="${testResult}", parts[2]="${requirement}"`);
                                 } else if (parts.length === 2) {
                                     // Only 2 columns: col 0 = property, col 1 = either result or requirement
                                     // Assume it's the test result
                                     testResult = parts[1] || '';
+                                    console.log(`  ⚠️ Only 2 parts: parts[1]="${testResult}"`);
                                 }
                                 
                                 if (testResult || requirement) {
                                     // Fix OCR errors: Lambda symbol (λ) for thermal conductivity
-                                    if (propertyLine.includes('W/mK') || propertyLine.includes('W/mk')) {
+                                    if (propertyLine.includes('W/mK') || propertyLine.includes('W/mk') || 
+                                        testResult.includes('W/mK') || requirement.includes('W/mK')) {
                                         // λ10 is often read as "110", "A10", "l10", or "λ10"
-                                        testResult = testResult.replace(/^(110|A10|l10|L10)\s*([≤<=])/i, 'λ10 $2');
-                                        testResult = testResult.replace(/([≤<=])\s*(110|A10|l10|L10)\s/gi, '$1 λ10 ');
+                                        // Apply fix to both testResult and requirement
+                                        const fixLambda = (str) => {
+                                            return str
+                                                .replace(/^(110|A10|l10|L10)\s*([≤<=])/i, 'λ10 $2')
+                                                .replace(/([≤<=])\s*(110|A10|l10|L10)\s/gi, '$1 λ10 ')
+                                                .replace(/\b(110|A10|l10|L10)\b/g, 'λ10');
+                                        };
                                         
-                                        requirement = requirement.replace(/^(110|A10|l10|L10)\s*([≤<=])/i, 'λ10 $2');
-                                        requirement = requirement.replace(/([≤<=])\s*(110|A10|l10|L10)\s/gi, '$1 λ10 ');
+                                        testResult = fixLambda(testResult);
+                                        requirement = fixLambda(requirement);
                                         
                                         console.log(`  🔧 Lambda fix applied - Result: "${testResult}", Req: "${requirement}"`);
                                     }
