@@ -5334,6 +5334,33 @@
                             { name: 'Emission', aliases: ['emission', 'voc', 'emisyon'], tdsProp: 'VOC Emission' }
                         ];
                         
+                        // Find header to determine column order
+                        let pruefergebnisCol = -1;
+                        let requirementCol = -1;
+                        
+                        const headerMatch = text.match(/Pruefmerkmale[\s\S]{0,200}?(Pruefergebnis|Test\s+Result)[\s\S]{0,200}?(Requirement|Standard)/i);
+                        if (headerMatch) {
+                            // Detect column positions from header
+                            const headerStart = headerMatch.index;
+                            const headerChunk = text.substring(headerStart, headerStart + 300);
+                            const headerLines = headerChunk.split(/[\n\r]+/);
+                            
+                            for (let line of headerLines) {
+                                const parts = line.split(/[\t]+/);
+                                for (let i = 0; i < parts.length; i++) {
+                                    if (/Pruefergebnis|Test Result/i.test(parts[i])) {
+                                        pruefergebnisCol = i;
+                                    }
+                                    if (/Requirement|Standard/i.test(parts[i])) {
+                                        requirementCol = i;
+                                    }
+                                }
+                                if (pruefergebnisCol > -1 && requirementCol > -1) break;
+                            }
+                            
+                            console.log(`📍 Detected columns: Pruefergebnis=${pruefergebnisCol}, Requirement=${requirementCol}`);
+                        }
+                        
                         // Parse BASF table structure
                         for (const pattern of basfPatterns) {
                             const regex = new RegExp(pattern.name, 'i');
@@ -5341,8 +5368,8 @@
                             
                             if (match) {
                                 const idx = match.index;
-                                const chunk = text.substring(idx, idx + 400);
-                                console.log(`\n🔍 ${pattern.name} found:`, chunk.substring(0, 150));
+                                const chunk = text.substring(idx, idx + 500);
+                                console.log(`\n🔍 ${pattern.name} found:`, chunk.substring(0, 200));
                                 
                                 // Extract Pruefergebnis (test result) and Requirement
                                 const lines = chunk.split(/[\n\r]+/);
@@ -5352,16 +5379,29 @@
                                 for (let i = 0; i < lines.length; i++) {
                                     const line = lines[i].trim();
                                     
-                                    // Skip header line
-                                    if (line.includes(pattern.name)) continue;
+                                    // Skip header line and empty lines
+                                    if (!line || line.includes(pattern.name) || line.includes('Pruefmerkmale')) continue;
                                     
-                                    // Try to extract values from tab-separated format
-                                    const parts = line.split(/[\t]+/).filter(p => p.trim());
+                                    // Split by TAB
+                                    const parts = line.split(/[\t]+/).map(p => p.trim()).filter(p => p);
                                     
-                                    if (parts.length >= 2) {
-                                        testResult = parts[0].trim();
-                                        requirement = parts[1].trim();
-                                        break;
+                                    console.log(`  🔧 Line parts (${parts.length}):`, parts);
+                                    
+                                    // Use detected column positions or fallback
+                                    if (pruefergebnisCol > -1 && requirementCol > -1) {
+                                        // Use column positions from header
+                                        if (parts.length > Math.max(pruefergebnisCol, requirementCol)) {
+                                            testResult = parts[pruefergebnisCol] || '';
+                                            requirement = parts[requirementCol] || '';
+                                            if (testResult || requirement) break;
+                                        }
+                                    } else {
+                                        // Fallback: Assume Pruefergebnis = col 0, Requirement = col 1
+                                        if (parts.length >= 2) {
+                                            testResult = parts[0];
+                                            requirement = parts[1];
+                                            break;
+                                        }
                                     }
                                 }
                                 
