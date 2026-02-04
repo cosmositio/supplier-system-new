@@ -5113,12 +5113,12 @@
                             const ocrEngine = localStorage.getItem('ocr_engine') || 'ocrspace';
                             let scale = 5.0; // Varsayılan: ultra yüksek kalite
                             
-                            // OCR.space için dosya boyutu limiti var (1 MB), scale'i düşür
-                            if (ocrEngine === 'ocrspace') {
+                            // OCR.space veya both için dosya boyutu limiti var (1 MB), scale'i düşür
+                            if (ocrEngine === 'ocrspace' || ocrEngine === 'both') {
                                 scale = 2.0; // Daha düşük scale = daha küçük dosya (genelde 300-600 KB)
-                                console.log('🔧 OCR.space için scale=2.0 kullanılıyor (dosya boyutu optimizasyonu)');
+                                console.log('🔧 OCR.space/both için scale=2.0 kullanılıyor (dosya boyutu optimizasyonu)');
                             } else {
-                                scale = 5.0; // Azure için yüksek kalite
+                                scale = 5.0; // Sadece Azure için yüksek kalite
                                 console.log('🔧 Azure için scale=5.0 kullanılıyor (maksimum kalite)');
                             }
                             
