@@ -5443,15 +5443,17 @@
                                 console.log('🎯 INSPECTED VALUES section detected in OCR.space text');
                                 const inspectedIdx = inspectedMatch.index;
                                 
-                                // Extract text after heading (skip ~100 chars for column headers)
-                                const afterSection = text.substring(inspectedIdx + inspectedMatch[0].length + 100);
+                                // Extract text after heading (look at next 500 chars)
+                                const afterHeading = text.substring(inspectedIdx + inspectedMatch[0].length);
+                                console.log('📦 After INSPECTED VALUES (500 chars):', afterHeading.substring(0, 500));
                                 
-                                // Find all clean numbers (skip units in parentheses)
-                                const numberMatches = afterSection.match(/\b(\d+[.,]\d+)\b/g);
+                                // Find all clean numbers (decimal numbers only)
+                                const numberMatches = afterHeading.match(/\b(\d+[.,]\d+)\b/g);
+                                console.log('🔍 Number matches found:', numberMatches);
                                 
                                 if (numberMatches && numberMatches.length >= 3) {
                                     const numbers = numberMatches.map(n => n.replace(',', '.')).slice(0, 3);
-                                    console.log('🔢 INSPECTED VALUES numbers found:', numbers);
+                                    console.log('🔢 INSPECTED VALUES numbers extracted:', numbers);
                                     
                                     // Map to properties (Carcano order: Total Weight, Tensile strength, Elongation)
                                     const mappings = [
@@ -5467,6 +5469,8 @@
                                         }
                                         console.log(`✅ ${mapping.patterns[0]} (inspected) = ${mapping.value}`);
                                     }
+                                } else {
+                                    console.log('⚠️ Not enough numbers found after INSPECTED VALUES heading');
                                 }
                             }
                             
