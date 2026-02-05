@@ -15,14 +15,10 @@ const CACHE_DURATION = 21600; // 6 saat
 
 // ==================== Ana Fonksiyonlar ====================
 
-// CORS Preflight Request Handler
+// CORS Preflight Request Handler - Not needed for JSONP
 function doOptions(e) {
   return ContentService.createTextOutput('')
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', '*')
-    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type')
-    .setHeader('Access-Control-Max-Age', '86400');
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doGet(e) {
@@ -304,20 +300,14 @@ function createResponse(result, callback) {
   const output = JSON.stringify(result);
   
   if (callback) {
-    // JSONP response
+    // JSONP response - no CORS headers needed for JSONP
     return ContentService.createTextOutput(callback + '(' + output + ')')
-      .setMimeType(ContentService.MimeType.JAVASCRIPT)
-      .setHeader('Access-Control-Allow-Origin', '*')
-      .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-      .setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
   
-  // JSON response with CORS headers
+  // Plain JSON response
   return ContentService.createTextOutput(output)
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', '*')
-    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function parseFormData(contents) {
