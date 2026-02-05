@@ -7363,6 +7363,16 @@
                 return;
             }
             
+            // COA değerlerini temizle (TDS Definitions'a COA değerleri kaydedilmez!)
+            const cleanProperties = properties.map(prop => {
+                const cleaned = {...prop};
+                delete cleaned.coaValue;  // COA değerini çıkar
+                delete cleaned.status;    // COA durumunu çıkar
+                return cleaned;
+            });
+            
+            console.log(`🧹 ${materialCode} COA değerleri temizlendi, TDS Definitions'a kaydediliyor...`);
+            
             try {
                 const result = await new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
@@ -7389,7 +7399,7 @@
                     const formData = new URLSearchParams();
                     formData.append('action', 'saveTDS');
                     formData.append('materialCode', materialCode);
-                    formData.append('data', JSON.stringify(properties));
+                    formData.append('data', JSON.stringify(cleanProperties));  // ✅ COA değerleri temizlenmiş TDS yapısı
                     
                     xhr.send(formData.toString());
                 });
@@ -8409,28 +8419,9 @@
                 }
             }
             
-            // TDS'i localStorage'a kaydet
-            localStorage.setItem('tdsData', JSON.stringify(tdsData));
-            console.log('✅ TDS localStorage\'a kaydedildi');
-            
-            // Google Sheets'e kaydet
-            if (googleScriptUrl) {
-                try {
-                    const result = await jsonpRequest(googleScriptUrl, {
-                        action: 'saveTDS',
-                        materialCode: materialCode,
-                        data: JSON.stringify(tds)
-                    }, 2);
-                    
-                    if (result && result.success) {
-                        console.log('✅ TDS Google Sheets\'e kaydedildi');
-                    } else {
-                        console.warn('⚠️ Google Sheets kaydetme başarısız:', result);
-                    }
-                } catch (error) {
-                    console.warn('⚠️ Google Sheets kaydetme hatası:', error);
-                }
-            }
+            // TDS'i sadece memory'de tut (Sheets'e kaydetme - COA değerleri geçici!)
+            // localStorage'a bile kaydetme, çünkü COA değerleri geçici
+            console.log('✅ COA değerleri memory\'de tutuldu (geçici - Sheets\'e kaydedilmedi)');
             
             return true;
         }
