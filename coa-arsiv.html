@@ -9691,44 +9691,32 @@
                     });
                 }
                 
-                // Convert to canvas using html2canvas
+                // Convert to canvas using html2canvas (scale 1 for precise positioning)
                 const canvas = await html2canvas(tempDiv, {
                     backgroundColor: '#ffffff',
-                    scale: 2
+                    scale: 1  // No scaling to preserve exact Excel coordinates
                 });
                 
                 // Remove temporary div
                 document.body.removeChild(tempDiv);
                 
-                // Set canvas dimensions
-                const maxWidth = 1400;
-                const maxHeight = 1000;
-                let width = canvas.width;
-                let height = canvas.height;
-                
-                templateScaleFactor = 1;
-                if (width > maxWidth) {
-                    templateScaleFactor = maxWidth / width;
-                    width = maxWidth;
-                    height = height * templateScaleFactor;
-                }
-                if (height > maxHeight) {
-                    templateScaleFactor = maxHeight / height;
-                    height = maxHeight;
-                    width = width * templateScaleFactor;
-                }
+                // Use original canvas dimensions - no scaling
+                const width = canvas.width;
+                const height = canvas.height;
                 
                 templateCanvas.width = width;
                 templateCanvas.height = height;
                 templateCtx.clearRect(0, 0, width, height);
-                templateCtx.drawImage(canvas, 0, 0, width, height);
+                templateCtx.drawImage(canvas, 0, 0);
+                
+                templateScaleFactor = 1;  // No scaling applied
                 
                 // Store as image
                 templateImageObj = new Image();
                 templateImageObj.src = templateCanvas.toDataURL();
                 
-                console.log('✅ Excel template hazırlandı');
-                showToast('✅ Excel dosyası template olarak yüklendi', 'success');
+                console.log('✅ Excel template hazırlandı (Ölçekleme yok, orijinal boyut:', width, 'x', height, ')');
+                showToast('✅ Excel dosyası template olarak yüklendi (Orijinal boyut)', 'success');
             } catch (error) {
                 console.error('❌ Excel yükleme hatası:', error);
                 showToast('❌ Excel dosyası yüklenemedi: ' + error.message, 'error');
@@ -9769,44 +9757,32 @@
                     });
                 });
                 
-                // Convert to canvas using html2canvas
+                // Convert to canvas using html2canvas (scale 1 for precise positioning)
                 const canvas = await html2canvas(tempDiv, {
                     backgroundColor: '#ffffff',
-                    scale: 2
+                    scale: 1  // No scaling to preserve exact Word coordinates
                 });
                 
                 // Remove temporary div
                 document.body.removeChild(tempDiv);
                 
-                // Set canvas dimensions
-                const maxWidth = 1400;
-                const maxHeight = 1000;
-                let width = canvas.width;
-                let height = canvas.height;
-                
-                templateScaleFactor = 1;
-                if (width > maxWidth) {
-                    templateScaleFactor = maxWidth / width;
-                    width = maxWidth;
-                    height = height * templateScaleFactor;
-                }
-                if (height > maxHeight) {
-                    templateScaleFactor = maxHeight / height;
-                    height = maxHeight;
-                    width = width * templateScaleFactor;
-                }
+                // Use original canvas dimensions - no scaling
+                const width = canvas.width;
+                const height = canvas.height;
                 
                 templateCanvas.width = width;
                 templateCanvas.height = height;
                 templateCtx.clearRect(0, 0, width, height);
-                templateCtx.drawImage(canvas, 0, 0, width, height);
+                templateCtx.drawImage(canvas, 0, 0);
+                
+                templateScaleFactor = 1;  // No scaling applied
                 
                 // Store as image
                 templateImageObj = new Image();
                 templateImageObj.src = templateCanvas.toDataURL();
                 
-                console.log('✅ Word template hazırlandı');
-                showToast('✅ Word dosyası template olarak yüklendi', 'success');
+                console.log('✅ Word template hazırlandı (Ölçekleme yok, orijinal boyut:', width, 'x', height, ')');
+                showToast('✅ Word dosyası template olarak yüklendi (Orijinal boyut)', 'success');
             } catch (error) {
                 console.error('❌ Word yükleme hatası:', error);
                 showToast('❌ Word dosyası yüklenemedi: ' + error.message, 'error');
