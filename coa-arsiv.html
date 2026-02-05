@@ -8463,19 +8463,28 @@
             }
             
             // Mevcut TDS varsa yükle
-            const tds = tdsData[materialCode];
+            let tds = tdsData[materialCode];
             if (tds && tds.properties) {
+                console.log(`📋 ${materialCode} TDS yükleniyor, properties tipi:`, typeof tds.properties, '| Array?', Array.isArray(tds.properties));
+                
                 // Array kontrolü
                 if (!Array.isArray(tds.properties)) {
                     if (tds.properties.properties && Array.isArray(tds.properties.properties)) {
                         // Nested yapı: { properties: { properties: [...] } }
-                        console.log(`🔧 ${materialCode} nested yapı düzeltiliyor (render)`);
+                        console.log(`🔧 ${materialCode} nested yapı düzeltiliyor (render) - ${tds.properties.properties.length} özellik`);
                         tds.properties = tds.properties.properties;
+                        // Global tdsData'yı da güncelle
+                        tdsData[materialCode] = tds;
+                        localStorage.setItem('tdsData', JSON.stringify(tdsData));
+                        console.log(`💾 ${materialCode} düzeltilmiş yapı localStorage'a kaydedildi`);
                     } else {
-                        console.warn(`⚠️ ${materialCode} properties array değil, boş başlatılıyor`);
+                        console.warn(`⚠️ ${materialCode} properties array değil ve nested de değil, boş başlatılıyor`);
+                        console.warn(`   Tipi: ${typeof tds.properties}, İçeriği:`, tds.properties);
                         tds.properties = [];
                     }
                 }
+                
+                console.log(`✅ ${materialCode} render edilecek: ${tds.properties.length} özellik`);
                 
                 // Normal modal açılışta eski COA değerlerini temizle, OCR sonrası koru
                 if (clearCOAValues) {
