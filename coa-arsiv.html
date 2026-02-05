@@ -5333,11 +5333,6 @@
                 let attempts = 0;
                 const maxAttempts = 30;
                 
-                // Sonuç için polling yap (max 30 saniye)
-                let resultResponse;
-                let attempts = 0;
-                const maxAttempts = 30;
-                
                 while (attempts < maxAttempts) {
                     await new Promise(resolve => setTimeout(resolve, 1000)); // 1 saniye bekle
                     attempts++;
