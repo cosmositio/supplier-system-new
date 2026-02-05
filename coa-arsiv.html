@@ -5532,9 +5532,10 @@
                             console.log('🔷 BASF Azure word coordinates kullanılıyor...');
                             console.log('📦 Toplam kelime sayısı:', words.length);
                             
-                            // "Requirement" başlığının x koordinatını bul
+                            // "Requirement" veya "Pruefergebnis" başlığının x koordinatını bul
                             let requirementColX = null;
                             let headerY = null;
+                            let leftColMaxX = 0;  // Sol sütunun en sağ noktası
                             
                             for (let i = 0; i < words.length; i++) {
                                 const word = words[i];
@@ -5559,8 +5560,24 @@
                                 }
                             }
                             
+                            // Sol sütunun maksimum X değerini bul (property açıklamalarının bittiği nokta)
+                            for (let i = 0; i < words.length; i++) {
+                                const word = words[i];
+                                if (/Pruefmerkmale|Test criteria/i.test(word.text)) {
+                                    leftColMaxX = word.x + 350;  // Property açıklamaları için genişlik
+                                    console.log(`📏 Sol sütun genişliği: 0 - ${leftColMaxX}`);
+                                    break;
+                                }
+                            }
+                            
+                            // Eğer leftColMaxX bulunamadıysa, requirementColX'in solundaki alan olarak hesapla
+                            if (leftColMaxX === 0 && requirementColX !== null) {
+                                leftColMaxX = requirementColX - 50;
+                                console.log(`📏 Sol sütun genişliği (hesaplama): 0 - ${leftColMaxX}`);
+                            }
+                            
                             if (requirementColX !== null && headerY !== null) {
-                                console.log(`📊 Requirement sütunu X aralığı: ${requirementColX - 100} - ${requirementColX + 300}`);
+                                console.log(`📊 Requirement sütunu X başlangıcı: ${requirementColX}`);
                                 console.log(`📊 Başlık Y: ${headerY}, data başlangıcı: ${headerY + 20}`);
                                 
                                 // BASF property patterns
@@ -5593,28 +5610,41 @@
                                     }
                                     
                                     if (propertyY !== null) {
-                                        // BASF table: Value is in next line (below property name)
-                                        // Find all words BELOW property Y and in Requirement column
+                                        // BASF table: Value is on SAME line in Requirement column (right side)
+                                        // NOT below, but on the RIGHT side at same Y coordinate
                                         let valueWords = [];
-                                        const yMin = propertyY + 5;   // Start searching below property name
-                                        const yMax = propertyY + 60;  // Search within ~2 lines below
-                                        const xMin = requirementColX - 100;  // Requirement column start
-                                        const xMax = requirementColX + 400;  // Requirement column end
+                                        const yTolerance = 10;  // Same line tolerance
+                                        const xMin = requirementColX;  // Requirement column başlangıcı (tam olarak)
+                                        const xMax = requirementColX + 500;  // Requirement column sonu
                                         
-                                        console.log(`  🔍 Değer aranıyor: Y=${yMin}-${yMax} (property altı), X=${xMin}-${xMax} (requirement sütunu)`);
+                                        console.log(`  🔍 AYNI SATIRDA değer aranıyor: Y=${propertyY}±${yTolerance}, X=${xMin}-${xMax} (requirement sütunu)`);
                                         
                                         for (let i = 0; i < words.length; i++) {
                                             const word = words[i];
-                                            const inYRange = word.y >= yMin && word.y <= yMax;
+                                            const yDiff = Math.abs(word.y - propertyY);
                                             const inXRange = word.x >= xMin && word.x <= xMax;
                                             
-                                            if (inYRange && inXRange) {
-                                                // Skip words that are clearly part of property description (German/English text)
-                                                const isPropertyDescription = /Anlehnung|Probekoerper|according|minimum|Dicke|thickness|method|Methode/i.test(word.text);
+                                            if (yDiff <= yTolerance && inXRange) {
+                                                valueWords.push(word);
+                                                console.log(`    📝 Requirement kelimesi: "${word.text}" (x=${word.x}, y=${word.y}, yDiff=${yDiff})`);
+                                            }
+                                        }
+                                        
+                                        // Eğer aynı satırda değer yoksa, altındaki satıra bak
+                                        if (valueWords.length === 0) {
+                                            console.log(`  🔍 Aynı satırda değer yok, ALTINDAKİ satıra bakılıyor...`);
+                                            
+                                            const yMin = propertyY + 5;
+                                            const yMax = propertyY + 40;
+                                            
+                                            for (let i = 0; i < words.length; i++) {
+                                                const word = words[i];
+                                                const inYRange = word.y >= yMin && word.y <= yMax;
+                                                const inXRange = word.x >= xMin && word.x <= xMax;
                                                 
-                                                if (!isPropertyDescription) {
+                                                if (inYRange && inXRange) {
                                                     valueWords.push(word);
-                                                    console.log(`    📝 Kelime eklendi: "${word.text}" (x=${word.x}, y=${word.y})`);
+                                                    console.log(`    📝 Alt satırdan kelime: "${word.text}" (x=${word.x}, y=${word.y})`);
                                                 }
                                             }
                                         }
