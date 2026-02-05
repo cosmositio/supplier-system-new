@@ -760,7 +760,8 @@
             align-items: center;
         }
         
-        .modal.active {
+        .modal.active,
+        .modal.show {
             display: flex;
         }
         
@@ -1227,7 +1228,6 @@
                     <div class="upload-area" id="uploadArea" style="display: none;">
                         <div class="upload-icon">📄</div>
                         <div class="upload-text">Fotoğraf veya PDF sürükleyin<br>veya tıklayarak seçin</div>
-                        <input type="file" id="fileInput" accept="image/*,.pdf,.xlsx,.xls,.docx,.doc" style="display:none">
                     </div>
                     <div id="filePreview"></div>
                 </div>
@@ -1714,6 +1714,12 @@
         
         // ==================== Initialization ====================
         document.addEventListener('DOMContentLoaded', function() {
+            // PDF.js worker ayarla (global)
+            if (typeof pdfjsLib !== 'undefined') {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                console.log('✅ PDF.js worker ayarlandı');
+            }
+            
             // Eski ana sayfadan gelen tedarikçi listesini temizle (artık kullanmıyoruz)
             localStorage.removeItem('supplierListForCOA');
             
@@ -4008,12 +4014,17 @@
         async function handleFile(file) {
             if (!file) return;
             
+            console.log('📁 handleFile çağrıldı:', file.name, 'Template mode:', templateMode);
+            
             // Template mode kontrolü
             if (templateMode) {
+                console.log('🎨 Template mode aktif - Editor açılacak');
                 pendingTemplateFile = file;
                 await openTemplateEditorWithFile(file);
                 return;
             }
+            
+            console.log('📋 Normal mode - COA kaydı oluşturulacak');
             
             // Normal mode
             selectedFile = file;
@@ -8628,8 +8639,25 @@
         }
         
         async function openTemplateEditorWithFile(file) {
+            console.log('🎨 Template editor açılıyor...', file.name);
+            
+            // Eğer bir render işlemi devam ediyorsa bekle
+            if (currentRenderTask) {
+                console.log('⏳ Önceki render bekleniyor...');
+                try {
+                    await currentRenderTask.promise;
+                } catch (e) {
+                    // İptal edilmiş olabilir, önemli değil
+                }
+            }
+            
             // Initialize canvas
             templateCanvas = document.getElementById('templateCanvas');
+            if (!templateCanvas) {
+                console.error('❌ Template canvas bulunamadı!');
+                showToast('❌ Template canvas bulunamadı', 'error');
+                return;
+            }
             templateCtx = templateCanvas.getContext('2d');
             
             // Clear previous regions
@@ -8651,6 +8679,7 @@
             propSelect.addEventListener('change', toggleTemplateCustomProperty);
             
             // Load file
+            console.log('📄 Dosya yükleniyor:', file.type);
             if (file.type === 'application/pdf') {
                 await loadTemplatePDF(file);
             } else {
@@ -8658,6 +8687,7 @@
             }
             
             // Show modal
+            console.log('🎨 Modal gösteriliyor');
             document.getElementById('templateEditorModal').classList.add('show');
         }
         
@@ -8679,38 +8709,56 @@
                 currentRenderTask = null;
             }
             
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-            const page = await pdf.getPage(1);
-            
-            const viewport = page.getViewport({ scale: 2.0 });
-            templateCanvas.width = viewport.width;
-            templateCanvas.height = viewport.height;
-            
-            const renderContext = {
-                canvasContext: templateCtx,
-                viewport: viewport
-            };
-            
-            // Render task'ı kaydet
-            currentRenderTask = page.render(renderContext);
-            
             try {
+                // PDF.js worker kontrolü
+                if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    console.log('🔧 PDF.js worker ayarlandı (loadTemplatePDF)');
+                }
+                
+                console.log('📄 PDF dosyası okunuyor...');
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                const page = await pdf.getPage(1);
+                console.log('✅ PDF sayfa 1 alındı');
+                
+                const viewport = page.getViewport({ scale: 2.0 });
+                
+                // Canvas'ı temizle ve yeniden boyutlandır
+                templateCanvas.width = viewport.width;
+                templateCanvas.height = viewport.height;
+                templateCtx.clearRect(0, 0, templateCanvas.width, templateCanvas.height);
+                console.log('🎨 Canvas hazırlandı:', viewport.width, 'x', viewport.height);
+                
+                const renderContext = {
+                    canvasContext: templateCtx,
+                    viewport: viewport
+                };
+                
+                // Render task'ı kaydet
+                console.log('🔄 PDF render başlatılıyor...');
+                currentRenderTask = page.render(renderContext);
+                
                 await currentRenderTask.promise;
                 console.log('✅ PDF render tamamlandı');
+                
+                templateImageObj = new Image();
+                templateImageObj.onload = function() {
+                    console.log('✅ Template image yüklendi');
+                };
+                templateImageObj.src = templateCanvas.toDataURL();
+                templateScaleFactor = 1;
             } catch (error) {
                 if (error.name === 'RenderingCancelledException') {
                     console.log('⚠️ Render işlemi iptal edildi');
                     return;
                 }
+                console.error('❌ PDF yükleme hatası:', error);
+                showToast('❌ PDF yüklenemedi', 'error');
                 throw error;
             } finally {
                 currentRenderTask = null;
             }
-            
-            templateImageObj = new Image();
-            templateImageObj.src = templateCanvas.toDataURL();
-            templateScaleFactor = 1;
         }
         
         function loadTemplateImage(file) {
