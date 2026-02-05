@@ -1260,7 +1260,7 @@
                 <!-- Settings -->
                 <div class="settings-section">
                     <h3>⚙️ Google Sheets Bağlantısı</h3>
-                    <input type="text" id="googleScriptUrl" value="https://script.google.com/macros/s/AKfycbwDhKC8tQ2A5M5C2jzwMzBnRER7CQWblo5bYgO4bbM596NleZpwacE34JgZwo32bN5y/exec" placeholder="Google Apps Script URL" style="width:100%; margin-bottom:10px;">
+                    <input type="text" id="googleScriptUrl" value="https://script.google.com/macros/s/AKfycbyBVPTuh195z61YLghGiL3SIrIPSgCSicWzr20PCbrN3M3mE9trx4NLrEui7qtLcP9YBg/exec" placeholder="Google Apps Script URL" style="width:100%; margin-bottom:10px;">
                     <button class="btn btn-secondary btn-sm" onclick="connectGoogleSheets()">🔗 Bağlan</button>
                 </div>
                 
@@ -1612,7 +1612,7 @@
         let materials = []; // Hammadde listesi
         let tdsData = {}; // TDS verileri: { materialCode: { properties: [] } }
         let selectedSuppliers = new Set(); // Seçili tedarikçiler
-        let googleScriptUrl = 'https://script.google.com/macros/s/AKfycbwDhKC8tQ2A5M5C2jzwMzBnRER7CQWblo5bYgO4bbM596NleZpwacE34JgZwo32bN5y/exec';
+        let googleScriptUrl = 'https://script.google.com/macros/s/AKfycbyBVPTuh195z61YLghGiL3SIrIPSgCSicWzr20PCbrN3M3mE9trx4NLrEui7qtLcP9YBg/exec';
         let selectedFile = null;
         let selectedFileData = null;
         let editMode = false;
@@ -1829,7 +1829,7 @@
             }
             
             // Doğru URL - her zaman bu URL kullanılsın
-            const correctUrl = 'https://script.google.com/macros/s/AKfycbwDhKC8tQ2A5M5C2jzwMzBnRER7CQWblo5bYgO4bbM596NleZpwacE34JgZwo32bN5y/exec';
+            const correctUrl = 'https://script.google.com/macros/s/AKfycbyBVPTuh195z61YLghGiL3SIrIPSgCSicWzr20PCbrN3M3mE9trx4NLrEui7qtLcP9YBg/exec';
             
             // Her zaman default URL'yi kullan ve kaydet
             localStorage.setItem('google_script_url', correctUrl);
