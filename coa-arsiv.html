@@ -7926,6 +7926,18 @@
                 // TDS'e kaydet
                 await saveTDSPropertiesFromOCR(materialCodeOnly, comparisonResults.properties);
                 
+                // Debug: Memory'deki COA değerlerini kontrol et
+                const savedTDS = tdsData[materialCodeOnly];
+                if (savedTDS && savedTDS.properties) {
+                    const coaCount = savedTDS.properties.filter(p => p.coaValue).length;
+                    console.log(`🔍 Memory'de ${coaCount} özellikte COA değeri var:`);
+                    savedTDS.properties.forEach(prop => {
+                        if (prop.coaValue) {
+                            console.log(`  - ${prop.name}: "${prop.coaValue}" [${prop.coaCompliance}]`);
+                        }
+                    });
+                }
+                
                 // Flag'i set et - bu hammadde için OCR yapıldı (modal açılınca COA değerlerini korumak için)
                 lastOCRMaterialCode = materialCodeOnly;
                 console.log('🏴 lastOCRMaterialCode set edildi:', lastOCRMaterialCode);
@@ -8543,11 +8555,22 @@
                 
                 // Normal modal açılışta eski COA değerlerini temizle, OCR sonrası koru
                 if (clearCOAValues) {
+                    console.log(`🧹 ${materialCode} COA değerleri temizleniyor (clearCOAValues=true)`);
                     tds.properties.forEach(prop => {
                         delete prop.coaValue;
+                        delete prop.coaCompliance;
                     });
                     // Temizlenmiş hali sadece localStorage'a kaydet (Sheets'e kaydetme!)
                     localStorage.setItem('tdsData', JSON.stringify(tdsData));
+                } else {
+                    // COA değerleri korunuyor
+                    const coaCount = tds.properties.filter(p => p.coaValue).length;
+                    console.log(`🔒 ${materialCode} COA değerleri korunuyor (clearCOAValues=false): ${coaCount} özellikte COA değeri var`);
+                    tds.properties.forEach(prop => {
+                        if (prop.coaValue) {
+                            console.log(`  - ${prop.name}: "${prop.coaValue}" [${prop.coaCompliance}]`);
+                        }
+                    });
                 }
                 renderTDSProperties(tds.properties);
             } else {
