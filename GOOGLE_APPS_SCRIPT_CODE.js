@@ -159,6 +159,22 @@ function doGet(e) {
       case 'deleteCOATemplate':
         result = deleteCOATemplate(e.parameter.supplier);
         break;
+      case 'saveTemplate':
+        let templateParam = null;
+        if (e.parameter.template) {
+          try {
+            templateParam = JSON.parse(e.parameter.template);
+          } catch(parseErr) {
+            try {
+              templateParam = JSON.parse(decodeURIComponent(e.parameter.template));
+            } catch(decodeErr) {
+              result = { success: false, error: 'Template parse hatası' };
+              break;
+            }
+          }
+        }
+        result = templateParam ? saveCOATemplate(templateParam) : { success: false, error: 'Template verisi eksik' };
+        break;
       default:
         result = { success: false, error: 'Geçersiz action: ' + action };
     }
