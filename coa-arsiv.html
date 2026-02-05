@@ -1358,6 +1358,23 @@
                         <p>Henüz sertifika eklenmemiş</p>
                     </div>
                 </div>
+                
+                <!-- Sayfalama Kontrolü -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="font-size: 0.9em; color: #666;">Sayfa başına kayıt:</label>
+                        <select id="rowsPerPage" onchange="changeRowsPerPage()" style="padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em;">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="all">Tümü</option>
+                        </select>
+                    </div>
+                    <div id="recordInfo" style="font-size: 0.9em; color: #666;">
+                        Toplam: 0 kayıt
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1955,6 +1972,16 @@
             
             // İlk yüklemede localStorage'dan yükle (hızlı başlangıç)
             loadFromLocalStorage();
+            
+            // Sayfa başına kayıt sayısını localStorage'dan yükle
+            const savedRowsPerPage = localStorage.getItem('rowsPerPage');
+            if (savedRowsPerPage) {
+                const rowsSelect = document.getElementById('rowsPerPage');
+                if (rowsSelect) {
+                    rowsSelect.value = savedRowsPerPage;
+                }
+            }
+            
             if (coaData.length > 0) {
                 renderTable();
                 updateStats();
@@ -5217,8 +5244,29 @@
             const tbody = document.getElementById('coaTableBody');
             const emptyState = document.getElementById('emptyState');
             const table = document.getElementById('coaTable');
+            const recordInfo = document.getElementById('recordInfo');
             
             const filtered = getFilteredData();
+            
+            // Sayfa başına kayıt sayısı kontrolü
+            const rowsPerPageSelect = document.getElementById('rowsPerPage');
+            const rowsPerPage = rowsPerPageSelect ? rowsPerPageSelect.value : '25';
+            
+            let displayData = filtered;
+            if (rowsPerPage !== 'all') {
+                displayData = filtered.slice(0, parseInt(rowsPerPage));
+            }
+            
+            // Kayıt bilgisi güncelle
+            if (recordInfo) {
+                if (filtered.length === 0) {
+                    recordInfo.textContent = 'Toplam: 0 kayıt';
+                } else if (rowsPerPage === 'all') {
+                    recordInfo.textContent = `Toplam: ${filtered.length} kayıt`;
+                } else {
+                    recordInfo.textContent = `${displayData.length} / ${filtered.length} kayıt gösteriliyor`;
+                }
+            }
             
             if (filtered.length === 0) {
                 table.style.display = 'none';
@@ -5229,7 +5277,7 @@
             table.style.display = 'table';
             emptyState.style.display = 'none';
             
-            tbody.innerHTML = filtered.map(c => {
+            tbody.innerHTML = displayData.map(c => {
                 const isChecked = selectedItems.has(c.id) ? 'checked' : '';
                 
                 // Dosya önizlemesi - tüm dosyalar için ikon göster
@@ -5291,6 +5339,14 @@
         
         function filterList() {
             renderTable();
+        }
+        
+        function changeRowsPerPage() {
+            const select = document.getElementById('rowsPerPage');
+            if (select) {
+                localStorage.setItem('rowsPerPage', select.value);
+                renderTable();
+            }
         }
         
         function formatDate(dateStr) {
