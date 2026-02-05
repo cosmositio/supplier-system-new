@@ -1605,6 +1605,7 @@
         let selectedItems = new Set();
         let currentTDSMaterial = null; // Şu an düzenlenen TDS hammaddesi
         let lastOCRMaterialCode = null; // Son OCR yapılan hammadde (modal açılışta değerleri korumak için)
+        let currentRenderTask = null; // Aktif PDF render işlemi
         
         // Dosya tipine göre ikon oluştur
         function getFileIcon(fileName, fileType, itemId) {
@@ -4005,6 +4006,16 @@
         }
         
         async function handleFile(file) {
+            if (!file) return;
+            
+            // Template mode kontrolü
+            if (templateMode) {
+                pendingTemplateFile = file;
+                await openTemplateEditorWithFile(file);
+                return;
+            }
+            
+            // Normal mode
             selectedFile = file;
             const uploadArea = document.getElementById('uploadArea');
             const preview = document.getElementById('filePreview');
@@ -8616,53 +8627,6 @@
             }
         }
         
-        async function handleFile(file) {
-            if (!file) return;
-            
-            if (templateMode) {
-                // Template mode - open editor
-                pendingTemplateFile = file;
-                await openTemplateEditorWithFile(file);
-            } else {
-                // Normal mode - continue with existing logic
-                // Bu kısım mevcut handleFile fonksiyonunun devamı olacak
-                selectedFileData = null;
-                
-                const reader = new FileReader();
-                reader.onload = async function(e) {
-                    selectedFileData = e.target.result;
-                    
-                    const preview = document.getElementById('filePreview');
-                    preview.innerHTML = '';
-                    
-                    if (file.type.startsWith('image/')) {
-                        const img = document.createElement('img');
-                        img.src = selectedFileData;
-                        img.style.maxWidth = '100%';
-                        img.style.borderRadius = '8px';
-                        preview.appendChild(img);
-                        
-                        if (currentMaterial) {
-                            await startOCRAnalysis(selectedFileData, currentMaterial);
-                        }
-                    } else if (file.type === 'application/pdf') {
-                        const embed = document.createElement('embed');
-                        embed.src = selectedFileData;
-                        embed.type = 'application/pdf';
-                        embed.style.width = '100%';
-                        embed.style.height = '400px';
-                        embed.style.borderRadius = '8px';
-                        preview.appendChild(embed);
-                        
-                        if (currentMaterial) {
-                            await startOCRAnalysis(selectedFileData, currentMaterial);
-                        }
-                    }
-                };
-                reader.readAsDataURL(file);
-            }
-        }
-        
         async function openTemplateEditorWithFile(file) {
             // Initialize canvas
             templateCanvas = document.getElementById('templateCanvas');
@@ -8704,6 +8668,17 @@
         }
         
         async function loadTemplatePDF(file) {
+            // Önceki render işlemini iptal et
+            if (currentRenderTask) {
+                try {
+                    await currentRenderTask.cancel();
+                    console.log('⚠️ Önceki PDF render işlemi iptal edildi');
+                } catch (e) {
+                    // Zaten tamamlanmış olabilir
+                }
+                currentRenderTask = null;
+            }
+            
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
             const page = await pdf.getPage(1);
@@ -8717,7 +8692,21 @@
                 viewport: viewport
             };
             
-            await page.render(renderContext).promise;
+            // Render task'ı kaydet
+            currentRenderTask = page.render(renderContext);
+            
+            try {
+                await currentRenderTask.promise;
+                console.log('✅ PDF render tamamlandı');
+            } catch (error) {
+                if (error.name === 'RenderingCancelledException') {
+                    console.log('⚠️ Render işlemi iptal edildi');
+                    return;
+                }
+                throw error;
+            } finally {
+                currentRenderTask = null;
+            }
             
             templateImageObj = new Image();
             templateImageObj.src = templateCanvas.toDataURL();
