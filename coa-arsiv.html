@@ -7294,6 +7294,22 @@
                     // Eski TDS verilerini güncelle: Eksik alanları ekle
                     Object.keys(tdsData).forEach(materialCode => {
                         if (tdsData[materialCode] && tdsData[materialCode].properties) {
+                            // properties string ise parse et (Google Sheets'ten gelmiş olabilir)
+                            if (typeof tdsData[materialCode].properties === 'string') {
+                                try {
+                                    tdsData[materialCode].properties = JSON.parse(tdsData[materialCode].properties);
+                                } catch (e) {
+                                    console.warn(`⚠️ ${materialCode} properties parse hatası:`, e);
+                                    tdsData[materialCode].properties = [];
+                                }
+                            }
+                            
+                            // Array değilse boş array yap
+                            if (!Array.isArray(tdsData[materialCode].properties)) {
+                                console.warn(`⚠️ ${materialCode} properties array değil (${typeof tdsData[materialCode].properties}), düzeltiliyor`);
+                                tdsData[materialCode].properties = [];
+                            }
+                            
                             tdsData[materialCode].properties.forEach(prop => {
                                 // Operator yoksa varsayılan 'range' ekle
                                 if (!prop.operator) {
@@ -7687,7 +7703,26 @@
                 
                 if (result && result.success && result.data) {
                     Object.keys(result.data).forEach(materialCode => {
-                        tdsData[materialCode] = result.data[materialCode];
+                        const tdsRecord = result.data[materialCode];
+                        
+                        // properties string ise (JSON.stringify edilmiş) parse et
+                        if (tdsRecord && typeof tdsRecord.properties === 'string') {
+                            try {
+                                tdsRecord.properties = JSON.parse(tdsRecord.properties);
+                                console.log(`📦 ${materialCode} properties parse edildi:`, tdsRecord.properties.length, 'özellik');
+                            } catch (e) {
+                                console.warn(`⚠️ ${materialCode} properties parse hatası:`, e);
+                                tdsRecord.properties = [];
+                            }
+                        }
+                        
+                        // Array değilse boş array yap
+                        if (tdsRecord && !Array.isArray(tdsRecord.properties)) {
+                            console.warn(`⚠️ ${materialCode} properties array değil, düzeltiliyor`);
+                            tdsRecord.properties = [];
+                        }
+                        
+                        tdsData[materialCode] = tdsRecord;
                     });
                     localStorage.setItem('tdsData', JSON.stringify(tdsData));
                     console.log('✅ Google Sheets\'ten', Object.keys(result.data).length, 'TDS yüklendi');
