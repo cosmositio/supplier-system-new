@@ -5391,14 +5391,15 @@
                                 console.log(`\n🔍 Searching for "${pattern.name}"...`);
                                 console.log(`  Context: ...${contextBefore.slice(-50)}[MATCH]${contextAfter.slice(0, 100)}...`);
                                 
-                                // Find the line containing the property name
-                                // Try different line break patterns (Azure vs OCR.space)
-                                const lines = (contextBefore + contextAfter).split(/[\n\r]+/);
+                                // Find the line containing the property name AND the next line (for Azure OCR)
+                                const lines = (contextBefore + contextAfter).split(/[\n\r]+/).map(l => l.trim()).filter(l => l);
                                 let propertyLine = '';
+                                let propertyLineIndex = -1;
                                 
-                                for (const line of lines) {
-                                    if (line.toLowerCase().includes(pattern.name.toLowerCase())) {
-                                        propertyLine = line.trim();
+                                for (let i = 0; i < lines.length; i++) {
+                                    if (lines[i].toLowerCase().includes(pattern.name.toLowerCase())) {
+                                        propertyLine = lines[i];
+                                        propertyLineIndex = i;
                                         break;
                                     }
                                 }
@@ -5435,22 +5436,49 @@
                                     }
                                 }
                                 
+                                // Check if values are on the same line or next line
+                                let hasValuesOnSameLine = false;
+                                
                                 // Use detected column positions or fallback
                                 if (pruefergebnisCol > -1 && requirementCol > -1 && parts.length > Math.max(pruefergebnisCol, requirementCol)) {
                                     // Use column positions from header
                                     testResult = parts[pruefergebnisCol] || '';
                                     requirement = parts[requirementCol] || '';
+                                    hasValuesOnSameLine = true;
                                     console.log(`  ✅ Using header columns: Pruefergebnis[${pruefergebnisCol}]="${testResult}", Requirement[${requirementCol}]="${requirement}"`);
                                 } else if (parts.length >= 3) {
                                     // Fallback: col 0 = property name, col 1 = test result, col 2 = requirement
                                     testResult = parts[1] || '';
                                     requirement = parts[2] || '';
+                                    hasValuesOnSameLine = true;
                                     console.log(`  ✅ Using fallback: parts[1]="${testResult}", parts[2]="${requirement}"`);
                                 } else if (parts.length === 2) {
                                     // Only 2 columns: col 0 = property, col 1 = either result or requirement
                                     // Assume it's the test result
                                     testResult = parts[1] || '';
+                                    hasValuesOnSameLine = true;
                                     console.log(`  ⚠️ Only 2 parts: parts[1]="${testResult}"`);
+                                }
+                                
+                                // If no values on same line (Azure OCR case), check next line
+                                if (!hasValuesOnSameLine || (!testResult && !requirement)) {
+                                    console.log(`  🔍 No values on same line, checking next line...`);
+                                    
+                                    if (propertyLineIndex >= 0 && propertyLineIndex + 1 < lines.length) {
+                                        const nextLine = lines[propertyLineIndex + 1];
+                                        console.log(`  📝 Next line: "${nextLine}"`);
+                                        
+                                        // Try to extract value from next line
+                                        // BASF format: values are often like "7,5 - 10,5 kg/m3" or "≥ 45 N" or "B1 schwerentflammbar"
+                                        const valueLine = nextLine.trim();
+                                        
+                                        // If the line looks like a value (has numbers, operators, or classification text)
+                                        if (/[\d,\-\s]+|≥|≤|>=|<=|[A-Z]\d+|schwerentflammbar|flammability|Class/i.test(valueLine)) {
+                                            testResult = valueLine;
+                                            requirement = valueLine;  // Same value for both (BASF format)
+                                            console.log(`  ✅ Values from next line: "${valueLine}"`);
+                                        }
+                                    }
                                 }
                                 
                                 if (testResult || requirement) {
