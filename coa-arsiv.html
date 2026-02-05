@@ -5500,8 +5500,11 @@
                     const ocrEngine = localStorage.getItem('ocr_engine') || 'ocrspace';
                     console.log('🔧 OCR motoru:', ocrEngine);
                     
-                    // Her bölgeyi tek tek OCR'a gönder
-                    const properties = {};
+                    // ADIM 1: Tüm bölgeleri kırp ve hazırla
+                    console.log('📦 ADIM 1: Tüm bölgeler kırpılıyor...');
+                    showToast('📦 Tüm bölgeler hazırlanıyor...', 'info', 2000);
+                    
+                    const regionsToProcess = [];
                     
                     for (let i = 0; i < template.regions.length; i++) {
                         const region = template.regions[i];
@@ -5511,16 +5514,13 @@
                             continue;
                         }
                         
-                        console.log(`\n🔍 Bölge ${i+1}/${template.regions.length}: ${region.propertyName}`);
-                        showToast(`📋 Okunuyor: ${region.propertyName} (${i+1}/${template.regions.length})`, 'info', 2000);
-                        
                         // Bölge koordinatlarını ölçeklendir
                         const x = Math.round(region.x * scaleX);
                         const y = Math.round(region.y * scaleY);
                         const width = Math.round(region.width * scaleX);
                         const height = Math.round(region.height * scaleY);
                         
-                        console.log(`📐 Koordinatlar: x=${x}, y=${y}, w=${width}, h=${height}`);
+                        console.log(`📐 Bölge ${i+1}/${template.regions.length}: ${region.propertyName} (${x},${y},${width}x${height})`);
                         
                         // Canvas'tan bu bölgeyi kırp
                         const croppedCanvas = document.createElement('canvas');
@@ -5530,35 +5530,29 @@
                         
                         croppedCtx.drawImage(
                             canvas,
-                            x, y, width, height,  // Source
-                            0, 0, width, height   // Destination
+                            x, y, width, height,
+                            0, 0, width, height
                         );
                         
                         // Azure için minimum boyut kontrolü ve upscaling
                         let finalImageData;
                         if (ocrEngine === 'azure') {
-                            const minSize = 60; // Azure minimum 50x50, biraz margin
+                            const minSize = 60;
                             let scaleFactor = 1;
                             
-                            // Hangi kenar daha küçükse ona göre scale faktörünü hesapla
                             if (width < minSize || height < minSize) {
                                 const scaleW = width < minSize ? minSize / width : 1;
                                 const scaleH = height < minSize ? minSize / height : 1;
                                 scaleFactor = Math.max(scaleW, scaleH);
                                 
-                                console.log(`📏 Görüntü çok küçük (${width}x${height}), ${scaleFactor.toFixed(2)}x büyütülüyor...`);
-                                
-                                // Yeni scaled canvas oluştur
                                 const scaledCanvas = document.createElement('canvas');
                                 scaledCanvas.width = Math.ceil(width * scaleFactor);
                                 scaledCanvas.height = Math.ceil(height * scaleFactor);
                                 const scaledCtx = scaledCanvas.getContext('2d');
                                 
-                                // Smooth scaling için
                                 scaledCtx.imageSmoothingEnabled = true;
                                 scaledCtx.imageSmoothingQuality = 'high';
                                 
-                                // Kırpılmış resmi büyüt
                                 scaledCtx.drawImage(
                                     croppedCanvas,
                                     0, 0, width, height,
@@ -5566,7 +5560,7 @@
                                 );
                                 
                                 finalImageData = scaledCanvas.toDataURL('image/png');
-                                console.log(`✅ Büyütüldü: ${scaledCanvas.width}x${scaledCanvas.height}px`);
+                                console.log(`   📏 Büyütüldü: ${width}x${height} → ${scaledCanvas.width}x${scaledCanvas.height}px`);
                             } else {
                                 finalImageData = croppedCanvas.toDataURL('image/png');
                             }
@@ -5574,48 +5568,72 @@
                             finalImageData = croppedCanvas.toDataURL('image/png');
                         }
                         
-                        console.log(`✂️ Bölge kırpıldı: ${width}x${height}px`);
-                        
-                        // Bu bölgeyi OCR'a gönder
+                        regionsToProcess.push({
+                            propertyName: region.propertyName,
+                            imageData: finalImageData,
+                            index: i + 1
+                        });
+                    }
+                    
+                    console.log(`✂️ ${regionsToProcess.length} bölge hazır!\n`);
+                    
+                    // ADIM 2: Tüm bölgeleri PARALEL olarak OCR'a gönder
+                    console.log('🚀 ADIM 2: Tüm bölgeler PARALEL OCR\'a gönderiliyor...');
+                    showToast(`🚀 ${regionsToProcess.length} bölge paralel taranıyor...`, 'info', 3000);
+                    
+                    const ocrPromises = regionsToProcess.map(async (region) => {
                         try {
                             let ocrText = '';
                             
                             if (ocrEngine === 'azure') {
-                                console.log('🔵 Azure OCR ile taranıyor...');
-                                const azureResult = await performAzureOCR(finalImageData);
-                                console.log('🔵 Azure sonuç:', azureResult);
+                                console.log(`🔵 [${region.index}] ${region.propertyName} - Azure OCR başlatıldı`);
+                                const azureResult = await performAzureOCR(region.imageData);
                                 ocrText = azureResult?.text || '';
-                                console.log('🔵 Azure text:', ocrText);
                             } else {
-                                console.log('🟢 OCR.space ile taranıyor...');
-                                ocrText = await performOCRSpaceOCR(finalImageData);
+                                console.log(`🟢 [${region.index}] ${region.propertyName} - OCR.space başlatıldı`);
+                                ocrText = await performOCRSpaceOCR(region.imageData);
                             }
                             
-                            // Temizle ve kaydet
+                            // Temizle
                             let cleanText = ocrText.trim().replace(/\s+/g, ' ');
-                            // Nokta-boşluk-rakam formatını düzelt (10. 5 → 10.5)
                             cleanText = cleanText.replace(/(\d+)\.\s+(\d+)/g, '$1.$2');
                             
-                            if (cleanText) {
-                                properties[region.propertyName] = cleanText;
-                                console.log(`✅ ${region.propertyName}: "${cleanText}"`);
-                            } else {
-                                console.log(`⚠️ ${region.propertyName}: Boş sonuç`);
-                            }
+                            console.log(`✅ [${region.index}] ${region.propertyName}: "${cleanText}"`);
+                            
+                            return {
+                                propertyName: region.propertyName,
+                                value: cleanText
+                            };
                             
                         } catch (error) {
-                            console.error(`❌ Bölge ${region.propertyName} OCR hatası:`, error);
-                            console.error('Hata detayı:', error.message, error.stack);
-                            showToast(`⚠️ ${region.propertyName} okunamadı`, 'warning', 2000);
+                            console.error(`❌ [${region.index}] ${region.propertyName} OCR hatası:`, error.message);
+                            return {
+                                propertyName: region.propertyName,
+                                value: '',
+                                error: true
+                            };
                         }
-                        
-                        // API rate limit için bekleme (optimize edilmiş)
-                        const waitTime = ocrEngine === 'azure' ? 1000 : 300;
-                        await new Promise(resolve => setTimeout(resolve, waitTime));
-                    }
+                    });
                     
-                    console.log('\n✅ Template OCR tamamlandı:', Object.keys(properties).length, 'özellik');
-                    showToast(`✅ ${Object.keys(properties).length} özellik okundu`, 'success');
+                    // Tüm sonuçları bekle
+                    const results = await Promise.all(ocrPromises);
+                    
+                    // Sonuçları properties objesine dönüştür
+                    const properties = {};
+                    let successCount = 0;
+                    let errorCount = 0;
+                    
+                    results.forEach(result => {
+                        if (result.value) {
+                            properties[result.propertyName] = result.value;
+                            successCount++;
+                        } else if (result.error) {
+                            errorCount++;
+                        }
+                    });
+                    
+                    console.log(`\n✅ PARALEL OCR TAMAMLANDI: ${successCount} başarılı, ${errorCount} hata`);
+                    showToast(`✅ ${successCount} özellik okundu ${errorCount > 0 ? `(${errorCount} hata)` : ''}`, 'success');
                     resolve(properties);
                     
                 } catch (error) {
