@@ -7293,24 +7293,34 @@
                     
                     // Eski TDS verilerini güncelle: Eksik alanları ekle
                     Object.keys(tdsData).forEach(materialCode => {
-                        if (tdsData[materialCode] && tdsData[materialCode].properties) {
-                            // properties string ise parse et (Google Sheets'ten gelmiş olabilir)
-                            if (typeof tdsData[materialCode].properties === 'string') {
-                                try {
-                                    tdsData[materialCode].properties = JSON.parse(tdsData[materialCode].properties);
-                                } catch (e) {
-                                    console.warn(`⚠️ ${materialCode} properties parse hatası:`, e);
-                                    tdsData[materialCode].properties = [];
+                        if (tdsData[materialCode]) {
+                            let tdsRecord = tdsData[materialCode];
+                            
+                            // Nested yapı kontrolü: { properties: { properties: [...] } }
+                            if (tdsRecord.properties && tdsRecord.properties.properties) {
+                                console.log(`🔧 ${materialCode} nested yapı düzeltiliyor (localStorage)`);
+                                tdsData[materialCode] = tdsRecord.properties; // İçteki yapıyı kullan
+                                tdsRecord = tdsData[materialCode];
+                            }
+                            
+                            if (tdsRecord.properties) {
+                                // properties string ise parse et (Google Sheets'ten gelmiş olabilir)
+                                if (typeof tdsRecord.properties === 'string') {
+                                    try {
+                                        tdsRecord.properties = JSON.parse(tdsRecord.properties);
+                                    } catch (e) {
+                                        console.warn(`⚠️ ${materialCode} properties parse hatası:`, e);
+                                        tdsRecord.properties = [];
+                                    }
                                 }
-                            }
-                            
-                            // Array değilse boş array yap
-                            if (!Array.isArray(tdsData[materialCode].properties)) {
-                                console.warn(`⚠️ ${materialCode} properties array değil (${typeof tdsData[materialCode].properties}), düzeltiliyor`);
-                                tdsData[materialCode].properties = [];
-                            }
-                            
-                            tdsData[materialCode].properties.forEach(prop => {
+                                
+                                // Array değilse boş array yap
+                                if (!Array.isArray(tdsRecord.properties)) {
+                                    console.warn(`⚠️ ${materialCode} properties array değil (${typeof tdsRecord.properties}), düzeltiliyor`);
+                                    tdsRecord.properties = [];
+                                }
+                                
+                                tdsRecord.properties.forEach(prop => {
                                 // Operator yoksa varsayılan 'range' ekle
                                 if (!prop.operator) {
                                     prop.operator = 'range';
@@ -7703,7 +7713,13 @@
                 
                 if (result && result.success && result.data) {
                     Object.keys(result.data).forEach(materialCode => {
-                        const tdsRecord = result.data[materialCode];
+                        let tdsRecord = result.data[materialCode];
+                        
+                        // Nested yapı kontrolü: { properties: { properties: [...] } }
+                        if (tdsRecord && tdsRecord.properties && tdsRecord.properties.properties) {
+                            console.log(`🔧 ${materialCode} nested yapı düzeltiliyor`);
+                            tdsRecord = tdsRecord.properties; // İçteki yapıyı kullan
+                        }
                         
                         // properties string ise (JSON.stringify edilmiş) parse et
                         if (tdsRecord && typeof tdsRecord.properties === 'string') {
@@ -8440,6 +8456,18 @@
             // Mevcut TDS varsa yükle
             const tds = tdsData[materialCode];
             if (tds && tds.properties) {
+                // Array kontrolü
+                if (!Array.isArray(tds.properties)) {
+                    if (tds.properties.properties && Array.isArray(tds.properties.properties)) {
+                        // Nested yapı: { properties: { properties: [...] } }
+                        console.log(`🔧 ${materialCode} nested yapı düzeltiliyor (render)`);
+                        tds.properties = tds.properties.properties;
+                    } else {
+                        console.warn(`⚠️ ${materialCode} properties array değil, boş başlatılıyor`);
+                        tds.properties = [];
+                    }
+                }
+                
                 // Normal modal açılışta eski COA değerlerini temizle, OCR sonrası koru
                 if (clearCOAValues) {
                     tds.properties.forEach(prop => {
