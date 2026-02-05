@@ -1927,31 +1927,11 @@
             document.getElementById('statusText').textContent = 'Bağlanıyor...';
             
             try {
-                // Fetch API ile test
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                // JSONP ile bağlantı testi (CORS sorunsuz)
+                console.log('🔗 Google Sheets bağlantı testi başlatılıyor (JSONP)...');
                 
-                const formData = new URLSearchParams();
-                formData.append('action', 'test');
-                
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: formData.toString(),
-                    signal: controller.signal,
-                    mode: 'cors',
-                    credentials: 'omit'
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (!response.ok) {
-                    throw new Error('HTTP ' + response.status);
-                }
-                
-                const data = await response.json();
+                const data = await jsonpRequest(url, { action: 'test' }, 2);
+                console.log('📦 Test response:', data);
                 
                 if (data.success) {
                     googleScriptUrl = url;
@@ -1967,9 +1947,6 @@
                     throw new Error(data.error || 'Bilinmeyen hata');
                 }
             } catch (error) {
-                if (error.name === 'AbortError') {
-                    error.message = 'Bağlantı zaman aşımı';
-                }
                 console.error('Google Sheets bağlantı hatası:', error);
                 document.getElementById('statusDot').classList.remove('connected');
                 document.getElementById('statusText').textContent = 'Bağlantı başarısız';
@@ -7066,25 +7043,9 @@
             }
             
             try {
-                console.log('☁️ Google Sheets\'ten TDS verileri yükleniyor (fetch)...');
+                console.log('☁️ Google Sheets\'ten TDS verileri yükleniyor (JSONP)...');
                 
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000);
-                
-                const response = await fetch(googleScriptUrl + '?action=getTDS', {
-                    method: 'GET',
-                    signal: controller.signal,
-                    mode: 'cors',
-                    credentials: 'omit'
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (!response.ok) {
-                    throw new Error('HTTP ' + response.status);
-                }
-                
-                const result = await response.json();
+                const result = await jsonpRequest(googleScriptUrl, { action: 'getTDS' }, 2);
                 console.log('📦 TDS response:', result);
                 
                 if (result && result.success && result.data) {
@@ -7099,11 +7060,7 @@
                     return false;
                 }
             } catch(error) {
-                if (error.name === 'AbortError') {
-                    console.warn('⚠️ TDS yükleme zaman aşımı (devam ediliyor)');
-                } else {
-                    console.warn('⚠️ TDS yükleme hatası (devam ediliyor):', error.message);
-                }
+                console.warn('⚠️ TDS yükleme hatası (devam ediliyor):', error.message);
                 return false;
             }
         }
@@ -7118,25 +7075,9 @@
             }
             
             try {
-                console.log('☁️ Google Sheets\'ten Template\'ler yükleniyor (fetch)...');
+                console.log('☁️ Google Sheets\'ten Template\'ler yükleniyor (JSONP)...');
                 
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000);
-                
-                const response = await fetch(googleScriptUrl + '?action=getAllCOATemplates', {
-                    method: 'GET',
-                    signal: controller.signal,
-                    mode: 'cors',
-                    credentials: 'omit'
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (!response.ok) {
-                    throw new Error('HTTP ' + response.status);
-                }
-                
-                const result = await response.json();
+                const result = await jsonpRequest(googleScriptUrl, { action: 'getAllCOATemplates' }, 2);
                 console.log('📦 Template response:', result);
                 
                 if (result && result.success && result.data) {
@@ -7147,11 +7088,7 @@
                     console.log('⚠️ Template listesi boş veya hata');
                 }
             } catch (error) {
-                if (error.name === 'AbortError') {
-                    console.warn('⚠️ Template yükleme zaman aşımı');
-                } else {
-                    console.warn('⚠️ Template listesi yüklenemedi:', error.message);
-                }
+                console.warn('⚠️ Template listesi yüklenemedi:', error.message);
             }
         }
         
