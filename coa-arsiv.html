@@ -5534,7 +5534,46 @@
                             0, 0, width, height   // Destination
                         );
                         
-                        const croppedImageData = croppedCanvas.toDataURL('image/png');
+                        // Azure için minimum boyut kontrolü ve upscaling
+                        let finalImageData;
+                        if (ocrEngine === 'azure') {
+                            const minSize = 60; // Azure minimum 50x50, biraz margin
+                            let scaleFactor = 1;
+                            
+                            // Hangi kenar daha küçükse ona göre scale faktörünü hesapla
+                            if (width < minSize || height < minSize) {
+                                const scaleW = width < minSize ? minSize / width : 1;
+                                const scaleH = height < minSize ? minSize / height : 1;
+                                scaleFactor = Math.max(scaleW, scaleH);
+                                
+                                console.log(`📏 Görüntü çok küçük (${width}x${height}), ${scaleFactor.toFixed(2)}x büyütülüyor...`);
+                                
+                                // Yeni scaled canvas oluştur
+                                const scaledCanvas = document.createElement('canvas');
+                                scaledCanvas.width = Math.ceil(width * scaleFactor);
+                                scaledCanvas.height = Math.ceil(height * scaleFactor);
+                                const scaledCtx = scaledCanvas.getContext('2d');
+                                
+                                // Smooth scaling için
+                                scaledCtx.imageSmoothingEnabled = true;
+                                scaledCtx.imageSmoothingQuality = 'high';
+                                
+                                // Kırpılmış resmi büyüt
+                                scaledCtx.drawImage(
+                                    croppedCanvas,
+                                    0, 0, width, height,
+                                    0, 0, scaledCanvas.width, scaledCanvas.height
+                                );
+                                
+                                finalImageData = scaledCanvas.toDataURL('image/png');
+                                console.log(`✅ Büyütüldü: ${scaledCanvas.width}x${scaledCanvas.height}px`);
+                            } else {
+                                finalImageData = croppedCanvas.toDataURL('image/png');
+                            }
+                        } else {
+                            finalImageData = croppedCanvas.toDataURL('image/png');
+                        }
+                        
                         console.log(`✂️ Bölge kırpıldı: ${width}x${height}px`);
                         
                         // Bu bölgeyi OCR'a gönder
@@ -5543,13 +5582,13 @@
                             
                             if (ocrEngine === 'azure') {
                                 console.log('🔵 Azure OCR ile taranıyor...');
-                                const azureResult = await performAzureOCR(croppedImageData);
+                                const azureResult = await performAzureOCR(finalImageData);
                                 console.log('🔵 Azure sonuç:', azureResult);
                                 ocrText = azureResult?.text || '';
                                 console.log('🔵 Azure text:', ocrText);
                             } else {
                                 console.log('🟢 OCR.space ile taranıyor...');
-                                ocrText = await performOCRSpaceOCR(croppedImageData);
+                                ocrText = await performOCRSpaceOCR(finalImageData);
                             }
                             
                             // Temizle ve kaydet
