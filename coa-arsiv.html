@@ -5386,14 +5386,15 @@
             }
             
             console.log('✅ Template geçerli:', template.regions.length, 'bölge');
-            showToast('🎨 Template bölgeleri okunuyor...', 'info');
+            showToast('🎨 Template bölgeleri tek tek okunuyor...', 'info');
             
             return new Promise(async (resolve, reject) => {
                 try {
-                    // PDF'i resme çevir (gerekirse)
-                    let imageData = fileData;
+                    // PDF'i canvas'a çevir
+                    let canvas, canvasWidth, canvasHeight;
+                    
                     if (fileData.startsWith('data:application/pdf')) {
-                        console.log('📄 PDF resme dönüştürülüyor...');
+                        console.log('📄 PDF canvas\'a çeviriliyor...');
                         const base64Data = fileData.split(',')[1];
                         const binaryData = atob(base64Data);
                         const uint8Array = new Uint8Array(binaryData.length);
@@ -5406,54 +5407,113 @@
                         const page = await pdf.getPage(1);
                         
                         const viewport = page.getViewport({ scale: 2.0 });
-                        const canvas = document.createElement('canvas');
+                        canvas = document.createElement('canvas');
                         canvas.width = viewport.width;
                         canvas.height = viewport.height;
+                        canvasWidth = viewport.width;
+                        canvasHeight = viewport.height;
                         const ctx = canvas.getContext('2d');
                         
                         await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                        imageData = canvas.toDataURL('image/png');
-                        console.log('✅ PDF resme dönüştürüldü');
+                        console.log('✅ PDF canvas\'a çevrildi:', canvasWidth, 'x', canvasHeight);
+                    } else {
+                        // Image ise direkt canvas'a çiz
+                        console.log('🖼️ Image canvas\'a çeviriliyor...');
+                        canvas = document.createElement('canvas');
+                        const img = new Image();
+                        
+                        await new Promise((resolveImg, rejectImg) => {
+                            img.onload = () => {
+                                canvas.width = img.width;
+                                canvas.height = img.height;
+                                canvasWidth = img.width;
+                                canvasHeight = img.height;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0);
+                                resolveImg();
+                            };
+                            img.onerror = rejectImg;
+                            img.src = fileData;
+                        });
+                        console.log('✅ Image canvas\'a çevrildi:', canvasWidth, 'x', canvasHeight);
                     }
+                    
+                    // Template canvas boyutları ile gerçek canvas boyutlarının oranını hesapla
+                    const scaleX = canvasWidth / (template.canvasWidth || canvasWidth);
+                    const scaleY = canvasHeight / (template.canvasHeight || canvasHeight);
+                    console.log('📏 Ölçek oranları - X:', scaleX.toFixed(2), 'Y:', scaleY.toFixed(2));
                     
                     // OCR engine seçimi
                     const ocrEngine = localStorage.getItem('ocr_engine') || 'ocrspace';
                     console.log('🔧 OCR motoru:', ocrEngine);
                     
-                    // Tüm belgeyi OCR ile oku (tam metni alacağız)
-                    let ocrText = '';
-                    let ocrWords = []; // Azure için koordinatlı kelimeler
-                    
-                    if (ocrEngine === 'azure') {
-                        // Azure OCR
-                        const azureResult = await performAzureOCR(imageData);
-                        if (azureResult && azureResult.words) {
-                            ocrWords = azureResult.words;
-                            ocrText = azureResult.text || '';
-                            console.log('✅ Azure OCR tamamlandı:', ocrWords.length, 'kelime');
-                        }
-                    } else {
-                        // OCR.space
-                        const ocrResult = await performOCRSpaceOCR(imageData);
-                        ocrText = ocrResult || '';
-                        console.log('✅ OCR.space tamamlandı');
-                    }
-                    
-                    // Template bölgeleri ile eşleştir
+                    // Her bölgeyi tek tek OCR'a gönder
                     const properties = {};
                     
-                    for (const region of template.regions) {
-                        if (region.type === 'value') {
-                            // Bu bölgedeki metni çıkar
-                            const value = extractTextFromRegion(region, ocrWords, ocrText, template);
-                            if (value && region.propertyName) {
-                                properties[region.propertyName] = value.trim();
-                                console.log(`📋 ${region.propertyName}: ${value}`);
-                            }
+                    for (let i = 0; i < template.regions.length; i++) {
+                        const region = template.regions[i];
+                        
+                        if (region.type !== 'value' || !region.propertyName) {
+                            console.log(`⏭️ Bölge ${i+1} atlandı (label veya isim yok)`);
+                            continue;
                         }
+                        
+                        console.log(`\n🔍 Bölge ${i+1}/${template.regions.length}: ${region.propertyName}`);
+                        showToast(`📋 Okunuyor: ${region.propertyName} (${i+1}/${template.regions.length})`, 'info', 2000);
+                        
+                        // Bölge koordinatlarını ölçeklendir
+                        const x = Math.round(region.x * scaleX);
+                        const y = Math.round(region.y * scaleY);
+                        const width = Math.round(region.width * scaleX);
+                        const height = Math.round(region.height * scaleY);
+                        
+                        console.log(`📐 Koordinatlar: x=${x}, y=${y}, w=${width}, h=${height}`);
+                        
+                        // Canvas'tan bu bölgeyi kırp
+                        const croppedCanvas = document.createElement('canvas');
+                        croppedCanvas.width = width;
+                        croppedCanvas.height = height;
+                        const croppedCtx = croppedCanvas.getContext('2d');
+                        
+                        croppedCtx.drawImage(
+                            canvas,
+                            x, y, width, height,  // Source
+                            0, 0, width, height   // Destination
+                        );
+                        
+                        const croppedImageData = croppedCanvas.toDataURL('image/png');
+                        console.log(`✂️ Bölge kırpıldı: ${width}x${height}px`);
+                        
+                        // Bu bölgeyi OCR'a gönder
+                        try {
+                            let ocrText = '';
+                            
+                            if (ocrEngine === 'azure') {
+                                const azureResult = await performAzureOCR(croppedImageData);
+                                ocrText = azureResult?.text || '';
+                            } else {
+                                ocrText = await performOCRSpaceOCR(croppedImageData);
+                            }
+                            
+                            // Temizle ve kaydet
+                            const cleanText = ocrText.trim().replace(/\s+/g, ' ');
+                            
+                            if (cleanText) {
+                                properties[region.propertyName] = cleanText;
+                                console.log(`✅ ${region.propertyName}: "${cleanText}"`);
+                            } else {
+                                console.log(`⚠️ ${region.propertyName}: Boş sonuç`);
+                            }
+                            
+                        } catch (error) {
+                            console.error(`❌ Bölge ${region.propertyName} OCR hatası:`, error.message);
+                        }
+                        
+                        // API rate limit için kısa bekleme
+                        await new Promise(resolve => setTimeout(resolve, 500));
                     }
                     
-                    console.log('✅ Template OCR tamamlandı:', Object.keys(properties).length, 'özellik');
+                    console.log('\n✅ Template OCR tamamlandı:', Object.keys(properties).length, 'özellik');
                     showToast(`✅ ${Object.keys(properties).length} özellik okundu`, 'success');
                     resolve(properties);
                     
@@ -5463,35 +5523,6 @@
                     reject(error);
                 }
             });
-        }
-        
-        // Extract text from a specific region
-        function extractTextFromRegion(region, ocrWords, ocrText, template) {
-            // Bölge koordinatlarını al
-            const { x, y, width, height } = region;
-            
-            if (ocrWords && ocrWords.length > 0) {
-                // Azure OCR - kelime koordinatları ile eşleştir
-                const matchedWords = ocrWords.filter(word => {
-                    const wordBox = word.boundingBox;
-                    if (!wordBox || wordBox.length < 8) return false;
-                    
-                    // Kelime merkezini hesapla
-                    const wordCenterX = (wordBox[0] + wordBox[2]) / 2;
-                    const wordCenterY = (wordBox[1] + wordBox[5]) / 2;
-                    
-                    // Bölge içinde mi?
-                    return wordCenterX >= x && wordCenterX <= (x + width) &&
-                           wordCenterY >= y && wordCenterY <= (y + height);
-                });
-                
-                return matchedWords.map(w => w.text).join(' ');
-            } else {
-                // OCR.space - tam metin üzerinden tahmini eşleştirme
-                // (Basitleştirilmiş - koordinat bilgisi yok)
-                // Bölgenin yaklaşık konumuna göre metinden çıkarmaya çalış
-                return ocrText; // TODO: Gelişmiş parsing gerekebilir
-            }
         }
         
         async function extractCOAProperties(fileData) {
