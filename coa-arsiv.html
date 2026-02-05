@@ -9742,9 +9742,20 @@
                 );
                 
                 const arrayBuffer = await file.arrayBuffer();
-                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const workbook = XLSX.read(arrayBuffer, { type: 'array', cellStyles: true });
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
+                
+                // Get column widths and row heights from Excel
+                const colWidths = worksheet['!cols'] || [];
+                const rowHeights = worksheet['!rows'] || [];
+                const merges = worksheet['!merges'] || [];
+                
+                console.log('📏 Excel boyutları:', {
+                    cols: colWidths.length,
+                    rows: rowHeights.length,
+                    merges: merges.length
+                });
                 
                 // Convert to HTML
                 const htmlString = XLSX.utils.sheet_to_html(worksheet, { header: '', footer: '' });
@@ -9755,34 +9766,114 @@
                 tempDiv.style.left = '-9999px';
                 tempDiv.style.top = '0';
                 tempDiv.style.background = 'white';
-                tempDiv.style.padding = '20px';
+                tempDiv.style.padding = '0';  // No padding for exact measurements
                 tempDiv.innerHTML = htmlString;
                 document.body.appendChild(tempDiv);
                 
-                // Style the table
+                // Style the table with exact Excel dimensions
                 const table = tempDiv.querySelector('table');
                 if (table) {
                     table.style.borderCollapse = 'collapse';
-                    table.style.fontSize = '12px';
-                    table.style.fontFamily = 'Arial, sans-serif';
-                    const cells = table.querySelectorAll('td, th');
-                    cells.forEach(cell => {
-                        cell.style.border = '1px solid #ddd';
-                        cell.style.padding = '8px';
-                        cell.style.textAlign = 'left';
+                    table.style.fontSize = '11px';  // Excel default
+                    table.style.fontFamily = 'Calibri, Arial, sans-serif';  // Excel default font
+                    table.style.border = 'none';
+                    table.style.margin = '0';
+                    table.style.padding = '0';
+                    
+                    // Apply column widths
+                    const rows = table.querySelectorAll('tr');
+                    if (rows.length > 0) {
+                        const firstRowCells = rows[0].querySelectorAll('td, th');
+                        firstRowCells.forEach((cell, index) => {
+                            const colInfo = colWidths[index];
+                            if (colInfo && colInfo.wpx) {
+                                // Use pixel width from Excel
+                                cell.style.width = colInfo.wpx + 'px';
+                                cell.style.minWidth = colInfo.wpx + 'px';
+                                cell.style.maxWidth = colInfo.wpx + 'px';
+                            } else if (colInfo && colInfo.wch) {
+                                // Convert character width to pixels (approx 7px per char)
+                                const pixelWidth = Math.round(colInfo.wch * 7);
+                                cell.style.width = pixelWidth + 'px';
+                                cell.style.minWidth = pixelWidth + 'px';
+                                cell.style.maxWidth = pixelWidth + 'px';
+                            } else {
+                                // Default Excel column width (64 pixels)
+                                cell.style.width = '64px';
+                                cell.style.minWidth = '64px';
+                                cell.style.maxWidth = '64px';
+                            }
+                        });
+                    }
+                    
+                    // Apply row heights and cell styles
+                    rows.forEach((row, rowIndex) => {
+                        const rowInfo = rowHeights[rowIndex];
+                        if (rowInfo && rowInfo.hpx) {
+                            // Use pixel height from Excel
+                            row.style.height = rowInfo.hpx + 'px';
+                        } else if (rowInfo && rowInfo.hpt) {
+                            // Convert points to pixels (1pt = 1.333px)
+                            const pixelHeight = Math.round(rowInfo.hpt * 1.333);
+                            row.style.height = pixelHeight + 'px';
+                        } else {
+                            // Default Excel row height (20 pixels)
+                            row.style.height = '20px';
+                        }
+                        
+                        const cells = row.querySelectorAll('td, th');
+                        cells.forEach((cell, colIndex) => {
+                            cell.style.border = '1px solid #d0d0d0';  // Excel default border
+                            cell.style.padding = '2px 4px';  // Excel default padding
+                            cell.style.textAlign = 'left';
+                            cell.style.verticalAlign = 'middle';
+                            cell.style.overflow = 'hidden';
+                            cell.style.whiteSpace = 'nowrap';
+                            cell.style.boxSizing = 'border-box';
+                            
+                            // Apply column width to all cells in column
+                            const colInfo = colWidths[colIndex];
+                            if (colInfo && colInfo.wpx) {
+                                cell.style.width = colInfo.wpx + 'px';
+                                cell.style.minWidth = colInfo.wpx + 'px';
+                                cell.style.maxWidth = colInfo.wpx + 'px';
+                            } else if (colInfo && colInfo.wch) {
+                                const pixelWidth = Math.round(colInfo.wch * 7);
+                                cell.style.width = pixelWidth + 'px';
+                                cell.style.minWidth = pixelWidth + 'px';
+                                cell.style.maxWidth = pixelWidth + 'px';
+                            }
+                        });
+                        
+                        const headers = row.querySelectorAll('th');
+                        headers.forEach(th => {
+                            th.style.backgroundColor = '#f0f0f0';
+                            th.style.fontWeight = 'bold';
+                        });
                     });
-                    const headers = table.querySelectorAll('th');
-                    headers.forEach(th => {
-                        th.style.backgroundColor = '#f0f0f0';
-                        th.style.fontWeight = 'bold';
+                }
+                
+                // Log table dimensions before rendering
+                if (table) {
+                    const tableRect = table.getBoundingClientRect();
+                    console.log('📊 Table boyutları (render öncesi):', {
+                        width: Math.round(tableRect.width),
+                        height: Math.round(tableRect.height),
+                        rows: table.rows.length,
+                        cols: table.rows[0]?.cells.length || 0
                     });
                 }
                 
                 // Convert to canvas using html2canvas (scale 1 for precise positioning)
+                console.log('🎨 Canvas render başlatılıyor...');
                 const canvas = await html2canvas(tempDiv, {
                     backgroundColor: '#ffffff',
-                    scale: 1  // No scaling to preserve exact Excel coordinates
+                    scale: 1,  // No scaling to preserve exact Excel coordinates
+                    logging: false,
+                    useCORS: true
                 });
+                
+                console.log('✅ Canvas render tamamlandı:', canvas.width, 'x', canvas.height);
                 
                 // Remove temporary div
                 document.body.removeChild(tempDiv);
@@ -9802,8 +9893,12 @@
                 templateImageObj = new Image();
                 templateImageObj.src = templateCanvas.toDataURL();
                 
-                console.log('✅ Excel template hazırlandı (Ölçekleme yok, orijinal boyut:', width, 'x', height, ')');
-                showToast('✅ Excel dosyası template olarak yüklendi (Orijinal boyut)', 'success');
+                console.log('✅ Excel template hazırlandı');
+                console.log('  📐 Canvas boyutu:', width, 'x', height);
+                console.log('  📏 Sütun sayısı:', colWidths.length);
+                console.log('  📏 Satır sayısı:', rowHeights.length);
+                console.log('  ⚖️ Scale factor:', templateScaleFactor);
+                showToast('✅ Excel template yüklendi - Gerçek hücre boyutları korundu', 'success');
             } catch (error) {
                 console.error('❌ Excel yükleme hatası:', error);
                 showToast('❌ Excel dosyası yüklenemedi: ' + error.message, 'error');
