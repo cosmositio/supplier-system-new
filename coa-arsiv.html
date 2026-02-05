@@ -4512,13 +4512,13 @@
             // OCR zaten fotoğraf çekilirken yapıldı (startOCRAnalysis), tekrar yapmaya gerek yok
             console.log('ℹ️ OCR atlanıyor (çekim sırasında yapıldı)');
             
-            // Save
+            // Save - Google Sheets'e kaydet
             if (googleScriptUrl) {
                 const success = await saveToGoogleSheets(record);
                 if (success) {
                     coaData.unshift(record);
                     showToast('✅ Google Sheets\'e kaydedildi!', 'success');
-                    console.log('✅ KAYIT TAMAMLANDI - OCR ÇAĞRISI YOK!');
+                    console.log('✅ KAYIT TAMAMLANDI - SHEETS\'E GÖNDERİLDİ!');
                     
                     // COA_Records'a da kaydet (TDS tanımlıysa)
                     // materialCode'dan sadece kod kısmını çıkar (pipe öncesi)
@@ -4543,7 +4543,7 @@
                 coaData.unshift(record);
                 saveToLocalStorage();
                 showToast('✅ Yerel olarak kaydedildi!', 'success');
-                console.log('✅ KAYIT TAMAMLANDI - OCR ÇAĞRISI YOK!');
+                console.log('✅ KAYIT TAMAMLANDI - LOCAL ONLY!');
             }
             
             console.log('✅ Kayıt tamamlandı, form temizleniyor...');
@@ -6988,19 +6988,18 @@
             }
         }
         
-        // Google Sheets'ten TDS verilerini yükle
+        // Google Sheets'ten TDS verilerini yükle (Sheets-only)
         async function loadTDSFromGoogleSheets() {
             if (!googleScriptUrl) {
-                console.log('⚠️ Google Script URL tanımlı değil, sadece localStorage kullanılıyor');
+                console.log('⚠️ Google Script URL tanımlı değil');
                 return false;
             }
             
             try {
                 console.log('☁️ Google Sheets\'ten TDS verileri yükleniyor...');
-                const result = await jsonpRequest(googleScriptUrl, { action: 'getTDS' });
+                const result = await jsonpRequest(googleScriptUrl, { action: 'getTDS' }, 1);
                 
-                if (result.success && result.data) {
-                    // Google Sheets'teki veri DAIMA güncel - üzerine yaz
+                if (result && result.success && result.data) {
                     Object.keys(result.data).forEach(materialCode => {
                         tdsData[materialCode] = result.data[materialCode];
                     });
@@ -7008,11 +7007,11 @@
                     console.log('✅ Google Sheets\'ten', Object.keys(result.data).length, 'TDS yüklendi');
                     return true;
                 } else {
-                    console.log('⚠️ Google Sheets\'te TDS verisi yok');
+                    console.log('⚠️ Sheets\'te TDS verisi yok');
                     return false;
                 }
             } catch(error) {
-                console.error('❌ Google Sheets yükleme hatası:', error);
+                console.warn('⚠️ TDS yükleme hatası (devam ediliyor):', error.message);
                 return false;
             }
         }
@@ -9212,49 +9211,36 @@
         }
         
         async function saveTemplateToGoogleSheets(template) {
-            try {
-                console.log('📤 Google Sheets\'e template gönderiliyor...');
-                
-                // Image data'yı ÇIKAR - localStorage'da tutulacak
-                // Google Sheets'e sadece metadata göndereceğiz
-                const templateForSheets = {
-                    supplier: template.supplier,
-                    version: template.version,
-                    createdAt: template.createdAt,
-                    regions: template.regions.map(region => ({
-                        name: region.name,
-                        x: region.x,
-                        y: region.y,
-                        width: region.width,
-                        height: region.height,
-                        fieldType: region.fieldType,
-                        properties: region.properties
-                    }))
-                    // imageData GÖNDERME - localStorage'da kalacak
-                };
-                
-                // JSONP kullanarak template kaydet (GET request - metadata only)
-                const result = await jsonpRequest(googleScriptUrl, {
-                    action: 'saveTemplate',
-                    template: JSON.stringify(templateForSheets)
-                }, 2);
-                
-                if (result.success) {
-                    console.log('✅ Template Google Sheets\'e kaydedildi:', result);
-                    showToast('✅ Template başarıyla kaydedildi!', 'success');
-                    
-                    // Template listesini güncelle
-                    await loadTemplatesFromGoogleSheets();
-                } else {
-                    console.warn('⚠️ Google Sheets kaydetme başarısız:', result.error);
-                    showToast('⚠️ Template localStorage\'da (Google Sheets hatası)', 'warning');
-                }
-            } catch (error) {
-                console.warn('⚠️ Google Sheets kaydetme hatası:', error.message);
-                showToast('⚠️ Template localStorage\'da', 'warning');
-            } finally {
-                closeTemplateEditor();
+            // Template localStorage'da kaydedildi, Google Sheets senkronizasyonu opsiyonel
+            console.log('💾 Template localStorage\'da kaydedildi');
+            
+            // Google Sheets'e gönderebilirsen gönder ama başarısız olursa problem değil
+            if (googleScriptUrl) {
+                setTimeout(async () => {
+                    try {
+                        console.log('📤 Google Sheets\'e template bilgisi gönderiliyor... (opsiyonel)');
+                        
+                        const templateForSheets = {
+                            supplier: template.supplier,
+                            version: template.version,
+                            createdAt: template.createdAt
+                        };
+                        
+                        const result = await jsonpRequest(googleScriptUrl, {
+                            action: 'saveTemplate',
+                            template: JSON.stringify(templateForSheets)
+                        }, 1);
+                        
+                        if (result.success) {
+                            console.log('☁️ Template metadata Google Sheets\'e gönderildi');
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ Google Sheets senkronizasyonu başarısız (önemsiz):', error.message);
+                    }
+                }, 1000);
             }
+            
+            closeTemplateEditor();
         }
         
         function closeTemplateEditor() {
