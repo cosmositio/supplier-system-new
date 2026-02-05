@@ -5464,6 +5464,8 @@
                                                 .replace(/\s+(λ|Λ)(\d+)?\s+/gi, ' ')  // Remove lambda in middle
                                                 .replace(/\s+(λ|Λ)(\d+)?$/gi, '')  // Remove lambda at end
                                                 .replace(/^(110|A10|l10|L10)\s*/i, '')  // Remove OCR errors
+                                                .replace(/\.(\s+)/g, '.')  // Nokta sonrası boşluk temizle: "0. 035" -> "0.035"
+                                                .replace(/\.+/g, '.')  // Birden fazla nokta: "0.0.35" -> "0.035"
                                                 .trim();
                                         };
                                         
@@ -6278,6 +6280,18 @@
                         // TÜM virgülleri noktaya çevir (Türkçe ondalık ayırıcısı)
                         coaValue = coaValue.replace(/,/g, '.');
                         
+                        // ÖZEL DURUM: Thermal conductivity için 0 ile başlayan ondalık sayıları koru
+                        // Örn: "0.035" veya "0. 035" gibi değerler
+                        if (prop.name && prop.name.toLowerCase().includes('thermal') || 
+                            prop.name && prop.name.toLowerCase().includes('conduct') ||
+                            unit && unit.toLowerCase().includes('w/mk')) {
+                            // Nokta sonrası boşluk varsa temizle: "0. 035" -> "0.035"
+                            coaValue = coaValue.replace(/\.(\s+)/g, '.');
+                            // Birden fazla nokta varsa birleştir: "0.0.35" -> "0.035"
+                            coaValue = coaValue.replace(/\.+/g, '.');
+                            console.log(`  🌡️ Thermal conductivity özel düzeltme: "${coaValue}"`);
+                        }
+                        
                         // Eğer COA değeri içinde boşluk ve birim varsa ayır (örn: "14.38 kg/m3")
                         if (coaValue && coaValue.includes(' ')) {
                             const match = coaValue.match(/^([\d.,]+)\s+(.+)$/);
@@ -6326,11 +6340,20 @@
                         
                         // Eğer property'de yoksa hesapla
                         if (!lowerLimit || !upperLimit) {
-                            const stdValue = parseFloat(String(prop.standardValue || 0).replace(/,/g, '.'));
+                            const stdValueStr = String(prop.standardValue || '0').replace(/,/g, '.');
+                            const stdValue = parseFloat(stdValueStr);
                             const lowerTol = parseFloat(String(prop.lowerTolerance || 0).replace(/,/g, '.'));
                             const upperTol = parseFloat(String(prop.upperTolerance || 0).replace(/,/g, '.'));
-                            lowerLimit = (stdValue - lowerTol).toFixed(2);
-                            upperLimit = (stdValue + upperTol).toFixed(2);
+                            
+                            // Standart değerdeki ondalık basamak sayısını bul
+                            let decimalPlaces = 2; // Varsayılan
+                            if (stdValueStr.includes('.')) {
+                                const decimalPart = stdValueStr.split('.')[1];
+                                decimalPlaces = decimalPart ? decimalPart.length : 0;
+                            }
+                            
+                            lowerLimit = (stdValue - lowerTol).toFixed(decimalPlaces);
+                            upperLimit = (stdValue + upperTol).toFixed(decimalPlaces);
                         }
                         
                         // Operatör ve Standart Değer kontrolü - virgül/nokta dönüşümü ile
@@ -6357,22 +6380,27 @@
                         // Requirement alanını oluştur (compliance mode için veya operator'e göre)
                         let requirement = '';
                         let finalStandardValue = standardValue;
+                        let sheetRequirement = '';  // Sheets'e gönderilecek requirement (numeric mode'da boş)
                         
                         if (prop.operator === 'compliance' && prop.requirement) {
                             // Compliance mode: requirement dolu, standardValue boş
                             requirement = prop.requirement;
+                            sheetRequirement = prop.requirement;
                             finalStandardValue = '';
                             finalMin = '';
                             finalMax = '';
                         } else if (operator === '<' || operator === '<=') {
-                            // Küçüktür: "≤ 0,035 W/mK" formatı (numeric mode için requirement oluştur)
+                            // Küçüktür: "≤ 0,035 W/mK" formatı (ekranda göster, Sheets'e gönderme)
                             requirement = `${operator === '<' ? '<' : '≤'} ${finalMax}${unit ? ' ' + unit : ''}`;
+                            sheetRequirement = '';  // Sheets'e boş gönder
                         } else if (operator === '>' || operator === '>=') {
-                            // Büyüktür: "≥ 45 N" formatı (numeric mode için requirement oluştur)
+                            // Büyüktür: "≥ 45 N" formatı (ekranda göster, Sheets'e gönderme)
                             requirement = `${operator === '>' ? '>' : '≥'} ${finalMin}${unit ? ' ' + unit : ''}`;
+                            sheetRequirement = '';  // Sheets'e boş gönder
                         } else if (operator === 'range' && finalMin && finalMax) {
-                            // Aralık: "7,5 - 10,5 kg/m3" formatı (numeric mode için requirement oluştur)
+                            // Aralık: "7,5 - 10,5 kg/m3" formatı (ekranda göster, Sheets'e gönderme)
                             requirement = `${finalMin} - ${finalMax}${unit ? ' ' + unit : ''}`;
+                            sheetRequirement = '';  // Sheets'e boş gönder
                         }
                         
                         return {
@@ -6384,7 +6412,7 @@
                             standardValue: finalStandardValue,
                             min: finalMin,
                             max: finalMax,
-                            requirement: requirement,
+                            requirement: sheetRequirement,  // Sheets'e sadece compliance mode'da gönder
                             status: calculatePropertyStatus(coaValue, lowerLimit, upperLimit, operator, prop)
                         };
                     });
