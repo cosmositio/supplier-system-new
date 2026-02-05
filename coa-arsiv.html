@@ -8034,9 +8034,22 @@
                     
                     console.log(`📊 ${propertyName}: Range değer bulundu: ${lowerValue} - ${upperValue}`);
                     
-                    // TDS limitleri ile karşılaştır
-                    const tdsLowerLimit = parseFloat(tdsProp.lowerLimit);
-                    const tdsUpperLimit = parseFloat(tdsProp.upperLimit);
+                    // TDS limitleri ile karşılaştır - yoksa hesapla
+                    let tdsLowerLimit = parseFloat(tdsProp.lowerLimit);
+                    let tdsUpperLimit = parseFloat(tdsProp.upperLimit);
+                    
+                    // Limitler tanımlı değilse standardValue'dan hesapla
+                    if (isNaN(tdsLowerLimit) || isNaN(tdsUpperLimit)) {
+                        const stdValue = parseFloat(String(tdsProp.standardValue || '0').replace(/,/g, '.'));
+                        const lowerTol = parseFloat(String(tdsProp.lowerTolerance || '0').replace(/,/g, '.'));
+                        const upperTol = parseFloat(String(tdsProp.upperTolerance || '0').replace(/,/g, '.'));
+                        
+                        if (!isNaN(stdValue) && !isNaN(lowerTol) && !isNaN(upperTol)) {
+                            tdsLowerLimit = stdValue - lowerTol;
+                            tdsUpperLimit = stdValue + upperTol;
+                            console.log(`🔢 ${propertyName}: Limitler hesaplandı: ${tdsLowerLimit} - ${tdsUpperLimit} (${stdValue} ±${lowerTol}/${upperTol})`);
+                        }
+                    }
                     
                     if (!isNaN(tdsLowerLimit) && !isNaN(tdsUpperLimit)) {
                         // Her iki değer de TDS limitleri içinde mi?
@@ -8078,9 +8091,22 @@
                         
                         console.log(`📊 ${propertyName}: Tek değer bulundu: ${numValue}`);
                         
-                        // TDS limitleri ile karşılaştır
-                        const tdsLowerLimit = parseFloat(tdsProp.lowerLimit);
-                        const tdsUpperLimit = parseFloat(tdsProp.upperLimit);
+                        // TDS limitleri ile karşılaştır - yoksa hesapla
+                        let tdsLowerLimit = parseFloat(tdsProp.lowerLimit);
+                        let tdsUpperLimit = parseFloat(tdsProp.upperLimit);
+                        
+                        // Limitler tanımlı değilse standardValue'dan hesapla
+                        if (isNaN(tdsLowerLimit) || isNaN(tdsUpperLimit)) {
+                            const stdValue = parseFloat(String(tdsProp.standardValue || '0').replace(/,/g, '.'));
+                            const lowerTol = parseFloat(String(tdsProp.lowerTolerance || '0').replace(/,/g, '.'));
+                            const upperTol = parseFloat(String(tdsProp.upperTolerance || '0').replace(/,/g, '.'));
+                            
+                            if (!isNaN(stdValue) && !isNaN(lowerTol) && !isNaN(upperTol)) {
+                                tdsLowerLimit = stdValue - lowerTol;
+                                tdsUpperLimit = stdValue + upperTol;
+                                console.log(`🔢 ${propertyName}: Limitler hesaplandı: ${tdsLowerLimit} - ${tdsUpperLimit} (${stdValue} ±${lowerTol}/${upperTol})`);
+                            }
+                        }
                         
                         if (!isNaN(tdsLowerLimit) && !isNaN(tdsUpperLimit)) {
                             const isInRange = numValue >= tdsLowerLimit && numValue <= tdsUpperLimit;
