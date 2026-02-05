@@ -4327,8 +4327,13 @@
                     preview.innerHTML = '<div class="file-name" style="color:green;">📄 ' + file.name + ' (PDF - orjinal kalite)</div>';
                     showToast('✅ PDF hazır (orjinal kalite)', 'success');
                     
-                    // PDF yüklendikten sonra OCR başlat
-                    startOCRAnalysis();
+                    // Template varsa template OCR, yoksa normal OCR başlat
+                    if (window.currentTemplate) {
+                        console.log('🎨 Template mevcut, template OCR başlatılacak');
+                        startCOATemplateOCR();
+                    } else {
+                        startOCRAnalysis();
+                    }
                     isProcessingFile = false; // OCR arka planda devam edecek
                 };
                 reader.readAsDataURL(file);
@@ -4340,6 +4345,13 @@
                     selectedFileData = e.target.result;
                     preview.innerHTML = '<div class="file-name" style="color:#107c41;">📊 ' + file.name + ' (Excel - orjinal)</div>';
                     showToast('✅ Excel dosyası hazır', 'success');
+                    
+                    // Template varsa template OCR başlat
+                    if (window.currentTemplate) {
+                        console.log('🎨 Template mevcut, Excel template OCR başlatılacak');
+                        startCOATemplateOCR();
+                    }
+                    
                     isProcessingFile = false;
                 };
                 reader.readAsDataURL(file);
@@ -4351,6 +4363,13 @@
                     selectedFileData = e.target.result;
                     preview.innerHTML = '<div class="file-name" style="color:#2b579a;">📝 ' + file.name + ' (Word - orjinal)</div>';
                     showToast('✅ Word dosyası hazır', 'success');
+                    
+                    // Template varsa template OCR başlat
+                    if (window.currentTemplate) {
+                        console.log('🎨 Template mevcut, Word template OCR başlatılacak');
+                        startCOATemplateOCR();
+                    }
+                    
                     isProcessingFile = false;
                 };
                 reader.readAsDataURL(file);
@@ -7760,6 +7779,252 @@
             showToast('Template seçimi kaldırıldı', 'info');
         }
         
+        // COA Template OCR başlat
+        async function startCOATemplateOCR() {
+            if (!window.currentTemplate) {
+                console.log('⚠️ Template seçilmemiş');
+                return;
+            }
+            
+            if (!selectedFileData) {
+                console.log('⚠️ Dosya yüklenmemiş');
+                return;
+            }
+            
+            const materialCode = document.getElementById('materialCode').value.trim();
+            if (!materialCode) {
+                console.log('⚠️ Hammadde kodu boş');
+                showToast('⚠️ Önce hammadde seçin', 'warning');
+                return;
+            }
+            
+            // Hammadde kodunu temizle (tek kod)
+            const materialCodeOnly = materialCode.includes(' | ') ? materialCode.split(' | ')[0].trim() : 
+                                     materialCode.includes(' - ') ? materialCode.split(' - ')[0].trim() : 
+                                     materialCode;
+            
+            console.log('🚀 COA Template OCR başlatılıyor...');
+            console.log('📋 Hammadde:', materialCodeOnly);
+            console.log('🎨 Template:', window.currentTemplate.supplier);
+            
+            showToast('🎨 Template ile COA okunuyor...', 'info');
+            
+            try {
+                // Template OCR ile özellikleri oku
+                const extractedProperties = await extractCOAPropertiesWithTemplate(selectedFileData, window.currentTemplate);
+                
+                console.log('✅ Template OCR tamamlandı:', Object.keys(extractedProperties).length, 'özellik');
+                console.log('📊 Okunan ham değerler:', extractedProperties);
+                
+                // TDS ile karşılaştır ve durum belirle (tick kontrolü + range kontrolü)
+                const comparisonResults = await compareCOAValuesWithTDS(materialCodeOnly, extractedProperties);
+                
+                console.log('✅ TDS karşılaştırması tamamlandı:', comparisonResults);
+                
+                // TDS'e kaydet
+                await saveTDSPropertiesFromOCR(materialCodeOnly, comparisonResults.properties);
+                
+                showToast(`✅ ${Object.keys(extractedProperties).length} özellik okundu ve TDS ile karşılaştırıldı!`, 'success', 5000);
+                
+                // TDS modalını aç ve sonuçları göster
+                openTDSModal(materialCodeOnly);
+                
+            } catch (error) {
+                console.error('❌ COA Template OCR hatası:', error);
+                showToast('❌ OCR hatası: ' + error.message, 'error', 5000);
+            }
+        }
+        
+        // COA değerlerini TDS ile karşılaştır (tick kontrolü + range kontrolü)
+        async function compareCOAValuesWithTDS(materialCode, extractedProperties) {
+            console.log('🔍 TDS ile karşılaştırma başlatılıyor:', materialCode);
+            
+            // TDS'i yükle
+            if (!tdsData[materialCode]) {
+                console.log('⚠️ Bu hammadde için TDS bulunamadı');
+                // TDS yoksa sadece okunan değerleri döndür
+                return {
+                    properties: extractedProperties,
+                    matched: 0,
+                    passed: 0,
+                    failed: 0
+                };
+            }
+            
+            const tds = tdsData[materialCode];
+            const tdsProperties = tds.properties || [];
+            
+            console.log('📋 TDS özellikleri:', tdsProperties.length);
+            
+            const comparisonResults = {
+                properties: {},
+                matched: 0,
+                passed: 0,
+                failed: 0
+            };
+            
+            // Her bir okunan özellik için
+            for (const [propertyName, coaValue] of Object.entries(extractedProperties)) {
+                if (!coaValue || coaValue.trim() === '') continue;
+                
+                const cleanedCoaValue = coaValue.trim();
+                
+                // TDS'te bu özelliği bul
+                let tdsProp = tdsProperties.find(p => 
+                    p.name && p.name.toLowerCase() === propertyName.toLowerCase()
+                );
+                
+                if (!tdsProp) {
+                    // TDS'te yok, yeni property olarak ekle
+                    console.log(`➕ Yeni property: ${propertyName} = ${cleanedCoaValue}`);
+                    comparisonResults.properties[propertyName] = {
+                        value: cleanedCoaValue,
+                        status: 'unknown',
+                        isNew: true
+                    };
+                    continue;
+                }
+                
+                comparisonResults.matched++;
+                
+                // Tick işareti kontrolü (✓ ✔ √ veya "Pass", "OK", "Uygun" gibi kelimeler)
+                const hasTickMark = /[✓✔√]/u.test(cleanedCoaValue) || 
+                                   /\b(pass|ok|uygun|geçti|başarılı|conform)\b/i.test(cleanedCoaValue);
+                const hasFailMark = /[✗✘×]/u.test(cleanedCoaValue) || 
+                                    /\b(fail|not ok|uygun değil|geçmedi|başarısız|non-conform)\b/i.test(cleanedCoaValue);
+                
+                if (hasTickMark) {
+                    // Tick işareti var -> Uygun
+                    console.log(`✅ ${propertyName}: Tick işareti bulundu -> UYGUN`);
+                    comparisonResults.properties[propertyName] = {
+                        value: cleanedCoaValue,
+                        status: 'Uygun',
+                        reason: 'Tick mark detected'
+                    };
+                    comparisonResults.passed++;
+                    continue;
+                }
+                
+                if (hasFailMark) {
+                    // Fail işareti var -> Uygun Değil
+                    console.log(`❌ ${propertyName}: Fail işareti bulundu -> UYGUN DEĞİL`);
+                    comparisonResults.properties[propertyName] = {
+                        value: cleanedCoaValue,
+                        status: 'Uygun Değil',
+                        reason: 'Fail mark detected'
+                    };
+                    comparisonResults.failed++;
+                    continue;
+                }
+                
+                // Sayısal değer kontrolü (range veya tek değer)
+                const numericPattern = /([0-9]+\.?[0-9]*)\s*[-~]\s*([0-9]+\.?[0-9]*)/;
+                const rangeMatch = cleanedCoaValue.match(numericPattern);
+                
+                if (rangeMatch) {
+                    // Range değer (örn: "29.8-30.3")
+                    const lowerValue = parseFloat(rangeMatch[1]);
+                    const upperValue = parseFloat(rangeMatch[2]);
+                    
+                    console.log(`📊 ${propertyName}: Range değer bulundu: ${lowerValue} - ${upperValue}`);
+                    
+                    // TDS limitleri ile karşılaştır
+                    const tdsLowerLimit = parseFloat(tdsProp.lowerLimit);
+                    const tdsUpperLimit = parseFloat(tdsProp.upperLimit);
+                    
+                    if (!isNaN(tdsLowerLimit) && !isNaN(tdsUpperLimit)) {
+                        // Her iki değer de TDS limitleri içinde mi?
+                        const isLowerInRange = lowerValue >= tdsLowerLimit;
+                        const isUpperInRange = upperValue <= tdsUpperLimit;
+                        
+                        if (isLowerInRange && isUpperInRange) {
+                            console.log(`✅ ${propertyName}: ${lowerValue}-${upperValue} TDS limitleri içinde (${tdsLowerLimit}-${tdsUpperLimit}) -> UYGUN`);
+                            comparisonResults.properties[propertyName] = {
+                                value: cleanedCoaValue,
+                                status: 'Uygun',
+                                reason: `Range ${lowerValue}-${upperValue} within TDS limits ${tdsLowerLimit}-${tdsUpperLimit}`
+                            };
+                            comparisonResults.passed++;
+                        } else {
+                            console.log(`❌ ${propertyName}: ${lowerValue}-${upperValue} TDS limitleri dışında (${tdsLowerLimit}-${tdsUpperLimit}) -> UYGUN DEĞİL`);
+                            comparisonResults.properties[propertyName] = {
+                                value: cleanedCoaValue,
+                                status: 'Uygun Değil',
+                                reason: `Range ${lowerValue}-${upperValue} outside TDS limits ${tdsLowerLimit}-${tdsUpperLimit}`
+                            };
+                            comparisonResults.failed++;
+                        }
+                    } else {
+                        // TDS limitleri tanımlı değil
+                        console.log(`⚠️ ${propertyName}: TDS limitleri tanımlı değil`);
+                        comparisonResults.properties[propertyName] = {
+                            value: cleanedCoaValue,
+                            status: 'unknown',
+                            reason: 'TDS limits not defined'
+                        };
+                    }
+                } else {
+                    // Tek sayısal değer kontrolü
+                    const singleNumMatch = cleanedCoaValue.match(/([0-9]+\.?[0-9]*)/);
+                    
+                    if (singleNumMatch) {
+                        const numValue = parseFloat(singleNumMatch[1]);
+                        
+                        console.log(`📊 ${propertyName}: Tek değer bulundu: ${numValue}`);
+                        
+                        // TDS limitleri ile karşılaştır
+                        const tdsLowerLimit = parseFloat(tdsProp.lowerLimit);
+                        const tdsUpperLimit = parseFloat(tdsProp.upperLimit);
+                        
+                        if (!isNaN(tdsLowerLimit) && !isNaN(tdsUpperLimit)) {
+                            const isInRange = numValue >= tdsLowerLimit && numValue <= tdsUpperLimit;
+                            
+                            if (isInRange) {
+                                console.log(`✅ ${propertyName}: ${numValue} TDS limitleri içinde (${tdsLowerLimit}-${tdsUpperLimit}) -> UYGUN`);
+                                comparisonResults.properties[propertyName] = {
+                                    value: cleanedCoaValue,
+                                    status: 'Uygun',
+                                    reason: `Value ${numValue} within TDS limits ${tdsLowerLimit}-${tdsUpperLimit}`
+                                };
+                                comparisonResults.passed++;
+                            } else {
+                                console.log(`❌ ${propertyName}: ${numValue} TDS limitleri dışında (${tdsLowerLimit}-${tdsUpperLimit}) -> UYGUN DEĞİL`);
+                                comparisonResults.properties[propertyName] = {
+                                    value: cleanedCoaValue,
+                                    status: 'Uygun Değil',
+                                    reason: `Value ${numValue} outside TDS limits ${tdsLowerLimit}-${tdsUpperLimit}`
+                                };
+                                comparisonResults.failed++;
+                            }
+                        } else {
+                            // TDS limitleri tanımlı değil
+                            console.log(`⚠️ ${propertyName}: TDS limitleri tanımlı değil`);
+                            comparisonResults.properties[propertyName] = {
+                                value: cleanedCoaValue,
+                                status: 'unknown',
+                                reason: 'TDS limits not defined'
+                            };
+                        }
+                    } else {
+                        // Sayısal değer değil, metin
+                        console.log(`📝 ${propertyName}: Metin değer: ${cleanedCoaValue}`);
+                        comparisonResults.properties[propertyName] = {
+                            value: cleanedCoaValue,
+                            status: 'unknown',
+                            reason: 'Text value, no comparison logic'
+                        };
+                    }
+                }
+            }
+            
+            console.log('📊 Karşılaştırma özeti:');
+            console.log('  - Eşleşen:', comparisonResults.matched);
+            console.log('  - Uygun:', comparisonResults.passed);
+            console.log('  - Uygun Değil:', comparisonResults.failed);
+            
+            return comparisonResults;
+        }
+        
         // TDS modalını aç
         function openTDSModal(preselectedMaterialCode = null) {
             if (materials.length === 0) {
@@ -8030,7 +8295,27 @@
             }
             
             // Her bir okunan özellik için
-            for (const [propertyName, coaValue] of Object.entries(properties)) {
+            for (const [propertyName, propertyData] of Object.entries(properties)) {
+                // propertyData string (eski format) veya object (yeni comparison format) olabilir
+                let coaValue, status;
+                
+                if (typeof propertyData === 'string') {
+                    // Eski format - sadece string değer
+                    coaValue = propertyData;
+                    status = 'Uygun'; // Default
+                } else if (propertyData && typeof propertyData === 'object') {
+                    // Yeni comparison format - { value, status, reason }
+                    coaValue = propertyData.value;
+                    status = propertyData.status || 'unknown';
+                    
+                    // Status normalize et
+                    if (status === 'unknown' || status === 'Bilinmiyor') {
+                        status = '-'; // Belirsiz durumlar için dash
+                    }
+                } else {
+                    continue; // Geçersiz veri
+                }
+                
                 if (!coaValue || coaValue.trim() === '') continue;
                 
                 // Bu property TDS'te var mı kontrol et
@@ -8039,9 +8324,10 @@
                 );
                 
                 if (existingProp) {
-                    // Varsa sadece COA değerini güncelle
+                    // Varsa COA değerini ve durumunu güncelle
                     existingProp.coaValue = coaValue.trim();
-                    console.log(`📝 Güncellendi: ${propertyName} = ${coaValue}`);
+                    existingProp.status = status;
+                    console.log(`📝 Güncellendi: ${propertyName} = ${coaValue} [${status}]`);
                 } else {
                     // Yoksa yeni property ekle
                     tds.properties.push({
@@ -8055,9 +8341,9 @@
                         lowerLimit: '',
                         upperLimit: '',
                         coaValue: coaValue.trim(),
-                        status: 'Uygun'
+                        status: status
                     });
-                    console.log(`➕ Yeni eklendi: ${propertyName} = ${coaValue}`);
+                    console.log(`➕ Yeni eklendi: ${propertyName} = ${coaValue} [${status}]`);
                 }
             }
             
