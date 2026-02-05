@@ -5965,6 +5965,13 @@
                         
                         console.log(`📐 Bölge ${i+1}/${template.regions.length}: ${region.propertyName} (${x},${y},${width}x${height})`);
                         
+                        // Minimum boyut kontrolü (OCR.space için de geçerli)
+                        const minSizeForOCR = ocrEngine === 'azure' ? 50 : 30; // Azure: 50px, OCR.space: 30px
+                        if (width < minSizeForOCR || height < minSizeForOCR) {
+                            console.warn(`⚠️ Bölge ${i+1} çok küçük (${width}x${height}px), OCR için uygun değil, atlanıyor`);
+                            continue;
+                        }
+                        
                         // Canvas'tan bu bölgeyi kırp
                         const croppedCanvas = document.createElement('canvas');
                         croppedCanvas.width = width;
@@ -5980,7 +5987,7 @@
                         // Azure için minimum boyut kontrolü ve upscaling
                         let finalImageData;
                         if (ocrEngine === 'azure') {
-                            const minSize = 60;
+                            const minSize = 50; // Azure minimum: 50x50 piksel
                             let scaleFactor = 1;
                             
                             if (width < minSize || height < minSize) {
@@ -7918,6 +7925,10 @@
                 
                 // TDS'e kaydet
                 await saveTDSPropertiesFromOCR(materialCodeOnly, comparisonResults.properties);
+                
+                // Flag'i set et - bu hammadde için OCR yapıldı (modal açılınca COA değerlerini korumak için)
+                lastOCRMaterialCode = materialCodeOnly;
+                console.log('🏴 lastOCRMaterialCode set edildi:', lastOCRMaterialCode);
                 
                 showToast(`✅ ${Object.keys(extractedProperties).length} özellik okundu ve TDS ile karşılaştırıldı!`, 'success', 5000);
                 
