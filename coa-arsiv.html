@@ -6385,7 +6385,7 @@
                             min: finalMin,
                             max: finalMax,
                             requirement: requirement,
-                            status: calculatePropertyStatus(coaValue, lowerLimit, upperLimit, operator)
+                            status: calculatePropertyStatus(coaValue, lowerLimit, upperLimit, operator, prop)
                         };
                     });
                 
@@ -6428,8 +6428,27 @@
         }
         
         // Özellik durumunu hesapla (✅/❌)
-        function calculatePropertyStatus(coaValue, min, max, operator = 'range') {
+        function calculatePropertyStatus(coaValue, min, max, operator = 'range', prop = null) {
             if (!coaValue) return '-';
+            
+            // Compliance mode: coaCompliance değerini kullan
+            if (operator === 'compliance' && prop) {
+                if (prop.coaCompliance) {
+                    return prop.coaCompliance;
+                }
+                // Eğer coaCompliance yoksa ama requirement var ise karşılaştır
+                if (prop.requirement) {
+                    // Normalize ederek karşılaştır
+                    const normalizeStr = (str) => String(str).replace(/\s+/g, '').toLowerCase();
+                    const coaNorm = normalizeStr(coaValue);
+                    const reqNorm = normalizeStr(prop.requirement);
+                    
+                    if (coaNorm === reqNorm || coaNorm.includes(reqNorm) || reqNorm.includes(coaNorm)) {
+                        return 'Uygun';
+                    }
+                }
+                return '-';
+            }
             
             // Operatör sembollerini temizle
             const cleanValue = String(coaValue).replace(/^[≤≥<>=]+\s*/, '').replace(/,/g, '.');
