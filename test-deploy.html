@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Apps Script Deploy Test</title>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        .box { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+        input { width: 100%; padding: 5px; margin: 5px 0; }
+        button { padding: 10px 20px; margin: 5px; background: #4CAF50; color: white; cursor: pointer; }
+        #log { border: 1px solid #999; padding: 10px; height: 300px; overflow-y: auto; background: #f5f5f5; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Google Apps Script Deployment Test</h1>
+    
+    <div class="box">
+        <label>Google Apps Script URL:</label>
+        <input type="text" id="scriptUrl" value="https://script.google.com/macros/s/AKfycbyWACRdpHAj88GKAnaLNRRq7AWckTGu4CgHFePqAX8t3ccT7wi1jG4kMdtt7idM9Abu/exec">
+        <button onclick="testDirectJSON()">1️⃣ Test JSON (No Callback)</button>
+        <button onclick="testWithCallback()">2️⃣ Test JSONP (With Callback)</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <h3>📋 Test Results:</h3>
+    <div id="log"></div>
+
+    <script>
+        function log(msg, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : (type === 'error' ? 'error' : 'info');
+            const emoji = type === 'success' ? '✅' : (type === 'error' ? '❌' : 'ℹ️');
+            logDiv.innerHTML += `<div class="${className}">${emoji} [${time}] ${msg}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type}]`, msg);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // Test 1: Direct JSON (no callback)
+        function testDirectJSON() {
+            const url = document.getElementById('scriptUrl').value;
+            log('📡 Direct JSON Test başlıyor...', 'info');
+            log(`URL: ${url}?action=test`, 'info');
+
+            fetch(url + '?action=test')
+                .then(r => r.json())
+                .then(data => {
+                    log(`✅ Response: ${JSON.stringify(data)}`, 'success');
+                })
+                .catch(err => {
+                    log(`❌ Fetch Error: ${err.message}`, 'error');
+                });
+        }
+
+        // Test 2: JSONP with callback
+        function testWithCallback() {
+            const url = document.getElementById('scriptUrl').value;
+            log('🔄 JSONP Test başlıyor...', 'info');
+
+            const callbackName = 'testCallback_' + Date.now();
+            const fullUrl = url + '?action=test&callback=' + callbackName;
+            
+            log(`URL: ${fullUrl}`, 'info');
+
+            // Callback fonksiyonunu oluştur
+            window[callbackName] = (data) => {
+                log(`✅ JSONP Callback alındı: ${JSON.stringify(data)}`, 'success');
+                delete window[callbackName];
+            };
+
+            // Script tag oluştur ve ekle
+            const script = document.createElement('script');
+            script.charset = 'utf-8';
+
+            script.onload = () => {
+                log('📜 Script loaded, waiting for callback...', 'info');
+            };
+
+            script.onerror = () => {
+                log(`❌ Script loading error - response invalid JavaScript?`, 'error');
+                delete window[callbackName];
+            };
+
+            // 5 saniye timeout
+            const timeout = setTimeout(() => {
+                if (window[callbackName]) {
+                    log('❌ Callback timeout - script executed but callback not called', 'error');
+                    delete window[callbackName];
+                }
+            }, 5000);
+
+            script.src = fullUrl;
+            document.body.appendChild(script);
+
+            log('📝 Script tag eklendi, bekleniyor...', 'info');
+        }
+
+        // Auto test on load
+        window.addEventListener('load', () => {
+            log('🚀 Test sayfası yüklendi', 'success');
+            log('Lütfen aşağıdaki testleri sıra ile çalıştırın', 'info');
+        });
+    </script>
+</body>
+</html>
