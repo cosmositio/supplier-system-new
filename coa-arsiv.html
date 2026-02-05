@@ -7366,8 +7366,9 @@
             // COA değerlerini temizle (TDS Definitions'a COA değerleri kaydedilmez!)
             const cleanProperties = properties.map(prop => {
                 const cleaned = {...prop};
-                delete cleaned.coaValue;  // COA değerini çıkar
-                delete cleaned.status;    // COA durumunu çıkar
+                delete cleaned.coaValue;       // COA değerini çıkar
+                delete cleaned.coaCompliance;  // COA durumunu çıkar
+                delete cleaned.status;         // Eski field de varsa çıkar
                 return cleaned;
             });
             
@@ -7753,6 +7754,32 @@
                         // Son kontrol: kaç özellik var?
                         if (tdsRecord && Array.isArray(tdsRecord.properties)) {
                             console.log(`💾 ${materialCode} kaydediliyor: ${tdsRecord.properties.length} özellik`);
+                        }
+                        
+                        // Eğer memory'de COA değerleri varsa koru (geçici OCR değerleri)
+                        const existingData = tdsData[materialCode];
+                        if (existingData && existingData.properties && Array.isArray(existingData.properties)) {
+                            // Memory'deki COA değerlerini Map'e al
+                            const coaValuesMap = {};
+                            existingData.properties.forEach(prop => {
+                                if (prop.coaValue !== undefined || prop.coaCompliance !== undefined) {
+                                    coaValuesMap[prop.name] = {
+                                        coaValue: prop.coaValue,
+                                        coaCompliance: prop.coaCompliance
+                                    };
+                                }
+                            });
+                            
+                            // Sheets'ten gelen TDS yapısına COA değerlerini ekle
+                            if (Object.keys(coaValuesMap).length > 0 && tdsRecord.properties) {
+                                tdsRecord.properties.forEach(prop => {
+                                    if (coaValuesMap[prop.name]) {
+                                        prop.coaValue = coaValuesMap[prop.name].coaValue;
+                                        prop.coaCompliance = coaValuesMap[prop.name].coaCompliance;
+                                    }
+                                });
+                                console.log(`🔗 ${materialCode} COA değerleri merge edildi:`, Object.keys(coaValuesMap).length, 'özellik');
+                            }
                         }
                         
                         tdsData[materialCode] = tdsRecord;
@@ -8398,7 +8425,7 @@
                 if (existingProp) {
                     // Varsa COA değerini ve durumunu güncelle
                     existingProp.coaValue = coaValue.trim();
-                    existingProp.status = status;
+                    existingProp.coaCompliance = status;
                     console.log(`📝 Güncellendi: ${propertyName} = ${coaValue} [${status}]`);
                 } else {
                     // Yoksa yeni property ekle
@@ -8413,7 +8440,7 @@
                         lowerLimit: '',
                         upperLimit: '',
                         coaValue: coaValue.trim(),
-                        status: status
+                        coaCompliance: status
                     });
                     console.log(`➕ Yeni eklendi: ${propertyName} = ${coaValue} [${status}]`);
                 }
