@@ -5527,6 +5527,109 @@
                         
                         console.log('📊 BASF properties extracted:', properties);
                         
+                        // BASF için Azure word coordinates ile parse et (daha doğru)
+                        if (Object.keys(properties).length === 0 && words && words.length > 0) {
+                            console.log('🔷 BASF Azure word coordinates kullanılıyor...');
+                            
+                            // "Requirement" sütununun x koordinatını bul
+                            let requirementX = null;
+                            for (let i = 0; i < words.length; i++) {
+                                const word = words[i];
+                                if (/Requirement|Pruefergebnis/i.test(word.text)) {
+                                    requirementX = word.x;
+                                    console.log(`✅ Requirement sütunu bulundu, x = ${requirementX}, word: "${word.text}"`);
+                                    break;
+                                }
+                            }
+                            
+                            if (requirementX !== null) {
+                                // BASF property patterns
+                                const basfCoordPatterns = [
+                                    { name: 'Materialdichte', key: 'Density' },
+                                    { name: 'Stempeldruckkraft', key: 'Sertlik' },
+                                    { name: 'Brandverhalten', key: 'Fire Behavior' },
+                                    { name: 'Wärmeleitfähigkeit', key: 'Thermal Conductivity' },
+                                    { name: 'Emission', key: 'VOC Emission' }
+                                ];
+                                
+                                for (const pattern of basfCoordPatterns) {
+                                    console.log(`\n🔍 BASF Azure: Searching for "${pattern.name}"...`);
+                                    
+                                    // Find property name in words
+                                    let propertyY = null;
+                                    for (let i = 0; i < words.length; i++) {
+                                        if (words[i].text.toLowerCase().includes(pattern.name.toLowerCase())) {
+                                            propertyY = words[i].y;
+                                            console.log(`  ✅ Property found at y=${propertyY}`);
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if (propertyY !== null) {
+                                        // Find value in Requirement column (same Y, similar X to requirementX)
+                                        let valueWords = [];
+                                        const yTolerance = 15;  // Y tolerance
+                                        const xMin = requirementX - 50;  // X range for requirement column
+                                        const xMax = requirementX + 200;
+                                        
+                                        for (let i = 0; i < words.length; i++) {
+                                            const word = words[i];
+                                            if (Math.abs(word.y - propertyY) < yTolerance && 
+                                                word.x >= xMin && word.x <= xMax) {
+                                                // Skip property name itself
+                                                if (!word.text.toLowerCase().includes(pattern.name.toLowerCase())) {
+                                                    valueWords.push(word);
+                                                }
+                                            }
+                                        }
+                                        
+                                        if (valueWords.length > 0) {
+                                            // Sort by x coordinate and combine
+                                            valueWords.sort((a, b) => a.x - b.x);
+                                            let requirement = valueWords.map(w => w.text).join(' ');
+                                            
+                                            // Clean lambda symbols for thermal conductivity
+                                            if (requirement.includes('W/mK') || requirement.includes('W/mk')) {
+                                                requirement = requirement
+                                                    .replace(/^(λ|Λ|A10|l10|L10|110)\s*/gi, '')
+                                                    .replace(/\s+(λ|Λ)\d*\s*/gi, ' ')
+                                                    .trim();
+                                            }
+                                            
+                                            console.log(`  ✅ Requirement from coordinates: "${requirement}"`);
+                                            
+                                            // Check compliance
+                                            const compliance = checkCompliance(requirement, requirement);
+                                            
+                                            // Store property
+                                            properties[pattern.key] = {
+                                                value: requirement,
+                                                requirement: requirement,
+                                                compliance: compliance
+                                            };
+                                            
+                                            // Store under aliases
+                                            const aliases = {
+                                                'Density': ['density', 'dichte', 'dansite'],
+                                                'Sertlik': ['hardness', 'sertlik', 'druckkraft'],
+                                                'Fire Behavior': ['fire', 'flammability', 'yanma'],
+                                                'Thermal Conductivity': ['thermal conductivity', 'ısı iletkenliği'],
+                                                'VOC Emission': ['emission', 'voc', 'emisyon']
+                                            };
+                                            
+                                            if (aliases[pattern.key]) {
+                                                for (const alias of aliases[pattern.key]) {
+                                                    properties[alias] = properties[pattern.key];
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                console.log('📊 BASF Azure parsing sonucu:', properties);
+                            }
+                        }
+                        
                         // BASF için properties dolu, diğer parsing'leri atla
                         if (Object.keys(properties).length > 0) {
                             console.log('✅ BASF parsing başarılı, diğer yöntemler atlanıyor');
