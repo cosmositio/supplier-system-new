@@ -1333,7 +1333,7 @@
     <!-- TDS Management Modal -->
     <div class="modal" id="tdsModal">
         <span class="modal-close" onclick="closeTDSModal()">&times;</span>
-        <div class="modal-content" style="max-width: 1200px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-content" style="max-width: 95%; width: 1800px; max-height: 95vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; flex-wrap: wrap;">
                 <h2 style="margin: 0;">📊 TDS (Technical Data Sheet) Yönetimi</h2>
                 <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -6640,15 +6640,15 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td style="padding: 8px; border: 1px solid #ddd;">
-                        <input type="text" value="${prop.name || ''}" onchange="updateTDSProperty(${index}, 'name', this.value)" 
+                        <input type="text" value="${prop.name || ''}" oninput="updateTDSProperty(${index}, 'name', this.value)" 
                                style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;" placeholder="Örn: Dansite">
                     </td>
                     <td style="padding: 8px; border: 1px solid #ddd;">
-                        <input type="text" value="${prop.unit || ''}" onchange="updateTDSProperty(${index}, 'unit', this.value)"
+                        <input type="text" value="${prop.unit || ''}" oninput="updateTDSProperty(${index}, 'unit', this.value)"
                                style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;" placeholder="kg/m3">
                     </td>
                     <td style="padding: 8px; border: 1px solid #ddd;">
-                        <input type="text" value="${prop.standard || ''}" onchange="updateTDSProperty(${index}, 'standard', this.value)"
+                        <input type="text" value="${prop.standard || ''}" oninput="updateTDSProperty(${index}, 'standard', this.value)"
                                style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;" placeholder="ISO845">
                     </td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
@@ -6667,7 +6667,7 @@
                         <td colspan="5" style="padding: 8px; border: 1px solid #ddd; background: #f5f5f5;">
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <span style="font-weight: 600; color: #666; white-space: nowrap;">Requirement:</span>
-                                <input type="text" value="${prop.requirement || ''}" onchange="updateTDSProperty(${index}, 'requirement', this.value)"
+                                <input type="text" value="${prop.requirement || ''}" oninput="updateTDSProperty(${index}, 'requirement', this.value)"
                                        style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;" 
                                        placeholder="Örn: 7,5 - 10,5 kg/m3 veya ≥ 45 N veya Class A">
                             </div>
@@ -6791,6 +6791,7 @@
                     value = String(value).replace(/,/g, '.');
                 }
                 tdsData[currentTDSMaterial].properties[index][field] = value;
+                // Render çağırmıyoruz - focus kaybını önlemek için
             }
         }
         
