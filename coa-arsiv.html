@@ -5593,43 +5593,58 @@
                                     }
                                     
                                     if (propertyY !== null) {
-                                        // Find value in Requirement column (same row, right column)
-                                        // Look for words at same Y coordinate but in requirement column X range
+                                        // BASF table: Value is in next line (below property name)
+                                        // Find all words BELOW property Y and in Requirement column
                                         let valueWords = [];
-                                        const yTolerance = 25;  // Tolerance for same row
+                                        const yMin = propertyY + 5;   // Start searching below property name
+                                        const yMax = propertyY + 60;  // Search within ~2 lines below
                                         const xMin = requirementColX - 100;  // Requirement column start
                                         const xMax = requirementColX + 400;  // Requirement column end
                                         
-                                        console.log(`  🔍 Değer aranıyor: Y=${propertyY}±${yTolerance}, X=${xMin}-${xMax}`);
+                                        console.log(`  🔍 Değer aranıyor: Y=${yMin}-${yMax} (property altı), X=${xMin}-${xMax} (requirement sütunu)`);
                                         
                                         for (let i = 0; i < words.length; i++) {
                                             const word = words[i];
-                                            const yDiff = Math.abs(word.y - propertyY);
+                                            const inYRange = word.y >= yMin && word.y <= yMax;
                                             const inXRange = word.x >= xMin && word.x <= xMax;
                                             
-                                            if (yDiff < yTolerance && inXRange) {
-                                                // Skip property name words
-                                                if (!word.text.toLowerCase().includes(pattern.name.toLowerCase().substring(0, 5))) {
+                                            if (inYRange && inXRange) {
+                                                // Skip words that are clearly part of property description (German/English text)
+                                                const isPropertyDescription = /Anlehnung|Probekoerper|according|minimum|Dicke|thickness|method|Methode/i.test(word.text);
+                                                
+                                                if (!isPropertyDescription) {
                                                     valueWords.push(word);
-                                                    console.log(`    📝 Kelime eklendi: "${word.text}" (x=${word.x}, y=${word.y}, yDiff=${yDiff})`);
+                                                    console.log(`    📝 Kelime eklendi: "${word.text}" (x=${word.x}, y=${word.y})`);
                                                 }
                                             }
                                         }
                                         
                                         if (valueWords.length > 0) {
-                                            // Sort by X coordinate and combine
-                                            valueWords.sort((a, b) => a.x - b.x);
-                                            let requirement = valueWords.map(w => w.text).join(' ');
+                                            // Sort by Y first (line by line), then X (left to right)
+                                            valueWords.sort((a, b) => {
+                                                const yDiff = a.y - b.y;
+                                                if (Math.abs(yDiff) < 5) {  // Same line
+                                                    return a.x - b.x;
+                                                }
+                                                return yDiff;
+                                            });
                                             
-                                            console.log(`  ✅ Ham requirement: "${requirement}"`);
+                                            // Take only words from first line (closest to property)
+                                            const firstLineY = valueWords[0].y;
+                                            const firstLineWords = valueWords.filter(w => Math.abs(w.y - firstLineY) < 5);
                                             
-                                            // Clean lambda symbols for thermal conductivity
+                                            let requirement = firstLineWords.map(w => w.text).join(' ');
+                                            
+                                            console.log(`  ✅ Ham requirement (ilk satır): "${requirement}"`);
+                                            
+                                            // Clean lambda symbols and OCR errors for thermal conductivity
                                             if (requirement.includes('W/mK') || requirement.includes('W/mk')) {
                                                 requirement = requirement
                                                     .replace(/^(λ|Λ|A10|l10|L10|110)\s*/gi, '')
                                                     .replace(/\s+(λ|Λ)\d*\s*/gi, ' ')
+                                                    .replace(/λ\d*/gi, '')
                                                     .trim();
-                                                console.log(`  🧹 Temizlenmiş requirement: "${requirement}"`);
+                                                console.log(`  🧹 Lambda temizlendi: "${requirement}"`);
                                             }
                                             
                                             // Check compliance
