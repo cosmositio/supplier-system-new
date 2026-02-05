@@ -7720,6 +7720,7 @@
                         if (tdsRecord && tdsRecord.properties && tdsRecord.properties.properties) {
                             console.log(`🔧 ${materialCode} nested yapı düzeltiliyor`);
                             tdsRecord = tdsRecord.properties; // İçteki yapıyı kullan
+                            console.log(`✅ ${materialCode} düzeltildi, properties:`, tdsRecord.properties.length, 'özellik');
                         }
                         
                         // properties string ise (JSON.stringify edilmiş) parse et
@@ -7737,6 +7738,11 @@
                         if (tdsRecord && !Array.isArray(tdsRecord.properties)) {
                             console.warn(`⚠️ ${materialCode} properties array değil, düzeltiliyor`);
                             tdsRecord.properties = [];
+                        }
+                        
+                        // Son kontrol: kaç özellik var?
+                        if (tdsRecord && Array.isArray(tdsRecord.properties)) {
+                            console.log(`💾 ${materialCode} kaydediliyor: ${tdsRecord.properties.length} özellik`);
                         }
                         
                         tdsData[materialCode] = tdsRecord;
@@ -8178,7 +8184,7 @@
                 // Eğer bu hammadde için OCR yeni yapıldıysa değerleri koru
                 const shouldClear = (lastOCRMaterialCode !== preselectedMaterialCode);
                 console.log('🧹 shouldClear:', shouldClear, '| lastOCR:', lastOCRMaterialCode, '| current:', preselectedMaterialCode);
-                loadTDSForMaterial(shouldClear);
+                loadTDSForMaterial(shouldClear, true); // skipReload=true (Sheets'ten yeni yüklendi)
                 
                 // Flag'i temizle (bir kez kullanıldı)
                 if (lastOCRMaterialCode === preselectedMaterialCode) {
@@ -8433,7 +8439,7 @@
         
         
         // Hammadde seçildiğinde TDS yükle
-        function loadTDSForMaterial(clearCOAValues = true) {
+        function loadTDSForMaterial(clearCOAValues = true, skipReload = false) {
             const materialCode = document.getElementById('tdsMaterialSelect').value;
             if (!materialCode) {
                 document.getElementById('tdsContent').style.display = 'none';
@@ -8441,8 +8447,10 @@
                 return;
             }
             
-            // TDS verilerini yeniden yükle (localStorage'dan en güncel verileri al)
-            loadTDSData();
+            // TDS verilerini yeniden yükle (sadece gerekiyorsa - openTDSModal'dan skipReload=true gelirse yükleme)
+            if (!skipReload) {
+                loadTDSData();
+            }
             
             currentTDSMaterial = materialCode;
             document.getElementById('tdsContent').style.display = 'block';
