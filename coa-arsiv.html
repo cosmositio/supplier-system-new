@@ -5341,7 +5341,16 @@
         
         // Extract COA properties using template regions
         async function extractCOAPropertiesWithTemplate(fileData, template) {
-            console.log('🎨 Template ile OCR başlatılıyor:', template.supplier);
+            console.log('🎨 Template ile OCR başlatılıyor:', template.supplier || 'Bilinmeyen');
+            
+            // Template validation
+            if (!template || !template.regions || !Array.isArray(template.regions)) {
+                console.error('❌ Template yapısı hatalı:', template);
+                showToast('❌ Template yapısı hatalı', 'error');
+                throw new Error('Template yapısı hatalı: regions array yok');
+            }
+            
+            console.log('✅ Template geçerli:', template.regions.length, 'bölge');
             showToast('🎨 Template bölgeleri okunuyor...', 'info');
             
             return new Promise(async (resolve, reject) => {
@@ -7125,7 +7134,12 @@
             }
             
             console.log('🎨 Template uygulanıyor:', template.supplier);
-            window.currentTemplate = template;
+            
+            // Template yapısını düzelt (Sheets'ten gelen template.template içinde asıl template var)
+            const actualTemplate = template.template || template;
+            window.currentTemplate = actualTemplate;
+            
+            console.log('📋 Template yapısı:', actualTemplate);
             showToast(`🎨 ${template.supplier} template\'i yüklendi`, 'success');
         }
         
