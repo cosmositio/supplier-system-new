@@ -9,9 +9,11 @@
     <!-- PDF.js for PDF compression -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <!-- SheetJS for Excel reading -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js" 
+            onerror="console.error('❌ Primary XLSX CDN failed'); this.onerror=null; this.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';"></script>
     <!-- Mammoth.js for Word reading -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"
+            onerror="console.error('❌ Mammoth CDN failed');"></script>
     <!-- Tesseract.js for OCR -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <!-- Chart.js for COA Analysis -->
@@ -1658,6 +1660,61 @@
     <div class="toast-container" id="toastContainer"></div>
     
     <script>
+        // ==================== Library Loading Utilities ====================
+        async function ensureLibraryLoaded(libraryName, checkFunc, fallbackUrls = []) {
+            // Library already loaded
+            if (checkFunc()) {
+                console.log(`✅ ${libraryName} zaten yüklü`);
+                return true;
+            }
+            
+            console.log(`⏳ ${libraryName} yükleniyor...`);
+            
+            // Wait for library to load (max 5 seconds)
+            const loaded = await new Promise(resolve => {
+                let attempts = 0;
+                const checkInterval = setInterval(() => {
+                    attempts++;
+                    if (checkFunc()) {
+                        clearInterval(checkInterval);
+                        console.log(`✅ ${libraryName} yüklendi`);
+                        resolve(true);
+                    } else if (attempts > 50) {
+                        clearInterval(checkInterval);
+                        resolve(false);
+                    }
+                }, 100);
+            });
+            
+            if (loaded) return true;
+            
+            // Try fallback URLs
+            for (const url of fallbackUrls) {
+                console.log(`🔄 ${libraryName} fallback deneniyor: ${url}`);
+                try {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = url;
+                        script.onload = () => {
+                            console.log(`✅ ${libraryName} fallback başarılı`);
+                            resolve();
+                        };
+                        script.onerror = () => reject(new Error('Script load failed'));
+                        document.head.appendChild(script);
+                    });
+                    
+                    // Check again after loading
+                    if (checkFunc()) {
+                        return true;
+                    }
+                } catch (e) {
+                    console.error(`❌ ${libraryName} fallback başarısız:`, e);
+                }
+            }
+            
+            throw new Error(`${libraryName} yüklenemedi`);
+        }
+        
         // ==================== Global Variables ====================
         let coaData = [];
         let suppliers = [];
@@ -1787,6 +1844,14 @@
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                 console.log('✅ PDF.js worker ayarlandı');
             }
+            
+            // Kütüphane yükleme kontrolü
+            console.log('📚 Kütüphane kontrolü:');
+            console.log('  - XLSX:', typeof XLSX !== 'undefined' ? '✅ Yüklendi' : '❌ Yüklenmedi');
+            console.log('  - mammoth:', typeof mammoth !== 'undefined' ? '✅ Yüklendi' : '❌ Yüklenmedi');
+            console.log('  - html2canvas:', typeof html2canvas !== 'undefined' ? '✅ Yüklendi' : '❌ Yüklenmedi');
+            console.log('  - pdfjsLib:', typeof pdfjsLib !== 'undefined' ? '✅ Yüklendi' : '❌ Yüklenmedi');
+            console.log('  - Tesseract:', typeof Tesseract !== 'undefined' ? '✅ Yüklendi' : '❌ Yüklenmedi');
             
             // Eski ana sayfadan gelen tedarikçi listesini temizle (artık kullanmıyoruz)
             localStorage.removeItem('supplierListForCOA');
@@ -9655,24 +9720,26 @@
             try {
                 console.log('📊 Excel dosyası işleniyor...');
                 
-                // Wait for XLSX library to load
-                if (typeof XLSX === 'undefined') {
-                    console.log('⏳ XLSX kütüphanesi yükleniyor...');
-                    await new Promise((resolve, reject) => {
-                        let attempts = 0;
-                        const checkInterval = setInterval(() => {
-                            attempts++;
-                            if (typeof XLSX !== 'undefined') {
-                                clearInterval(checkInterval);
-                                console.log('✅ XLSX kütüphanesi yüklendi');
-                                resolve();
-                            } else if (attempts > 50) { // 5 seconds timeout
-                                clearInterval(checkInterval);
-                                reject(new Error('XLSX kütüphanesi yüklenemedi'));
-                            }
-                        }, 100);
-                    });
-                }
+                // Ensure XLSX library is loaded
+                await ensureLibraryLoaded(
+                    'XLSX',
+                    () => typeof XLSX !== 'undefined',
+                    [
+                        'https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js',
+                        'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+                        'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+                    ]
+                );
+                
+                // Ensure html2canvas library is loaded
+                await ensureLibraryLoaded(
+                    'html2canvas',
+                    () => typeof html2canvas !== 'undefined',
+                    [
+                        'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+                        'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js'
+                    ]
+                );
                 
                 const arrayBuffer = await file.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
@@ -9708,25 +9775,6 @@
                     headers.forEach(th => {
                         th.style.backgroundColor = '#f0f0f0';
                         th.style.fontWeight = 'bold';
-                    });
-                }
-                
-                // Wait for html2canvas library to load
-                if (typeof html2canvas === 'undefined') {
-                    console.log('⏳ html2canvas kütüphanesi yükleniyor...');
-                    await new Promise((resolve, reject) => {
-                        let attempts = 0;
-                        const checkInterval = setInterval(() => {
-                            attempts++;
-                            if (typeof html2canvas !== 'undefined') {
-                                clearInterval(checkInterval);
-                                console.log('✅ html2canvas kütüphanesi yüklendi');
-                                resolve();
-                            } else if (attempts > 50) { // 5 seconds timeout
-                                clearInterval(checkInterval);
-                                reject(new Error('html2canvas kütüphanesi yüklenemedi'));
-                            }
-                        }, 100);
                     });
                 }
                 
@@ -9767,24 +9815,25 @@
             try {
                 console.log('📝 Word dosyası işleniyor...');
                 
-                // Wait for mammoth library to load
-                if (typeof mammoth === 'undefined') {
-                    console.log('⏳ Mammoth kütüphanesi yükleniyor...');
-                    await new Promise((resolve, reject) => {
-                        let attempts = 0;
-                        const checkInterval = setInterval(() => {
-                            attempts++;
-                            if (typeof mammoth !== 'undefined') {
-                                clearInterval(checkInterval);
-                                console.log('✅ Mammoth kütüphanesi yüklendi');
-                                resolve();
-                            } else if (attempts > 50) { // 5 seconds timeout
-                                clearInterval(checkInterval);
-                                reject(new Error('Mammoth kütüphanesi yüklenemedi'));
-                            }
-                        }, 100);
-                    });
-                }
+                // Ensure mammoth library is loaded
+                await ensureLibraryLoaded(
+                    'mammoth',
+                    () => typeof mammoth !== 'undefined',
+                    [
+                        'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
+                        'https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js'
+                    ]
+                );
+                
+                // Ensure html2canvas library is loaded
+                await ensureLibraryLoaded(
+                    'html2canvas',
+                    () => typeof html2canvas !== 'undefined',
+                    [
+                        'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+                        'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js'
+                    ]
+                );
                 
                 const arrayBuffer = await file.arrayBuffer();
                 const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
@@ -9815,25 +9864,6 @@
                         cell.style.padding = '8px';
                     });
                 });
-                
-                // Wait for html2canvas library to load
-                if (typeof html2canvas === 'undefined') {
-                    console.log('⏳ html2canvas kütüphanesi yükleniyor...');
-                    await new Promise((resolve, reject) => {
-                        let attempts = 0;
-                        const checkInterval = setInterval(() => {
-                            attempts++;
-                            if (typeof html2canvas !== 'undefined') {
-                                clearInterval(checkInterval);
-                                console.log('✅ html2canvas kütüphanesi yüklendi');
-                                resolve();
-                            } else if (attempts > 50) { // 5 seconds timeout
-                                clearInterval(checkInterval);
-                                reject(new Error('html2canvas kütüphanesi yüklenemedi'));
-                            }
-                        }, 100);
-                    });
-                }
                 
                 // Convert to canvas using html2canvas (scale 1 for precise positioning)
                 const canvas = await html2canvas(tempDiv, {
