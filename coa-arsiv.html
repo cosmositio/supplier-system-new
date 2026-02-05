@@ -6356,16 +6356,22 @@
                         
                         // Requirement alanını oluştur (compliance mode için veya operator'e göre)
                         let requirement = '';
+                        let finalStandardValue = standardValue;
+                        
                         if (prop.operator === 'compliance' && prop.requirement) {
+                            // Compliance mode: requirement dolu, standardValue boş
                             requirement = prop.requirement;
+                            finalStandardValue = '';
+                            finalMin = '';
+                            finalMax = '';
                         } else if (operator === '<' || operator === '<=') {
-                            // Küçüktür: "≤ 0,035 W/mK" formatı
+                            // Küçüktür: "≤ 0,035 W/mK" formatı (numeric mode için requirement oluştur)
                             requirement = `${operator === '<' ? '<' : '≤'} ${finalMax}${unit ? ' ' + unit : ''}`;
                         } else if (operator === '>' || operator === '>=') {
-                            // Büyüktür: "≥ 45 N" formatı
+                            // Büyüktür: "≥ 45 N" formatı (numeric mode için requirement oluştur)
                             requirement = `${operator === '>' ? '>' : '≥'} ${finalMin}${unit ? ' ' + unit : ''}`;
                         } else if (operator === 'range' && finalMin && finalMax) {
-                            // Aralık: "7,5 - 10,5 kg/m3" formatı
+                            // Aralık: "7,5 - 10,5 kg/m3" formatı (numeric mode için requirement oluştur)
                             requirement = `${finalMin} - ${finalMax}${unit ? ' ' + unit : ''}`;
                         }
                         
@@ -6375,7 +6381,7 @@
                             unit: unit,
                             standard: prop.standard || '',
                             operator: operator,
-                            standardValue: standardValue,
+                            standardValue: finalStandardValue,
                             min: finalMin,
                             max: finalMax,
                             requirement: requirement,
