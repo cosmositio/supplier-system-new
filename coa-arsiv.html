@@ -6630,12 +6630,21 @@
             }
             
             properties.forEach((prop, index) => {
-                // Limit hesapla
-                const stdValue = parseFloat(prop.standardValue || 0);
-                const lowerTol = parseFloat(prop.lowerTolerance || 0);
-                const upperTol = parseFloat(prop.upperTolerance || 0);
-                const lowerLimit = (stdValue - lowerTol).toFixed(2);
-                const upperLimit = (stdValue + upperTol).toFixed(2);
+                // Limit hesapla - standart değerdeki ondalık basamak sayısına göre
+                const stdValueStr = String(prop.standardValue || '0').replace(/,/g, '.');
+                const stdValue = parseFloat(stdValueStr);
+                const lowerTol = parseFloat(String(prop.lowerTolerance || 0).replace(/,/g, '.'));
+                const upperTol = parseFloat(String(prop.upperTolerance || 0).replace(/,/g, '.'));
+                
+                // Standart değerdeki ondalık basamak sayısını bul
+                let decimalPlaces = 2; // Varsayılan
+                if (stdValueStr.includes('.')) {
+                    const decimalPart = stdValueStr.split('.')[1];
+                    decimalPlaces = decimalPart ? decimalPart.length : 0;
+                }
+                
+                const lowerLimit = (stdValue - lowerTol).toFixed(decimalPlaces);
+                const upperLimit = (stdValue + upperTol).toFixed(decimalPlaces);
                 
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -6828,13 +6837,21 @@
             
             const prop = tdsData[currentTDSMaterial].properties[index];
             if (prop) {
-                const stdValue = parseFloat(String(prop.standardValue || 0).replace(/,/g, '.'));
+                const stdValueStr = String(prop.standardValue || '0').replace(/,/g, '.');
+                const stdValue = parseFloat(stdValueStr);
                 const lowerTol = parseFloat(String(prop.lowerTolerance || 0).replace(/,/g, '.'));
                 const upperTol = parseFloat(String(prop.upperTolerance || 0).replace(/,/g, '.'));
                 
                 if (!isNaN(stdValue) && !isNaN(lowerTol) && !isNaN(upperTol)) {
-                    prop.min = (stdValue - lowerTol).toFixed(2);
-                    prop.max = (stdValue + upperTol).toFixed(2);
+                    // Standart değerdeki ondalık basamak sayısını bul
+                    let decimalPlaces = 2; // Varsayılan
+                    if (stdValueStr.includes('.')) {
+                        const decimalPart = stdValueStr.split('.')[1];
+                        decimalPlaces = decimalPart ? decimalPart.length : 0;
+                    }
+                    
+                    prop.min = (stdValue - lowerTol).toFixed(decimalPlaces);
+                    prop.max = (stdValue + upperTol).toFixed(decimalPlaces);
                     
                     // Sadece limit hücrelerini güncelle
                     const rows = document.querySelectorAll('#tdsPropertiesTable tr');
