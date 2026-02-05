@@ -1927,34 +1927,31 @@
             document.getElementById('statusText').textContent = 'Bağlanıyor...';
             
             try {
-                // XMLHttpRequest POST ile test
-                const data = await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-                    xhr.timeout = 10000;
-                    
-                    xhr.onload = function() {
-                        if (xhr.status === 200) {
-                            try {
-                                resolve(JSON.parse(xhr.responseText));
-                            } catch(e) {
-                                reject(new Error('JSON parse hatası'));
-                            }
-                        } else {
-                            reject(new Error('HTTP ' + xhr.status));
-                        }
-                    };
-                    
-                    xhr.onerror = () => reject(new Error('Bağlantı hatası'));
-                    xhr.ontimeout = () => reject(new Error('Zaman aşımı'));
-                    
-                    xhr.open('POST', url, true);
-                    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                    
-                    const formData = new URLSearchParams();
-                    formData.append('action', 'test');
-                    
-                    xhr.send(formData.toString());
+                // Fetch API ile test
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                
+                const formData = new URLSearchParams();
+                formData.append('action', 'test');
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData.toString(),
+                    signal: controller.signal,
+                    mode: 'cors',
+                    credentials: 'omit'
                 });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                
+                const data = await response.json();
                 
                 if (data.success) {
                     googleScriptUrl = url;
@@ -1970,6 +1967,9 @@
                     throw new Error(data.error || 'Bilinmeyen hata');
                 }
             } catch (error) {
+                if (error.name === 'AbortError') {
+                    error.message = 'Bağlantı zaman aşımı';
+                }
                 console.error('Google Sheets bağlantı hatası:', error);
                 document.getElementById('statusDot').classList.remove('connected');
                 document.getElementById('statusText').textContent = 'Bağlantı başarısız';
@@ -7066,31 +7066,25 @@
             }
             
             try {
-                console.log('☁️ Google Sheets\'ten TDS verileri yükleniyor (XMLHttpRequest)...');
+                console.log('☁️ Google Sheets\'ten TDS verileri yükleniyor (fetch)...');
                 
-                const result = await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-                    xhr.timeout = 10000;
-                    
-                    xhr.onload = function() {
-                        if (xhr.status === 200) {
-                            try {
-                                resolve(JSON.parse(xhr.responseText));
-                            } catch(e) {
-                                reject(new Error('JSON parse hatası'));
-                            }
-                        } else {
-                            reject(new Error('HTTP ' + xhr.status));
-                        }
-                    };
-                    
-                    xhr.onerror = () => reject(new Error('Network error'));
-                    xhr.ontimeout = () => reject(new Error('Timeout'));
-                    
-                    xhr.open('GET', googleScriptUrl + '?action=getTDS', true);
-                    xhr.send();
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                
+                const response = await fetch(googleScriptUrl + '?action=getTDS', {
+                    method: 'GET',
+                    signal: controller.signal,
+                    mode: 'cors',
+                    credentials: 'omit'
                 });
                 
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                
+                const result = await response.json();
                 console.log('📦 TDS response:', result);
                 
                 if (result && result.success && result.data) {
@@ -7105,7 +7099,11 @@
                     return false;
                 }
             } catch(error) {
-                console.warn('⚠️ TDS yükleme hatası (devam ediliyor):', error.message);
+                if (error.name === 'AbortError') {
+                    console.warn('⚠️ TDS yükleme zaman aşımı (devam ediliyor)');
+                } else {
+                    console.warn('⚠️ TDS yükleme hatası (devam ediliyor):', error.message);
+                }
                 return false;
             }
         }
@@ -7120,31 +7118,25 @@
             }
             
             try {
-                console.log('☁️ Google Sheets\'ten Template\'ler yükleniyor (XMLHttpRequest)...');
+                console.log('☁️ Google Sheets\'ten Template\'ler yükleniyor (fetch)...');
                 
-                const result = await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-                    xhr.timeout = 10000;
-                    
-                    xhr.onload = function() {
-                        if (xhr.status === 200) {
-                            try {
-                                resolve(JSON.parse(xhr.responseText));
-                            } catch(e) {
-                                reject(new Error('JSON parse hatası'));
-                            }
-                        } else {
-                            reject(new Error('HTTP ' + xhr.status));
-                        }
-                    };
-                    
-                    xhr.onerror = () => reject(new Error('Network error'));
-                    xhr.ontimeout = () => reject(new Error('Timeout'));
-                    
-                    xhr.open('GET', googleScriptUrl + '?action=getAllCOATemplates', true);
-                    xhr.send();
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                
+                const response = await fetch(googleScriptUrl + '?action=getAllCOATemplates', {
+                    method: 'GET',
+                    signal: controller.signal,
+                    mode: 'cors',
+                    credentials: 'omit'
                 });
                 
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                
+                const result = await response.json();
                 console.log('📦 Template response:', result);
                 
                 if (result && result.success && result.data) {
@@ -7155,7 +7147,11 @@
                     console.log('⚠️ Template listesi boş veya hata');
                 }
             } catch (error) {
-                console.warn('⚠️ Template listesi yüklenemedi:', error.message);
+                if (error.name === 'AbortError') {
+                    console.warn('⚠️ Template yükleme zaman aşımı');
+                } else {
+                    console.warn('⚠️ Template listesi yüklenemedi:', error.message);
+                }
             }
         }
         
