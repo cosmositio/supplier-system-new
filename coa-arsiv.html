@@ -6061,7 +6061,8 @@
                                 prop.requirement = coaValue.requirement;
                             }
                         }
-                        actualValue = coaValue.value || coaValue.compliance; // Use value or compliance status
+                        // SADECE value'yu kullan, compliance kullanma (numerik değer gerekli)
+                        actualValue = coaValue.value || '';
                         
                         // Auto-set operator to compliance mode if not already set
                         if (!prop.operator || prop.operator === '=') {
