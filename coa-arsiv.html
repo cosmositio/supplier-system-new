@@ -8036,8 +8036,10 @@
                 }
                 
                 // Sayısal değer kontrolü (range veya tek değer)
+                // Virgülü nokta ile değiştir (Avrupa formatı: 29,8 → 29.8)
+                const normalizedValue = cleanedCoaValue.replace(/,/g, '.');
                 const numericPattern = /([0-9]+\.?[0-9]*)\s*[-~]\s*([0-9]+\.?[0-9]*)/;
-                const rangeMatch = cleanedCoaValue.match(numericPattern);
+                const rangeMatch = normalizedValue.match(numericPattern);
                 
                 if (rangeMatch) {
                     // Range değer (örn: "29.8-30.3")
@@ -8096,7 +8098,7 @@
                     }
                 } else {
                     // Tek sayısal değer kontrolü
-                    const singleNumMatch = cleanedCoaValue.match(/([0-9]+\.?[0-9]*)/);
+                    const singleNumMatch = normalizedValue.match(/([0-9]+\.?[0-9]*)/);
                     
                     if (singleNumMatch) {
                         const numValue = parseFloat(singleNumMatch[1]);
@@ -8272,11 +8274,7 @@
                 console.log('🧹 shouldClear:', shouldClear, '| lastOCR:', lastOCRMaterialCode, '| current:', preselectedMaterialCode);
                 loadTDSForMaterial(shouldClear, true); // skipReload=true (Sheets'ten yeni yüklendi)
                 
-                // Flag'i temizle (bir kez kullanıldı)
-                if (lastOCRMaterialCode === preselectedMaterialCode) {
-                    lastOCRMaterialCode = null;
-                    console.log('🧹 lastOCRMaterialCode temizlendi');
-                }
+                // FLAG TEMİZLEME KODU KALDIRILDI - Modal kapanınca temizlenecek
             } else {
                 document.getElementById('tdsContent').style.display = 'none';
                 document.getElementById('tdsEmptyState').style.display = 'block';
@@ -8287,6 +8285,12 @@
         function closeTDSModal() {
             document.getElementById('tdsModal').classList.remove('active');
             currentTDSMaterial = null;
+            
+            // Modal kapanınca OCR flag'ini temizle
+            if (lastOCRMaterialCode) {
+                console.log('🧹 Modal kapandı, lastOCRMaterialCode temizleniyor:', lastOCRMaterialCode);
+                lastOCRMaterialCode = null;
+            }
         }
         
         // ==================== TDS Template OCR Functions ====================
@@ -8736,15 +8740,15 @@
                             const tdsMin = parseFloat(recalcLowerLimit);
                             const tdsMax = parseFloat(recalcUpperLimit);
                             
-                            // COA aralığı TDS limitleriyle eşleşiyor mu? (±0.5 tolerans)
-                            const minMatch = Math.abs(coaMin - tdsMin) <= 0.5;
-                            const maxMatch = Math.abs(coaMax - tdsMax) <= 0.5;
-                            const isCompliant = minMatch && maxMatch;
+                            // COA aralığı TDS limitleri İÇİNDE mi kontrol et
+                            const isLowerInRange = coaMin >= tdsMin;
+                            const isUpperInRange = coaMax <= tdsMax;
+                            const isCompliant = isLowerInRange && isUpperInRange;
                             
-                            console.log(`📊 Aralık karşılaştırma: COA [${coaMin}-${coaMax}] vs TDS [${tdsMin}-${tdsMax}] → ${isCompliant ? 'Uygun' : 'Uygun Değil'}`);
+                            console.log(`📊 Aralık karşılaştırma: COA [${coaMin}-${coaMax}] vs TDS [${tdsMin}-${tdsMax}] → ${isCompliant ? 'Uygun' : 'Uygun Değil'} (lower:${isLowerInRange}, upper:${isUpperInRange})`);
                             
                             if (complianceSpan) {
-                                complianceSpan.textContent = isCompliant ? '✅ Uygun' : '❌ Uygun Değil';
+                                complianceSpan.textContent = isCompliant ? 'Uygun' : 'Uygun Değil';
                                 if (isCompliant) {
                                     complianceSpan.style.background = '#c8e6c9';
                                     complianceSpan.style.color = '#2e7d32';
