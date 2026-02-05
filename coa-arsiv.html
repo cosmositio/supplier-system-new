@@ -5260,10 +5260,33 @@
             const azureEndpoint = localStorage.getItem('azure_endpoint');
             
             if (!azureKey || !azureEndpoint) {
-                throw new Error('Azure API key veya endpoint tanımlı değil');
+                const errorMsg = 'Azure API key veya endpoint tanımlı değil';
+                console.error('❌', errorMsg);
+                throw new Error(errorMsg);
             }
             
-            // Base64'ü binary'ye çevir
+            console.log('🔑 Azure Endpoint:', azureEndpoint);
+            
+            // Base64'ü binary'ye çevir - PNG olduğundan emin ol
+            if (!imageData.startsWith('data:image/png')) {
+                console.warn('⚠️ Image PNG değil, dönüştürülüyor...');
+                // Canvas'a çevir ve PNG olarak export et
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = imageData;
+                });
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                imageData = canvas.toDataURL('image/png');
+                console.log('✅ PNG\'ye dönüştürüldü');
+            }
+            
             const base64Data = imageData.split(',')[1];
             const byteCharacters = atob(base64Data);
             const byteNumbers = new Array(byteCharacters.length);
@@ -5277,101 +5300,136 @@
             // Azure Read API - async işlem başlat
             const analyzeUrl = `${azureEndpoint}/vision/v3.2/read/analyze`;
             
-            console.log('🌐 Azure analyze isteği gönderiliyor...');
-            const analyzeResponse = await fetch(analyzeUrl, {
-                method: 'POST',
-                headers: {
-                    'Ocp-Apim-Subscription-Key': azureKey,
-                    'Content-Type': 'application/octet-stream'
-                },
-                body: byteArray
-            });
+            console.log('🌐 Azure analyze isteği gönderiliyor:', analyzeUrl);
             
-            if (!analyzeResponse.ok) {
-                const errorText = await analyzeResponse.text();
-                console.error('❌ Azure analyze hatası:', errorText);
-                throw new Error(`Azure analyze hatası: ${analyzeResponse.status} - ${errorText}`);
-            }
-            
-            // Operation-Location header'ından sonuç URL'ini al
-            const operationLocation = analyzeResponse.headers.get('Operation-Location');
-            if (!operationLocation) {
-                throw new Error('Azure Operation-Location header bulunamadı');
-            }
-            
-            console.log('⏳ Azure OCR işleniyor, sonuç bekleniyor...');
-            showToast('⏳ Azure OCR işleniyor (5-10 saniye)...', 'info', 10000);
-            
-            // Sonuç için polling yap (max 30 saniye)
-            let resultResponse;
-            let attempts = 0;
-            const maxAttempts = 30;
-            
-            while (attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 saniye bekle
-                attempts++;
-                
-                resultResponse = await fetch(operationLocation, {
+            try {
+                const analyzeResponse = await fetch(analyzeUrl, {
+                    method: 'POST',
                     headers: {
-                        'Ocp-Apim-Subscription-Key': azureKey
-                    }
+                        'Ocp-Apim-Subscription-Key': azureKey,
+                        'Content-Type': 'application/octet-stream'
+                    },
+                    body: byteArray
                 });
                 
-                if (!resultResponse.ok) {
-                    throw new Error(`Azure sonuç hatası: ${resultResponse.status}`);
+                if (!analyzeResponse.ok) {
+                    const errorText = await analyzeResponse.text();
+                    console.error('❌ Azure analyze hatası:', analyzeResponse.status, errorText);
+                    throw new Error(`Azure analyze hatası: ${analyzeResponse.status} - ${errorText}`);
                 }
                 
-                const result = await resultResponse.json();
+                // Operation-Location header'ından sonuç URL'ini al
+                const operationLocation = analyzeResponse.headers.get('Operation-Location');
+                if (!operationLocation) {
+                    console.error('❌ Operation-Location header yok');
+                    throw new Error('Azure Operation-Location header bulunamadı');
+                }
                 
-                if (result.status === 'succeeded') {
-                    console.log('✅ Azure OCR tamamlandı');
-                    console.log('📝 Azure yanıtı:', result);
+                console.log('⏳ Azure OCR işleniyor, sonuç bekleniyor...');
+                console.log('🔗 Operation URL:', operationLocation);
+                
+                // Sonuç için polling yap (max 30 saniye)
+                let resultResponse;
+                let attempts = 0;
+                const maxAttempts = 30;
+                
+                // Sonuç için polling yap (max 30 saniye)
+                let resultResponse;
+                let attempts = 0;
+                const maxAttempts = 30;
+                
+                while (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // 1 saniye bekle
+                    attempts++;
                     
-                    // Line-by-line array + full result döndür
-                    const linesArray = [];
-                    const wordsArray = [];
-                    
-                    if (result.analyzeResult && result.analyzeResult.readResults) {
-                        result.analyzeResult.readResults.forEach(page => {
-                            // Satırları topla
-                            page.lines.forEach(line => {
-                                linesArray.push(line.text);
-                            });
-                            
-                            // Kelimeleri topla (koordinatlarıyla birlikte)
-                            if (page.words) {
-                                page.words.forEach(word => {
-                                    wordsArray.push({
-                                        text: word.text,
-                                        x: word.boundingBox[0], // Sol üst x koordinatı
-                                        y: word.boundingBox[1], // Sol üst y koordinatı
-                                        confidence: word.confidence
-                                    });
-                                });
+                    try {
+                        resultResponse = await fetch(operationLocation, {
+                            headers: {
+                                'Ocp-Apim-Subscription-Key': azureKey
                             }
                         });
+                        
+                        if (!resultResponse.ok) {
+                            const errorText = await resultResponse.text();
+                            console.error(`❌ Azure sonuç hatası (${attempts}/${maxAttempts}):`, resultResponse.status, errorText);
+                            throw new Error(`Azure sonuç hatası: ${resultResponse.status} - ${errorText}`);
+                        }
+                        
+                        const result = await resultResponse.json();
+                        console.log(`🔄 Azure durum (${attempts}/${maxAttempts}):`, result.status);
+                        
+                        if (result.status === 'succeeded') {
+                            console.log('✅ Azure OCR tamamlandı!');
+                            
+                            // Line-by-line array + full result döndür
+                            const linesArray = [];
+                            const wordsArray = [];
+                            
+                            if (result.analyzeResult && result.analyzeResult.readResults) {
+                                result.analyzeResult.readResults.forEach(page => {
+                                    // Satırları topla
+                                    if (page.lines) {
+                                        page.lines.forEach(line => {
+                                            linesArray.push(line.text);
+                                        });
+                                    }
+                                    
+                                    // Kelimeleri topla (koordinatlarıyla birlikte) - v3.2'de words yok, lines içinde
+                                    // V3.2'de her line'da words array'i var
+                                    if (page.lines) {
+                                        page.lines.forEach(line => {
+                                            if (line.words) {
+                                                line.words.forEach(word => {
+                                                    wordsArray.push({
+                                                        text: word.text,
+                                                        boundingBox: word.boundingBox,
+                                                        confidence: word.confidence
+                                                    });
+                                                });
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                            
+                            console.log('📝 Azure OCR toplam satır:', linesArray.length);
+                            console.log('📝 Azure OCR toplam kelime:', wordsArray.length);
+                            if (linesArray.length > 0) {
+                                console.log('📝 Okunan text:', linesArray.join(' '));
+                            }
+                            
+                            // Parse etmek için satırları, kelimeleri ve tam result'ı döndür
+                            return { 
+                                text: linesArray.join('\n'), 
+                                lines: linesArray,
+                                words: wordsArray,
+                                fullResult: result
+                            };
+                        } else if (result.status === 'failed') {
+                            console.error('❌ Azure OCR başarısız:', result);
+                            throw new Error('Azure OCR başarısız oldu: ' + JSON.stringify(result));
+                        }
+                        
+                        // Hala running durumunda, bekle
+                        if (attempts % 5 === 0) {
+                            console.log(`⏳ Bekleniyor... ${attempts}/${maxAttempts} saniye`);
+                        }
+                        
+                    } catch (fetchError) {
+                        console.error(`❌ Azure polling hatası (${attempts}/${maxAttempts}):`, fetchError);
+                        if (attempts >= maxAttempts) {
+                            throw fetchError;
+                        }
+                        // Devam et, tekrar dene
                     }
-                    
-                    console.log('📝 Azure OCR toplam satır:', linesArray.length);
-                    console.log('📝 Azure OCR toplam kelime:', wordsArray.length);
-                    console.log('📝 İlk 10 satır:', linesArray.slice(0, 10));
-                    
-                    // Parse etmek için satırları, kelimeleri ve tam result'ı döndür
-                    return { 
-                        text: linesArray.join('\n'), 
-                        lines: linesArray,
-                        words: wordsArray,
-                        fullResult: result
-                    };
-                } else if (result.status === 'failed') {
-                    throw new Error('Azure OCR başarısız oldu');
                 }
                 
-                // Hala running durumunda, bekle
-                console.log(`⏳ Deneme ${attempts}/${maxAttempts}, durum: ${result.status}`);
+                throw new Error('Azure OCR zaman aşımı (30 saniye)');
+                
+            } catch (mainError) {
+                console.error('❌ Azure OCR ana hata:', mainError);
+                throw mainError;
             }
-            
-            throw new Error('Azure OCR zaman aşımı (30 saniye)');
         }
         
         // Extract COA properties using template regions
@@ -5489,9 +5547,13 @@
                             let ocrText = '';
                             
                             if (ocrEngine === 'azure') {
+                                console.log('🔵 Azure OCR ile taranıyor...');
                                 const azureResult = await performAzureOCR(croppedImageData);
+                                console.log('🔵 Azure sonuç:', azureResult);
                                 ocrText = azureResult?.text || '';
+                                console.log('🔵 Azure text:', ocrText);
                             } else {
+                                console.log('🟢 OCR.space ile taranıyor...');
                                 ocrText = await performOCRSpaceOCR(croppedImageData);
                             }
                             
@@ -5506,11 +5568,14 @@
                             }
                             
                         } catch (error) {
-                            console.error(`❌ Bölge ${region.propertyName} OCR hatası:`, error.message);
+                            console.error(`❌ Bölge ${region.propertyName} OCR hatası:`, error);
+                            console.error('Hata detayı:', error.message, error.stack);
+                            showToast(`⚠️ ${region.propertyName} okunamadı`, 'warning', 2000);
                         }
                         
-                        // API rate limit için kısa bekleme
-                        await new Promise(resolve => setTimeout(resolve, 500));
+                        // API rate limit için bekleme (Azure için daha uzun)
+                        const waitTime = ocrEngine === 'azure' ? 2000 : 500;
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
                     }
                     
                     console.log('\n✅ Template OCR tamamlandı:', Object.keys(properties).length, 'özellik');
