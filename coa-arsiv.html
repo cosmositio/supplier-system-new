@@ -5530,19 +5530,39 @@
                         // BASF için Azure word coordinates ile parse et (daha doğru)
                         if (Object.keys(properties).length === 0 && words && words.length > 0) {
                             console.log('🔷 BASF Azure word coordinates kullanılıyor...');
+                            console.log('📦 Toplam kelime sayısı:', words.length);
                             
-                            // "Requirement" sütununun x koordinatını bul
-                            let requirementX = null;
+                            // "Requirement" başlığının x koordinatını bul
+                            let requirementColX = null;
+                            let headerY = null;
+                            
                             for (let i = 0; i < words.length; i++) {
                                 const word = words[i];
-                                if (/Requirement|Pruefergebnis/i.test(word.text)) {
-                                    requirementX = word.x;
-                                    console.log(`✅ Requirement sütunu bulundu, x = ${requirementX}, word: "${word.text}"`);
+                                if (/Requirement/i.test(word.text)) {
+                                    requirementColX = word.x;
+                                    headerY = word.y;
+                                    console.log(`✅ Requirement başlığı bulundu: x=${requirementColX}, y=${headerY}, text="${word.text}"`);
                                     break;
                                 }
                             }
                             
-                            if (requirementX !== null) {
+                            // Alternatif: "Pruefergebnis" başlığını bul
+                            if (!requirementColX) {
+                                for (let i = 0; i < words.length; i++) {
+                                    const word = words[i];
+                                    if (/Pruefergebnis/i.test(word.text)) {
+                                        requirementColX = word.x;
+                                        headerY = word.y;
+                                        console.log(`✅ Pruefergebnis başlığı bulundu: x=${requirementColX}, y=${headerY}, text="${word.text}"`);
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (requirementColX !== null && headerY !== null) {
+                                console.log(`📊 Requirement sütunu X aralığı: ${requirementColX - 100} - ${requirementColX + 300}`);
+                                console.log(`📊 Başlık Y: ${headerY}, data başlangıcı: ${headerY + 20}`);
+                                
                                 // BASF property patterns
                                 const basfCoordPatterns = [
                                     { name: 'Materialdichte', key: 'Density' },
@@ -5553,40 +5573,55 @@
                                 ];
                                 
                                 for (const pattern of basfCoordPatterns) {
-                                    console.log(`\n🔍 BASF Azure: Searching for "${pattern.name}"...`);
+                                    console.log(`\n🔍 BASF Azure: "${pattern.name}" aranıyor...`);
                                     
-                                    // Find property name in words
+                                    // Find property name Y coordinate (sol sütunda)
                                     let propertyY = null;
+                                    let propertyX = null;
+                                    
                                     for (let i = 0; i < words.length; i++) {
-                                        if (words[i].text.toLowerCase().includes(pattern.name.toLowerCase())) {
-                                            propertyY = words[i].y;
-                                            console.log(`  ✅ Property found at y=${propertyY}`);
+                                        const word = words[i];
+                                        // Property name should be in left column (X < requirementColX - 100)
+                                        if (word.text.toLowerCase().includes(pattern.name.toLowerCase()) && 
+                                            word.x < requirementColX - 100 &&
+                                            word.y > headerY + 20) {  // Below header
+                                            propertyY = word.y;
+                                            propertyX = word.x;
+                                            console.log(`  ✅ Property "${pattern.name}" bulundu: x=${propertyX}, y=${propertyY}`);
                                             break;
                                         }
                                     }
                                     
                                     if (propertyY !== null) {
-                                        // Find value in Requirement column (same Y, similar X to requirementX)
+                                        // Find value in Requirement column (same row, right column)
+                                        // Look for words at same Y coordinate but in requirement column X range
                                         let valueWords = [];
-                                        const yTolerance = 15;  // Y tolerance
-                                        const xMin = requirementX - 50;  // X range for requirement column
-                                        const xMax = requirementX + 200;
+                                        const yTolerance = 25;  // Tolerance for same row
+                                        const xMin = requirementColX - 100;  // Requirement column start
+                                        const xMax = requirementColX + 400;  // Requirement column end
+                                        
+                                        console.log(`  🔍 Değer aranıyor: Y=${propertyY}±${yTolerance}, X=${xMin}-${xMax}`);
                                         
                                         for (let i = 0; i < words.length; i++) {
                                             const word = words[i];
-                                            if (Math.abs(word.y - propertyY) < yTolerance && 
-                                                word.x >= xMin && word.x <= xMax) {
-                                                // Skip property name itself
-                                                if (!word.text.toLowerCase().includes(pattern.name.toLowerCase())) {
+                                            const yDiff = Math.abs(word.y - propertyY);
+                                            const inXRange = word.x >= xMin && word.x <= xMax;
+                                            
+                                            if (yDiff < yTolerance && inXRange) {
+                                                // Skip property name words
+                                                if (!word.text.toLowerCase().includes(pattern.name.toLowerCase().substring(0, 5))) {
                                                     valueWords.push(word);
+                                                    console.log(`    📝 Kelime eklendi: "${word.text}" (x=${word.x}, y=${word.y}, yDiff=${yDiff})`);
                                                 }
                                             }
                                         }
                                         
                                         if (valueWords.length > 0) {
-                                            // Sort by x coordinate and combine
+                                            // Sort by X coordinate and combine
                                             valueWords.sort((a, b) => a.x - b.x);
                                             let requirement = valueWords.map(w => w.text).join(' ');
+                                            
+                                            console.log(`  ✅ Ham requirement: "${requirement}"`);
                                             
                                             // Clean lambda symbols for thermal conductivity
                                             if (requirement.includes('W/mK') || requirement.includes('W/mk')) {
@@ -5594,12 +5629,12 @@
                                                     .replace(/^(λ|Λ|A10|l10|L10|110)\s*/gi, '')
                                                     .replace(/\s+(λ|Λ)\d*\s*/gi, ' ')
                                                     .trim();
+                                                console.log(`  🧹 Temizlenmiş requirement: "${requirement}"`);
                                             }
-                                            
-                                            console.log(`  ✅ Requirement from coordinates: "${requirement}"`);
                                             
                                             // Check compliance
                                             const compliance = checkCompliance(requirement, requirement);
+                                            console.log(`  ${compliance === 'Uygun' ? '✅' : '❌'} Uygunluk: ${compliance}`);
                                             
                                             // Store property
                                             properties[pattern.key] = {
@@ -5622,11 +5657,17 @@
                                                     properties[alias] = properties[pattern.key];
                                                 }
                                             }
+                                        } else {
+                                            console.log(`  ⚠️ Requirement sütununda değer bulunamadı`);
                                         }
+                                    } else {
+                                        console.log(`  ⚠️ Property "${pattern.name}" bulunamadı`);
                                     }
                                 }
                                 
-                                console.log('📊 BASF Azure parsing sonucu:', properties);
+                                console.log('\n📊 BASF Azure parsing sonucu:', properties);
+                            } else {
+                                console.log('⚠️ Requirement sütunu başlığı bulunamadı');
                             }
                         }
                         
