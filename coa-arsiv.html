@@ -5482,8 +5482,8 @@
                                     
                                     // Store in properties with compliance status
                                     properties[pattern.tdsProp] = {
-                                        value: testResult,
-                                        requirement: requirement,
+                                        value: testResult,  // COA değeri (0.035 gibi)
+                                        requirement: requirement,  // Requirement (≤ 0.035 W/mK gibi)
                                         compliance: compliance
                                     };
                                     
@@ -6724,17 +6724,25 @@
                     if (prop.operator === 'compliance') {
                         // Compliance mode: coaCompliance zaten COA parsing'de hesaplanmıştır
                         const complianceSpan = document.getElementById(`compliance_${index}`);
-                        if (complianceSpan && prop.coaCompliance) {
-                            complianceSpan.textContent = prop.coaCompliance;
-                            if (prop.coaCompliance === 'Uygun') {
-                                complianceSpan.style.background = '#c8e6c9';
-                                complianceSpan.style.color = '#2e7d32';
-                            } else if (prop.coaCompliance === 'Uygun Değil') {
-                                complianceSpan.style.background = '#ffcdd2';
-                                complianceSpan.style.color = '#c62828';
-                            } else {
-                                complianceSpan.style.background = '#fff9c4';
-                                complianceSpan.style.color = '#f57f17';
+                        if (complianceSpan) {
+                            // Eğer coaCompliance yoksa, şimdi hesapla
+                            if (!prop.coaCompliance && prop.requirement) {
+                                prop.coaCompliance = checkCompliance(prop.coaValue, prop.requirement);
+                                console.log(`📊 ${prop.name} için compliance hesaplandı: ${prop.coaCompliance}`);
+                            }
+                            
+                            if (prop.coaCompliance) {
+                                complianceSpan.textContent = prop.coaCompliance;
+                                if (prop.coaCompliance === 'Uygun') {
+                                    complianceSpan.style.background = '#c8e6c9';
+                                    complianceSpan.style.color = '#2e7d32';
+                                } else if (prop.coaCompliance === 'Uygun Değil') {
+                                    complianceSpan.style.background = '#ffcdd2';
+                                    complianceSpan.style.color = '#c62828';
+                                } else {
+                                    complianceSpan.style.background = '#fff9c4';
+                                    complianceSpan.style.color = '#f57f17';
+                                }
                             }
                         }
                     } else {
