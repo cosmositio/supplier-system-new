@@ -5623,6 +5623,214 @@
             }
         }
         
+        // Convert Excel to Canvas (same method as template editor)
+        async function convertExcelToCanvas(fileData) {
+            // Ensure XLSX library is loaded
+            await ensureLibraryLoaded(
+                'XLSX',
+                () => typeof XLSX !== 'undefined',
+                [
+                    'https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js',
+                    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+                ]
+            );
+            
+            // Ensure html2canvas library is loaded
+            await ensureLibraryLoaded(
+                'html2canvas',
+                () => typeof html2canvas !== 'undefined',
+                [
+                    'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+                    'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js'
+                ]
+            );
+            
+            // Convert data URL to ArrayBuffer
+            const base64Data = fileData.split(',')[1];
+            const binaryData = atob(base64Data);
+            const arrayBuffer = new Uint8Array(binaryData.length);
+            for (let i = 0; i < binaryData.length; i++) {
+                arrayBuffer[i] = binaryData.charCodeAt(i);
+            }
+            
+            const workbook = XLSX.read(arrayBuffer, { type: 'array', cellStyles: true });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Get column widths and row heights from Excel
+            const colWidths = worksheet['!cols'] || [];
+            const rowHeights = worksheet['!rows'] || [];
+            
+            // Convert to HTML
+            const htmlString = XLSX.utils.sheet_to_html(worksheet, { header: '', footer: '' });
+            
+            // Create temporary div to render HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px';
+            tempDiv.style.top = '0';
+            tempDiv.style.background = 'white';
+            tempDiv.style.padding = '0';
+            tempDiv.innerHTML = htmlString;
+            document.body.appendChild(tempDiv);
+            
+            // Style the table with exact Excel dimensions
+            const table = tempDiv.querySelector('table');
+            if (table) {
+                table.style.borderCollapse = 'collapse';
+                table.style.fontSize = '11px';
+                table.style.fontFamily = 'Calibri, Arial, sans-serif';
+                table.style.border = 'none';
+                table.style.margin = '0';
+                table.style.padding = '0';
+                
+                // Apply column widths
+                const rows = table.querySelectorAll('tr');
+                if (rows.length > 0) {
+                    const firstRowCells = rows[0].querySelectorAll('td, th');
+                    firstRowCells.forEach((cell, index) => {
+                        const colInfo = colWidths[index];
+                        if (colInfo && colInfo.wpx) {
+                            cell.style.width = colInfo.wpx + 'px';
+                            cell.style.minWidth = colInfo.wpx + 'px';
+                            cell.style.maxWidth = colInfo.wpx + 'px';
+                        } else if (colInfo && colInfo.wch) {
+                            const pixelWidth = Math.round(colInfo.wch * 7);
+                            cell.style.width = pixelWidth + 'px';
+                            cell.style.minWidth = pixelWidth + 'px';
+                            cell.style.maxWidth = pixelWidth + 'px';
+                        } else {
+                            cell.style.width = '64px';
+                            cell.style.minWidth = '64px';
+                            cell.style.maxWidth = '64px';
+                        }
+                    });
+                }
+                
+                // Apply row heights and cell styles
+                rows.forEach((row, rowIndex) => {
+                    const rowInfo = rowHeights[rowIndex];
+                    if (rowInfo && rowInfo.hpx) {
+                        row.style.height = rowInfo.hpx + 'px';
+                    } else if (rowInfo && rowInfo.hpt) {
+                        const pixelHeight = Math.round(rowInfo.hpt * 1.333);
+                        row.style.height = pixelHeight + 'px';
+                    } else {
+                        row.style.height = '20px';
+                    }
+                    
+                    const cells = row.querySelectorAll('td, th');
+                    cells.forEach((cell, colIndex) => {
+                        cell.style.border = '1px solid #d0d0d0';
+                        cell.style.padding = '2px 4px';
+                        cell.style.textAlign = 'left';
+                        cell.style.verticalAlign = 'middle';
+                        cell.style.overflow = 'hidden';
+                        cell.style.whiteSpace = 'nowrap';
+                        cell.style.boxSizing = 'border-box';
+                        
+                        const colInfo = colWidths[colIndex];
+                        if (colInfo && colInfo.wpx) {
+                            cell.style.width = colInfo.wpx + 'px';
+                            cell.style.minWidth = colInfo.wpx + 'px';
+                            cell.style.maxWidth = colInfo.wpx + 'px';
+                        } else if (colInfo && colInfo.wch) {
+                            const pixelWidth = Math.round(colInfo.wch * 7);
+                            cell.style.width = pixelWidth + 'px';
+                            cell.style.minWidth = pixelWidth + 'px';
+                            cell.style.maxWidth = pixelWidth + 'px';
+                        }
+                    });
+                });
+            }
+            
+            // Convert to canvas using html2canvas
+            const canvas = await html2canvas(tempDiv, {
+                backgroundColor: '#ffffff',
+                scale: 1,
+                logging: false,
+                useCORS: true
+            });
+            
+            // Remove temporary div
+            document.body.removeChild(tempDiv);
+            
+            return canvas;
+        }
+        
+        // Convert Word to Canvas (same method as template editor)
+        async function convertWordToCanvas(fileData) {
+            // Ensure mammoth library is loaded
+            await ensureLibraryLoaded(
+                'mammoth',
+                () => typeof mammoth !== 'undefined',
+                [
+                    'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
+                    'https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js'
+                ]
+            );
+            
+            // Ensure html2canvas library is loaded
+            await ensureLibraryLoaded(
+                'html2canvas',
+                () => typeof html2canvas !== 'undefined',
+                [
+                    'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+                    'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js'
+                ]
+            );
+            
+            // Convert data URL to ArrayBuffer
+            const base64Data = fileData.split(',')[1];
+            const binaryData = atob(base64Data);
+            const arrayBuffer = new Uint8Array(binaryData.length);
+            for (let i = 0; i < binaryData.length; i++) {
+                arrayBuffer[i] = binaryData.charCodeAt(i);
+            }
+            
+            const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+            
+            // Create temporary div to render HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px';
+            tempDiv.style.top = '0';
+            tempDiv.style.background = 'white';
+            tempDiv.style.padding = '40px';
+            tempDiv.style.width = '800px';
+            tempDiv.style.fontFamily = 'Arial, sans-serif';
+            tempDiv.style.fontSize = '12px';
+            tempDiv.style.lineHeight = '1.5';
+            tempDiv.innerHTML = result.value;
+            document.body.appendChild(tempDiv);
+            
+            // Style tables if any
+            const tables = tempDiv.querySelectorAll('table');
+            tables.forEach(table => {
+                table.style.borderCollapse = 'collapse';
+                table.style.width = '100%';
+                table.style.marginBottom = '20px';
+                const cells = table.querySelectorAll('td, th');
+                cells.forEach(cell => {
+                    cell.style.border = '1px solid #ddd';
+                    cell.style.padding = '8px';
+                });
+            });
+            
+            // Convert to canvas using html2canvas
+            const canvas = await html2canvas(tempDiv, {
+                backgroundColor: '#ffffff',
+                scale: 1,
+                logging: false,
+                useCORS: true
+            });
+            
+            // Remove temporary div
+            document.body.removeChild(tempDiv);
+            
+            return canvas;
+        }
+        
         // Extract COA properties using template regions
         async function extractCOAPropertiesWithTemplate(fileData, template) {
             console.log('🎨 Template ile OCR başlatılıyor:', template.supplier || 'Bilinmeyen');
@@ -5639,10 +5847,30 @@
             
             return new Promise(async (resolve, reject) => {
                 try {
-                    // PDF'i canvas'a çevir
+                    // File type detection
+                    const isExcel = fileData.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') || 
+                                   fileData.includes('application/vnd.ms-excel');
+                    const isWord = fileData.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
+                                  fileData.includes('application/msword');
+                    
+                    // Canvas'a çevir
                     let canvas, canvasWidth, canvasHeight;
                     
-                    if (fileData.startsWith('data:application/pdf')) {
+                    if (isExcel) {
+                        // Excel dosyasını canvas'a çevir (template ile aynı şekilde)
+                        console.log('📊 Excel canvas\'a çeviriliyor...');
+                        canvas = await convertExcelToCanvas(fileData);
+                        canvasWidth = canvas.width;
+                        canvasHeight = canvas.height;
+                        console.log('✅ Excel canvas\'a çevrildi:', canvasWidth, 'x', canvasHeight);
+                    } else if (isWord) {
+                        // Word dosyasını canvas'a çevir
+                        console.log('📝 Word canvas\'a çeviriliyor...');
+                        canvas = await convertWordToCanvas(fileData);
+                        canvasWidth = canvas.width;
+                        canvasHeight = canvas.height;
+                        console.log('✅ Word canvas\'a çevrildi:', canvasWidth, 'x', canvasHeight);
+                    } else if (fileData.startsWith('data:application/pdf')) {
                         console.log('📄 PDF canvas\'a çeviriliyor...');
                         const base64Data = fileData.split(',')[1];
                         const binaryData = atob(base64Data);
