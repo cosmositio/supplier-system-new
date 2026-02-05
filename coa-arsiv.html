@@ -1569,6 +1569,18 @@
                 </select>
             </div>
             
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">🔍 OCR ile Okunan Değer:</label>
+                <div style="position: relative;">
+                    <input type="text" id="templateOcrValue" placeholder="OCR okuma bekleniyor..." 
+                           style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: #f8f9fa;">
+                    <div id="templateOcrLoading" style="display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%);">
+                        <span style="font-size: 12px; color: #666;">⏳ Okunuyor...</span>
+                    </div>
+                </div>
+                <small style="color: #666; font-size: 12px;">💡 İpucu: Otomatik okunan değer yanlışsa manuel düzenleyebilirsiniz</small>
+            </div>
+            
             <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                 <button class="btn btn-primary" onclick="saveTemplateRegion()">✅ Kaydet</button>
                 <button class="btn btn-danger" onclick="closeTemplateRegionModal()">❌ İptal</button>
@@ -10052,7 +10064,7 @@
             templateCtx.setLineDash([]);
         }
         
-        function stopTemplateDrawing(e) {
+        async function stopTemplateDrawing(e) {
             if (!isTemplateDrawing) return;
             isTemplateDrawing = false;
             
@@ -10071,7 +10083,11 @@
                     height: Math.abs(height)
                 };
                 
+                // Show modal first
                 showTemplateRegionModal();
+                
+                // Then perform OCR on the selected region
+                await performTemplateRegionOCR();
             } else {
                 redrawTemplateCanvas();
             }
@@ -10102,16 +10118,126 @@
             document.getElementById('templatePropertyName').value = '';
             document.getElementById('templateRegionType').value = 'value';
             document.getElementById('templateCustomPropertyGroup').style.display = 'none';
+            
+            // Reset OCR field
+            const ocrInput = document.getElementById('templateOcrValue');
+            if (ocrInput) {
+                ocrInput.value = '';
+                ocrInput.placeholder = 'OCR okuma bekleniyor...';
+            }
+        }
+        
+        async function performTemplateRegionOCR() {
+            if (!currentTemplateRegion || !templateImageObj) {
+                console.log('❌ OCR için bölge veya image yok');
+                return;
+            }
+            
+            const ocrInput = document.getElementById('templateOcrValue');
+            const ocrLoading = document.getElementById('templateOcrLoading');
+            
+            try {
+                // Show loading
+                if (ocrLoading) ocrLoading.style.display = 'block';
+                if (ocrInput) ocrInput.placeholder = '⏳ OCR ile okunuyor...';
+                
+                console.log('🔍 Template bölge OCR başlatılıyor...', currentTemplateRegion);
+                
+                // Extract the region from canvas
+                const regionCanvas = document.createElement('canvas');
+                regionCanvas.width = currentTemplateRegion.width;
+                regionCanvas.height = currentTemplateRegion.height;
+                const regionCtx = regionCanvas.getContext('2d');
+                
+                // Draw the selected region
+                regionCtx.drawImage(
+                    templateCanvas,
+                    currentTemplateRegion.x,
+                    currentTemplateRegion.y,
+                    currentTemplateRegion.width,
+                    currentTemplateRegion.height,
+                    0,
+                    0,
+                    currentTemplateRegion.width,
+                    currentTemplateRegion.height
+                );
+                
+                // Enhance image for better OCR
+                const imageData = regionCtx.getImageData(0, 0, regionCanvas.width, regionCanvas.height);
+                const data = imageData.data;
+                
+                // Increase contrast
+                for (let i = 0; i < data.length; i += 4) {
+                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    const contrast = 1.5;
+                    const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+                    
+                    data[i] = Math.min(255, Math.max(0, factor * (avg - 128) + 128));
+                    data[i + 1] = data[i];
+                    data[i + 2] = data[i];
+                }
+                
+                regionCtx.putImageData(imageData, 0, 0);
+                
+                // Perform OCR
+                const result = await Tesseract.recognize(
+                    regionCanvas.toDataURL(),
+                    'eng',
+                    {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                console.log(`📊 OCR Progress: ${Math.round(m.progress * 100)}%`);
+                            }
+                        }
+                    }
+                );
+                
+                const text = result.data.text.trim();
+                console.log('✅ OCR Sonucu:', text);
+                
+                // Update input
+                if (ocrInput) {
+                    ocrInput.value = text;
+                    ocrInput.placeholder = text ? 'OCR başarılı' : 'Metin okunamadı, manuel girin';
+                    ocrInput.style.background = text ? '#e8f5e9' : '#fff3cd';
+                }
+                
+                if (!text) {
+                    showToast('⚠️ Metin okunamadı, lütfen manuel girin', 'warning');
+                } else {
+                    showToast('✅ Metin OCR ile okundu', 'success');
+                }
+                
+            } catch (error) {
+                console.error('❌ OCR hatası:', error);
+                if (ocrInput) {
+                    ocrInput.placeholder = 'OCR başarısız, manuel girin';
+                    ocrInput.style.background = '#ffebee';
+                }
+                showToast('❌ OCR hatası: ' + error.message, 'error');
+            } finally {
+                if (ocrLoading) ocrLoading.style.display = 'none';
+            }
         }
         
         function closeTemplateRegionModal() {
             document.getElementById('templateRegionModal').classList.remove('show');
             currentTemplateRegion = null;
+            
+            // Reset OCR field
+            const ocrInput = document.getElementById('templateOcrValue');
+            if (ocrInput) {
+                ocrInput.value = '';
+                ocrInput.placeholder = 'OCR okuma bekleniyor...';
+                ocrInput.style.background = '#f8f9fa';
+            }
+            
             redrawTemplateCanvas();
         }
         
         function saveTemplateRegion() {
             let propertyName = document.getElementById('templatePropertyName').value;
+            const ocrValue = document.getElementById('templateOcrValue')?.value || '';
             
             if (propertyName === 'custom') {
                 propertyName = document.getElementById('templateCustomPropertyName').value.trim();
@@ -10126,6 +10252,7 @@
             
             currentTemplateRegion.propertyName = propertyName;
             currentTemplateRegion.type = regionType;
+            currentTemplateRegion.ocrValue = ocrValue;  // OCR değerini kaydet
             
             templateRegions.push(currentTemplateRegion);
             
@@ -10148,6 +10275,7 @@
                     </div>
                     <div style="font-size: 11px; color: #666;">
                         ${region.type === 'value' ? 'COA Değeri' : 'Özellik Adı'}<br>
+                        ${region.ocrValue ? `<span style="background: #e8f5e9; padding: 2px 4px; border-radius: 3px; display: inline-block; margin-top: 3px;">📝 ${region.ocrValue}</span><br>` : ''}
                         X:${Math.round(region.x)} Y:${Math.round(region.y)} W:${Math.round(region.width)} H:${Math.round(region.height)}
                     </div>
                 </div>
