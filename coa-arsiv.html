@@ -6721,43 +6721,66 @@
                 
                 // Uygunluk kontrolü yap
                 if (prop.operator === 'compliance') {
-                    // Compliance mode: Use checkCompliance function
-                    if (prop.coaValue && prop.requirement) {
-                        const compliance = checkCompliance(prop.coaValue, prop.requirement);
-                        prop.coaCompliance = compliance;
+                    // Compliance mode: coaCompliance zaten COA parsing'de hesaplanmıştır
+                    const complianceSpan = document.getElementById(`compliance_${index}`);
+                    if (complianceSpan && prop.coaCompliance) {
+                        complianceSpan.textContent = prop.coaCompliance;
+                        if (prop.coaCompliance === 'Uygun') {
+                            complianceSpan.style.background = '#c8e6c9';
+                            complianceSpan.style.color = '#2e7d32';
+                        } else if (prop.coaCompliance === 'Uygun Değil') {
+                            complianceSpan.style.background = '#ffcdd2';
+                            complianceSpan.style.color = '#c62828';
+                        } else {
+                            complianceSpan.style.background = '#fff9c4';
+                            complianceSpan.style.color = '#f57f17';
+                        }
+                    }
+                } else if (prop.coaValue) {
+                    // Numeric mode: Use standard calculation
+                    const complianceSpan = document.getElementById(`compliance_${index}`);
+                    
+                    // Operatör sembollerini temizle
+                    const cleanValue = String(prop.coaValue).replace(/^[≤≥<>=]+\s*/, '').replace(/,/g, '.');
+                    const value = parseFloat(cleanValue);
+                    
+                    if (!isNaN(value)) {
+                        const operator = prop.operator || 'range';
+                        let isCompliant = false;
                         
-                        const complianceSpan = document.getElementById(`compliance_${index}`);
+                        if (operator === 'range') {
+                            const min = parseFloat(lowerLimit);
+                            const max = parseFloat(upperLimit);
+                            isCompliant = value >= min && value <= max;
+                        } else if (operator === '>') {
+                            const min = parseFloat(lowerLimit);
+                            isCompliant = value > min;
+                        } else if (operator === '<') {
+                            const max = parseFloat(upperLimit);
+                            isCompliant = value < max;
+                        } else if (operator === '>=') {
+                            const min = parseFloat(lowerLimit);
+                            isCompliant = value >= min;
+                        } else if (operator === '<=') {
+                            const max = parseFloat(upperLimit);
+                            isCompliant = value <= max;
+                        } else if (operator === '=') {
+                            const stdVal = parseFloat(String(prop.standardValue || 0).replace(/,/g, '.'));
+                            isCompliant = Math.abs(value - stdVal) < 0.01;
+                        }
+                        
                         if (complianceSpan) {
-                            complianceSpan.textContent = compliance;
-                            if (compliance === 'Uygun') {
+                            complianceSpan.textContent = isCompliant ? '✅ Uygun' : '❌ Uygun Değil';
+                            if (isCompliant) {
                                 complianceSpan.style.background = '#c8e6c9';
                                 complianceSpan.style.color = '#2e7d32';
-                            } else if (compliance === 'Uygun Değil') {
+                            } else {
                                 complianceSpan.style.background = '#ffcdd2';
                                 complianceSpan.style.color = '#c62828';
-                            } else {
-                                complianceSpan.style.background = '#fff9c4';
-                                complianceSpan.style.color = '#f57f17';
                             }
                         }
                     }
-                } else if (prop.coaValue && prop.standardValue) {
-                    // Numeric mode: Use standard calculation
-                    const complianceSpan = document.getElementById(`compliance_${index}`);
-                    const value = parseFloat(prop.coaValue);
-                    const operator = prop.operator || 'range';
-                    let isCompliant = false;
-                    
-                    if (operator === 'range') {
-                        isCompliant = value >= parseFloat(lowerLimit) && value <= parseFloat(upperLimit);
-                    } else if (operator === '>') {
-                        isCompliant = value > stdValue;
-                    } else if (operator === '<') {
-                        isCompliant = value < stdValue;
-                    } else if (operator === '>=') {
-                        isCompliant = value >= stdValue;
-                    } else if (operator === '<=') {
-                        isCompliant = value <= stdValue;
+                }
                     } else if (operator === '=') {
                         isCompliant = Math.abs(value - stdValue) < 0.01;
                     }
