@@ -5454,22 +5454,23 @@
                                 }
                                 
                                 if (testResult || requirement) {
-                                    // Fix OCR errors: Lambda symbol (λ) for thermal conductivity
+                                    // Fix OCR errors and clean lambda symbol for thermal conductivity
                                     if (propertyLine.includes('W/mK') || propertyLine.includes('W/mk') || 
                                         testResult.includes('W/mK') || requirement.includes('W/mK')) {
-                                        // λ10 is often read as "110", "A10", "l10", or "λ10"
-                                        // Apply fix to both testResult and requirement
-                                        const fixLambda = (str) => {
+                                        // Remove lambda symbols (λ, λ10, etc.) from both testResult and requirement
+                                        const removeLambda = (str) => {
                                             return str
-                                                .replace(/^(110|A10|l10|L10)\s*([≤<=])/i, 'λ10 $2')
-                                                .replace(/([≤<=])\s*(110|A10|l10|L10)\s/gi, '$1 λ10 ')
-                                                .replace(/\b(110|A10|l10|L10)\b/g, 'λ10');
+                                                .replace(/^(λ|Λ)(\d+)?\s*/gi, '')  // Remove lambda at start
+                                                .replace(/\s+(λ|Λ)(\d+)?\s+/gi, ' ')  // Remove lambda in middle
+                                                .replace(/\s+(λ|Λ)(\d+)?$/gi, '')  // Remove lambda at end
+                                                .replace(/^(110|A10|l10|L10)\s*/i, '')  // Remove OCR errors
+                                                .trim();
                                         };
                                         
-                                        testResult = fixLambda(testResult);
-                                        requirement = fixLambda(requirement);
+                                        testResult = removeLambda(testResult);
+                                        requirement = removeLambda(requirement);
                                         
-                                        console.log(`  🔧 Lambda fix applied - Result: "${testResult}", Req: "${requirement}"`);
+                                        console.log(`  🔧 Lambda removed - Result: "${testResult}", Req: "${requirement}"`);
                                     }
                                     
                                     console.log(`  📊 Test Result: "${testResult}"`);
@@ -6349,6 +6350,21 @@
                         console.log(`📊 ${prop.name}: op=${operator}, stdVal=${standardValue}, min=${finalMin}, max=${finalMax} (COA: ${coaValue}, Unit: ${unit})`);
                         console.log(`  🎯 FINAL coaValue type: ${typeof coaValue}, value: "${coaValue}"`);
                         
+                        // Requirement alanını oluştur (compliance mode için veya operator'e göre)
+                        let requirement = '';
+                        if (prop.operator === 'compliance' && prop.requirement) {
+                            requirement = prop.requirement;
+                        } else if (operator === '<' || operator === '<=') {
+                            // Küçüktür: "≤ 0,035 W/mK" formatı
+                            requirement = `${operator === '<' ? '<' : '≤'} ${finalMax}${unit ? ' ' + unit : ''}`;
+                        } else if (operator === '>' || operator === '>=') {
+                            // Büyüktür: "≥ 45 N" formatı
+                            requirement = `${operator === '>' ? '>' : '≥'} ${finalMin}${unit ? ' ' + unit : ''}`;
+                        } else if (operator === 'range' && finalMin && finalMax) {
+                            // Aralık: "7,5 - 10,5 kg/m3" formatı
+                            requirement = `${finalMin} - ${finalMax}${unit ? ' ' + unit : ''}`;
+                        }
+                        
                         return {
                             name: prop.name,
                             coaValue: coaValue,
@@ -6358,6 +6374,7 @@
                             standardValue: standardValue,
                             min: finalMin,
                             max: finalMax,
+                            requirement: requirement,
                             status: calculatePropertyStatus(coaValue, lowerLimit, upperLimit, operator)
                         };
                     });
