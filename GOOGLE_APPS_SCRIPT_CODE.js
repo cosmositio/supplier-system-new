@@ -175,12 +175,6 @@ function doGet(e) {
   return createResponse(result, callback);
 }
 
-// CORS otomatik - manuel header eklemeye gerek yok
-function doOptions(e) {
-  return ContentService.createTextOutput('')
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
 function doPost(e) {
   let result;
   let action = '';
