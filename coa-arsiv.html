@@ -1597,7 +1597,7 @@
         let materials = []; // Hammadde listesi
         let tdsData = {}; // TDS verileri: { materialCode: { properties: [] } }
         let selectedSuppliers = new Set(); // Seçili tedarikçiler
-        let googleScriptUrl = 'https://script.google.com/macros/s/AKfycbzXRCiFmCZb_VytYkr_C2Y_rV2JlnsvbhcCHk6gOb79NlXpjrRRaFjMmJZUt_gc-bLm/exec';
+        let googleScriptUrl = 'https://script.google.com/macros/s/AKfycbwDhKC8tQ2A5M5C2jzwMzBnRER7CQWblo5bYgO4bbM596NleZpwacE34JgZwo32bN5y/exec';
         let selectedFile = null;
         let selectedFileData = null;
         let editMode = false;
@@ -9008,33 +9008,54 @@
                 localStorage.setItem('coaTemplates', JSON.stringify(templates));
                 console.log('✅ Template localStorage\'a kaydedildi');
                 
-                // Google Sheets'e kaydetmeyi dene (opsiyonel)
-                try {
-                    const response = await fetch(googleScriptUrl, {
-                        method: 'POST',
-                        mode: 'cors',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            action: 'saveTemplate',
-                            template: template
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        console.log('✅ Template Google Sheets\'e de kaydedildi');
-                    }
-                } catch (gsError) {
-                    console.log('⚠️ Google Sheets kaydetme başarısız (localStorage\'da mevcut):', gsError.message);
-                }
+                showToast('✅ Template localStorage\'a kaydedildi!', 'success');
                 
-                showToast('✅ Template başarıyla kaydedildi!', 'success');
-                closeTemplateEditor();
+                // Google Sheets'e kaydetmek için yeni sekme aç
+                setTimeout(() => {
+                    if (confirm('📊 Template\'i Google Sheets\'e de kaydetmek ister misiniz?\n\n(Yeni sekmede açılacak)')) {
+                        saveTemplateToGoogleSheets(template);
+                    } else {
+                        closeTemplateEditor();
+                    }
+                }, 500);
             } catch (error) {
                 console.error('❌ Template kaydetme hatası:', error);
                 alert('❌ Template kaydetme hatası: ' + error.message);
             }
+        }
+        
+        function saveTemplateToGoogleSheets(template) {
+            // Form oluştur ve yeni sekmede submit et
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = googleScriptUrl;
+            form.target = '_blank';
+            
+            // Template verisini gizli input olarak ekle
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'template';
+            input.value = JSON.stringify(template);
+            form.appendChild(input);
+            
+            // Action parametresi
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'saveTemplate';
+            form.appendChild(actionInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+            
+            console.log('📤 Template Google Sheets\'e gönderildi (yeni sekme)');
+            showToast('📤 Template Google Sheets\'e gönderildi', 'info');
+            
+            // Modal'ı kapat
+            setTimeout(() => {
+                closeTemplateEditor();
+            }, 1000);
         }
         
         function closeTemplateEditor() {

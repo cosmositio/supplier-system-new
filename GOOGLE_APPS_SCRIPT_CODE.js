@@ -98,6 +98,12 @@ function doGet(e) {
       case 'getTDS':
         result = getAllTDS();
         break;
+      case 'getTemplates':
+        result = getAllCOATemplates();
+        break;
+      case 'getTemplate':
+        result = getCOATemplate(e.parameter.supplier);
+        break;
       case 'saveTDS':
         let tdsData = null;
         if (e.parameter.data) {
@@ -245,6 +251,15 @@ function doPost(e) {
           coaPData = typeof postData.data === 'string' ? JSON.parse(postData.data) : postData.data;
         }
         result = coaPData ? saveCOARecord(coaPData) : { success: false, error: 'Veri eksik' };
+        break;
+      case 'saveTemplate':
+        let templateData = null;
+        if (postData.template) {
+          templateData = typeof postData.template === 'string' ? JSON.parse(postData.template) : postData.template;
+        } else if (e.parameter.template) {
+          templateData = JSON.parse(e.parameter.template);
+        }
+        result = templateData ? saveCOATemplate(templateData) : { success: false, error: 'Template verisi eksik' };
         break;
       default:
         result = { success: false, error: 'Geçersiz POST action: ' + action };
