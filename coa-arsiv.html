@@ -1216,6 +1216,12 @@
                             📁 Dosya Yükle
                         </button>
                     </div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px; background: #fff3cd; border-radius: 6px;">
+                        <input type="checkbox" id="templateModeCheckbox" style="width: 20px; height: 20px; cursor: pointer;" onchange="toggleTemplateMode()">
+                        <label for="templateModeCheckbox" style="margin: 0; cursor: pointer; font-size: 0.9em; color: #856404;">
+                            🎨 <strong>Template Oluştur</strong> - Yüklenen belge üzerinde bölgeleri işaretleyin
+                        </label>
+                    </div>
                     <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="handleCameraCapture(event)">
                     <input type="file" id="fileInput" accept="image/*,.pdf,.xlsx,.xls,.docx,.doc" style="display:none" onchange="handleFile(this.files[0])">
                     <div class="upload-area" id="uploadArea" style="display: none;">
@@ -1422,6 +1428,81 @@
             <div id="tdsEmptyState" style="text-align: center; padding: 40px; color: #999;">
                 <div style="font-size: 48px; margin-bottom: 15px;">📋</div>
                 <p>Hammadde seçin ve özellikleri tanımlayın</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Template Editor Modal -->
+    <div class="modal" id="templateEditorModal">
+        <span class="modal-close" onclick="closeTemplateEditor()">&times;</span>
+        <div class="modal-content" style="max-width: 98%; width: 1900px; max-height: 98vh; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #e0e0e0;">
+                <h2 style="margin: 0;">🎨 COA Template Editor</h2>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-success" onclick="saveTemplate()">💾 Template Kaydet</button>
+                    <button class="btn btn-secondary" onclick="closeTemplateEditor()">❌ Kapat</button>
+                </div>
+            </div>
+            
+            <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
+                <strong>📋 Talimatlar:</strong> Mouse ile sürükleyerek her özellik için 2 bölge çizin: (1) Özellik adı (sol), (2) COA değeri (requirement sütunu)
+            </div>
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
+                <div>
+                    <label style="font-size: 0.9em; font-weight: 600; margin-right: 5px;">Tedarikçi:</label>
+                    <input type="text" id="templateSupplierName" placeholder="Örn: BASF" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; width: 200px;">
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="clearTemplateRegions()">🗑️ Tümünü Temizle</button>
+            </div>
+            
+            <div style="display: flex; gap: 15px; flex: 1; overflow: hidden;">
+                <div style="flex: 1; border: 2px solid #ddd; border-radius: 6px; overflow: auto; background: #f9f9f9; position: relative;">
+                    <canvas id="templateCanvas" style="cursor: crosshair; display: block;"></canvas>
+                </div>
+                
+                <div style="width: 320px; border: 2px solid #ddd; border-radius: 6px; padding: 12px; overflow-y: auto; background: white;">
+                    <h3 style="color: #2c5f2d; margin-bottom: 12px; font-size: 16px;">📍 Bölgeler (<span id="templateRegionCount">0</span>)</h3>
+                    <div id="templateRegionsList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Template Region Edit Modal -->
+    <div class="modal" id="templateRegionModal" style="z-index: 10001;">
+        <div class="modal-content" style="max-width: 500px; padding: 25px;">
+            <h3 style="color: #2c5f2d; margin-bottom: 20px;">Bölge Bilgileri</h3>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">TDS Özellik Adı:</label>
+                <select id="templatePropertyName" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <option value="">-- Seçiniz --</option>
+                    <option value="Density">Density (Dansite)</option>
+                    <option value="hardness">hardness (Sertlik)</option>
+                    <option value="Fire behavior">Fire behavior (Yanma)</option>
+                    <option value="Thermal conductivity">Thermal conductivity (Isı İletkenliği)</option>
+                    <option value="Emission of VOC">Emission of VOC</option>
+                    <option value="custom">-- Özel Özellik --</option>
+                </select>
+            </div>
+            
+            <div id="templateCustomPropertyGroup" style="margin-bottom: 15px; display: none;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Özel Özellik Adı:</label>
+                <input type="text" id="templateCustomPropertyName" placeholder="Özellik adını girin" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Bölge Tipi:</label>
+                <select id="templateRegionType" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <option value="value">COA Değeri (Requirement Sütunu)</option>
+                    <option value="propertyName">Özellik Adı (Sol Sütun)</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="saveTemplateRegion()">✅ Kaydet</button>
+                <button class="btn btn-danger" onclick="closeTemplateRegionModal()">❌ İptal</button>
             </div>
         </div>
     </div>
@@ -8506,6 +8587,382 @@
             pdf.save(fileName);
             
             showToast('✅ PDF başarıyla oluşturuldu', 'success');
+        }
+        
+        // ==============================================
+        // TEMPLATE EDITOR FUNCTIONS
+        // ==============================================
+        
+        let templateCanvas, templateCtx;
+        let templateRegions = [];
+        let currentTemplateRegion = null;
+        let isTemplateDrawing = false;
+        let templateStartX, templateStartY;
+        let selectedTemplateRegionIndex = null;
+        let templateImageObj = null;
+        let templateScaleFactor = 1;
+        let templateMode = false;
+        let pendingTemplateFile = null;
+        
+        function toggleTemplateMode() {
+            templateMode = document.getElementById('templateModeCheckbox').checked;
+            
+            if (templateMode) {
+                // Template mode ON
+                showToast('🎨 Template modu aktif - Dosya yükleyin', 'info');
+            } else {
+                // Template mode OFF
+                closeTemplateEditor();
+            }
+        }
+        
+        async function handleFile(file) {
+            if (!file) return;
+            
+            if (templateMode) {
+                // Template mode - open editor
+                pendingTemplateFile = file;
+                await openTemplateEditorWithFile(file);
+            } else {
+                // Normal mode - continue with existing logic
+                // Bu kısım mevcut handleFile fonksiyonunun devamı olacak
+                selectedFileData = null;
+                
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    selectedFileData = e.target.result;
+                    
+                    const preview = document.getElementById('filePreview');
+                    preview.innerHTML = '';
+                    
+                    if (file.type.startsWith('image/')) {
+                        const img = document.createElement('img');
+                        img.src = selectedFileData;
+                        img.style.maxWidth = '100%';
+                        img.style.borderRadius = '8px';
+                        preview.appendChild(img);
+                        
+                        if (currentMaterial) {
+                            await startOCRAnalysis(selectedFileData, currentMaterial);
+                        }
+                    } else if (file.type === 'application/pdf') {
+                        const embed = document.createElement('embed');
+                        embed.src = selectedFileData;
+                        embed.type = 'application/pdf';
+                        embed.style.width = '100%';
+                        embed.style.height = '400px';
+                        embed.style.borderRadius = '8px';
+                        preview.appendChild(embed);
+                        
+                        if (currentMaterial) {
+                            await startOCRAnalysis(selectedFileData, currentMaterial);
+                        }
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        async function openTemplateEditorWithFile(file) {
+            // Initialize canvas
+            templateCanvas = document.getElementById('templateCanvas');
+            templateCtx = templateCanvas.getContext('2d');
+            
+            // Clear previous regions
+            templateRegions = [];
+            updateTemplateRegionsList();
+            
+            // Setup event listeners
+            templateCanvas.removeEventListener('mousedown', startTemplateDrawing);
+            templateCanvas.removeEventListener('mousemove', drawTemplate);
+            templateCanvas.removeEventListener('mouseup', stopTemplateDrawing);
+            
+            templateCanvas.addEventListener('mousedown', startTemplateDrawing);
+            templateCanvas.addEventListener('mousemove', drawTemplate);
+            templateCanvas.addEventListener('mouseup', stopTemplateDrawing);
+            
+            // Setup property name dropdown
+            const propSelect = document.getElementById('templatePropertyName');
+            propSelect.removeEventListener('change', toggleTemplateCustomProperty);
+            propSelect.addEventListener('change', toggleTemplateCustomProperty);
+            
+            // Load file
+            if (file.type === 'application/pdf') {
+                await loadTemplatePDF(file);
+            } else {
+                await loadTemplateImage(file);
+            }
+            
+            // Show modal
+            document.getElementById('templateEditorModal').classList.add('show');
+        }
+        
+        function toggleTemplateCustomProperty() {
+            const select = document.getElementById('templatePropertyName');
+            const customGroup = document.getElementById('templateCustomPropertyGroup');
+            customGroup.style.display = select.value === 'custom' ? 'block' : 'none';
+        }
+        
+        async function loadTemplatePDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            const page = await pdf.getPage(1);
+            
+            const viewport = page.getViewport({ scale: 2.0 });
+            templateCanvas.width = viewport.width;
+            templateCanvas.height = viewport.height;
+            
+            const renderContext = {
+                canvasContext: templateCtx,
+                viewport: viewport
+            };
+            
+            await page.render(renderContext).promise;
+            
+            templateImageObj = new Image();
+            templateImageObj.src = templateCanvas.toDataURL();
+            templateScaleFactor = 1;
+        }
+        
+        function loadTemplateImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    templateImageObj = new Image();
+                    templateImageObj.onload = function() {
+                        const maxWidth = 1400;
+                        const maxHeight = 1000;
+                        
+                        let width = templateImageObj.width;
+                        let height = templateImageObj.height;
+                        
+                        if (width > maxWidth) {
+                            templateScaleFactor = maxWidth / width;
+                            width = maxWidth;
+                            height = height * templateScaleFactor;
+                        }
+                        
+                        if (height > maxHeight) {
+                            templateScaleFactor = maxHeight / height;
+                            height = maxHeight;
+                            width = width * templateScaleFactor;
+                        }
+                        
+                        templateCanvas.width = width;
+                        templateCanvas.height = height;
+                        
+                        templateCtx.drawImage(templateImageObj, 0, 0, width, height);
+                        resolve();
+                    };
+                    templateImageObj.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        function startTemplateDrawing(e) {
+            isTemplateDrawing = true;
+            const rect = templateCanvas.getBoundingClientRect();
+            templateStartX = e.clientX - rect.left;
+            templateStartY = e.clientY - rect.top;
+        }
+        
+        function drawTemplate(e) {
+            if (!isTemplateDrawing) return;
+            
+            const rect = templateCanvas.getBoundingClientRect();
+            const currentX = e.clientX - rect.left;
+            const currentY = e.clientY - rect.top;
+            
+            redrawTemplateCanvas();
+            
+            templateCtx.strokeStyle = '#007bff';
+            templateCtx.lineWidth = 2;
+            templateCtx.setLineDash([5, 5]);
+            templateCtx.strokeRect(templateStartX, templateStartY, currentX - templateStartX, currentY - templateStartY);
+            templateCtx.setLineDash([]);
+        }
+        
+        function stopTemplateDrawing(e) {
+            if (!isTemplateDrawing) return;
+            isTemplateDrawing = false;
+            
+            const rect = templateCanvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+            
+            const width = endX - templateStartX;
+            const height = endY - templateStartY;
+            
+            if (Math.abs(width) > 20 && Math.abs(height) > 20) {
+                currentTemplateRegion = {
+                    x: Math.min(templateStartX, endX),
+                    y: Math.min(templateStartY, endY),
+                    width: Math.abs(width),
+                    height: Math.abs(height)
+                };
+                
+                showTemplateRegionModal();
+            } else {
+                redrawTemplateCanvas();
+            }
+        }
+        
+        function redrawTemplateCanvas() {
+            templateCtx.clearRect(0, 0, templateCanvas.width, templateCanvas.height);
+            
+            if (templateImageObj) {
+                templateCtx.drawImage(templateImageObj, 0, 0, templateCanvas.width, templateCanvas.height);
+            }
+            
+            templateRegions.forEach((region, index) => {
+                templateCtx.strokeStyle = index === selectedTemplateRegionIndex ? '#28a745' : '#dc3545';
+                templateCtx.lineWidth = 2;
+                templateCtx.strokeRect(region.x, region.y, region.width, region.height);
+                
+                templateCtx.fillStyle = 'rgba(220, 53, 69, 0.8)';
+                templateCtx.fillRect(region.x, region.y - 25, 150, 25);
+                templateCtx.fillStyle = 'white';
+                templateCtx.font = '12px Arial';
+                templateCtx.fillText(region.propertyName || 'Unnamed', region.x + 5, region.y - 8);
+            });
+        }
+        
+        function showTemplateRegionModal() {
+            document.getElementById('templateRegionModal').classList.add('show');
+            document.getElementById('templatePropertyName').value = '';
+            document.getElementById('templateRegionType').value = 'value';
+            document.getElementById('templateCustomPropertyGroup').style.display = 'none';
+        }
+        
+        function closeTemplateRegionModal() {
+            document.getElementById('templateRegionModal').classList.remove('show');
+            currentTemplateRegion = null;
+            redrawTemplateCanvas();
+        }
+        
+        function saveTemplateRegion() {
+            let propertyName = document.getElementById('templatePropertyName').value;
+            
+            if (propertyName === 'custom') {
+                propertyName = document.getElementById('templateCustomPropertyName').value.trim();
+            }
+            
+            if (!propertyName) {
+                alert('Lütfen özellik adı seçin!');
+                return;
+            }
+            
+            const regionType = document.getElementById('templateRegionType').value;
+            
+            currentTemplateRegion.propertyName = propertyName;
+            currentTemplateRegion.type = regionType;
+            
+            templateRegions.push(currentTemplateRegion);
+            
+            closeTemplateRegionModal();
+            updateTemplateRegionsList();
+            redrawTemplateCanvas();
+        }
+        
+        function updateTemplateRegionsList() {
+            const list = document.getElementById('templateRegionsList');
+            const count = document.getElementById('templateRegionCount');
+            
+            count.textContent = templateRegions.length;
+            
+            list.innerHTML = templateRegions.map((region, index) => `
+                <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 4px; padding: 8px; margin-bottom: 8px; cursor: pointer;" onclick="selectTemplateRegion(${index})">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <span style="font-weight: 600; color: #2c5f2d; font-size: 13px;">${region.propertyName}</span>
+                        <button onclick="deleteTemplateRegion(${index}); event.stopPropagation();" style="background: #dc3545; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 11px;">🗑️</button>
+                    </div>
+                    <div style="font-size: 11px; color: #666;">
+                        ${region.type === 'value' ? 'COA Değeri' : 'Özellik Adı'}<br>
+                        X:${Math.round(region.x)} Y:${Math.round(region.y)} W:${Math.round(region.width)} H:${Math.round(region.height)}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function selectTemplateRegion(index) {
+            selectedTemplateRegionIndex = index;
+            updateTemplateRegionsList();
+            redrawTemplateCanvas();
+        }
+        
+        function deleteTemplateRegion(index) {
+            templateRegions.splice(index, 1);
+            selectedTemplateRegionIndex = null;
+            updateTemplateRegionsList();
+            redrawTemplateCanvas();
+        }
+        
+        function clearTemplateRegions() {
+            if (confirm('Tüm bölgeleri silmek istediğinizden emin misiniz?')) {
+                templateRegions = [];
+                selectedTemplateRegionIndex = null;
+                updateTemplateRegionsList();
+                redrawTemplateCanvas();
+            }
+        }
+        
+        async function saveTemplate() {
+            const supplierName = document.getElementById('templateSupplierName').value.trim();
+            
+            if (!supplierName) {
+                alert('Lütfen tedarikçi adı girin!');
+                return;
+            }
+            
+            if (templateRegions.length === 0) {
+                alert('Lütfen en az bir bölge işaretleyin!');
+                return;
+            }
+            
+            const template = {
+                supplier: supplierName,
+                version: '1.0',
+                createdAt: new Date().toISOString(),
+                canvasWidth: templateCanvas.width,
+                canvasHeight: templateCanvas.height,
+                scaleFactor: templateScaleFactor,
+                regions: templateRegions.map(r => ({
+                    propertyName: r.propertyName,
+                    type: r.type,
+                    x: Math.round(r.x / templateScaleFactor),
+                    y: Math.round(r.y / templateScaleFactor),
+                    width: Math.round(r.width / templateScaleFactor),
+                    height: Math.round(r.height / templateScaleFactor)
+                }))
+            };
+            
+            // Save to Google Sheets
+            try {
+                const response = await google.script.run
+                    .withSuccessHandler(function(result) {
+                        console.log('✅ Template Google Sheets\'e kaydedildi:', result);
+                        showToast('✅ Template başarıyla kaydedildi!', 'success');
+                        closeTemplateEditor();
+                    })
+                    .withFailureHandler(function(error) {
+                        console.error('❌ Template kaydetme hatası:', error);
+                        alert('❌ Template kaydetme hatası: ' + error.message);
+                    })
+                    .saveCOATemplate(template);
+            } catch (error) {
+                console.error('❌ Template kaydetme hatası:', error);
+                alert('❌ Template kaydetme hatası: ' + error.message);
+            }
+        }
+        
+        function closeTemplateEditor() {
+            document.getElementById('templateEditorModal').classList.remove('show');
+            document.getElementById('templateModeCheckbox').checked = false;
+            templateMode = false;
+            templateRegions = [];
+            selectedTemplateRegionIndex = null;
+            pendingTemplateFile = null;
         }
     </script>
 </body>

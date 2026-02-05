@@ -1654,6 +1654,152 @@ function getCOARecords() {
   }
 }
 
+// ==================== COA Template Functions ====================
+
+/**
+ * Save COA Template
+ */
+function saveCOATemplate(templateData) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('COA_Templates');
+    
+    // Create sheet if doesn't exist
+    if (!sheet) {
+      sheet = ss.insertSheet('COA_Templates');
+      sheet.appendRow(['Supplier', 'Version', 'Created At', 'Template JSON']);
+      sheet.getRange('A1:D1').setBackground('#2c5f2d').setFontColor('#ffffff').setFontWeight('bold');
+    }
+    
+    // Check if template already exists for this supplier
+    const data = sheet.getDataRange().getValues();
+    let rowIndex = -1;
+    
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === templateData.supplier) {
+        rowIndex = i + 1; // +1 because array is 0-indexed but sheet is 1-indexed
+        break;
+      }
+    }
+    
+    const templateJson = JSON.stringify(templateData);
+    
+    if (rowIndex > 0) {
+      // Update existing template
+      sheet.getRange(rowIndex, 1, 1, 4).setValues([[
+        templateData.supplier,
+        templateData.version,
+        templateData.createdAt,
+        templateJson
+      ]]);
+    } else {
+      // Add new template
+      sheet.appendRow([
+        templateData.supplier,
+        templateData.version,
+        templateData.createdAt,
+        templateJson
+      ]);
+    }
+    
+    return { 
+      success: true, 
+      message: 'Template saved successfully',
+      supplier: templateData.supplier
+    };
+    
+  } catch(error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Get COA Template by supplier name
+ */
+function getCOATemplate(supplierName) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('COA_Templates');
+    
+    if (!sheet) {
+      return { success: false, error: 'Templates sheet not found' };
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0].toLowerCase() === supplierName.toLowerCase()) {
+        const template = JSON.parse(data[i][3]);
+        return { success: true, data: template };
+      }
+    }
+    
+    return { success: false, error: 'Template not found for supplier: ' + supplierName };
+    
+  } catch(error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Get all COA Templates
+ */
+function getAllCOATemplates() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('COA_Templates');
+    
+    if (!sheet) {
+      return { success: true, data: [] };
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    const templates = [];
+    
+    for (let i = 1; i < data.length; i++) {
+      templates.push({
+        supplier: data[i][0],
+        version: data[i][1],
+        createdAt: data[i][2],
+        template: JSON.parse(data[i][3])
+      });
+    }
+    
+    return { success: true, data: templates };
+    
+  } catch(error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Delete COA Template
+ */
+function deleteCOATemplate(supplierName) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('COA_Templates');
+    
+    if (!sheet) {
+      return { success: false, error: 'Templates sheet not found' };
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0].toLowerCase() === supplierName.toLowerCase()) {
+        sheet.deleteRow(i + 1);
+        return { success: true, message: 'Template deleted successfully' };
+      }
+    }
+    
+    return { success: false, error: 'Template not found' };
+    
+  } catch(error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
 // ==================== Kurulum Talimatları ====================
 /*
 ╔════════════════════════════════════════════════════════════════╗
