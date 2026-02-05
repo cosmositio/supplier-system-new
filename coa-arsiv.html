@@ -1850,17 +1850,18 @@
                 function tryConnect() {
                     const callbackName = 'cb_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
                     const script = document.createElement('script');
+                    script.charset = 'utf-8';
                     
                     const timeout = setTimeout(() => {
                         cleanup();
                         if (currentRetry < retries) {
                             currentRetry++;
-                            console.log(`Bağlantı denemesi ${currentRetry}/${retries}...`);
+                            console.log(`⏱️ Timeout - Bağlantı denemesi ${currentRetry}/${retries}...`);
                             tryConnect();
                         } else {
                             reject(new Error('Timeout - Tüm denemeler başarısız'));
                         }
-                    }, 30000); // 30 saniye timeout (büyük dosyalar için)
+                    }, 15000); // 15 saniye timeout
                     
                     function cleanup() {
                         clearTimeout(timeout);
@@ -1869,22 +1870,30 @@
                     }
                     
                     window[callbackName] = (data) => {
+                        console.log('✅ JSONP callback alındı:', callbackName);
                         cleanup();
                         resolve(data);
                     };
                     
+                    script.onload = () => {
+                        console.log('📜 Script yüklendi, callback bekleniyor...:', callbackName);
+                    };
+                    
                     script.onerror = () => {
+                        console.warn('❌ Script loading hatası:', url);
                         cleanup();
                         if (currentRetry < retries) {
                             currentRetry++;
-                            console.log(`Bağlantı hatası, deneme ${currentRetry}/${retries}...`);
-                            setTimeout(tryConnect, 1000);
+                            console.log(`🔄 Bağlantı hatası, deneme ${currentRetry}/${retries}...`);
+                            setTimeout(tryConnect, 1500);
                         } else {
-                            reject(new Error('Bağlantı kurulamadı'));
+                            reject(new Error('Script loading hatası'));
                         }
                     };
                     
-                    script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + callbackName;
+                    const fullUrl = url + (url.includes('?') ? '&' : '?') + 'callback=' + callbackName;
+                    console.log('🌐 JSONP URL:', fullUrl.substring(0, 150) + '...');
+                    script.src = fullUrl;
                     document.body.appendChild(script);
                 }
                 
@@ -9206,10 +9215,28 @@
             try {
                 console.log('📤 Google Sheets\'e template gönderiliyor...');
                 
-                // JSONP kullanarak template kaydet (GET request)
+                // Image data'yı ÇIKAR - localStorage'da tutulacak
+                // Google Sheets'e sadece metadata göndereceğiz
+                const templateForSheets = {
+                    supplier: template.supplier,
+                    version: template.version,
+                    createdAt: template.createdAt,
+                    regions: template.regions.map(region => ({
+                        name: region.name,
+                        x: region.x,
+                        y: region.y,
+                        width: region.width,
+                        height: region.height,
+                        fieldType: region.fieldType,
+                        properties: region.properties
+                    }))
+                    // imageData GÖNDERME - localStorage'da kalacak
+                };
+                
+                // JSONP kullanarak template kaydet (GET request - metadata only)
                 const result = await jsonpRequest(googleScriptUrl, {
                     action: 'saveTemplate',
-                    template: JSON.stringify(template)
+                    template: JSON.stringify(templateForSheets)
                 }, 2);
                 
                 if (result.success) {
