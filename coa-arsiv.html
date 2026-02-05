@@ -9,7 +9,7 @@
     <!-- PDF.js for PDF compression -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <!-- SheetJS for Excel reading -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <!-- Mammoth.js for Word reading -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <!-- Tesseract.js for OCR -->
@@ -9654,6 +9654,26 @@
         async function loadTemplateExcel(file) {
             try {
                 console.log('📊 Excel dosyası işleniyor...');
+                
+                // Wait for XLSX library to load
+                if (typeof XLSX === 'undefined') {
+                    console.log('⏳ XLSX kütüphanesi yükleniyor...');
+                    await new Promise((resolve, reject) => {
+                        let attempts = 0;
+                        const checkInterval = setInterval(() => {
+                            attempts++;
+                            if (typeof XLSX !== 'undefined') {
+                                clearInterval(checkInterval);
+                                console.log('✅ XLSX kütüphanesi yüklendi');
+                                resolve();
+                            } else if (attempts > 50) { // 5 seconds timeout
+                                clearInterval(checkInterval);
+                                reject(new Error('XLSX kütüphanesi yüklenemedi'));
+                            }
+                        }, 100);
+                    });
+                }
+                
                 const arrayBuffer = await file.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
                 const firstSheetName = workbook.SheetNames[0];
@@ -9688,6 +9708,25 @@
                     headers.forEach(th => {
                         th.style.backgroundColor = '#f0f0f0';
                         th.style.fontWeight = 'bold';
+                    });
+                }
+                
+                // Wait for html2canvas library to load
+                if (typeof html2canvas === 'undefined') {
+                    console.log('⏳ html2canvas kütüphanesi yükleniyor...');
+                    await new Promise((resolve, reject) => {
+                        let attempts = 0;
+                        const checkInterval = setInterval(() => {
+                            attempts++;
+                            if (typeof html2canvas !== 'undefined') {
+                                clearInterval(checkInterval);
+                                console.log('✅ html2canvas kütüphanesi yüklendi');
+                                resolve();
+                            } else if (attempts > 50) { // 5 seconds timeout
+                                clearInterval(checkInterval);
+                                reject(new Error('html2canvas kütüphanesi yüklenemedi'));
+                            }
+                        }, 100);
                     });
                 }
                 
@@ -9727,6 +9766,26 @@
         async function loadTemplateWord(file) {
             try {
                 console.log('📝 Word dosyası işleniyor...');
+                
+                // Wait for mammoth library to load
+                if (typeof mammoth === 'undefined') {
+                    console.log('⏳ Mammoth kütüphanesi yükleniyor...');
+                    await new Promise((resolve, reject) => {
+                        let attempts = 0;
+                        const checkInterval = setInterval(() => {
+                            attempts++;
+                            if (typeof mammoth !== 'undefined') {
+                                clearInterval(checkInterval);
+                                console.log('✅ Mammoth kütüphanesi yüklendi');
+                                resolve();
+                            } else if (attempts > 50) { // 5 seconds timeout
+                                clearInterval(checkInterval);
+                                reject(new Error('Mammoth kütüphanesi yüklenemedi'));
+                            }
+                        }, 100);
+                    });
+                }
+                
                 const arrayBuffer = await file.arrayBuffer();
                 const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
                 
@@ -9756,6 +9815,25 @@
                         cell.style.padding = '8px';
                     });
                 });
+                
+                // Wait for html2canvas library to load
+                if (typeof html2canvas === 'undefined') {
+                    console.log('⏳ html2canvas kütüphanesi yükleniyor...');
+                    await new Promise((resolve, reject) => {
+                        let attempts = 0;
+                        const checkInterval = setInterval(() => {
+                            attempts++;
+                            if (typeof html2canvas !== 'undefined') {
+                                clearInterval(checkInterval);
+                                console.log('✅ html2canvas kütüphanesi yüklendi');
+                                resolve();
+                            } else if (attempts > 50) { // 5 seconds timeout
+                                clearInterval(checkInterval);
+                                reject(new Error('html2canvas kütüphanesi yüklenemedi'));
+                            }
+                        }, 100);
+                    });
+                }
                 
                 // Convert to canvas using html2canvas (scale 1 for precise positioning)
                 const canvas = await html2canvas(tempDiv, {
