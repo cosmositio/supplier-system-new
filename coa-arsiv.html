@@ -8026,11 +8026,15 @@
         }
         
         // TDS modalını aç
-        function openTDSModal(preselectedMaterialCode = null) {
+        async function openTDSModal(preselectedMaterialCode = null) {
             if (materials.length === 0) {
                 showToast('⚠️ Önce Excel yükleyip hammadde listesini oluşturun', 'warning');
                 return;
             }
+            
+            // Google Sheets'ten TDS verilerini yükle (en güncel verileri al)
+            console.log('☁️ TDS Modal açılıyor, Sheets\'ten veriler yükleniyor...');
+            await loadTDSFromGoogleSheets();
             
             // API key'leri ve OCR engine'i input'lara yükle
             const apiKeyInput = document.getElementById('ocrApiKeyInput');
