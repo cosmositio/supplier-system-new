@@ -5592,7 +5592,9 @@
                             }
                             
                             // Temizle ve kaydet
-                            const cleanText = ocrText.trim().replace(/\s+/g, ' ');
+                            let cleanText = ocrText.trim().replace(/\s+/g, ' ');
+                            // Nokta-boşluk-rakam formatını düzelt (10. 5 → 10.5)
+                            cleanText = cleanText.replace(/(\d+)\.\s+(\d+)/g, '$1.$2');
                             
                             if (cleanText) {
                                 properties[region.propertyName] = cleanText;
@@ -5607,8 +5609,8 @@
                             showToast(`⚠️ ${region.propertyName} okunamadı`, 'warning', 2000);
                         }
                         
-                        // API rate limit için bekleme (Azure için daha uzun)
-                        const waitTime = ocrEngine === 'azure' ? 2000 : 500;
+                        // API rate limit için bekleme (optimize edilmiş)
+                        const waitTime = ocrEngine === 'azure' ? 1000 : 300;
                         await new Promise(resolve => setTimeout(resolve, waitTime));
                     }
                     
