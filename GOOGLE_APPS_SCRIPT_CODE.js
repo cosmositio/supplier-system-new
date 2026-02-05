@@ -1,7 +1,8 @@
 // ==========================================
 // COA ARŞİV - Google Apps Script Backend
 // Bu kodu Google Apps Script'e yapıştırın
-// Version: 2.0 - Geliştirilmiş Dosya Yükleme
+// Version: 2.1 - JSONP + CORS Tam Desteği
+// Deploy Date: 05.02.2026
 // ==========================================
 
 // Sheet adı
@@ -351,7 +352,9 @@ function testConnection() {
     
     return { 
       success: true, 
-      message: 'Bağlantı başarılı!', 
+      message: 'Bağlantı başarılı!',
+      version: '2.1',
+      deployDate: '05.02.2026',
       time: new Date().toISOString(),
       sheetName: sheet.getName(),
       folderName: folder.getName(),
