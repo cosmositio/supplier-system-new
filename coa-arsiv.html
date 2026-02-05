@@ -1927,8 +1927,34 @@
             document.getElementById('statusText').textContent = 'Bağlanıyor...';
             
             try {
-                // JSONP kullanarak CORS bypass
-                const data = await jsonpRequest(url, { action: 'test' }, 2);
+                // XMLHttpRequest POST ile test
+                const data = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.timeout = 10000;
+                    
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            try {
+                                resolve(JSON.parse(xhr.responseText));
+                            } catch(e) {
+                                reject(new Error('JSON parse hatası'));
+                            }
+                        } else {
+                            reject(new Error('HTTP ' + xhr.status));
+                        }
+                    };
+                    
+                    xhr.onerror = () => reject(new Error('Bağlantı hatası'));
+                    xhr.ontimeout = () => reject(new Error('Zaman aşımı'));
+                    
+                    xhr.open('POST', url, true);
+                    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                    
+                    const formData = new URLSearchParams();
+                    formData.append('action', 'test');
+                    
+                    xhr.send(formData.toString());
+                });
                 
                 if (data.success) {
                     googleScriptUrl = url;
@@ -2062,8 +2088,28 @@
             if (!googleScriptUrl) return;
             
             try {
-                const url = googleScriptUrl + '?action=getStats';
-                const result = await jsonp(url);
+                const result = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.timeout = 10000;
+                    
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            try {
+                                resolve(JSON.parse(xhr.responseText));
+                            } catch(e) {
+                                reject(new Error('JSON parse hatası'));
+                            }
+                        } else {
+                            reject(new Error('HTTP ' + xhr.status));
+                        }
+                    };
+                    
+                    xhr.onerror = () => reject(new Error('Network error'));
+                    xhr.ontimeout = () => reject(new Error('Timeout'));
+                    
+                    xhr.open('GET', googleScriptUrl + '?action=getStats', true);
+                    xhr.send();
+                });
                 
                 if (result && result.success && result.data) {
                     const stats = result.data;
@@ -6677,16 +6723,40 @@
             }
             
             try {
-                const result = await jsonpRequest(googleScriptUrl, {
-                    action: 'saveTDS',
-                    materialCode: materialCode,
-                    data: JSON.stringify(properties)
+                const result = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.timeout = 10000;
+                    
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            try {
+                                resolve(JSON.parse(xhr.responseText));
+                            } catch(e) {
+                                reject(new Error('JSON parse hatası'));
+                            }
+                        } else {
+                            reject(new Error('HTTP ' + xhr.status));
+                        }
+                    };
+                    
+                    xhr.onerror = () => reject(new Error('Network error'));
+                    xhr.ontimeout = () => reject(new Error('Timeout'));
+                    
+                    xhr.open('POST', googleScriptUrl, true);
+                    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                    
+                    const formData = new URLSearchParams();
+                    formData.append('action', 'saveTDS');
+                    formData.append('materialCode', materialCode);
+                    formData.append('data', JSON.stringify(properties));
+                    
+                    xhr.send(formData.toString());
                 });
                 
-                if (result.success) {
+                if (result && result.success) {
                     console.log('☁️ TDS Google Sheets\'e kaydedildi:', materialCode);
                 } else {
-                    console.error('❌ Google Sheets kayıt hatası:', result.error);
+                    console.error('❌ Google Sheets kayıt hatası:', result?.error);
                 }
             } catch(error) {
                 console.error('❌ Google Sheets senkronizasyon hatası:', error);
@@ -6996,8 +7066,32 @@
             }
             
             try {
-                console.log('☁️ Google Sheets\'ten TDS verileri yükleniyor...');
-                const result = await jsonpRequest(googleScriptUrl, { action: 'getTDS' }, 1);
+                console.log('☁️ Google Sheets\'ten TDS verileri yükleniyor (XMLHttpRequest)...');
+                
+                const result = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.timeout = 10000;
+                    
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            try {
+                                resolve(JSON.parse(xhr.responseText));
+                            } catch(e) {
+                                reject(new Error('JSON parse hatası'));
+                            }
+                        } else {
+                            reject(new Error('HTTP ' + xhr.status));
+                        }
+                    };
+                    
+                    xhr.onerror = () => reject(new Error('Network error'));
+                    xhr.ontimeout = () => reject(new Error('Timeout'));
+                    
+                    xhr.open('GET', googleScriptUrl + '?action=getTDS', true);
+                    xhr.send();
+                });
+                
+                console.log('📦 TDS response:', result);
                 
                 if (result && result.success && result.data) {
                     Object.keys(result.data).forEach(materialCode => {
@@ -7020,12 +7114,45 @@
         
         // Load templates from Google Sheets
         async function loadTemplatesFromGoogleSheets() {
+            if (!googleScriptUrl) {
+                console.log('⚠️ Google Script URL yok');
+                return;
+            }
+            
             try {
-                const result = await jsonpRequest(googleScriptUrl, { action: 'getTemplates' });
-                if (result.success && result.data) {
+                console.log('☁️ Google Sheets\'ten Template\'ler yükleniyor (XMLHttpRequest)...');
+                
+                const result = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.timeout = 10000;
+                    
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            try {
+                                resolve(JSON.parse(xhr.responseText));
+                            } catch(e) {
+                                reject(new Error('JSON parse hatası'));
+                            }
+                        } else {
+                            reject(new Error('HTTP ' + xhr.status));
+                        }
+                    };
+                    
+                    xhr.onerror = () => reject(new Error('Network error'));
+                    xhr.ontimeout = () => reject(new Error('Timeout'));
+                    
+                    xhr.open('GET', googleScriptUrl + '?action=getAllCOATemplates', true);
+                    xhr.send();
+                });
+                
+                console.log('📦 Template response:', result);
+                
+                if (result && result.success && result.data) {
                     localStorage.setItem('coaTemplates', JSON.stringify(result.data));
                     console.log('✅ Template listesi güncellendi:', result.data.length);
                     updateTemplateDropdown();
+                } else {
+                    console.log('⚠️ Template listesi boş veya hata');
                 }
             } catch (error) {
                 console.warn('⚠️ Template listesi yüklenemedi:', error.message);
@@ -8047,10 +8174,31 @@
             try {
                 showToast('📊 Veriler yükleniyor...', 'info');
                 
-                const result = await jsonpRequest(googleScriptUrl, { action: 'getCOARecords' });
+                const result = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.timeout = 15000;
+                    
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            try {
+                                resolve(JSON.parse(xhr.responseText));
+                            } catch(e) {
+                                reject(new Error('JSON parse hatası'));
+                            }
+                        } else {
+                            reject(new Error('HTTP ' + xhr.status));
+                        }
+                    };
+                    
+                    xhr.onerror = () => reject(new Error('Network error'));
+                    xhr.ontimeout = () => reject(new Error('Timeout'));
+                    
+                    xhr.open('GET', googleScriptUrl + '?action=getCOARecords', true);
+                    xhr.send();
+                });
                 
-                if (!result.success) {
-                    showToast('❌ Veri yüklenemedi: ' + result.error, 'error');
+                if (!result || !result.success) {
+                    showToast('❌ Veri yüklenemedi: ' + (result?.error || 'Bilinmeyen hata'), 'error');
                     return;
                 }
                 
@@ -9211,33 +9359,67 @@
         }
         
         async function saveTemplateToGoogleSheets(template) {
-            // Template localStorage'da kaydedildi, Google Sheets senkronizasyonu opsiyonel
             console.log('💾 Template localStorage\'da kaydedildi');
             
-            // Google Sheets'e gönderebilirsen gönder ama başarısız olursa problem değil
+            // Google Sheets'e kaydet (XMLHttpRequest POST)
             if (googleScriptUrl) {
-                setTimeout(async () => {
-                    try {
-                        console.log('📤 Google Sheets\'e template bilgisi gönderiliyor... (opsiyonel)');
+                try {
+                    console.log('📤 Google Sheets\'e template gönderiliyor (XMLHttpRequest POST)...');
+                    
+                    // imageData olmadan template gönder, regions ile birlikte
+                    const templateForSheets = {
+                        supplier: template.supplier,
+                        version: template.version,
+                        createdAt: template.createdAt,
+                        canvasWidth: template.canvasWidth,
+                        canvasHeight: template.canvasHeight,
+                        scaleFactor: template.scaleFactor,
+                        regions: template.regions
+                    };
+                    
+                    const result = await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.timeout = 15000;
                         
-                        const templateForSheets = {
-                            supplier: template.supplier,
-                            version: template.version,
-                            createdAt: template.createdAt
+                        xhr.onload = function() {
+                            if (xhr.status === 200) {
+                                try {
+                                    resolve(JSON.parse(xhr.responseText));
+                                } catch(e) {
+                                    reject(new Error('JSON parse hatası'));
+                                }
+                            } else {
+                                reject(new Error('HTTP ' + xhr.status));
+                            }
                         };
                         
-                        const result = await jsonpRequest(googleScriptUrl, {
-                            action: 'saveTemplate',
-                            template: JSON.stringify(templateForSheets)
-                        }, 1);
+                        xhr.onerror = () => reject(new Error('Network error'));
+                        xhr.ontimeout = () => reject(new Error('Timeout'));
                         
-                        if (result.success) {
-                            console.log('☁️ Template metadata Google Sheets\'e gönderildi');
-                        }
-                    } catch (error) {
-                        console.warn('⚠️ Google Sheets senkronizasyonu başarısız (önemsiz):', error.message);
+                        xhr.open('POST', googleScriptUrl, true);
+                        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                        
+                        const formData = new URLSearchParams();
+                        formData.append('action', 'saveTemplate');
+                        formData.append('template', JSON.stringify(templateForSheets));
+                        
+                        xhr.send(formData.toString());
+                    });
+                    
+                    if (result && result.success) {
+                        console.log('✅ Template Google Sheets\'e kaydedildi');
+                        showToast('✅ Template başarıyla kaydedildi!', 'success');
+                        
+                        // Template listesini güncelle
+                        await loadTemplatesFromGoogleSheets();
+                    } else {
+                        console.warn('⚠️ Template kaydedilemedi:', result?.error);
+                        showToast('⚠️ Template sadece local\'de', 'warning');
                     }
-                }, 1000);
+                } catch (error) {
+                    console.warn('⚠️ Google Sheets template kaydetme hatası:', error.message);
+                    showToast('⚠️ Template sadece local\'de', 'warning');
+                }
             }
             
             closeTemplateEditor();
