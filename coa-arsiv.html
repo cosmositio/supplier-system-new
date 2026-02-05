@@ -1224,7 +1224,7 @@
                         </label>
                     </div>
                     <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="handleCameraCapture(event)">
-                    <input type="file" id="fileInput" accept="image/*,.pdf,.xlsx,.xls,.docx,.doc" style="display:none" onchange="handleFile(this.files[0])">
+                    <input type="file" id="fileInput" accept="image/*,.pdf,.xlsx,.xls,.docx,.doc" style="display:none">
                     <div class="upload-area" id="uploadArea" style="display: none;">
                         <div class="upload-icon">📄</div>
                         <div class="upload-text">Fotoğraf veya PDF sürükleyin<br>veya tıklayarak seçin</div>
@@ -1606,6 +1606,7 @@
         let currentTDSMaterial = null; // Şu an düzenlenen TDS hammaddesi
         let lastOCRMaterialCode = null; // Son OCR yapılan hammadde (modal açılışta değerleri korumak için)
         let currentRenderTask = null; // Aktif PDF render işlemi
+        let isProcessingFile = false; // Dosya işleme kilidi
         
         // Dosya tipine göre ikon oluştur
         function getFileIcon(fileName, fileType, itemId) {
@@ -4014,27 +4015,41 @@
         async function handleFile(file) {
             if (!file) return;
             
+            // Eğer dosya işleme devam ediyorsa, çıkış yap (duplicate event)
+            if (isProcessingFile) {
+                console.log('⚠️ Dosya zaten işleniyor, duplicate event atlandı');
+                return;
+            }
+            
+            isProcessingFile = true;
             console.log('📁 handleFile çağrıldı:', file.name, 'Template mode:', templateMode);
             
             // Template mode kontrolü
             if (templateMode) {
                 console.log('🎨 Template mode aktif - Editor açılacak');
                 pendingTemplateFile = file;
-                await openTemplateEditorWithFile(file);
+                try {
+                    await openTemplateEditorWithFile(file);
+                } catch (error) {
+                    console.error('❌ Template editor hatası:', error);
+                } finally {
+                    isProcessingFile = false;
+                }
                 return;
             }
             
             console.log('📋 Normal mode - COA kaydı oluşturulacak');
             
             // Normal mode
-            selectedFile = file;
-            const uploadArea = document.getElementById('uploadArea');
-            const preview = document.getElementById('filePreview');
-            
-            uploadArea.classList.add('has-file');
-            
-            const fileSizeKB = Math.round(file.size / 1024);
-            showToast('📁 Dosya: ' + file.name + ' (' + fileSizeKB + 'KB)', 'info');
+            try {
+                selectedFile = file;
+                const uploadArea = document.getElementById('uploadArea');
+                const preview = document.getElementById('filePreview');
+                
+                uploadArea.classList.add('has-file');
+                
+                const fileSizeKB = Math.round(file.size / 1024);
+                showToast('📁 Dosya: ' + file.name + ' (' + fileSizeKB + 'KB)', 'info');
             
             // PDF - ORJİNAL olarak sakla, resme dönüştürme
             if (file.type === 'application/pdf') {
@@ -4046,6 +4061,7 @@
                     
                     // PDF yüklendikten sonra OCR başlat
                     startOCRAnalysis();
+                    isProcessingFile = false; // OCR arka planda devam edecek
                 };
                 reader.readAsDataURL(file);
             }
@@ -4056,6 +4072,7 @@
                     selectedFileData = e.target.result;
                     preview.innerHTML = '<div class="file-name" style="color:#107c41;">📊 ' + file.name + ' (Excel - orjinal)</div>';
                     showToast('✅ Excel dosyası hazır', 'success');
+                    isProcessingFile = false;
                 };
                 reader.readAsDataURL(file);
             }
@@ -4066,6 +4083,7 @@
                     selectedFileData = e.target.result;
                     preview.innerHTML = '<div class="file-name" style="color:#2b579a;">📝 ' + file.name + ' (Word - orjinal)</div>';
                     showToast('✅ Word dosyası hazır', 'success');
+                    isProcessingFile = false;
                 };
                 reader.readAsDataURL(file);
             }
@@ -4143,6 +4161,7 @@
                         
                         window.originalFileDataForOCR = result || canvas.toDataURL('image/jpeg', 0.70);
                         startOCRAnalysis();
+                        isProcessingFile = false; // OCR arka planda devam edecek
                     };
                     img.src = e.target.result; // ORİJİNAL dosyadan oku
                 };
@@ -4163,8 +4182,14 @@
                     } else {
                         preview.innerHTML = '<div class="file-name">📄 ' + file.name + '</div>';
                     }
+                    
+                    isProcessingFile = false; // Kilidi serbest bırak
                 };
                 reader.readAsDataURL(file);
+            } catch (error) {
+                console.error('❌ Dosya işleme hatası:', error);
+                showToast('❌ Dosya yüklenemedi', 'error');
+                isProcessingFile = false;
             }
         }
         
@@ -8974,19 +8999,37 @@
                 }))
             };
             
-            // Save to Google Sheets
+            // Save to localStorage and optionally Google Sheets
             try {
-                const response = await google.script.run
-                    .withSuccessHandler(function(result) {
-                        console.log('✅ Template Google Sheets\'e kaydedildi:', result);
-                        showToast('✅ Template başarıyla kaydedildi!', 'success');
-                        closeTemplateEditor();
-                    })
-                    .withFailureHandler(function(error) {
-                        console.error('❌ Template kaydetme hatası:', error);
-                        alert('❌ Template kaydetme hatası: ' + error.message);
-                    })
-                    .saveCOATemplate(template);
+                // LocalStorage'a kaydet
+                const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
+                templates.push(template);
+                localStorage.setItem('coaTemplates', JSON.stringify(templates));
+                console.log('✅ Template localStorage\'a kaydedildi');
+                
+                // Google Sheets'e kaydetmeyi dene (opsiyonel)
+                try {
+                    const response = await fetch(googleScriptUrl, {
+                        method: 'POST',
+                        mode: 'cors',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: 'saveTemplate',
+                            template: template
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        console.log('✅ Template Google Sheets\'e de kaydedildi');
+                    }
+                } catch (gsError) {
+                    console.log('⚠️ Google Sheets kaydetme başarısız (localStorage\'da mevcut):', gsError.message);
+                }
+                
+                showToast('✅ Template başarıyla kaydedildi!', 'success');
+                closeTemplateEditor();
             } catch (error) {
                 console.error('❌ Template kaydetme hatası:', error);
                 alert('❌ Template kaydetme hatası: ' + error.message);
