@@ -1360,7 +1360,7 @@
                 </div>
                 
                 <!-- Sayfalama Kontrolü -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <label style="font-size: 0.9em; color: #666;">Sayfa başına kayıt:</label>
                         <select id="rowsPerPage" onchange="changeRowsPerPage()" style="padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em;">
@@ -1371,6 +1371,11 @@
                             <option value="all">Tümü</option>
                         </select>
                     </div>
+                    
+                    <!-- Sayfa Numaraları -->
+                    <div id="paginationControls" style="display: flex; align-items: center; gap: 5px;">
+                    </div>
+                    
                     <div id="recordInfo" style="font-size: 0.9em; color: #666;">
                         Toplam: 0 kayıt
                     </div>
@@ -1762,6 +1767,7 @@
         let lastOCRMaterialCode = null; // Son OCR yapılan hammadde (modal açılışta değerleri korumak için)
         let currentRenderTask = null; // Aktif PDF render işlemi
         let isProcessingFile = false; // Dosya işleme kilidi
+        let currentPage = 1; // Aktif sayfa numarası
         
         // Template özellik adları (localStorage'dan yüklenecek)
         let templatePropertyNames = [
@@ -5253,9 +5259,24 @@
             const rowsPerPage = rowsPerPageSelect ? rowsPerPageSelect.value : '25';
             
             let displayData = filtered;
+            let totalPages = 1;
+            
             if (rowsPerPage !== 'all') {
-                displayData = filtered.slice(0, parseInt(rowsPerPage));
+                const rowsPerPageNum = parseInt(rowsPerPage);
+                totalPages = Math.ceil(filtered.length / rowsPerPageNum);
+                
+                // Sayfa numarası kontrol (geçerli aralıkta mı?)
+                if (currentPage > totalPages) currentPage = totalPages;
+                if (currentPage < 1) currentPage = 1;
+                
+                // Mevcut sayfadaki verileri al
+                const startIndex = (currentPage - 1) * rowsPerPageNum;
+                const endIndex = startIndex + rowsPerPageNum;
+                displayData = filtered.slice(startIndex, endIndex);
             }
+            
+            // Sayfa kontrollerini render et
+            renderPaginationControls(totalPages, filtered.length, rowsPerPage);
             
             // Kayıt bilgisi güncelle
             if (recordInfo) {
@@ -5264,7 +5285,9 @@
                 } else if (rowsPerPage === 'all') {
                     recordInfo.textContent = `Toplam: ${filtered.length} kayıt`;
                 } else {
-                    recordInfo.textContent = `${displayData.length} / ${filtered.length} kayıt gösteriliyor`;
+                    const startRecord = (currentPage - 1) * parseInt(rowsPerPage) + 1;
+                    const endRecord = Math.min(currentPage * parseInt(rowsPerPage), filtered.length);
+                    recordInfo.textContent = `${startRecord}-${endRecord} / ${filtered.length} kayıt`;
                 }
             }
             
@@ -5338,12 +5361,98 @@
         }
         
         function filterList() {
+            currentPage = 1; // Filtre değişince ilk sayfaya dön
             renderTable();
+        }
+        
+        function renderPaginationControls(totalPages, totalRecords, rowsPerPage) {
+            const container = document.getElementById('paginationControls');
+            if (!container) return;
+            
+            // Eğer "Tümü" seçiliyse veya tek sayfa varsa gösterme
+            if (rowsPerPage === 'all' || totalPages <= 1) {
+                container.innerHTML = '';
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'flex';
+            container.innerHTML = '';
+            
+            // Önceki butonu
+            const prevBtn = document.createElement('button');
+            prevBtn.innerHTML = '← Önceki';
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.onclick = () => goToPage(currentPage - 1);
+            prevBtn.style.cssText = 'padding: 5px 10px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-size: 0.85em; ' + (currentPage === 1 ? 'opacity: 0.5; cursor: not-allowed;' : '');
+            container.appendChild(prevBtn);
+            
+            // Sayfa numaraları (max 7 sayfa göster)
+            let startPage = Math.max(1, currentPage - 3);
+            let endPage = Math.min(totalPages, startPage + 6);
+            
+            // Eğer sonda isek, başlangıcı ayarla
+            if (endPage - startPage < 6) {
+                startPage = Math.max(1, endPage - 6);
+            }
+            
+            // İlk sayfa
+            if (startPage > 1) {
+                addPageButton(container, 1);
+                if (startPage > 2) {
+                    const dots = document.createElement('span');
+                    dots.textContent = '...';
+                    dots.style.cssText = 'padding: 5px 10px; color: #666;';
+                    container.appendChild(dots);
+                }
+            }
+            
+            // Sayfa numaraları
+            for (let i = startPage; i <= endPage; i++) {
+                addPageButton(container, i);
+            }
+            
+            // Son sayfa
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const dots = document.createElement('span');
+                    dots.textContent = '...';
+                    dots.style.cssText = 'padding: 5px 10px; color: #666;';
+                    container.appendChild(dots);
+                }
+                addPageButton(container, totalPages);
+            }
+            
+            // Sonraki butonu
+            const nextBtn = document.createElement('button');
+            nextBtn.innerHTML = 'Sonraki →';
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.onclick = () => goToPage(currentPage + 1);
+            nextBtn.style.cssText = 'padding: 5px 10px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-size: 0.85em; ' + (currentPage === totalPages ? 'opacity: 0.5; cursor: not-allowed;' : '');
+            container.appendChild(nextBtn);
+        }
+        
+        function addPageButton(container, pageNum) {
+            const btn = document.createElement('button');
+            btn.textContent = pageNum;
+            btn.onclick = () => goToPage(pageNum);
+            const isActive = pageNum === currentPage;
+            btn.style.cssText = 'padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 0.85em; min-width: 35px; ' +
+                (isActive ? 'background: #4CAF50; color: white; font-weight: bold; border-color: #4CAF50;' : 'background: white; color: #333;');
+            container.appendChild(btn);
+        }
+        
+        function goToPage(pageNum) {
+            currentPage = pageNum;
+            renderTable();
+            // Sayfanın üstüne scroll
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         
         function changeRowsPerPage() {
             const select = document.getElementById('rowsPerPage');
             if (select) {
+                currentPage = 1; // Sayfa başına kayıt değişince ilk sayfaya dön
                 localStorage.setItem('rowsPerPage', select.value);
                 renderTable();
             }
