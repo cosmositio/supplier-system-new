@@ -1544,21 +1544,23 @@
             <h3 style="color: #2c5f2d; margin-bottom: 20px;">Bölge Bilgileri</h3>
             
             <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">TDS Özellik Adı:</label>
-                <select id="templatePropertyName" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <label style="font-weight: 600;">TDS Özellik Adı:</label>
+                    <button type="button" onclick="showAddPropertyModal()" style="background: #28a745; color: white; border: none; padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;">➕ Ekle</button>
+                </div>
+                <select id="templatePropertyName" onchange="handlePropertyNameChange()" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
                     <option value="">-- Seçiniz --</option>
-                    <option value="Density">Density (Dansite)</option>
-                    <option value="hardness">hardness (Sertlik)</option>
-                    <option value="Fire behavior">Fire behavior (Yanma)</option>
-                    <option value="Thermal conductivity">Thermal conductivity (Isı İletkenliği)</option>
-                    <option value="Emission of VOC">Emission of VOC</option>
-                    <option value="custom">-- Özel Özellik --</option>
                 </select>
             </div>
             
-            <div id="templateCustomPropertyGroup" style="margin-bottom: 15px; display: none;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Özel Özellik Adı:</label>
-                <input type="text" id="templateCustomPropertyName" placeholder="Özellik adını girin" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+            <div id="templateSelectedPropertyInfo" style="margin-bottom: 15px; display: none; background: #e8f5e9; padding: 10px; border-radius: 4px; border-left: 4px solid #4caf50;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 12px; color: #2e7d32; font-weight: 600;">Seçili Özellik:</div>
+                        <div id="selectedPropertyDisplay" style="font-size: 14px; color: #1b5e20; font-weight: 500; margin-top: 2px;"></div>
+                    </div>
+                    <button type="button" onclick="removeSelectedProperty()" style="background: #dc3545; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;">🗑️ Sil</button>
+                </div>
             </div>
             
             <div style="margin-bottom: 15px;">
@@ -1744,6 +1746,15 @@
         let currentRenderTask = null; // Aktif PDF render işlemi
         let isProcessingFile = false; // Dosya işleme kilidi
         
+        // Template özellik adları (localStorage'dan yüklenecek)
+        let templatePropertyNames = [
+            'Density',
+            'hardness',
+            'Fire behavior',
+            'Thermal conductivity',
+            'Emission of VOC'
+        ];
+        
         // Dosya tipine göre ikon oluştur
         function getFileIcon(fileName, fileType, itemId) {
             // Dosya uzantısını al
@@ -1856,6 +1867,10 @@
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                 console.log('✅ PDF.js worker ayarlandı');
             }
+            
+            // Load template property names from localStorage
+            loadTemplatePropertyNames();
+            updateTemplatePropertyDropdown();
             
             // Kütüphane yükleme kontrolü
             console.log('📚 Kütüphane kontrolü:');
@@ -9633,11 +9648,6 @@
             templateCanvas.addEventListener('mousemove', drawTemplate);
             templateCanvas.addEventListener('mouseup', stopTemplateDrawing);
             
-            // Setup property name dropdown
-            const propSelect = document.getElementById('templatePropertyName');
-            propSelect.removeEventListener('change', toggleTemplateCustomProperty);
-            propSelect.addEventListener('change', toggleTemplateCustomProperty);
-            
             // Load file
             console.log('📄 Dosya yükleniyor:', file.type);
             const isExcel = file.type.includes('spreadsheet') || file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls');
@@ -9656,12 +9666,6 @@
             // Show modal
             console.log('🎨 Modal gösteriliyor');
             document.getElementById('templateEditorModal').classList.add('show');
-        }
-        
-        function toggleTemplateCustomProperty() {
-            const select = document.getElementById('templatePropertyName');
-            const customGroup = document.getElementById('templateCustomPropertyGroup');
-            customGroup.style.display = select.value === 'custom' ? 'block' : 'none';
         }
         
         async function loadTemplatePDF(file) {
@@ -10113,17 +10117,137 @@
             });
         }
         
+        // ==================== Template Property Management ====================
+        function loadTemplatePropertyNames() {
+            const saved = localStorage.getItem('template_property_names');
+            if (saved) {
+                try {
+                    templatePropertyNames = JSON.parse(saved);
+                    console.log('📋 Template özellik adları yüklendi:', templatePropertyNames.length);
+                } catch (e) {
+                    console.error('❌ Template property names parse hatası:', e);
+                }
+            }
+        }
+        
+        function saveTemplatePropertyNames() {
+            localStorage.setItem('template_property_names', JSON.stringify(templatePropertyNames));
+        }
+        
+        function updateTemplatePropertyDropdown() {
+            const select = document.getElementById('templatePropertyName');
+            if (!select) return;
+            
+            const currentValue = select.value;
+            
+            // Clear existing options except first
+            select.innerHTML = '<option value="">-- Seçiniz --</option>';
+            
+            // Add all property names
+            templatePropertyNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+            
+            // Restore selection if it still exists
+            if (currentValue && templatePropertyNames.includes(currentValue)) {
+                select.value = currentValue;
+            }
+            
+            console.log('🔄 Template property dropdown güncellendi:', templatePropertyNames.length, 'özellik');
+        }
+        
+        function handlePropertyNameChange() {
+            const select = document.getElementById('templatePropertyName');
+            const selectedValue = select.value;
+            const infoDiv = document.getElementById('templateSelectedPropertyInfo');
+            const displayDiv = document.getElementById('selectedPropertyDisplay');
+            
+            if (selectedValue) {
+                infoDiv.style.display = 'block';
+                displayDiv.textContent = selectedValue;
+            } else {
+                infoDiv.style.display = 'none';
+            }
+        }
+        
+        function showAddPropertyModal() {
+            const propertyName = prompt('🎯 Yeni TDS özellik adını girin:');
+            if (propertyName && propertyName.trim()) {
+                addPropertyToList(propertyName.trim());
+            }
+        }
+        
+        function addPropertyToList(propertyName) {
+            // Check if already exists (case insensitive)
+            const exists = templatePropertyNames.some(name => 
+                name.toLowerCase() === propertyName.toLowerCase()
+            );
+            
+            if (exists) {
+                showToast('⚠️ Bu özellik zaten listede mevcut', 'warning');
+                return false;
+            }
+            
+            // Add to list
+            templatePropertyNames.push(propertyName);
+            saveTemplatePropertyNames();
+            updateTemplatePropertyDropdown();
+            
+            // Auto-select the new property
+            document.getElementById('templatePropertyName').value = propertyName;
+            handlePropertyNameChange();
+            
+            showToast(`✅ "${propertyName}" listeye eklendi`, 'success');
+            console.log('➕ Yeni özellik eklendi:', propertyName);
+            return true;
+        }
+        
+        function removeSelectedProperty() {
+            const select = document.getElementById('templatePropertyName');
+            const propertyName = select.value;
+            
+            if (!propertyName) {
+                showToast('⚠️ Önce bir özellik seçin', 'warning');
+                return;
+            }
+            
+            if (!confirm(`"${propertyName}" özelliğini listeden silmek istediğinizden emin misiniz?`)) {
+                return;
+            }
+            
+            // Remove from list
+            const index = templatePropertyNames.indexOf(propertyName);
+            if (index > -1) {
+                templatePropertyNames.splice(index, 1);
+                saveTemplatePropertyNames();
+                updateTemplatePropertyDropdown();
+                
+                // Hide info div
+                document.getElementById('templateSelectedPropertyInfo').style.display = 'none';
+                
+                showToast(`✅ "${propertyName}" listeden silindi`, 'success');
+                console.log('➖ Özellik silindi:', propertyName);
+            }
+        }
+        
         function showTemplateRegionModal() {
             document.getElementById('templateRegionModal').classList.add('show');
             document.getElementById('templatePropertyName').value = '';
             document.getElementById('templateRegionType').value = 'value';
-            document.getElementById('templateCustomPropertyGroup').style.display = 'none';
+            
+            // Hide info div
+            const infoDiv = document.getElementById('templateSelectedPropertyInfo');
+            if (infoDiv) infoDiv.style.display = 'none';
             
             // Reset OCR field
             const ocrInput = document.getElementById('templateOcrValue');
             if (ocrInput) {
                 ocrInput.value = '';
                 ocrInput.placeholder = 'OCR okuma bekleniyor...';
+                ocrInput.style.background = '#f8f9fa';
             }
         }
         
@@ -10202,6 +10326,19 @@
                     ocrInput.style.background = text ? '#e8f5e9' : '#fff3cd';
                 }
                 
+                // Auto-add OCR result to property list if it's a valid property name
+                if (text && text.length > 2 && text.length < 100) {
+                    // Clean the text (remove special chars, numbers at start)
+                    const cleanText = text.replace(/^[\d\s\-_\.]+/, '').trim();
+                    
+                    if (cleanText.length > 2) {
+                        const added = addPropertyToList(cleanText);
+                        if (added) {
+                            console.log('🎯 OCR sonucu otomatik listeye eklendi:', cleanText);
+                        }
+                    }
+                }
+                
                 if (!text) {
                     showToast('⚠️ Metin okunamadı, lütfen manuel girin', 'warning');
                 } else {
@@ -10239,12 +10376,8 @@
             let propertyName = document.getElementById('templatePropertyName').value;
             const ocrValue = document.getElementById('templateOcrValue')?.value || '';
             
-            if (propertyName === 'custom') {
-                propertyName = document.getElementById('templateCustomPropertyName').value.trim();
-            }
-            
             if (!propertyName) {
-                alert('Lütfen özellik adı seçin!');
+                alert('Lütfen özellik adı seçin veya yeni özellik ekleyin!');
                 return;
             }
             
