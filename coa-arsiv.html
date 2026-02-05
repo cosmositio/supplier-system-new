@@ -6781,15 +6781,6 @@
                         }
                     }
                 }
-                    } else if (operator === '=') {
-                        isCompliant = Math.abs(value - stdValue) < 0.01;
-                    }
-                    
-                    if (complianceSpan) {
-                        complianceSpan.textContent = isCompliant ? '✅ Uygun' : '❌ Uygun Değil';
-                        complianceSpan.style.color = isCompliant ? '#4caf50' : '#f44336';
-                    }
-                }
             });
         }
         
