@@ -1279,6 +1279,21 @@
                     <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">Hammadde özelliklerini grafiklerle analiz edin</p>
                     <button class="btn btn-primary btn-sm" onclick="openCOAAnalysisModal()" style="width: 100%; background: #ff9800; border-color: #ff9800;">📊 Analiz Aç</button>
                 </div>
+                
+                <!-- JSON Backup -->
+                <div class="settings-section" style="margin-top: 20px;">
+                    <h3>💾 Yedekleme & Geri Yükleme</h3>
+                    <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">Tüm COA kayıtlarını JSON dosyası olarak yedekleyin veya geri yükleyin</p>
+                    <div style="display: flex; gap: 8px; flex-direction: column;">
+                        <button class="btn btn-success btn-sm" onclick="downloadJSONBackup()" style="width: 100%; background: #28a745; border-color: #28a745;">
+                            📥 JSON İndir (Yedekle)
+                        </button>
+                        <button class="btn btn-primary btn-sm" onclick="document.getElementById('jsonUploadInput').click()" style="width: 100%; background: #007bff; border-color: #007bff;">
+                            📤 JSON Yükle (Geri Yükle)
+                        </button>
+                        <input type="file" id="jsonUploadInput" accept=".json,application/json" style="display: none;" onchange="uploadJSONBackup(event)">
+                    </div>
+                </div>
             </div>
             
             <!-- List -->
@@ -2873,6 +2888,93 @@
         
         function saveToLocalStorage() {
             localStorage.setItem('coa_arsiv_data', JSON.stringify(coaData));
+        }
+        
+        // ==================== JSON Backup & Restore ====================
+        function downloadJSONBackup() {
+            try {
+                const backup = {
+                    version: '2.1',
+                    exportDate: new Date().toISOString(),
+                    recordCount: coaData.length,
+                    data: coaData
+                };
+                
+                const jsonString = JSON.stringify(backup, null, 2);
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                a.download = `coa-arsiv-backup-${timestamp}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showToast(`✅ ${coaData.length} kayıt JSON olarak indirildi`, 'success');
+                console.log('📥 JSON yedekleme indirildi:', backup);
+            } catch (error) {
+                console.error('❌ JSON indirme hatası:', error);
+                showToast('❌ JSON indirilemedi: ' + error.message, 'error');
+            }
+        }
+        
+        function uploadJSONBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.name.endsWith('.json')) {
+                showToast('❌ Lütfen .json uzantılı dosya seçin', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const backup = JSON.parse(e.target.result);
+                    
+                    // Validate backup structure
+                    if (!backup.data || !Array.isArray(backup.data)) {
+                        throw new Error('Geçersiz JSON formatı');
+                    }
+                    
+                    // Confirm before restore
+                    const confirmMsg = `📤 ${backup.recordCount || backup.data.length} kayıt yüklenecek.\n\n` +
+                                     `Mevcut ${coaData.length} kayıt üzerine yazılacak.\n\n` +
+                                     `Devam etmek istiyor musunuz?`;
+                    
+                    if (!confirm(confirmMsg)) {
+                        showToast('⚠️ İşlem iptal edildi', 'warning');
+                        event.target.value = ''; // Reset file input
+                        return;
+                    }
+                    
+                    // Restore data
+                    coaData = backup.data;
+                    saveToLocalStorage();
+                    renderTable();
+                    updateStats();
+                    
+                    showToast(`✅ ${coaData.length} kayıt başarıyla yüklendi`, 'success');
+                    console.log('📤 JSON yedekleme geri yüklendi:', backup);
+                    
+                    // Reset file input
+                    event.target.value = '';
+                } catch (error) {
+                    console.error('❌ JSON yükleme hatası:', error);
+                    showToast('❌ JSON yüklenemedi: ' + error.message, 'error');
+                    event.target.value = '';
+                }
+            };
+            
+            reader.onerror = function() {
+                showToast('❌ Dosya okunamadı', 'error');
+                event.target.value = '';
+            };
+            
+            reader.readAsText(file);
         }
         
         // ==================== Suppliers ====================
