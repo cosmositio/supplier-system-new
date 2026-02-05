@@ -7321,20 +7321,21 @@
                                 }
                                 
                                 tdsRecord.properties.forEach(prop => {
-                                // Operator yoksa varsayılan 'range' ekle
-                                if (!prop.operator) {
-                                    prop.operator = 'range';
-                                }
-                                // standardValue yoksa ama lowerTolerance ve upperTolerance varsa hesapla
-                                if (!prop.standardValue && prop.lowerTolerance && prop.upperTolerance) {
-                                    // Min ve max'tan ortayı al
-                                    if (prop.min && prop.max) {
-                                        const minVal = parseFloat(prop.min);
-                                        const maxVal = parseFloat(prop.max);
-                                        prop.standardValue = ((minVal + maxVal) / 2).toFixed(2);
+                                    // Operator yoksa varsayılan 'range' ekle
+                                    if (!prop.operator) {
+                                        prop.operator = 'range';
                                     }
-                                }
-                            });
+                                    // standardValue yoksa ama lowerTolerance ve upperTolerance varsa hesapla
+                                    if (!prop.standardValue && prop.lowerTolerance && prop.upperTolerance) {
+                                        // Min ve max'tan ortayı al
+                                        if (prop.min && prop.max) {
+                                            const minVal = parseFloat(prop.min);
+                                            const maxVal = parseFloat(prop.max);
+                                            prop.standardValue = ((minVal + maxVal) / 2).toFixed(2);
+                                        }
+                                    }
+                                });
+                            }
                         }
                     });
                     
