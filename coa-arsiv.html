@@ -6738,46 +6738,47 @@
                             }
                         }
                     } else {
-                    // Numeric mode: Use standard calculation
-                    const complianceSpan = document.getElementById(`compliance_${index}`);
-                    
-                    // Operatör sembollerini temizle
-                    const cleanValue = String(prop.coaValue).replace(/^[≤≥<>=]+\s*/, '').replace(/,/g, '.');
-                    const value = parseFloat(cleanValue);
-                    
-                    if (!isNaN(value)) {
-                        const operator = prop.operator || 'range';
-                        let isCompliant = false;
+                        // Numeric mode: Use standard calculation
+                        const complianceSpan = document.getElementById(`compliance_${index}`);
                         
-                        if (operator === 'range') {
-                            const min = parseFloat(lowerLimit);
-                            const max = parseFloat(upperLimit);
-                            isCompliant = value >= min && value <= max;
-                        } else if (operator === '>') {
-                            const min = parseFloat(lowerLimit);
-                            isCompliant = value > min;
-                        } else if (operator === '<') {
-                            const max = parseFloat(upperLimit);
-                            isCompliant = value < max;
-                        } else if (operator === '>=') {
-                            const min = parseFloat(lowerLimit);
-                            isCompliant = value >= min;
-                        } else if (operator === '<=') {
-                            const max = parseFloat(upperLimit);
-                            isCompliant = value <= max;
-                        } else if (operator === '=') {
-                            const stdVal = parseFloat(String(prop.standardValue || 0).replace(/,/g, '.'));
-                            isCompliant = Math.abs(value - stdVal) < 0.01;
-                        }
+                        // Operatör sembollerini temizle
+                        const cleanValue = String(prop.coaValue).replace(/^[≤≥<>=]+\s*/, '').replace(/,/g, '.');
+                        const value = parseFloat(cleanValue);
                         
-                        if (complianceSpan) {
-                            complianceSpan.textContent = isCompliant ? '✅ Uygun' : '❌ Uygun Değil';
-                            if (isCompliant) {
-                                complianceSpan.style.background = '#c8e6c9';
-                                complianceSpan.style.color = '#2e7d32';
-                            } else {
-                                complianceSpan.style.background = '#ffcdd2';
-                                complianceSpan.style.color = '#c62828';
+                        if (!isNaN(value)) {
+                            const operator = prop.operator || 'range';
+                            let isCompliant = false;
+                            
+                            if (operator === 'range') {
+                                const min = parseFloat(lowerLimit);
+                                const max = parseFloat(upperLimit);
+                                isCompliant = value >= min && value <= max;
+                            } else if (operator === '>') {
+                                const min = parseFloat(lowerLimit);
+                                isCompliant = value > min;
+                            } else if (operator === '<') {
+                                const max = parseFloat(upperLimit);
+                                isCompliant = value < max;
+                            } else if (operator === '>=') {
+                                const min = parseFloat(lowerLimit);
+                                isCompliant = value >= min;
+                            } else if (operator === '<=') {
+                                const max = parseFloat(upperLimit);
+                                isCompliant = value <= max;
+                            } else if (operator === '=') {
+                                const stdVal = parseFloat(String(prop.standardValue || 0).replace(/,/g, '.'));
+                                isCompliant = Math.abs(value - stdVal) < 0.01;
+                            }
+                            
+                            if (complianceSpan) {
+                                complianceSpan.textContent = isCompliant ? '✅ Uygun' : '❌ Uygun Değil';
+                                if (isCompliant) {
+                                    complianceSpan.style.background = '#c8e6c9';
+                                    complianceSpan.style.color = '#2e7d32';
+                                } else {
+                                    complianceSpan.style.background = '#ffcdd2';
+                                    complianceSpan.style.color = '#c62828';
+                                }
                             }
                         }
                     }
