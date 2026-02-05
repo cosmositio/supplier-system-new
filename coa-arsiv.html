@@ -1402,6 +1402,41 @@
                 </select>
             </div>
             
+            <!-- Template ile TDS Otomatik Doldur -->
+            <div id="tdsTemplateSection" style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: none;">
+                <div style="color: white; margin-bottom: 12px;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 16px;">🎨 Template ile Otomatik Doldur</h3>
+                    <p style="margin: 0; font-size: 12px; opacity: 0.9;">Doküman yükleyip template seçin, alanlar otomatik okunup TDS'e kaydedilsin</p>
+                </div>
+                
+                <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <label style="display: block; margin-bottom: 5px; color: white; font-size: 13px; font-weight: 500;">📄 Doküman Yükle (PDF/Image)</label>
+                        <input type="file" id="tdsTemplateFileInput" accept="image/*,application/pdf" 
+                               style="width: 100%; padding: 8px; border: 2px dashed rgba(255,255,255,0.5); border-radius: 5px; background: rgba(255,255,255,0.95); font-size: 13px;">
+                    </div>
+                    
+                    <div style="flex: 1; min-width: 200px;">
+                        <label style="display: block; margin-bottom: 5px; color: white; font-size: 13px; font-weight: 500;">🎯 Template Seç</label>
+                        <select id="tdsTemplateSelect" style="width: 100%; padding: 9px; border: none; border-radius: 5px; font-size: 13px; background: white;">
+                            <option value="">Template seçin...</option>
+                        </select>
+                    </div>
+                    
+                    <button class="btn btn-success" onclick="processTDSTemplateOCR()" id="tdsProcessBtn" disabled
+                            style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; font-size: 14px; font-weight: 500; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space: nowrap;">
+                        🚀 TDS'e Oku & Kaydet
+                    </button>
+                </div>
+                
+                <div id="tdsOcrProgress" style="display: none; margin-top: 12px; padding: 10px; background: rgba(255,255,255,0.95); border-radius: 5px;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #333; font-size: 13px;">
+                        <div class="spinner-border spinner-border-sm" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                        <span id="tdsOcrProgressText">OCR işleniyor...</span>
+                    </div>
+                </div>
+            </div>
+            
             <div id="tdsContent" style="display: none;">
                 <div style="margin-bottom: 15px; padding: 10px; background: #f0f8ff; border-left: 4px solid #2196F3; border-radius: 4px;">
                     <strong>📝 Not:</strong> Özellikleri tanımlayın. COA yüklenirken bu değerlerle karşılaştırılacak.
@@ -7225,6 +7260,22 @@
             
             document.getElementById('tdsModal').classList.add('active');
             
+            // Template dropdown'ı doldur
+            populateTDSTemplateDropdown();
+            
+            // Template section'ı göster (sadece hammadde seçiliyse)
+            const tdsTemplateSection = document.getElementById('tdsTemplateSection');
+            if (tdsTemplateSection) {
+                tdsTemplateSection.style.display = preselectedMaterialCode ? 'block' : 'none';
+            }
+            
+            // File input event listener ekle
+            const fileInput = document.getElementById('tdsTemplateFileInput');
+            if (fileInput && !fileInput._eventAdded) {
+                fileInput.addEventListener('change', onTDSTemplateFileChange);
+                fileInput._eventAdded = true;
+            }
+            
             // Eğer eşleşen hammadde varsa otomatik yükle
             if (foundMatch && preselectedMaterialCode) {
                 select.value = preselectedMaterialCode;
@@ -7251,6 +7302,220 @@
             currentTDSMaterial = null;
         }
         
+        // ==================== TDS Template OCR Functions ====================
+        
+        // TDS Template dropdown'ı doldur
+        function populateTDSTemplateDropdown() {
+            const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
+            const dropdown = document.getElementById('tdsTemplateSelect');
+            
+            if (!dropdown) return;
+            
+            dropdown.innerHTML = '<option value="">Template seçin...</option>';
+            
+            templates.forEach((template, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `${template.supplier} (v${template.version || '1.0'})`;
+                dropdown.appendChild(option);
+            });
+            
+            console.log('🎨 TDS Template dropdown dolduruldu:', templates.length, 'template');
+        }
+        
+        // Template file input değişince
+        let tdsTemplateFileData = null;
+        
+        function onTDSTemplateFileChange(event) {
+            const file = event.target.files[0];
+            const processBtn = document.getElementById('tdsProcessBtn');
+            const templateSelect = document.getElementById('tdsTemplateSelect');
+            
+            if (!file) {
+                tdsTemplateFileData = null;
+                processBtn.disabled = true;
+                return;
+            }
+            
+            console.log('📄 TDS Template dosyası seçildi:', file.name);
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                tdsTemplateFileData = e.target.result;
+                console.log('✅ Dosya yüklendi:', tdsTemplateFileData.substring(0, 50) + '...');
+                
+                // Process butonunu aktif et (eğer template de seçiliyse)
+                processBtn.disabled = !templateSelect.value;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Template selection değişince
+        document.addEventListener('DOMContentLoaded', function() {
+            const templateSelect = document.getElementById('tdsTemplateSelect');
+            if (templateSelect) {
+                templateSelect.addEventListener('change', function() {
+                    const processBtn = document.getElementById('tdsProcessBtn');
+                    processBtn.disabled = !this.value || !tdsTemplateFileData;
+                });
+            }
+        });
+        
+        // TDS Template OCR işlemini başlat
+        async function processTDSTemplateOCR() {
+            const materialCode = document.getElementById('tdsMaterialSelect').value;
+            const templateIndex = document.getElementById('tdsTemplateSelect').value;
+            
+            if (!materialCode) {
+                showToast('❌ Önce hammadde seçin', 'error');
+                return;
+            }
+            
+            if (!tdsTemplateFileData) {
+                showToast('❌ Önce doküman yükleyin', 'error');
+                return;
+            }
+            
+            if (!templateIndex) {
+                showToast('❌ Önce template seçin', 'error');
+                return;
+            }
+            
+            const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
+            const templateData = templates[templateIndex];
+            
+            if (!templateData) {
+                showToast('❌ Template bulunamadı', 'error');
+                return;
+            }
+            
+            // Template yapısını düzelt
+            const actualTemplate = templateData.template || templateData;
+            
+            if (!actualTemplate.regions || !Array.isArray(actualTemplate.regions)) {
+                showToast('❌ Template yapısı hatalı', 'error');
+                console.error('Template yapısı:', actualTemplate);
+                return;
+            }
+            
+            console.log('🚀 TDS Template OCR başlatılıyor...');
+            console.log('📋 Hammadde:', materialCode);
+            console.log('🎨 Template:', actualTemplate.supplier, '|', actualTemplate.regions.length, 'bölge');
+            
+            // Progress göster
+            const progressDiv = document.getElementById('tdsOcrProgress');
+            const progressText = document.getElementById('tdsOcrProgressText');
+            const processBtn = document.getElementById('tdsProcessBtn');
+            
+            progressDiv.style.display = 'block';
+            processBtn.disabled = true;
+            progressText.textContent = 'OCR işleniyor...';
+            
+            try {
+                // OCR yap
+                const extractedProperties = await extractCOAPropertiesWithTemplate(tdsTemplateFileData, actualTemplate);
+                
+                console.log('✅ OCR tamamlandı:', Object.keys(extractedProperties).length, 'özellik');
+                console.log('📊 Okunan değerler:', extractedProperties);
+                
+                progressText.textContent = 'TDS\'e kaydediliyor...';
+                
+                // TDS'e kaydet
+                await saveTDSPropertiesFromOCR(materialCode, extractedProperties);
+                
+                progressDiv.style.display = 'none';
+                processBtn.disabled = false;
+                
+                showToast(`✅ ${Object.keys(extractedProperties).length} özellik TDS'e kaydedildi!`, 'success', 5000);
+                
+                // TDS'i yeniden yükle
+                loadTDSForMaterial(false);
+                
+            } catch (error) {
+                console.error('❌ TDS Template OCR hatası:', error);
+                progressDiv.style.display = 'none';
+                processBtn.disabled = false;
+                showToast('❌ OCR hatası: ' + error.message, 'error', 5000);
+            }
+        }
+        
+        // Okunan özellikleri TDS'e kaydet
+        async function saveTDSPropertiesFromOCR(materialCode, properties) {
+            console.log('💾 TDS\'e kaydediliyor:', materialCode, properties);
+            
+            // Mevcut TDS'i yükle
+            if (!tdsData[materialCode]) {
+                tdsData[materialCode] = { properties: [] };
+            }
+            
+            const tds = tdsData[materialCode];
+            
+            // Properties dizisi yoksa oluştur
+            if (!Array.isArray(tds.properties)) {
+                tds.properties = [];
+            }
+            
+            // Her bir okunan özellik için
+            for (const [propertyName, coaValue] of Object.entries(properties)) {
+                if (!coaValue || coaValue.trim() === '') continue;
+                
+                // Bu property TDS'te var mı kontrol et
+                let existingProp = tds.properties.find(p => 
+                    p.name && p.name.toLowerCase() === propertyName.toLowerCase()
+                );
+                
+                if (existingProp) {
+                    // Varsa sadece COA değerini güncelle
+                    existingProp.coaValue = coaValue.trim();
+                    console.log(`📝 Güncellendi: ${propertyName} = ${coaValue}`);
+                } else {
+                    // Yoksa yeni property ekle
+                    tds.properties.push({
+                        name: propertyName,
+                        unit: '',
+                        standard: '',
+                        operator: 'Aralık',
+                        standardValue: '',
+                        lowerTolerance: '',
+                        upperTolerance: '',
+                        lowerLimit: '',
+                        upperLimit: '',
+                        coaValue: coaValue.trim(),
+                        status: 'Uygun'
+                    });
+                    console.log(`➕ Yeni eklendi: ${propertyName} = ${coaValue}`);
+                }
+            }
+            
+            // TDS'i localStorage'a kaydet
+            localStorage.setItem('tdsData', JSON.stringify(tdsData));
+            console.log('✅ TDS localStorage\'a kaydedildi');
+            
+            // Google Sheets'e kaydet
+            if (googleScriptUrl) {
+                try {
+                    const result = await jsonpRequest(googleScriptUrl, {
+                        action: 'saveTDS',
+                        materialCode: materialCode,
+                        data: JSON.stringify(tds)
+                    }, 2);
+                    
+                    if (result && result.success) {
+                        console.log('✅ TDS Google Sheets\'e kaydedildi');
+                    } else {
+                        console.warn('⚠️ Google Sheets kaydetme başarısız:', result);
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Google Sheets kaydetme hatası:', error);
+                }
+            }
+            
+            return true;
+        }
+        
+        // ==================== End TDS Template OCR Functions ====================
+        
+        
         // Hammadde seçildiğinde TDS yükle
         function loadTDSForMaterial(clearCOAValues = true) {
             const materialCode = document.getElementById('tdsMaterialSelect').value;
@@ -7266,6 +7531,12 @@
             currentTDSMaterial = materialCode;
             document.getElementById('tdsContent').style.display = 'block';
             document.getElementById('tdsEmptyState').style.display = 'none';
+            
+            // Template section'ı göster
+            const tdsTemplateSection = document.getElementById('tdsTemplateSection');
+            if (tdsTemplateSection) {
+                tdsTemplateSection.style.display = 'block';
+            }
             
             // Mevcut TDS varsa yükle
             const tds = tdsData[materialCode];
