@@ -6271,6 +6271,9 @@
                         console.log(`  📋 Orijinal prop:`, { coaValue: prop.coaValue, unit: prop.unit, min: prop.min, max: prop.max });
                         console.log(`  🔢 prop.coaValue RAW type: ${typeof prop.coaValue}, RAW value:`, prop.coaValue);
                         
+                        // Operatör sembollerini temizle (≤, ≥, <, >, =)
+                        coaValue = coaValue.replace(/^[≤≥<>=]+\s*/, '');
+                        
                         // TÜM virgülleri noktaya çevir (Türkçe ondalık ayırıcısı)
                         coaValue = coaValue.replace(/,/g, '.');
                         
@@ -6421,7 +6424,9 @@
         function calculatePropertyStatus(coaValue, min, max, operator = 'range') {
             if (!coaValue) return '-';
             
-            const val = parseFloat(String(coaValue).replace(/,/g, '.'));
+            // Operatör sembollerini temizle
+            const cleanValue = String(coaValue).replace(/^[≤≥<>=]+\s*/, '').replace(/,/g, '.');
+            const val = parseFloat(cleanValue);
             if (isNaN(val)) return '-';
             
             // Operatöre göre kontrol
@@ -6430,14 +6435,14 @@
                 if (!min) return '-';
                 const minVal = parseFloat(String(min).replace(/,/g, '.'));
                 if (isNaN(minVal)) return '-';
-                return (operator === '>' ? val > minVal : val >= minVal) ? '✅' : '❌';
+                return (operator === '>' ? val > minVal : val >= minVal) ? 'Uygun' : 'Uygun Değil';
             } 
             else if (operator === '<' || operator === '<=') {
                 // Küçüktür: sadece üst limit kontrol
                 if (!max) return '-';
                 const maxVal = parseFloat(String(max).replace(/,/g, '.'));
                 if (isNaN(maxVal)) return '-';
-                return (operator === '<' ? val < maxVal : val <= maxVal) ? '✅' : '❌';
+                return (operator === '<' ? val < maxVal : val <= maxVal) ? 'Uygun' : 'Uygun Değil';
             }
             else {
                 // range: her ikisi de kontrol
@@ -6445,7 +6450,7 @@
                 const minVal = parseFloat(String(min).replace(/,/g, '.'));
                 const maxVal = parseFloat(String(max).replace(/,/g, '.'));
                 if (isNaN(minVal) || isNaN(maxVal)) return '-';
-                return (val >= minVal && val <= maxVal) ? '✅' : '❌';
+                return (val >= minVal && val <= maxVal) ? 'Uygun' : 'Uygun Değil';
             }
         }
         
