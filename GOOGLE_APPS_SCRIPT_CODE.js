@@ -134,6 +134,15 @@ function doGet(e) {
         }
         result = coaRecordData ? saveCOARecord(coaRecordData) : { success: false, error: 'Veri eksik' };
         break;
+      case 'getCOATemplate':
+        result = getCOATemplate(e.parameter.supplier);
+        break;
+      case 'getAllCOATemplates':
+        result = getAllCOATemplates();
+        break;
+      case 'deleteCOATemplate':
+        result = deleteCOATemplate(e.parameter.supplier);
+        break;
       default:
         result = { success: false, error: 'Geçersiz action: ' + action };
     }
