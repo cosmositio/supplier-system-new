@@ -17525,6 +17525,7 @@
                         iso9001: r.iso9001 || false,
                         iso14001: r.iso14001 || false,
                         iso45001: r.iso45001 || false,
+                        certExpiryDates: r.certExpiryDates || {},
                         talepEdilen8D: r.talepEdilen8D || 0,
                         cevaplanan8D: r.cevaplanan8D || 0,
                         vdaPuan: r.vdaPuan || 0,
@@ -17671,6 +17672,7 @@
                 iso9001: r.iso9001 ? true : false,
                 iso14001: r.iso14001 ? true : false,
                 iso45001: r.iso45001 ? true : false,
+                certExpiryDates: r.certExpiryDates || {},
                 talepEdilen8D: r.talepEdilen8D || 0,
                 cevaplanan8D: r.cevaplanan8D || 0,
                 vdaPuan: r.vdaPuan || 0,
@@ -17777,6 +17779,7 @@
                                 supplier.iso9001 = savedSupplier.iso9001 || false;
                                 supplier.iso14001 = savedSupplier.iso14001 || false;
                                 supplier.iso45001 = savedSupplier.iso45001 || false;
+                                supplier.certExpiryDates = savedSupplier.certExpiryDates || {};
                                 supplier.talepEdilen8D = savedSupplier.talepEdilen8D || 0;
                                 supplier.cevaplanan8D = savedSupplier.cevaplanan8D || 0;
                                 supplier.vdaPuan = savedSupplier.vdaPuan || 0;
@@ -18038,6 +18041,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                     supplier.iso9001 = savedSupplier.iso9001 || false;
                     supplier.iso14001 = savedSupplier.iso14001 || false;
                     supplier.iso45001 = savedSupplier.iso45001 || false;
+                    supplier.certExpiryDates = savedSupplier.certExpiryDates || {};
                     supplier.talepEdilen8D = savedSupplier.talepEdilen8D || 0;
                     supplier.cevaplanan8D = savedSupplier.cevaplanan8D || 0;
                     supplier.vdaPuan = savedSupplier.vdaPuan || 0;
