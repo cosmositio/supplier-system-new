@@ -2765,12 +2765,16 @@
                                             📥 Storj'dan İndir ve Yükle
                                         </button>
                                     </div>
+                                    <button onclick="showStorjBackupsList()" class="btn" style="width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); margin-bottom: 8px;">
+                                        📋 Storj'daki Yedekleri Görüntüle & Yönet
+                                    </button>
                                     <div style="font-size: 0.75em; color: #2e7d32; background: white; padding: 8px; border-radius: 4px; line-height: 1.5;">
                                         <strong>💡 Nasıl Çalışır:</strong><br>
                                         1️⃣ "Veritabanını Yükle" ile tüm verileriniz Storj'a yedeklenir<br>
                                         2️⃣ Başka PC'de aynı Storj ayarlarını girin<br>
-                                        3️⃣ "Storj'dan İndir" ile tüm veriler otomatik yüklenir<br>
-                                        <strong>⚠️ Not:</strong> İndirme mevcut verilerin üzerine yazar!
+                                        3️⃣ "Yedekleri Görüntüle" ile tüm yedeklerinizi görün<br>
+                                        4️⃣ İstediğiniz yedeği seçip yükleyin veya silin<br>
+                                        <strong>⚠️ Not:</strong> Her yedek için backup key oluşturulur
                                     </div>
                                 </div>
                             </div>
@@ -21716,6 +21720,81 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             return await response.json();
         }
         
+        // Storj'daki BACKUP_ dosyalarını listele (S3 ListObjectsV2)
+        async function listStorjBackups(settings) {
+            const url = `https://${settings.endpoint}/${settings.bucket}?list-type=2&prefix=BACKUP_`;
+            const method = 'GET';
+            const path = `/${settings.bucket}/`;
+            
+            const auth = await createAwsSignature(method, path, '', settings);
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+                    'x-amz-date': auth.date,
+                    'Authorization': auth.authorization
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Storj list hatası: ${response.status}`);
+            }
+            
+            const xmlText = await response.text();
+            
+            // XML parse et
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+            
+            const contents = xmlDoc.getElementsByTagName('Contents');
+            const backups = [];
+            
+            for (let i = 0; i < contents.length; i++) {
+                const content = contents[i];
+                const key = content.getElementsByTagName('Key')[0]?.textContent || '';
+                const size = parseInt(content.getElementsByTagName('Size')[0]?.textContent || '0');
+                const lastModified = content.getElementsByTagName('LastModified')[0]?.textContent || '';
+                
+                backups.push({
+                    key: key,
+                    size: size,
+                    sizeText: (size / (1024 * 1024)).toFixed(2) + ' MB',
+                    lastModified: new Date(lastModified),
+                    lastModifiedText: new Date(lastModified).toLocaleString('tr-TR')
+                });
+            }
+            
+            // Tarihe göre sırala (en yeni önce)
+            backups.sort((a, b) => b.lastModified - a.lastModified);
+            
+            return backups;
+        }
+        
+        // Storj'dan dosya sil (S3 DELETE)
+        async function deleteStorjBackup(key, settings) {
+            const url = `https://${settings.endpoint}/${settings.bucket}/${key}`;
+            const method = 'DELETE';
+            const path = `/${settings.bucket}/${key}`;
+            
+            const auth = await createAwsSignature(method, path, '', settings);
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+                    'x-amz-date': auth.date,
+                    'Authorization': auth.authorization
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Storj delete hatası: ${response.status}`);
+            }
+            
+            return { success: true };
+        }
+        
         // Veritabanını Storj'a yükle (Ekip senkronizasyonu için)
         async function uploadDatabaseToStorj() {
             if (!db) {
@@ -21821,7 +21900,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             }
             
             // Backup key'i sor
-            const backupKey = prompt('📥 Storj Backup Key\'ini girin:\n\n(Örnek: BACKUP_1234567890.json)');
+            const backupKey = prompt('📥 Storj Backup Key\'ini girin:\n\n(Örnek: BACKUP_1234567890.json)\n\n💡 Key\'iniz yoksa "Yedekleri Görüntüle" butonuna tıklayın!');
             if (!backupKey) return;
             
             try {
@@ -21900,6 +21979,257 @@ Devam etmek istiyor musunuz?`;
             } catch (error) {
                 console.error('❌ İndirme hatası:', error);
                 showAlert('❌ İndirme Hatası!\n\n' + error.message + '\n\n🔍 Key doğru mu kontrol edin.', 'error');
+            }
+        }
+        
+        // Storj yedeklerini listele ve göster
+        async function showStorjBackupsList() {
+            const settings = getStorjSettings();
+            if (!settings) {
+                showAlert('⚠️ Önce Storj ayarlarını yapın!', 'error');
+                return;
+            }
+            
+            try {
+                showAlert('🔍 Storj\'daki yedekler listeleniyor...', 'info');
+                
+                const backups = await listStorjBackups(settings);
+                
+                if (backups.length === 0) {
+                    showAlert('📭 Storj\'da hiç yedek bulunamadı!\n\nİlk yedeğinizi "Veritabanını Yükle" butonu ile oluşturabilirsiniz.', 'info');
+                    return;
+                }
+                
+                // Modal oluştur
+                const modal = document.createElement('div');
+                modal.id = 'storjBackupsModal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.7);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                `;
+                
+                const modalContent = document.createElement('div');
+                modalContent.style.cssText = `
+                    background: white;
+                    border-radius: 12px;
+                    max-width: 900px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                `;
+                
+                // Başlık
+                const header = document.createElement('div');
+                header.style.cssText = `
+                    background: linear-gradient(135deg, #4CAF50, #2e7d32);
+                    color: white;
+                    padding: 20px;
+                    border-radius: 12px 12px 0 0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                `;
+                header.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 1.5em;">☁️</span>
+                        <div>
+                            <div style="font-weight: 700; font-size: 1.3em;">Storj Veritabanı Yedekleri</div>
+                            <div style="font-size: 0.85em; opacity: 0.9;">${backups.length} yedek bulundu</div>
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('storjBackupsModal').remove()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 1.5em; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                        ×
+                    </button>
+                `;
+                
+                // İçerik
+                const content = document.createElement('div');
+                content.style.cssText = 'padding: 20px;';
+                
+                // Tablo
+                let tableHTML = `
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                        <thead>
+                            <tr style="background: #f5f5f5; border-bottom: 2px solid #4CAF50;">
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #2e7d32;">📅 Tarih</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #2e7d32;">📦 Boyut</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #2e7d32;">🔑 Backup Key</th>
+                                <th style="padding: 12px; text-align: center; font-weight: 600; color: #2e7d32;">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                backups.forEach((backup, index) => {
+                    const rowStyle = index % 2 === 0 ? 'background: white;' : 'background: #f9f9f9;';
+                    tableHTML += `
+                        <tr style="${rowStyle} border-bottom: 1px solid #e0e0e0;">
+                            <td style="padding: 12px; color: #333;">${backup.lastModifiedText}</td>
+                            <td style="padding: 12px; color: #666;">${backup.sizeText}</td>
+                            <td style="padding: 12px;">
+                                <code style="background: #e8f5e9; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; color: #2e7d32; word-break: break-all;">${backup.key}</code>
+                            </td>
+                            <td style="padding: 12px; text-align: center;">
+                                <button onclick="loadBackupFromList('${backup.key}')" style="background: #2196F3; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin: 0 4px; font-size: 0.85em; font-weight: 600;">
+                                    📥 Yükle
+                                </button>
+                                <button onclick="deleteBackupFromList('${backup.key}')" style="background: #f44336; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin: 0 4px; font-size: 0.85em; font-weight: 600;">
+                                    🗑️ Sil
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                tableHTML += `
+                        </tbody>
+                    </table>
+                `;
+                
+                content.innerHTML = tableHTML;
+                
+                // Bilgi notu
+                const info = document.createElement('div');
+                info.style.cssText = `
+                    margin-top: 20px;
+                    padding: 12px;
+                    background: #e3f2fd;
+                    border-left: 4px solid #2196F3;
+                    border-radius: 4px;
+                    font-size: 0.85em;
+                    color: #1565c0;
+                    line-height: 1.6;
+                `;
+                info.innerHTML = `
+                    <strong>💡 Backup Key Nedir?</strong><br>
+                    • Her yedek için benzersiz bir anahtar (key) oluşturulur<br>
+                    • Bu key ile başka PC'de aynı yedeği indirebilirsiniz<br>
+                    • Backup key'ini meslektaşlarınızla paylaşarak verileri senkronize edebilirsiniz
+                `;
+                
+                modalContent.appendChild(header);
+                modalContent.appendChild(content);
+                modalContent.appendChild(info);
+                modal.appendChild(modalContent);
+                document.body.appendChild(modal);
+                
+                // Modal dışına tıklanınca kapansın
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                });
+                
+            } catch (error) {
+                console.error('❌ Liste hatası:', error);
+                showAlert('❌ Yedek Listesi Alınamadı!\n\n' + error.message, 'error');
+            }
+        }
+        
+        // Listeden backup yükle
+        async function loadBackupFromList(key) {
+            const settings = getStorjSettings();
+            if (!settings) return;
+            
+            if (!confirm(`📥 Bu yedeği yüklemek istiyor musunuz?\n\n🔑 ${key}\n\n⚠️ MEVCUT VERİLERİN ÜZERİNE YAZILACAK!`)) {
+                return;
+            }
+            
+            try {
+                showAlert('📥 Veritabanı indiriliyor...', 'info');
+                
+                const importData = await downloadFromStorj(key, settings);
+                
+                // Onay iste
+                const storeSummary = Object.entries(importData.stores || {})
+                    .map(([name, data]) => `• ${name}: ${data.length} kayıt`)
+                    .join('\n');
+                
+                const confirmMessage = `✅ Veri indirildi!\n\n${storeSummary}\n\nExport tarihi: ${new Date(importData.exportedAt).toLocaleString('tr-TR')}\n\nDevam etmek istiyor musunuz?`;
+                
+                if (!confirm(confirmMessage)) {
+                    showAlert('İşlem iptal edildi.', 'info');
+                    return;
+                }
+                
+                showAlert('💾 Veritabanına yazılıyor...', 'info');
+                
+                // Tüm verileri yükle
+                for (const [storeName, data] of Object.entries(importData.stores || {})) {
+                    // suppliers verisi localStorage'a yazılır
+                    if (storeName === 'suppliers') {
+                        localStorage.setItem('selectedSuppliers', JSON.stringify(data));
+                        console.log(`✅ suppliers (localStorage): ${data.length} kayıt yüklendi`);
+                        continue;
+                    }
+                    
+                    // Diğer store'lar IndexedDB'ye yazılır
+                    const tx = db.transaction([storeName], 'readwrite');
+                    const store = tx.objectStore(storeName);
+                    
+                    // Store'u temizle
+                    await new Promise((resolve, reject) => {
+                        const clearRequest = store.clear();
+                        clearRequest.onsuccess = resolve;
+                        clearRequest.onerror = () => reject(clearRequest.error);
+                    });
+                    
+                    // Verileri ekle
+                    for (const item of data) {
+                        await new Promise((resolve, reject) => {
+                            const addRequest = store.add(item);
+                            addRequest.onsuccess = resolve;
+                            addRequest.onerror = () => reject(addRequest.error);
+                        });
+                    }
+                    
+                    console.log(`✅ ${storeName}: ${data.length} kayıt yüklendi`);
+                }
+                
+                // Modalı kapat
+                document.getElementById('storjBackupsModal')?.remove();
+                
+                showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n🔄 Sayfa yenileniyor...`, 'success');
+                setTimeout(() => location.reload(), 2000);
+                
+            } catch (error) {
+                console.error('❌ Yükleme hatası:', error);
+                showAlert('❌ Yükleme Hatası!\n\n' + error.message, 'error');
+            }
+        }
+        
+        // Listeden backup sil
+        async function deleteBackupFromList(key) {
+            const settings = getStorjSettings();
+            if (!settings) return;
+            
+            if (!confirm(`🗑️ Bu yedeği silmek istiyor musunuz?\n\n🔑 ${key}\n\n⚠️ BU İŞLEM GERİ ALINAMAZ!`)) {
+                return;
+            }
+            
+            try {
+                showAlert('🗑️ Yedek siliniyor...', 'info');
+                
+                await deleteStorjBackup(key, settings);
+                
+                showAlert('✅ Yedek başarıyla silindi!', 'success');
+                
+                // Modalı kapat ve yeniden aç
+                document.getElementById('storjBackupsModal')?.remove();
+                setTimeout(() => showStorjBackupsList(), 500);
+                
+            } catch (error) {
+                console.error('❌ Silme hatası:', error);
+                showAlert('❌ Silme Hatası!\n\n' + error.message, 'error');
             }
         }
         
