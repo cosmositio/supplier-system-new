@@ -3744,13 +3744,18 @@
                                 record.documents[docType] = [];
                             }
                             
+                            // Base64 data URL'den Blob oluştur
+                            const base64Data = e.target.result;
+                            const blob = base64ToBlob(base64Data);
+                            
                             // Yeni dosyayı ekle
                             const fileId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
                             record.documents[docType].push({
                                 id: fileId,
                                 name: file.name,
                                 type: file.type, // MIME type'ı kaydet
-                                blob: e.target.result,
+                                data: base64Data, // Base64 string olarak kaydet
+                                blob: blob, // Blob objesi olarak da kaydet (okunurken yeniden oluşturulacak)
                                 timestamp: new Date().toISOString(),
                                 size: file.size,
                                 description: description,
@@ -3764,7 +3769,7 @@
                             
                             const putRequest = store.put(record);
                             putRequest.onsuccess = () => {
-                                console.log(`💾 ${supplierName} - ${docType} - ${file.name} dokümanı kaydedildi`);
+                                console.log(`💾 ${supplierName} - ${docType} - ${file.name} dokümanı kaydedildi (base64 + blob)`);
                                 logActivity('document-add', {
                                     supplierName,
                                     docType,
@@ -3782,7 +3787,7 @@
                     }
                 };
                 reader.onerror = () => reject('File read error');
-                reader.readAsArrayBuffer(file);
+                reader.readAsDataURL(file); // Base64 data URL olarak oku
             });
         }
         
@@ -3802,8 +3807,30 @@
                     
                     request.onsuccess = () => {
                         if (request.result) {
+                            const record = request.result;
                             console.log(`📄 ${supplierName} dokümanları yüklendi`);
-                            resolve(request.result);
+                            
+                            // IndexedDB'den gelen blob'ları kontrol et ve düzelt
+                            if (record.documents) {
+                                for (const docType in record.documents) {
+                                    for (const file of record.documents[docType]) {
+                                        // Eğer blob bir düz obje ise (IndexedDB serialize etmiş), data'dan yeniden oluştur
+                                        if (file.data && typeof file.data === 'string' && (!file.blob || !(file.blob instanceof Blob))) {
+                                            try {
+                                                const blob = base64ToBlob(file.data);
+                                                if (blob) {
+                                                    file.blob = blob;
+                                                    console.log(`🔧 ${file.name}: Blob yeniden oluşturuldu (${blob.size} bytes)`);
+                                                }
+                                            } catch (err) {
+                                                console.error(`❌ ${file.name}: Blob oluşturma hatası:`, err);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            resolve(record);
                         } else {
                             resolve(null);
                         }
@@ -3817,8 +3844,8 @@
         }
         
         // Tedarikçi dokümanlarını kaydet
-        function saveSupplierDocuments(supplierName, docRecord) {
-            return new Promise((resolve, reject) => {
+        async function saveSupplierDocuments(supplierName, docRecord) {
+            return new Promise(async (resolve, reject) => {
                 if (!db) {
                     reject('Database not ready');
                     return;
@@ -3831,6 +3858,24 @@
                     docRecord.normalizedName = normalizedName;
                     docRecord.supplierName = supplierName;
                     docRecord.lastUpdated = new Date().toISOString();
+                    
+                    // Blob'ları base64'e çevir (IndexedDB Blob'ları düz obje olarak kaydediyor)
+                    if (docRecord.documents) {
+                        for (const docType in docRecord.documents) {
+                            for (const file of docRecord.documents[docType]) {
+                                // Eğer blob varsa ve data yoksa, blob'u base64'e çevir
+                                if (file.blob && file.blob instanceof Blob && (!file.data || file.data === '')) {
+                                    try {
+                                        const base64 = await blobToBase64(file.blob);
+                                        file.data = base64;
+                                        console.log(`💾 ${file.name}: Blob → base64 çevrildi (kaydediliyor)`);
+                                    } catch (err) {
+                                        console.error(`❌ ${file.name}: Blob → base64 hatası:`, err);
+                                    }
+                                }
+                            }
+                        }
+                    }
                     
                     const transaction = db.transaction([DOC_STORE_NAME], 'readwrite');
                     const store = transaction.objectStore(DOC_STORE_NAME);
