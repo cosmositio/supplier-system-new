@@ -22449,11 +22449,11 @@ Devam etmek istiyor musunuz?`;
                 modalContent.style.cssText = `
                     background: white;
                     border-radius: 12px;
-                    max-width: 650px;
+                    max-width: 700px;
                     width: 90%;
                     max-height: 80vh;
                     overflow-y: auto;
-                    overflow-x: hidden;
+                    overflow-x: auto;
                     box-shadow: 0 8px 32px rgba(0,0,0,0.3);
                     box-sizing: border-box;
                 `;
@@ -22488,7 +22488,7 @@ Devam etmek istiyor musunuz?`;
                 
                 // Tablo
                 let tableHTML = `
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85em; table-layout: fixed; box-sizing: border-box;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85em; table-layout: fixed; box-sizing: border-box; min-width: 600px;">
                         <thead>
                             <tr style="background: #f5f5f5; border-bottom: 2px solid #4CAF50;">
                                 <th style="padding: 8px 6px; text-align: left; font-weight: 600; color: #2e7d32; width: 22%; font-size: 0.9em;">📅 Tarih</th>
