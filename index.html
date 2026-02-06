@@ -22885,12 +22885,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                                         <div style="font-size: 0.85em; color: #666;">
                                             ${new Date(file.timestamp).toLocaleDateString('tr-TR')} • ${(file.size / 1024).toFixed(1)} KB
                                         </div>
-                                        ${file.uploadedBySupplier ? `
-                                        <div style="margin-top: 6px;">
-                                            <label style="font-size: 0.75em; color: #666; display: block; margin-bottom: 2px;">Tedarikçi Açıklaması:</label>
-                                            <input type="text" id="supplierFileDesc_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" value="${file.description || ''}" placeholder="Açıklama ekle..." onchange="updateSupplierFileDescription('${safeDocType}', ${idx}, this.value)" style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8em; box-sizing: border-box; background: #e8f5e9;" />
-                                        </div>
-                                        ` : file.description ? `
+                                        ${!file.uploadedBySupplier && file.description ? `
                                         <div style="margin-top: 6px; padding: 6px 8px; background: #e3f2fd; border-radius: 4px; border-left: 3px solid #2196f3;">
                                             <div style="font-size: 0.75em; color: #666; margin-bottom: 2px;">Ana PC Açıklaması:</div>
                                             <div style="font-size: 0.8em; color: #333;">${file.description}</div>
