@@ -21732,14 +21732,36 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             try {
                 showAlert('📦 Veritabanı hazırlanıyor...', 'info');
                 
-                // Tüm store'ları oku
+                // Tüm verileri topla
                 const exportData = {
                     exportedAt: new Date().toISOString(),
                     version: db.version,
                     stores: {}
                 };
                 
-                const storeNames = ['suppliers', 'documents', '8d-reports', 'savedVersions', 'locations'];
+                // 1. localStorage'dan suppliers verilerini al
+                const suppliersData = localStorage.getItem('selectedSuppliers');
+                if (suppliersData) {
+                    try {
+                        const suppliers = JSON.parse(suppliersData);
+                        exportData.stores['suppliers'] = suppliers;
+                        console.log(`✅ suppliers (localStorage): ${suppliers.length} kayıt`);
+                    } catch (e) {
+                        console.error('Suppliers verisi parse edilemedi:', e);
+                        exportData.stores['suppliers'] = [];
+                    }
+                } else {
+                    exportData.stores['suppliers'] = [];
+                }
+                
+                // 2. IndexedDB'den diğer store'ları oku
+                const storeNames = [
+                    'supplierHistory',    // savedVersions
+                    'supplierLocations',  // locations
+                    'supplierDocuments',  // documents
+                    'report8D',           // 8d-reports
+                    'supplier8DCounts'    // 8D sayıları
+                ];
                 
                 for (const storeName of storeNames) {
                     const tx = db.transaction([storeName], 'readonly');
@@ -21833,8 +21855,16 @@ Devam etmek istiyor musunuz?`;
                 
                 showAlert('💾 Veritabanına yazılıyor...', 'info');
                 
-                // Tüm store'ları temizle ve yükle
+                // Tüm verileri yükle
                 for (const [storeName, data] of Object.entries(importData.stores || {})) {
+                    // suppliers verisi localStorage'a yazılır
+                    if (storeName === 'suppliers') {
+                        localStorage.setItem('selectedSuppliers', JSON.stringify(data));
+                        console.log(`✅ suppliers (localStorage): ${data.length} kayıt yüklendi`);
+                        continue;
+                    }
+                    
+                    // Diğer store'lar IndexedDB'ye yazılır
                     const tx = db.transaction([storeName], 'readwrite');
                     const store = tx.objectStore(storeName);
                     
