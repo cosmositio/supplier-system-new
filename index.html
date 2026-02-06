@@ -14779,6 +14779,12 @@
                     delete currentDocs.timestamps[docKey];
                 }
                 
+                // Dosyanın status alanını da güncelle (tedarikçi görünümü için)
+                if (currentDocs.documents[category] && currentDocs.documents[category][docIndex]) {
+                    currentDocs.documents[category][docIndex].status = status;
+                    currentDocs.documents[category][docIndex].reviewedAt = selectedDate;
+                }
+                
                 // Veritabanına kaydet
                 await saveSupplierDocuments(supplierName, currentDocs);
                 
