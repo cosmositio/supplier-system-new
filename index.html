@@ -21719,7 +21719,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
         }
         
         // AWS Signature V4 oluştur (Storj S3-compatible için)
-        async function createAwsSignature(method, path, payload, settings) {
+        async function createAwsSignature(method, path, payload, settings, queryString = '') {
             const timestamp = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
             const date = timestamp.substr(0, 8);
             const region = 'us-east-1'; // Storj için sabit
@@ -21727,7 +21727,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             
             // Canonical request oluştur
             const canonicalUri = path;
-            const canonicalQuerystring = '';
+            const canonicalQuerystring = queryString;
             const canonicalHeaders = `host:${settings.endpoint}\nx-amz-content-sha256:UNSIGNED-PAYLOAD\nx-amz-date:${timestamp}\n`;
             const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
             const payloadHash = 'UNSIGNED-PAYLOAD';
@@ -21841,8 +21841,9 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             const url = `https://${settings.endpoint}/${settings.bucket}?list-type=2&prefix=BACKUP_`;
             const method = 'GET';
             const path = `/${settings.bucket}/`;
+            const queryString = 'list-type=2&prefix=BACKUP_';
             
-            const auth = await createAwsSignature(method, path, '', settings);
+            const auth = await createAwsSignature(method, path, '', settings, queryString);
             
             const response = await fetch(url, {
                 method: method,
