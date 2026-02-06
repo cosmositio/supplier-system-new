@@ -12525,12 +12525,38 @@
                             supplier.ppmPuan = ppmPuan;
                             
                             // Tedarikçi puanı ve sınıfını yeniden hesapla
-                            recalculateSupplierScore(supplier);
+                            if (typeof recalculateSupplierScore === 'function') {
+                                recalculateSupplierScore(supplier);
+                            }
                         });
                         
-                        // Tabloyu render et
-                        renderTable(allResults);
-                        updateStats(allResults);
+                        // Tabloyu render et (setTimeout ile biraz bekle - fonksiyonlar yüklensin)
+                        setTimeout(() => {
+                            console.log('🎨 Tablo render ediliyor...');
+                            if (typeof renderTable === 'function') {
+                                renderTable(allResults);
+                                console.log('✅ renderTable çağrıldı');
+                            } else {
+                                console.error('❌ renderTable fonksiyonu tanımlı değil!');
+                            }
+                            if (typeof updateStats === 'function') {
+                                updateStats(allResults);
+                                console.log('✅ updateStats çağrıldı');
+                            } else {
+                                console.error('❌ updateStats fonksiyonu tanımlı değil!');
+                            }
+                            
+                            // Eğer tabloda satır yoksa hata var demektir
+                            setTimeout(() => {
+                                const tableBody = document.querySelector('table tbody');
+                                const rowCount = tableBody ? tableBody.querySelectorAll('tr').length : 0;
+                                if (rowCount === 0) {
+                                    console.error('❌ Tabloda satır yok! Render hatası olabilir.');
+                                } else {
+                                    console.log(`✅ Tabloda ${rowCount} satır görüntüleniyor`);
+                                }
+                            }, 200);
+                        }, 100);
                     }
                 } catch (e) {
                     console.error('❌ localStorage suppliers parse hatası:', e);
@@ -12552,13 +12578,16 @@
                 
                 // Excel yüklü değilse ve kaydedilmiş sürüm varsa modal otomatik aç
                 setTimeout(async () => {
-                    // Storj'dan yeni yüklendiyse modal açma
-                    if (localStorage.getItem('skipAutoModal') === 'true') {
+                    // Storj'dan yeni yüklendiyse modal açma (flag kontrol et)
+                    const skipFlag = localStorage.getItem('skipAutoModal');
+                    if (skipFlag === 'true') {
                         localStorage.removeItem('skipAutoModal');
                         console.log('📊 Storj yüklemesi tamamlandı, modal atlandı');
+                        console.log('📊 Tabloda', allResults ? allResults.length : 0, 'tedarikçi yüklü');
                         return;
                     }
                     
+                    // allResults boşsa VE kayıtlı sürüm varsa modal aç
                     if (!allResults || allResults.length === 0) {
                         // Kaydedilmiş sürüm var mı kontrol et
                         const hasVersions = await checkIfVersionsExist();
@@ -12566,6 +12595,9 @@
                             console.log('📊 Excel yüklü değil, kaydedilmiş sürümler gösteriliyor...');
                             showEditsHistory();
                         }
+                    } else {
+                        // allResults doluysa tabloda veriler var demektir
+                        console.log('📊 Tabloda', allResults.length, 'tedarikçi yüklü, modal açılmadı');
                     }
                 }, 500);
                 
@@ -22488,7 +22520,7 @@ Devam etmek istiyor musunuz?`;
                 
                 // Eğer suppliers yüklendiyse, tabloyu render et ve verilerle çalış
                 if (suppliersLoaded && allResults && allResults.length > 0) {
-                    console.log('🔄 Tabloya yükleniyor...');
+                    console.log('🔄 Tabloya yükleniyor...', allResults.length, 'tedarikçi');
                     
                     // PPM ve puanları yeniden hesapla
                     allResults.forEach(supplier => {
@@ -22535,12 +22567,15 @@ Devam etmek istiyor musunuz?`;
                         recalculateSupplierScore(supplier);
                     });
                     
+                    console.log('🎨 Tablo render ediliyor...');
                     // Tabloyu render et
                     renderTable(allResults);
                     updateStats(allResults);
+                    console.log('✅ Render tamamlandı');
                     
                     showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n📊 ${allResults.length} tedarikçi tabloda görüntüleniyor`, 'success');
                 } else {
+                    console.log('⚠️ Suppliers yüklenmedi veya boş, reload gerekiyor');
                     // Suppliers yüklenmediyse veya boşsa, sayfa reload gerekiyor
                     showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n🔄 Sayfa yenileniyor...`, 'success');
                     setTimeout(() => location.reload(), 1500);
