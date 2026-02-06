@@ -13282,7 +13282,7 @@
             });
         }
         
-        function showEditsHistory() {
+        async function showEditsHistory() {
             if (!db) {
                 showAlert('⚠️ Veri tabanı hazır değil', 'error');
                 return;
@@ -13292,29 +13292,38 @@
             const objectStore = transaction.objectStore(STORE_NAME);
             const getAllRequest = objectStore.getAll();
             
-            getAllRequest.onsuccess = () => {
+            getAllRequest.onsuccess = async () => {
                 const history = getAllRequest.result || [];
                 const manualHistory = history.filter(h => !(h.name || '').toLowerCase().startsWith('otomatik kayıt'));
                 
-                let html = `<div style="max-width: 700px; max-height: 500px; overflow-y: auto;">`;
+                let html = `<div style="max-width: 900px; max-height: 600px; overflow-y: auto;">`;
+                
+                // IndexedDB Bölümü
+                html += `
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.5em;">💾</span>
+                            <div>
+                                <div style="font-weight: 700; font-size: 1.2em;">Lokal Kayıtlar (IndexedDB)</div>
+                                <div style="font-size: 0.85em; opacity: 0.9;">Bu tarayıcıda kayıtlı sürümler</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
                 
                 if (manualHistory.length === 0) {
                     html += `
-                        <div style="text-align: center; padding: 40px 20px; color: #666;">
-                            <div style="font-size: 2em; margin-bottom: 15px;">📭</div>
-                            <div style="font-size: 1.1em; margin-bottom: 10px;">Kaydedilmiş sürüm yok</div>
-                            <div style="font-size: 0.9em; color: #999;">Manuel kayıt için "💾 Düzenlemeleri Kaydet" butonunu kullanın</div>
+                        <div style="text-align: center; padding: 30px 20px; color: #666; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
+                            <div style="font-size: 2em; margin-bottom: 10px;">📭</div>
+                            <div style="font-size: 1em; margin-bottom: 5px;">Lokal kayıt yok</div>
+                            <div style="font-size: 0.85em; color: #999;">Manuel kayıt için "💾 Düzenlemeleri Kaydet" butonunu kullanın</div>
                         </div>
                     `;
                 } else {
                     // Tarihe göre sırala (en yeni en üstte)
                     manualHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-                    html += `
-                        <div style="margin-bottom: 15px; font-weight: 600; border-bottom: 2px solid #1e3c72; padding-bottom: 10px;">
-                            Tüm Kaydedilmiş Versiyonlar (${manualHistory.length})
-                        </div>
-                    `;
+                    html += `<div style="margin-bottom: 20px;">`;
 
                     manualHistory.forEach((snapshot, index) => {
                         const date = new Date(snapshot.timestamp);
@@ -13347,19 +13356,119 @@
                         `;
                     });
 
+                    html += `</div>`;
+                }
+                
+                // Storj Yedekleri Bölümü
+                const settings = getStorjSettings();
+                if (settings) {
                     html += `
-                        <div style="margin-top: 20px; padding: 12px; background: #d1ecf1; border-radius: 5px; border: 1px solid #17a2b8;">
-                            <strong>ℹ️ Bilgi:</strong> Kayıtlar yalnızca manuel olarak oluşturulur. Maksimum 100 sürüm saklanır.
+                        <div style="background: linear-gradient(135deg, #4CAF50 0%, #2e7d32 100%); color: white; padding: 15px; border-radius: 8px 8px 0 0; margin-top: 30px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 1.5em;">☁️</span>
+                                <div>
+                                    <div style="font-weight: 700; font-size: 1.2em;">Bulut Yedekleri (Storj DCS)</div>
+                                    <div style="font-size: 0.85em; opacity: 0.9;">Tüm cihazlarınızdan erişilebilir</div>
+                                </div>
+                            </div>
                         </div>
-                        <div style="margin-top: 10px; padding: 12px; background: #fff3cd; border-radius: 5px; border: 1px solid #ffc107;">
-                            <strong>💾 Yedekleme:</strong> Önemli kayıtlarınızı "💾 İndir" butonu ile JSON dosyası olarak bilgisayarınıza indirebilirsiniz. Daha sonra "JSON Yükle" butonu ile geri yükleyebilirsiniz.
+                    `;
+                    
+                    html += `<div id="storjBackupsSection" style="padding: 15px; background: #e8f5e9; border-radius: 0 0 8px 8px; margin-bottom: 20px;">
+                        <div style="text-align: center; padding: 20px; color: #2e7d32;">
+                            <div style="font-size: 1.2em; margin-bottom: 10px;">🔄 Storj yedekleri yükleniyor...</div>
+                        </div>
+                    </div>`;
+                    
+                    // Modal'ı göster
+                    showCustomAlert(html, 'Kaydedilmiş Sürümler');
+                    
+                    // Storj yedeklerini yükle (async)
+                    try {
+                        const backups = await listStorjBackups(settings);
+                        
+                        let storjHTML = '';
+                        if (backups.length === 0) {
+                            storjHTML = `
+                                <div style="text-align: center; padding: 30px 20px; color: #666; background: white; border-radius: 8px;">
+                                    <div style="font-size: 2em; margin-bottom: 10px;">📭</div>
+                                    <div style="font-size: 1em; margin-bottom: 5px; color: #2e7d32;">Storj'da yedek yok</div>
+                                    <div style="font-size: 0.85em; color: #666;">Ayarlar > Storj DCS > "Veritabanını Yükle" ile yedek oluşturun</div>
+                                </div>
+                            `;
+                        } else {
+                            backups.forEach((backup, index) => {
+                                const rowStyle = index % 2 === 0 ? 'background: white;' : 'background: #f1f8f4;';
+                                storjHTML += `
+                                    <div style="padding: 12px; margin: 8px 0; ${rowStyle} border-radius: 8px; border: 1px solid #c8e6c9;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                                            <div style="flex: 1;">
+                                                <div style="font-weight: 600; color: #2e7d32; font-size: 1.05em;">☁️ ${backup.lastModifiedText}</div>
+                                                <div style="font-size: 0.85em; color: #666; margin-top: 4px;">Boyut: ${backup.sizeText}</div>
+                                                <div style="font-size: 0.75em; color: #999; margin-top: 2px; word-break: break-all;">
+                                                    <code style="background: #e8f5e9; padding: 2px 6px; border-radius: 3px;">${backup.key}</code>
+                                                </div>
+                                            </div>
+                                            <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                                                <button class="btn" style="padding: 6px 12px; font-size: 0.9em; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="loadBackupFromList('${backup.key}')">
+                                                    📥 Yükle
+                                                </button>
+                                                <button class="btn" style="padding: 6px 12px; font-size: 0.9em; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="deleteBackupFromList('${backup.key}')">
+                                                    🗑️ Sil
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        }
+                        
+                        // Storj bölümünü güncelle
+                        const storjSection = document.getElementById('storjBackupsSection');
+                        if (storjSection) {
+                            storjSection.innerHTML = storjHTML;
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ Storj yedekleri yüklenemedi:', error);
+                        const storjSection = document.getElementById('storjBackupsSection');
+                        if (storjSection) {
+                            storjSection.innerHTML = `
+                                <div style="text-align: center; padding: 20px; color: #c62828; background: #ffebee; border-radius: 8px;">
+                                    <div style="font-size: 1em; margin-bottom: 5px;">❌ Storj bağlantı hatası</div>
+                                    <div style="font-size: 0.85em;">${error.message}</div>
+                                </div>
+                            `;
+                        }
+                    }
+                } else {
+                    html += `
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border: 1px solid #ffc107; margin-top: 30px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 1.5em;">⚠️</span>
+                                <div>
+                                    <div style="font-weight: 600; color: #856404; margin-bottom: 5px;">Storj DCS Yapılandırılmadı</div>
+                                    <div style="font-size: 0.85em; color: #856404;">
+                                        Bulut yedekleme için Ayarlar > Storj DCS bölümünden yapılandırın
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     `;
                 }
                 
+                // Bilgi notları
+                html += `
+                    <div style="margin-top: 20px; padding: 12px; background: #d1ecf1; border-radius: 5px; border: 1px solid #17a2b8;">
+                        <strong>ℹ️ Bilgi:</strong> Lokal kayıtlar sadece bu tarayıcıda saklanır. Storj yedekleri tüm cihazlarınızdan erişilebilir.
+                    </div>
+                `;
+                
                 html += `</div>`;
 
-                showCustomAlert(html, 'Kaydedilmiş Sürümler (IndexedDB)');
+                if (!settings) {
+                    showCustomAlert(html, 'Kaydedilmiş Sürümler');
+                }
             };
             
             getAllRequest.onerror = () => {
@@ -16596,8 +16705,15 @@
         }
 
         function showCustomAlert(html, title) {
+            // Eski modalı kapat (varsa)
+            const oldModal = document.getElementById('customAlertModal');
+            if (oldModal) {
+                oldModal.remove();
+            }
+            
             // Basit modal göster
             const modal = document.createElement('div');
+            modal.id = 'customAlertModal';
             modal.style.cssText = `
                 position: fixed;
                 top: 0;
@@ -16612,7 +16728,7 @@
             `;
 
             modal.innerHTML = `
-                <div style="background: white; border-radius: 10px; padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                <div style="background: white; border-radius: 10px; padding: 20px; max-width: 950px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
                     <h2 style="margin-top: 0; margin-bottom: 20px; color: #1e3c72;">${title}</h2>
                     ${html}
                     <div style="margin-top: 20px; text-align: right;">
@@ -22197,6 +22313,7 @@ Devam etmek istiyor musunuz?`;
                 
                 // Modalı kapat
                 document.getElementById('storjBackupsModal')?.remove();
+                document.getElementById('customAlertModal')?.remove();
                 
                 showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n🔄 Sayfa yenileniyor...`, 'success');
                 setTimeout(() => location.reload(), 2000);
@@ -22223,9 +22340,56 @@ Devam etmek istiyor musunuz?`;
                 
                 showAlert('✅ Yedek başarıyla silindi!', 'success');
                 
-                // Modalı kapat ve yeniden aç
-                document.getElementById('storjBackupsModal')?.remove();
-                setTimeout(() => showStorjBackupsList(), 500);
+                // Storj bölümünü güncelle (modalı yeniden açmadan)
+                const storjSection = document.getElementById('storjBackupsSection');
+                if (storjSection) {
+                    storjSection.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #2e7d32;">
+                            <div style="font-size: 1.2em; margin-bottom: 10px;">🔄 Liste güncelleniyor...</div>
+                        </div>
+                    `;
+                    
+                    // Listeyi yeniden yükle
+                    const backups = await listStorjBackups(settings);
+                    
+                    let storjHTML = '';
+                    if (backups.length === 0) {
+                        storjHTML = `
+                            <div style="text-align: center; padding: 30px 20px; color: #666; background: white; border-radius: 8px;">
+                                <div style="font-size: 2em; margin-bottom: 10px;">📭</div>
+                                <div style="font-size: 1em; margin-bottom: 5px; color: #2e7d32;">Storj'da yedek yok</div>
+                                <div style="font-size: 0.85em; color: #666;">Ayarlar > Storj DCS > "Veritabanını Yükle" ile yedek oluşturun</div>
+                            </div>
+                        `;
+                    } else {
+                        backups.forEach((backup, index) => {
+                            const rowStyle = index % 2 === 0 ? 'background: white;' : 'background: #f1f8f4;';
+                            storjHTML += `
+                                <div style="padding: 12px; margin: 8px 0; ${rowStyle} border-radius: 8px; border: 1px solid #c8e6c9;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                                        <div style="flex: 1;">
+                                            <div style="font-weight: 600; color: #2e7d32; font-size: 1.05em;">☁️ ${backup.lastModifiedText}</div>
+                                            <div style="font-size: 0.85em; color: #666; margin-top: 4px;">Boyut: ${backup.sizeText}</div>
+                                            <div style="font-size: 0.75em; color: #999; margin-top: 2px; word-break: break-all;">
+                                                <code style="background: #e8f5e9; padding: 2px 6px; border-radius: 3px;">${backup.key}</code>
+                                            </div>
+                                        </div>
+                                        <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                                            <button class="btn" style="padding: 6px 12px; font-size: 0.9em; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="loadBackupFromList('${backup.key}')">
+                                                📥 Yükle
+                                            </button>
+                                            <button class="btn" style="padding: 6px 12px; font-size: 0.9em; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="deleteBackupFromList('${backup.key}')">
+                                                🗑️ Sil
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    storjSection.innerHTML = storjHTML;
+                }
                 
             } catch (error) {
                 console.error('❌ Silme hatası:', error);
