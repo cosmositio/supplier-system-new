@@ -18839,16 +18839,6 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                     }
                 }
                 
-                // Dokümanlar & Belgeler Bölümü Ekle
-                const supplier = allResults.find(r => r.name === supplierName);
-                if (supplier) {
-                    // Yeni sayfa kontrolü
-                    if (yPos > pageHeight - 60) {
-                        doc.addPage();
-                        yPos = 15;
-                    }
-                }
-                
                 // Kaydet
                 const defaultFileName = `Target_Agreement_${normalizeTurkish(supplierName)}_${baseYear}.pdf`;
                 const fileName = options.fileNameOverride || defaultFileName;
