@@ -24976,41 +24976,46 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                     
                     if (selectedService === 'pantry') {
                         shareUrl = await shareWith8DPantry(current8DData, current8DSupplier, current8DMonth);
-                } else if (selectedService === 'storj') {
-                    // Storj DCS ile paylaş
-                    const settings = getStorjSettings();
-                    if (!settings) {
-                        showAlert('⚠️ Storj ayarları yapılmamış!\n\nAyarlar menüsünden Storj DCS ayarlarını yapın.', 'error');
-                        return;
-                    }
-                    
-                    const shareData = {
-                        reportId: current8DData.id || 'new',
-                        supplierName: current8DSupplier,
-                        monthIndex: current8DMonth,
-                        reportData: current8DData,
-                        sharedAt: new Date().toISOString(),
-                        mode: 'supplier-edit'
-                    };
-                    
-                    // Unique key oluştur
-                    const storjKey = `8D_${current8DSupplier}_${current8DMonth}_${Date.now()}.json`.replace(/[^a-zA-Z0-9._-]/g, '_');
-                    
-                    // Storj'a yükle
-                    await uploadToStorj(storjKey, JSON.stringify(shareData, null, 2), settings);
-                    
-                    // Storj key'i raporda sakla
-                    current8DData.sharedStorjKey = storjKey;
-                    
-                    // IndexedDB'ye kaydet
-                    const tx = db.transaction([REPORT_8D_STORE_NAME], 'readwrite');
-                    const store = tx.objectStore(REPORT_8D_STORE_NAME);
-                    store.put(current8DData);
-                    await new Promise(resolve => tx.oncomplete = resolve);
-                    
-                    // Tedarikçi URL'i oluştur (credentials'ı encode ederek)
-                    const encodedCreds = btoa(JSON.stringify({ accessKey: settings.accessKey, secretKey: settings.secretKey, bucket: settings.bucket, endpoint: settings.endpoint, key: storjKey }));
-                    shareUrl = `${window.location.origin}${window.location.pathname}?mode=supplier&storj=${encodedCreds}`;
+                    } else if (selectedService === 'storj') {
+                        // Storj DCS ile paylaş
+                        const settings = getStorjSettings();
+                        if (!settings) {
+                            showAlert('⚠️ Storj ayarları yapılmamış!\n\nAyarlar menüsünden Storj DCS ayarlarını yapın.', 'error');
+                            return;
+                        }
+                        
+                        const shareData = {
+                            reportId: current8DData.id || 'new',
+                            supplierName: current8DSupplier,
+                            monthIndex: current8DMonth,
+                            reportData: current8DData,
+                            sharedAt: new Date().toISOString(),
+                            mode: 'supplier-edit'
+                        };
+                        
+                        // Unique key oluştur
+                        const storjKey = `8D_${current8DSupplier}_${current8DMonth}_${Date.now()}.json`.replace(/[^a-zA-Z0-9._-]/g, '_');
+                        
+                        // Storj'a yükle
+                        await uploadToStorj(storjKey, JSON.stringify(shareData, null, 2), settings);
+                        
+                        // Storj key'i raporda sakla
+                        current8DData.sharedStorjKey = storjKey;
+                        
+                        // IndexedDB'ye kaydet
+                        const tx = db.transaction([REPORT_8D_STORE_NAME], 'readwrite');
+                        const store = tx.objectStore(REPORT_8D_STORE_NAME);
+                        store.put(current8DData);
+                        await new Promise(resolve => tx.oncomplete = resolve);
+                        
+                        // Tedarikçi URL'i oluştur (credentials'ı encode ederek)
+                        const encodedCreds = btoa(JSON.stringify({ accessKey: settings.accessKey, secretKey: settings.secretKey, bucket: settings.bucket, endpoint: settings.endpoint, key: storjKey }));
+                        shareUrl = `${window.location.origin}${window.location.pathname}?mode=supplier&storj=${encodedCreds}`;
+                    } else {
+                        // JSONBin ile paylaş
+                        const apiKey = getJsonBinApiKey();
+                        if (!apiKey) {
+                            showAlert('⚠️ Önce 8D raporunu paylaşın veya API Key ayarlayın!', 'error');
                             return;
                         }
                         
