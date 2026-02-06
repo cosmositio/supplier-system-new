@@ -3979,8 +3979,20 @@
                 if (record && record.documents && record.documents[docType]) {
                     const file = record.documents[docType].find(doc => doc.id === fileId);
                     if (file) {
+                        console.log(`📥 İndirme başlıyor: ${fileName}`);
+                        console.log('  file.blob:', file.blob);
+                        console.log('  file.data:', file.data ? `${file.data.substring(0, 50)}...` : 'yok');
+                        
                         // file.blob zaten Blob objesi
                         const blob = file.blob;
+                        
+                        if (!blob) {
+                            console.error('❌ Blob bulunamadı!');
+                            showAlert('❌ Dosya verisi eksik! Lütfen sayfayı yenileyin.', 'error');
+                            return;
+                        }
+                        
+                        console.log(`  Blob: ${blob.size} bytes, type: ${blob.type}`);
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
@@ -4051,8 +4063,20 @@
                         
                         const mimeType = file.type || mimeTypes[ext] || 'application/octet-stream';
                         
-                        // file.blob zaten Blob objesi, doğru MIME type ile kullan
+                        console.log(`👁️ Önizleme başlıyor: ${fileName}`);
+                        console.log('  file.blob:', file.blob);
+                        console.log('  file.data:', file.data ? `${file.data.substring(0, 50)}...` : 'yok');
+                        
+                        // file.blob zaten Blob objesi
                         const blob = file.blob;
+                        
+                        if (!blob) {
+                            console.error('❌ Blob bulunamadı!');
+                            showAlert('❌ Dosya verisi eksik! Lütfen sayfayı yenileyin.', 'error');
+                            return;
+                        }
+                        
+                        console.log(`  Blob: ${blob.size} bytes, type: ${blob.type}`);
                         const url = URL.createObjectURL(blob);
                         
                         // Yeni pencerede aç
@@ -22226,6 +22250,8 @@ Devam etmek istiyor musunuz?`;
                     
                     // supplierDocuments için base64'ü blob'a çevir
                     if (storeName === 'supplierDocuments') {
+                        let convertedCount = 0;
+                        let failedCount = 0;
                         for (const docRecord of data) {
                             if (docRecord.documents) {
                                 for (const docType in docRecord.documents) {
@@ -22236,16 +22262,22 @@ Devam etmek istiyor musunuz?`;
                                                 const blob = base64ToBlob(file.data);
                                                 if (blob) {
                                                     file.blob = blob;
+                                                    convertedCount++;
+                                                    console.log(`✅ ${file.name}: Blob oluşturuldu (${blob.size} bytes, type: ${blob.type})`);
+                                                } else {
+                                                    failedCount++;
+                                                    console.error(`❌ ${file.name}: Blob null döndü`);
                                                 }
                                             } catch (err) {
-                                                console.error(`Base64 to Blob dönüştürme hatası (${file.name}):`, err);
+                                                failedCount++;
+                                                console.error(`❌ ${file.name}: Dönüştürme hatası:`, err);
                                             }
                                         }
                                     }
                                 }
                             }
                         }
-                        console.log(`✅ ${storeName}: ${data.length} kayıt yüklendi (base64'ler blob'a çevrildi)`);
+                        console.log(`✅ ${storeName}: ${data.length} kayıt yüklendi (${convertedCount} dosya dönüştürüldü, ${failedCount} hata)`);
                     } else {
                         console.log(`✅ ${storeName}: ${data.length} kayıt yüklendi`);
                     }
