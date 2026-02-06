@@ -13216,9 +13216,9 @@
                         console.log('📊 Kaydedilmiş sürümler bulundu, modal açılıyor...');
                         showEditsHistory();
                     } else {
-                        console.log('📊 Hiç kayıt yok, boş ekran');
-                        // İsterseniz burada da modal açabilirsiniz:
-                        // showEditsHistory();
+                        console.log('📊 Hiç kayıt yok, yine de modal açılıyor (Storj/Google Sheets için)...');
+                        // Kayıt olmasa da modal aç - kullanıcı Storj veya Google Sheets'ten yükleyebilir
+                        showEditsHistory();
                     }
                 }, 500);
                 
@@ -14194,9 +14194,8 @@
                 
                 html += `</div>`;
 
-                if (!settings) {
-                    showCustomAlert(html, 'Kaydedilmiş Sürümler');
-                }
+                // Modal her zaman açılsın (Storj ayarları olsa da olmasa da)
+                showCustomAlert(html, 'Kaydedilmiş Sürümler');
             };
             
             getAllRequest.onerror = () => {
