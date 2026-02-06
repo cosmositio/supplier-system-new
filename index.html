@@ -2274,6 +2274,9 @@
                     <button id="syncDocumentsBtn" onclick="syncSupplierDocumentsFromStorj()" data-supplier="" style="padding: 10px 20px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; display: none; align-items: center; gap: 8px;">
                         <span>🔄</span> Senkronize Et
                     </button>
+                    <button id="sendDocMailBtn" onclick="sendDocumentShareEmailFromModal()" style="padding: 10px 20px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; display: none; align-items: center; gap: 8px;">
+                        <span>📧</span> Mail Gönder
+                    </button>
                 </div>
                 <button onclick="closeDocumentModal()" style="padding: 8px 15px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">Kapat</button>
             </div>
@@ -4187,9 +4190,15 @@
                                                 <option value="rejected" ${selectedStatus === 'rejected' ? 'selected' : ''}>✗ Ret</option>
                                             </select>
                                         </div>
-                                        <div style="margin-top: 8px;">
-                                            <label style="display: block; font-size: 0.75em; color: #666; margin-bottom: 3px; font-weight: 600;">💬 Müşteri Yorumu (Tedarikçi bu yorumu görecek):</label>
-                                            <textarea id="reviewComment_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" placeholder="Tedarikçiye yorum yazın..." onchange="updateDocumentReviewComment('${supplierName.replace(/'/g, "\\'")}', '${docType.replace(/'/g, "\\'")}', ${idx}, this.value)" style="width: 100%; min-height: 50px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8em; resize: vertical; box-sizing: border-box;">${file.reviewComment || ''}</textarea>
+                                        <div style="margin-top: 8px; padding: 8px; background: #f3e5f5; border: 2px solid #9c27b0; border-radius: 6px;">
+                                            <label style="display: block; font-size: 0.75em; color: #6a1b9a; margin-bottom: 3px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                                                💬 Müşteri Yorumu (Tedarikçi bu yorumu görecek)
+                                                <span style="background: #9c27b0; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.85em;">☁️ STORJ</span>
+                                            </label>
+                                            <textarea id="reviewComment_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" placeholder="Tedarikçiye yorum yazın... (Kaydedildiğinde Storj üzerinden tedarikçiye ulaşır)" onchange="updateDocumentReviewComment('${supplierName.replace(/'/g, "\\'")}', '${docType.replace(/'/g, "\\'")}', ${idx}, this.value)" style="width: 100%; min-height: 50px; padding: 6px 8px; border: 1px solid #9c27b0; border-radius: 4px; font-size: 0.8em; resize: vertical; box-sizing: border-box;">${file.reviewComment || ''}</textarea>
+                                            <div style="font-size: 0.7em; color: #6a1b9a; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
+                                                ℹ️ Bu yorum "Kaydet ve Paylaş" veya "Senkronize Et" butonuna bastığınızda Storj üzerinden tedarikçiye iletilir.
+                                            </div>
                                         </div>
                                     </div>
                                 `}).join('')}
@@ -4211,21 +4220,28 @@
             const saveChangesBtn = document.getElementById('saveChangesBtn');
             const initialShareBtn = document.getElementById('initialShareBtn');
             const syncBtn = document.getElementById('syncDocumentsBtn');
+            const sendMailBtn = document.getElementById('sendDocMailBtn');
             
             if (record && record.sharedStorjKey) {
-                // Zaten paylaşılmış - kaydet ve senkronize butonlarını göster
+                // Zaten paylaşılmış - kaydet, senkronize ve mail butonlarını göster
                 if (saveChangesBtn) saveChangesBtn.style.display = 'inline-flex';
                 if (initialShareBtn) initialShareBtn.style.display = 'none';
                 if (syncBtn) {
                     syncBtn.style.display = 'inline-flex';
                     syncBtn.setAttribute('data-supplier', supplierName);
                 }
-                console.log('🔄 Kaydet ve Senkronize butonları gösterildi (shared key: ' + record.sharedStorjKey + ')');
+                if (sendMailBtn) {
+                    sendMailBtn.style.display = 'inline-flex';
+                    sendMailBtn.setAttribute('data-supplier', supplierName);
+                    sendMailBtn.setAttribute('data-storj-key', record.sharedStorjKey);
+                }
+                console.log('🔄 Kaydet, Senkronize ve Mail butonları gösterildi (shared key: ' + record.sharedStorjKey + ')');
             } else {
                 // Henüz paylaşılmamış - sadece ilk paylaşım butonunu göster
                 if (saveChangesBtn) saveChangesBtn.style.display = 'none';
                 if (initialShareBtn) initialShareBtn.style.display = 'inline-flex';
                 if (syncBtn) syncBtn.style.display = 'none';
+                if (sendMailBtn) sendMailBtn.style.display = 'none';
                 console.log('📤 İlk Paylaşım butonu gösterildi (shared key yok)');
             }
             
@@ -22876,7 +22892,10 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                                 </div>
                                 <div style="margin-top: 8px; padding: 10px; background: ${statusBg}; border-radius: 4px; border: 2px solid ${statusColor};">
                                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                                        <div style="font-size: 0.9em; font-weight: 700; color: ${statusColor};">${statusText}</div>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div style="font-size: 0.9em; font-weight: 700; color: ${statusColor};">${statusText}</div>
+                                            <span style="background: #9c27b0; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.7em; font-weight: 600;">☁️ STORJ</span>
+                                        </div>
                                         ${file.reviewedAt ? `<div style="font-size: 0.75em; color: #666;">📅 ${new Date(file.reviewedAt).toLocaleDateString('tr-TR')}</div>` : ''}
                                     </div>
                                     ${file.reviewComment ? `
@@ -25248,10 +25267,10 @@ Quality Team
         }
 
         // Doküman Paylaşımı için Mail Gönder
-        function sendDocumentShareEmail(shareUrl, serviceName) {
+        function sendDocumentShareEmail(shareUrl, serviceName, supplierNameOverride = null) {
             try {
-                // Tedarikçi adını link dialogundan al
-                const supplierName = currentDocShareSupplier || 'Tedarikçi';
+                // Tedarikçi adını parametre veya global değişkenden al
+                const supplierName = supplierNameOverride || currentDocShareSupplier || 'Tedarikçi';
                 
                 // Türkçe mail içeriği
                 const emailSubjectTR = `📄 Doküman Paylaşımı - ${supplierName}`;
@@ -25379,6 +25398,53 @@ Quality Team
             } catch (error) {
                 console.error('Mail gönderme hatası:', error);
                 showAlert('❌ Mail hazırlanırken hata oluştu: ' + error.message, 'error');
+            }
+        }
+
+        // Doküman modalinden mail gönder - paylaşım linkini reconstruct ederek
+        async function sendDocumentShareEmailFromModal() {
+            try {
+                const sendMailBtn = document.getElementById('sendDocMailBtn');
+                if (!sendMailBtn) {
+                    showAlert('❌ Mail butonu bulunamadı', 'error');
+                    return;
+                }
+                
+                const supplierName = sendMailBtn.getAttribute('data-supplier');
+                const storjKey = sendMailBtn.getAttribute('data-storj-key');
+                
+                if (!supplierName || !storjKey) {
+                    showAlert('❌ Tedarikçi bilgileri bulunamadı', 'error');
+                    return;
+                }
+                
+                // Storj ayarlarını al
+                const settings = await getStorjSettings();
+                if (!settings) {
+                    showAlert('⚠️ Storj ayarları bulunamadı!', 'error');
+                    return;
+                }
+                
+                // Sharing URL'i yeniden oluştur
+                const encodedCreds = btoa(JSON.stringify({ 
+                    accessKey: settings.accessKey, 
+                    secretKey: settings.secretKey, 
+                    bucket: settings.bucket, 
+                    endpoint: settings.endpoint, 
+                    key: storjKey 
+                }));
+                
+                const shareUrl = `${window.location.origin}${window.location.pathname}?mode=supplier&storj=${encodedCreds}`;
+                
+                console.log('📧 Mail gönderiliyor:', supplierName);
+                console.log('🔗 URL:', shareUrl);
+                
+                // Mail gönder fonksiyonunu çağır
+                await sendDocumentShareEmail(shareUrl, storjKey, supplierName);
+                
+            } catch (error) {
+                console.error('❌ Modal\'dan mail gönderme hatası:', error);
+                showAlert('❌ Mail gönderilirken hata oluştu: ' + error.message, 'error');
             }
         }
 
