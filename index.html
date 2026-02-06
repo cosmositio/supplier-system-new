@@ -12474,6 +12474,69 @@
             // Kaydedilmiş filtreleri hemen göster (localStorage'dan)
             loadSavedFilters();
             
+            // localStorage'dan suppliers yükle (Storj'dan yüklendiyse)
+            const storedSuppliers = localStorage.getItem('selectedSuppliers');
+            if (storedSuppliers && (!allResults || allResults.length === 0)) {
+                try {
+                    const suppliers = JSON.parse(storedSuppliers);
+                    if (Array.isArray(suppliers) && suppliers.length > 0) {
+                        allResults = suppliers;
+                        console.log(`✅ ${suppliers.length} tedarikçi localStorage'dan yüklendi!`);
+                        
+                        // PPM ve hedefleri yeniden hesapla
+                        allResults.forEach(supplier => {
+                            if (supplier.ppmTarget) {
+                                savePPMTargetToStorage(supplier.name, supplier.ppmTarget);
+                            }
+                            if (supplier.hataHedefi !== undefined) {
+                                saveHataHedefiToStorage(supplier.name, supplier.hataHedefi);
+                            }
+                            
+                            // PPM değerini yeniden hesapla
+                            const totalSevk = supplier.totalSevk || 0;
+                            const totalIade = supplier.totalIade || 0;
+                            
+                            if (totalSevk > 0) {
+                                const calculatedPpm = (totalIade / totalSevk) * 1000000;
+                                supplier.currentPPM = calculatedPpm;
+                                supplier.ppm = calculatedPpm;
+                            }
+                            
+                            // PPM puanını yeniden hesapla
+                            const targetPpm = supplier.ppmTarget || 1000;
+                            const monthlyPpm = supplier.ppm;
+                            
+                            let ppmPuan = 0;
+                            if (monthlyPpm === 0) {
+                                ppmPuan = 1;
+                            } else if (monthlyPpm <= 0.2 * targetPpm) {
+                                ppmPuan = 0.95;
+                            } else if (monthlyPpm <= 0.4 * targetPpm) {
+                                ppmPuan = 0.9;
+                            } else if (monthlyPpm <= 0.6 * targetPpm) {
+                                ppmPuan = 0.85;
+                            } else if (monthlyPpm <= 0.8 * targetPpm) {
+                                ppmPuan = 0.8;
+                            } else if (monthlyPpm < 1.2 * targetPpm) {
+                                ppmPuan = 0.6;
+                            } else {
+                                ppmPuan = 0;
+                            }
+                            supplier.ppmPuan = ppmPuan;
+                            
+                            // Tedarikçi puanı ve sınıfını yeniden hesapla
+                            recalculateSupplierScore(supplier);
+                        });
+                        
+                        // Tabloyu render et
+                        renderTable(allResults);
+                        updateStats(allResults);
+                    }
+                } catch (e) {
+                    console.error('❌ localStorage suppliers parse hatası:', e);
+                }
+            }
+            
             // IndexedDB'yi başlat
             try {
                 await initIndexedDB();
@@ -12489,6 +12552,13 @@
                 
                 // Excel yüklü değilse ve kaydedilmiş sürüm varsa modal otomatik aç
                 setTimeout(async () => {
+                    // Storj'dan yeni yüklendiyse modal açma
+                    if (localStorage.getItem('skipAutoModal') === 'true') {
+                        localStorage.removeItem('skipAutoModal');
+                        console.log('📊 Storj yüklemesi tamamlandı, modal atlandı');
+                        return;
+                    }
+                    
                     if (!allResults || allResults.length === 0) {
                         // Kaydedilmiş sürüm var mı kontrol et
                         const hasVersions = await checkIfVersionsExist();
@@ -22332,8 +22402,11 @@ Devam etmek istiyor musunuz?`;
                 document.getElementById('storjBackupsModal')?.remove();
                 document.getElementById('customAlertModal')?.remove();
                 
+                // Flag set et: Storj'dan yükledik, modal açılmasın
+                localStorage.setItem('skipAutoModal', 'true');
+                
                 showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n🔄 Sayfa yenileniyor...`, 'success');
-                setTimeout(() => location.reload(), 2000);
+                setTimeout(() => location.reload(), 1500);
                 
             } catch (error) {
                 console.error('❌ Yükleme hatası:', error);
