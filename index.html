@@ -5771,12 +5771,106 @@
 
         // ======== Kalite Belge Matrisi Fonksiyonları ========
         let qcMatrixCurrentSuppliers = [];
-        const qualityCertTypes = [
-            { key: 'iso9001', label: 'ISO 9001' },
-            { key: 'iso14001', label: 'ISO 14001' },
-            { key: 'iso45001', label: 'ISO 45001' },
-            { key: 'iatf', label: 'IATF 16949' }
+        let qualityCertTypes = [
+            { key: 'iso9001', label: 'ISO 9001', custom: false },
+            { key: 'iso14001', label: 'ISO 14001', custom: false },
+            { key: 'iso45001', label: 'ISO 45001', custom: false },
+            { key: 'iatf', label: 'IATF 16949', custom: false }
         ];
+        
+        // LocalStorage'dan özel belge türlerini yükle
+        function loadCustomQualityCertTypes() {
+            try {
+                const saved = localStorage.getItem('customQualityCertTypes');
+                if (saved) {
+                    const customTypes = JSON.parse(saved);
+                    // Varsayılan türlerle birleştir
+                    qualityCertTypes = [
+                        { key: 'iso9001', label: 'ISO 9001', custom: false },
+                        { key: 'iso14001', label: 'ISO 14001', custom: false },
+                        { key: 'iso45001', label: 'ISO 45001', custom: false },
+                        { key: 'iatf', label: 'IATF 16949', custom: false },
+                        ...customTypes
+                    ];
+                }
+            } catch (e) {
+                console.error('Özel belge türleri yüklenemedi:', e);
+            }
+        }
+        
+        // Özel belge türlerini kaydet
+        function saveCustomQualityCertTypes() {
+            try {
+                const customTypes = qualityCertTypes.filter(t => t.custom);
+                localStorage.setItem('customQualityCertTypes', JSON.stringify(customTypes));
+            } catch (e) {
+                console.error('Özel belge türleri kaydedilemedi:', e);
+            }
+        }
+        
+        // Yeni belge türü ekleme
+        async function addNewQualityCertType() {
+            const label = prompt('Yeni Belge Türü Adı (örn: ISO 50001):');
+            if (!label || label.trim() === '') return;
+            
+            const key = label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+            
+            // Aynı key var mı kontrol et
+            if (qualityCertTypes.find(t => t.key === key)) {
+                showAlert('❌ Bu belge türü zaten mevcut!', 'error');
+                return;
+            }
+            
+            // Yeni türü ekle
+            qualityCertTypes.push({
+                key: key,
+                label: label.trim(),
+                custom: true
+            });
+            
+            // Kaydet
+            saveCustomQualityCertTypes();
+            
+            // Matrisi yenile
+            await generateQualityCertMatrix(qcMatrixCurrentSuppliers);
+            
+            showAlert(`✅ "${label}" belge türü eklendi!`, 'success');
+        }
+        
+        // Belge türünü silme
+        async function removeQualityCertType(index) {
+            const cert = qualityCertTypes[index];
+            if (!cert.custom) {
+                showAlert('❌ Varsayılan belge türleri silinemez!', 'error');
+                return;
+            }
+            
+            if (!confirm(`"${cert.label}" belge türünü silmek istediğinize emin misiniz?\n\nTüm tedarikçilerdeki bu belge verileri silinecektir!`)) {
+                return;
+            }
+            
+            // Tüm tedarikçilerden bu belge türünü sil
+            allResults.forEach(supplier => {
+                if (supplier[cert.key]) {
+                    delete supplier[cert.key];
+                }
+                if (supplier.certExpiryDates && supplier.certExpiryDates[cert.key]) {
+                    delete supplier.certExpiryDates[cert.key];
+                }
+            });
+            
+            // Türü listeden çıkar
+            qualityCertTypes.splice(index, 1);
+            
+            // Kaydet
+            saveCustomQualityCertTypes();
+            saveSupplierCertData();
+            
+            // Matrisi yenile
+            await generateQualityCertMatrix(qcMatrixCurrentSuppliers);
+            
+            showAlert(`✅ "${cert.label}" belge türü silindi!`, 'success');
+        }
 
         async function showQualityCertMatrixModal() {
             const modal = document.getElementById('qualityCertMatrixModal');
@@ -5784,6 +5878,9 @@
                 showAlert('❌ Modal bulunamadı', 'error');
                 return;
             }
+            
+            // Özel belge türlerini yükle
+            loadCustomQualityCertTypes();
 
             // Filtrelenmiş sonuçları kullan
             const suppliers = lastFilteredResults && lastFilteredResults.length > 0 ? lastFilteredResults : allResults;
@@ -5881,15 +5978,27 @@
                                 </th>`;
 
             // Belge türü başlıkları
-            qualityCertTypes.forEach(cert => {
+            qualityCertTypes.forEach((cert, index) => {
+                const isCustom = cert.custom || false;
+                const deleteBtn = isCustom ? `<span onclick="removeQualityCertType(${index})" style="cursor: pointer; margin-left: 4px; color: #f44336; font-size: 0.9em;" title="Sil">✕</span>` : '';
                 html += `
                                 <th style="position: sticky; top: 0; z-index: 2; min-width: ${colWidth}px; max-width: ${colWidth}px;
-                                           background: linear-gradient(135deg, #00897b 0%, #00695c 100%); color: white;
+                                           background: linear-gradient(135deg, ${isCustom ? '#673ab7' : '#00897b'} 0%, ${isCustom ? '#512da8' : '#00695c'} 100%); color: white;
                                            padding: 8px; font-weight: 600; font-size: 0.85em; text-align: center;
-                                           border-right: 1px solid rgba(255,255,255,0.3); border-bottom: 2px solid #00695c;">
-                                    ${cert.label}
+                                           border-right: 1px solid rgba(255,255,255,0.3); border-bottom: 2px solid ${isCustom ? '#512da8' : '#00695c'};">
+                                    ${cert.label}${deleteBtn}
                                 </th>`;
             });
+            
+            // Yeni belge türü ekleme butonu
+            html += `
+                                <th style="position: sticky; top: 0; z-index: 2; min-width: 50px;
+                                           background: linear-gradient(135deg, #673ab7 0%, #512da8 100%); color: white;
+                                           padding: 8px; font-weight: 600; font-size: 0.85em; text-align: center;
+                                           border-right: 1px solid rgba(255,255,255,0.3); border-bottom: 2px solid #512da8; cursor: pointer;"
+                                     onclick="addNewQualityCertType()" title="Yeni Belge Türü Ekle">
+                                    ➕
+                                </th>`;
 
             html += `
                             </tr>
@@ -5946,6 +6055,13 @@
                                     ${cellContent}
                                 </td>`;
                 }
+                
+                // Boş hücre (yeni türler için)
+                html += `
+                                <td style="min-width: 50px; padding: 8px;
+                                           border-bottom: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0;
+                                           background: ${rowBg}; text-align: center;">
+                                </td>`;
 
                 html += `
                             </tr>`;
@@ -15050,71 +15166,14 @@
                 
                 <!-- Kalite Belgeleri ve Geçerlilik Tarihleri -->
                 <div style="margin-top: 20px; background: #fff; border: 2px solid #673ab7; border-radius: 10px; padding: 15px;">
-                    <h5 style="margin: 0 0 15px 0; color: #673ab7; font-size: 1em; display: flex; align-items: center; gap: 8px; justify-content: space-between;">
+                    <h5 style="margin: 0 0 15px 0; color: #673ab7; font-size: 1em; display: flex; align-items: center; gap: 8px;">
                         <span>📜 Kalite Belgeleri ve Geçerlilik Tarihleri</span>
-                        <button onclick="addCustomCertificate('${(supplier['Tedarikçi Adı'] || supplier.name).replace(/'/g, "\\'")}')" 
-                                style="padding: 6px 12px; background: #673ab7; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em;">
-                            ➕ Manuel Belge Ekle
-                        </button>
                     </h5>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-                        ${generateCertificateCard(supplier, 'iatf', 'IATF 16949', '#9c27b0')}
-                        ${generateCertificateCard(supplier, 'iso9001', 'ISO 9001', '#2196f3')}
-                        ${generateCertificateCard(supplier, 'iso14001', 'ISO 14001', '#4caf50')}
-                        ${generateCertificateCard(supplier, 'iso45001', 'ISO 45001', '#ff9800')}
-                        ${generateCustomCertificateCards(supplier)}
+                        ${qualityCertTypes.map(cert => generateCertificateCard(supplier, cert.key, cert.label, cert.custom ? '#673ab7' : (cert.key === 'iatf' ? '#9c27b0' : cert.key === 'iso9001' ? '#2196f3' : cert.key === 'iso14001' ? '#4caf50' : '#ff9800'))).join('')}
                     </div>
                 </div>
             `;
-        }
-        
-        // Özel belge kartları oluşturma
-        function generateCustomCertificateCards(supplier) {
-            const customCerts = supplier.customCertificates || [];
-            if (!customCerts.length) return '';
-            
-            return customCerts.map((cert, index) => {
-                const today = new Date();
-                const expDate = cert.expiryDate ? new Date(cert.expiryDate) : null;
-                let isExpired = false;
-                let isExpiringSoon = false;
-                let daysLeft = null;
-                
-                if (expDate) {
-                    const diffTime = expDate - today;
-                    daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    isExpired = daysLeft < 0;
-                    isExpiringSoon = daysLeft >= 0 && daysLeft <= 30;
-                }
-                
-                const statusColor = isExpired ? '#f44336' : isExpiringSoon ? '#ff9800' : '#4caf50';
-                const statusIcon = isExpired ? '⚠️' : isExpiringSoon ? '⏰' : '✓';
-                const statusText = isExpired ? 'SÜRESİ DOLDU' : isExpiringSoon ? `${daysLeft} gün kaldı` : 'Geçerli';
-                const formattedDate = expDate ? expDate.toLocaleDateString('tr-TR') : '-';
-                
-                return `
-                    <div style="padding: 12px; background: #e1bee715; border-radius: 8px; border-left: 4px solid ${statusColor}; position: relative;">
-                        <button onclick="removeCustomCertificate('${(supplier['Tedarikçi Adı'] || supplier.name).replace(/'/g, "\\'")}', ${index})" 
-                                style="position: absolute; top: 5px; right: 5px; background: #f44336; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 0.7em; padding: 0;">
-                            ✕
-                        </button>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <span style="font-weight: 600; color: #673ab7; font-size: 0.95em;">${cert.name}</span>
-                            <span style="font-size: 1.2em;">${statusIcon}</span>
-                        </div>
-                        <div style="font-size: 0.85em; color: #666;">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                <span>Durum:</span>
-                                <span style="font-weight: 600; color: ${statusColor};">${statusText}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;">
-                                <span>Geçerlilik:</span>
-                                <span style="font-weight: 500; color: ${isExpired ? '#f44336' : '#333'};">${formattedDate}</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
         }
         
         // Sertifika kartı oluşturma fonksiyonu
@@ -15160,73 +15219,6 @@
                     </div>
                 </div>
             `;
-        }
-        
-        // Manuel belge ekleme fonksiyonu
-        async function addCustomCertificate(supplierName) {
-            const certName = prompt('Belge Adı:');
-            if (!certName) return;
-            
-            const expiryDateStr = prompt('Geçerlilik Tarihi (GG.AA.YYYY):');
-            if (!expiryDateStr) return;
-            
-            // Tarih formatını kontrol et
-            const dateParts = expiryDateStr.split('.');
-            if (dateParts.length !== 3) {
-                showAlert('❌ Geçersiz tarih formatı! GG.AA.YYYY formatında girin.', 'error');
-                return;
-            }
-            
-            const expiryDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
-            
-            // Supplier'ı bul
-            const supplier = allResults.find(s => (s['Tedarikçi Adı'] || s.name) === supplierName);
-            if (!supplier) {
-                showAlert('❌ Tedarikçi bulunamadı!', 'error');
-                return;
-            }
-            
-            // customCertificates array'ini oluştur
-            if (!supplier.customCertificates) {
-                supplier.customCertificates = [];
-            }
-            
-            // Yeni belgeyi ekle
-            supplier.customCertificates.push({
-                name: certName,
-                expiryDate: expiryDate.toISOString()
-            });
-            
-            // LocalStorage'a kaydet
-            saveSupplierCertData();
-            
-            // Detay pencereyi yenile
-            showSupplierAnalysis(supplierName);
-            
-            showAlert('✅ Manuel belge eklendi!', 'success');
-        }
-        
-        // Manuel belge silme fonksiyonu
-        async function removeCustomCertificate(supplierName, index) {
-            if (!confirm('Bu belgeyi silmek istediğinize emin misiniz?')) return;
-            
-            // Supplier'ı bul
-            const supplier = allResults.find(s => (s['Tedarikçi Adı'] || s.name) === supplierName);
-            if (!supplier || !supplier.customCertificates) {
-                showAlert('❌ Tedarikçi veya belge bulunamadı!', 'error');
-                return;
-            }
-            
-            // Belgeyi sil
-            supplier.customCertificates.splice(index, 1);
-            
-            // LocalStorage'a kaydet
-            saveSupplierCertData();
-            
-            // Detay pencereyi yenile
-            showSupplierAnalysis(supplierName);
-            
-            showAlert('✅ Manuel belge silindi!', 'success');
         }
         
         function displayMonthlyData(supplier) {
