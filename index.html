@@ -5835,7 +5835,7 @@
             await generateQualityCertMatrix(qcMatrixCurrentSuppliers);
             
             // Ana tabloyu yenile
-            filterAndDisplayResults();
+            renderTable(allResults);
             
             showAlert(`✅ "${label}" belge türü eklendi!`, 'success');
         }
@@ -5873,7 +5873,7 @@
             await generateQualityCertMatrix(qcMatrixCurrentSuppliers);
             
             // Ana tabloyu yenile
-            filterAndDisplayResults();
+            renderTable(allResults);
             
             showAlert(`✅ "${cert.label}" belge türü silindi!`, 'success');
         }
