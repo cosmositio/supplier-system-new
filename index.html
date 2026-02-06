@@ -8703,6 +8703,15 @@
         function displayResults() {
             document.getElementById('controls').classList.add('active');
             lastFilteredResults = allResults;
+            
+            // selectedSuppliers Set'ini güncelle (FİLTRE İÇİN ÖNEMLİ!)
+            selectedSuppliers.clear();
+            allResults.forEach(supplier => {
+                const supplierKey = supplier.mapKey || supplier.name;
+                selectedSuppliers.add(supplierKey);
+            });
+            console.log(`✅ ${selectedSuppliers.size} tedarikçi selectedSuppliers'a eklendi (displayResults)`);
+            
             updateDashboard(lastFilteredResults);
             renderTable(allResults);
         }
@@ -9828,8 +9837,9 @@
                 // İsim filtresi
                 const nameMatch = r.name.toLowerCase().includes(searchTerm);
                 // Tedarikçi seçim filtresi (mapKey ile uyuşan seçili değer)
+                // Eğer selectedSuppliers boşsa, tüm tedarikçiler seçili sayılır
                 const supplierKey = r.mapKey || r.name;
-                const supplierMatch = selectedSuppliers.has(supplierKey);
+                const supplierMatch = selectedSuppliers.size === 0 ? true : selectedSuppliers.has(supplierKey);
 
                 // Lokasyon filtresi
                 let locationMatch = true;
@@ -22194,6 +22204,14 @@ Devam etmek istiyor musunuz?`;
                         recalculateSupplierScore(supplier);
                     });
                     
+                    // selectedSuppliers Set'ini güncelle (FİLTRE İÇİN ÖNEMLİ!)
+                    selectedSuppliers.clear();
+                    allResults.forEach(supplier => {
+                        const supplierKey = supplier.mapKey || supplier.name;
+                        selectedSuppliers.add(supplierKey);
+                    });
+                    console.log(`✅ ${selectedSuppliers.size} tedarikçi selectedSuppliers'a eklendi`);
+                    
                     // Tabloyu render et
                     renderTable(allResults);
                     updateStats(allResults);
@@ -22489,6 +22507,15 @@ Devam etmek istiyor musunuz?`;
                     });
                     
                     console.log('🎨 Tablo render ediliyor...');
+                    
+                    // selectedSuppliers Set'ini güncelle (FİLTRE İÇİN ÖNEMLİ!)
+                    selectedSuppliers.clear();
+                    allResults.forEach(supplier => {
+                        const supplierKey = supplier.mapKey || supplier.name;
+                        selectedSuppliers.add(supplierKey);
+                    });
+                    console.log(`✅ ${selectedSuppliers.size} tedarikçi selectedSuppliers'a eklendi`);
+                    
                     // Tabloyu render et
                     renderTable(allResults);
                     console.log('✅ Render tamamlandı');
