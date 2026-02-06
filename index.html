@@ -9769,44 +9769,28 @@
                                  style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; cursor: ${isMusteri ? 'not-allowed' : 'pointer'}; background: white; text-align: left; font-size: 0.85em; display: flex; justify-content: space-between; align-items: center;">
                                 <span id="kaliteBelgeDisplay_${index}">${(() => {
                                     const belgeler = [];
-                                    if (result.iatf) belgeler.push('IATF' + (result.certExpiryDates?.iatf ? ` (${new Date(result.certExpiryDates.iatf).toLocaleDateString('tr-TR')})` : ''));
-                                    if (result.iso9001) belgeler.push('ISO9001' + (result.certExpiryDates?.iso9001 ? ` (${new Date(result.certExpiryDates.iso9001).toLocaleDateString('tr-TR')})` : ''));
-                                    if (result.iso14001) belgeler.push('ISO14001' + (result.certExpiryDates?.iso14001 ? ` (${new Date(result.certExpiryDates.iso14001).toLocaleDateString('tr-TR')})` : ''));
-                                    if (result.iso45001) belgeler.push('ISO45001' + (result.certExpiryDates?.iso45001 ? ` (${new Date(result.certExpiryDates.iso45001).toLocaleDateString('tr-TR')})` : ''));
+                                    qualityCertTypes.forEach(cert => {
+                                        if (result[cert.key]) {
+                                            const shortLabel = cert.label.replace(/\s/g, '');
+                                            const dateStr = result.certExpiryDates?.[cert.key] ? ` (${new Date(result.certExpiryDates[cert.key]).toLocaleDateString('tr-TR')})` : '';
+                                            belgeler.push(shortLabel + dateStr);
+                                        }
+                                    });
                                     return belgeler.length > 0 ? belgeler.join(', ') : 'Seçiniz';
                                 })()}</span>
                                 <span style="margin-left: 8px;">▼</span>
                             </div>
                             <div id="kaliteBelgeDropdown_${index}" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ddd; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.15); z-index: 1000; min-width: 200px; margin-top: 4px;">
                                 <div style="padding: 8px;">
-                                    <label style="display: flex; align-items: center; padding: 6px; cursor: pointer; white-space: nowrap;" onclick="event.stopPropagation();">
-                                        <input type="checkbox" ${result.iatf ? 'checked' : ''}
-                                               onchange="handleKaliteBelgeCheckbox('${result.name}', ${index}, 'iatf', this.checked)"
-                                               style="margin-right: 8px;">
-                                        <span style="flex: 1;">IATF16949</span>
-                                        ${result.certExpiryDates?.iatf ? `<span style="font-size: 0.75em; color: #666; margin-left: 5px;">${new Date(result.certExpiryDates.iatf).toLocaleDateString('tr-TR')}</span>` : ''}
-                                    </label>
-                                    <label style="display: flex; align-items: center; padding: 6px; cursor: pointer; white-space: nowrap;" onclick="event.stopPropagation();">
-                                        <input type="checkbox" ${result.iso9001 ? 'checked' : ''}
-                                               onchange="handleKaliteBelgeCheckbox('${result.name}', ${index}, 'iso9001', this.checked)"
-                                               style="margin-right: 8px;">
-                                        <span style="flex: 1;">ISO 9001</span>
-                                        ${result.certExpiryDates?.iso9001 ? `<span style="font-size: 0.75em; color: #666; margin-left: 5px;">${new Date(result.certExpiryDates.iso9001).toLocaleDateString('tr-TR')}</span>` : ''}
-                                    </label>
-                                    <label style="display: flex; align-items: center; padding: 6px; cursor: pointer; white-space: nowrap;" onclick="event.stopPropagation();">
-                                        <input type="checkbox" ${result.iso14001 ? 'checked' : ''}
-                                               onchange="handleKaliteBelgeCheckbox('${result.name}', ${index}, 'iso14001', this.checked)"
-                                               style="margin-right: 8px;">
-                                        <span style="flex: 1;">ISO 14001</span>
-                                        ${result.certExpiryDates?.iso14001 ? `<span style="font-size: 0.75em; color: #666; margin-left: 5px;">${new Date(result.certExpiryDates.iso14001).toLocaleDateString('tr-TR')}</span>` : ''}
-                                    </label>
-                                    <label style="display: flex; align-items: center; padding: 6px; cursor: pointer; white-space: nowrap;" onclick="event.stopPropagation();">
-                                        <input type="checkbox" ${result.iso45001 ? 'checked' : ''}
-                                               onchange="handleKaliteBelgeCheckbox('${result.name}', ${index}, 'iso45001', this.checked)"
-                                               style="margin-right: 8px;">
-                                        <span style="flex: 1;">ISO 45001</span>
-                                        ${result.certExpiryDates?.iso45001 ? `<span style="font-size: 0.75em; color: #666; margin-left: 5px;">${new Date(result.certExpiryDates.iso45001).toLocaleDateString('tr-TR')}</span>` : ''}
-                                    </label>
+                                    ${qualityCertTypes.map(cert => `
+                                        <label style="display: flex; align-items: center; padding: 6px; cursor: pointer; white-space: nowrap;" onclick="event.stopPropagation();">
+                                            <input type="checkbox" ${result[cert.key] ? 'checked' : ''}
+                                                   onchange="handleKaliteBelgeCheckbox('${result.name}', ${index}, '${cert.key}', this.checked)"
+                                                   style="margin-right: 8px;">
+                                            <span style="flex: 1; ${cert.custom ? 'color: #673ab7; font-weight: 600;' : ''}">${cert.label}</span>
+                                            ${result.certExpiryDates?.[cert.key] ? `<span style="font-size: 0.75em; color: #666; margin-left: 5px;">${new Date(result.certExpiryDates[cert.key]).toLocaleDateString('tr-TR')}</span>` : ''}
+                                        </label>
+                                    `).join('')}
                                 </div>
                             </div>
                         </div>
@@ -11132,12 +11116,9 @@
         
         // Sertifika geçerlilik tarihi modal göster
         function showCertExpiryDateModal(supplierName, index, belge, callback) {
-            const belgeNames = {
-                'iatf': 'IATF 16949',
-                'iso9001': 'ISO 9001',
-                'iso14001': 'ISO 14001',
-                'iso45001': 'ISO 45001'
-            };
+            // Belge adını qualityCertTypes'tan al
+            const certType = qualityCertTypes.find(c => c.key === belge);
+            const belgeName = certType ? certType.label : belge;
             
             const supplier = allResults.find(r => r.name === supplierName);
             const existingDate = supplier?.certExpiryDates?.[belge] || '';
@@ -11150,7 +11131,7 @@
                             📅 Belge Geçerlilik Tarihi
                         </h3>
                         <p style="color: #666; margin-bottom: 15px;">
-                            <strong>${belgeNames[belge]}</strong> belgesi için geçerlilik bitiş tarihini girin:
+                            <strong>${belgeName}</strong> belgesi için geçerlilik bitiş tarihini girin:
                         </p>
                         <div style="margin-bottom: 20px;">
                             <input type="date" id="certExpiryDateInput" value="${existingDate}" 
@@ -16407,12 +16388,11 @@
             doc.setTextColor(0, 0, 0);
             
             // Kalite belgeleri (yatay düzen) - Geçerlilik tarihleriyle
-            const certs = [
-                { name: 'ISO 9001', key: 'iso9001', has: supplier.iso9001 },
-                { name: 'IATF 16949', key: 'iatf', has: supplier.iatf },
-                { name: 'ISO 14001', key: 'iso14001', has: supplier.iso14001 },
-                { name: 'ISO 45001', key: 'iso45001', has: supplier.iso45001 }
-            ];
+            const certs = qualityCertTypes.map(cert => ({
+                name: cert.label,
+                key: cert.key,
+                has: supplier[cert.key]
+            }));
             
             const certWidth = contentWidth / 4;
             const today = new Date();
