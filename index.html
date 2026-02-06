@@ -7039,9 +7039,16 @@
         function showAlert(message, type) {
             const container = document.getElementById('alertContainer');
             container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
-            if (type === 'success') {
-                setTimeout(() => container.innerHTML = '', 3000);
+            
+            // Tüm bildirimler için otomatik kapanma
+            let timeout = 3000; // Varsayılan 3 saniye
+            if (type === 'error') {
+                timeout = 5000; // Hatalar 5 saniye
+            } else if (type === 'info' || type === 'warning') {
+                timeout = 4000; // Bilgi ve uyarılar 4 saniye
             }
+            
+            setTimeout(() => container.innerHTML = '', timeout);
         }
 
         function toggleUploadSection() {
