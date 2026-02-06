@@ -22489,10 +22489,10 @@ Devam etmek istiyor musunuz?`;
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; table-layout: fixed;">
                         <thead>
                             <tr style="background: #f5f5f5; border-bottom: 2px solid #4CAF50;">
-                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #2e7d32; width: 20%;">📅 Tarih</th>
-                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #2e7d32; width: 12%;">📦 Boyut</th>
-                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #2e7d32; width: 38%;">🔑 Backup Key</th>
-                                <th style="padding: 12px; text-align: center; font-weight: 600; color: #2e7d32; width: 30%;">İşlemler</th>
+                                <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: #2e7d32; width: 23%;">📅 Tarih</th>
+                                <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: #2e7d32; width: 10%;">📦 Boyut</th>
+                                <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: #2e7d32; width: 34%;">🔑 Key</th>
+                                <th style="padding: 10px 8px; text-align: center; font-weight: 600; color: #2e7d32; width: 33%;">İşlemler</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -22502,16 +22502,16 @@ Devam etmek istiyor musunuz?`;
                     const rowStyle = index % 2 === 0 ? 'background: white;' : 'background: #f9f9f9;';
                     tableHTML += `
                         <tr style="${rowStyle} border-bottom: 1px solid #e0e0e0;">
-                            <td style="padding: 12px; color: #333; word-wrap: break-word;">${backup.lastModifiedText}</td>
-                            <td style="padding: 12px; color: #666; white-space: nowrap;">${backup.sizeText}</td>
-                            <td style="padding: 12px; word-wrap: break-word; overflow-wrap: break-word;">
-                                <code style="background: #e8f5e9; padding: 4px 8px; border-radius: 4px; font-size: 0.75em; color: #2e7d32; word-break: break-all; display: block;">${backup.key}</code>
+                            <td style="padding: 10px 8px; color: #333; word-wrap: break-word; font-size: 0.85em;">${backup.lastModifiedText}</td>
+                            <td style="padding: 10px 8px; color: #666; white-space: nowrap; font-size: 0.85em;">${backup.sizeText}</td>
+                            <td style="padding: 10px 8px; word-wrap: break-word; overflow-wrap: break-word;">
+                                <code style="background: #e8f5e9; padding: 3px 6px; border-radius: 3px; font-size: 0.7em; color: #2e7d32; word-break: break-all; display: block; line-height: 1.3;">${backup.key}</code>
                             </td>
-                            <td style="padding: 12px; text-align: center;">
-                                <button onclick="loadBackupFromList('${backup.key}')" style="background: #2196F3; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin: 0 4px; font-size: 0.85em; font-weight: 600; white-space: nowrap;">
+                            <td style="padding: 8px 6px; text-align: center;">
+                                <button onclick="loadBackupFromList('${backup.key}')" style="background: #2196F3; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin: 2px; font-size: 0.8em; font-weight: 600; white-space: nowrap; display: block; width: 100%;">
                                     📥 Yükle
                                 </button>
-                                <button onclick="deleteBackupFromList('${backup.key}')" style="background: #f44336; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin: 0 4px; font-size: 0.85em; font-weight: 600; white-space: nowrap;">
+                                <button onclick="deleteBackupFromList('${backup.key}')" style="background: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin: 2px; font-size: 0.8em; font-weight: 600; white-space: nowrap; display: block; width: 100%;">
                                     🗑️ Sil
                                 </button>
                             </td>
