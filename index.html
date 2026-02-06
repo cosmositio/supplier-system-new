@@ -5775,10 +5775,7 @@
             { key: 'iso9001', label: 'ISO 9001' },
             { key: 'iso14001', label: 'ISO 14001' },
             { key: 'iso45001', label: 'ISO 45001' },
-            { key: 'iatf16949', label: 'IATF 16949' },
-            { key: 'iso13485', label: 'ISO 13485' },
-            { key: 'iso27001', label: 'ISO 27001' },
-            { key: 'iso50001', label: 'ISO 50001' }
+            { key: 'iatf', label: 'IATF 16949' }
         ];
 
         async function showQualityCertMatrixModal() {
@@ -5839,7 +5836,6 @@
             }
 
             const colWidth = 130;
-            const rowHeight = 50;
 
             // Arama kutusu ekle
             let html = `
@@ -5872,84 +5868,55 @@
                     </div>
                 </div>
                 
-                <!-- Scrollable Matrix Container -->
-                <div style="background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
-                    <div style="display: flex;">
-                        <!-- Sticky Left Column (Supplier Names) -->
-                        <div style="min-width: 280px; max-width: 280px; border-right: 3px solid #00897b; background: white; display: flex; flex-direction: column;">
-                            <!-- Header -->
-                            <div style="background: linear-gradient(135deg, #00897b 0%, #00695c 100%); color: white; padding: 12px 15px; font-weight: 600; font-size: 0.95em; height: ${rowHeight}px; display: flex; align-items: center; border-bottom: 2px solid #00695c;">
-                                Tedarikçi Adı
-                            </div>
-                            <!-- Scrollable Names -->
-                            <div id="qcMatrixSupplierNames" style="overflow-y: scroll; overflow-x: hidden; max-height: 600px;">
-                                <!-- Supplier names will be here -->
-                            </div>
-                        </div>
-                        
-                        <!-- Scrollable Right Area (Document Columns) -->
-                        <div style="flex: 1; overflow-x: auto; overflow-y: hidden;">
-                            <div style="display: flex; flex-direction: column;">
-                                <!-- Header Row -->
-                                <div style="display: flex; border-bottom: 2px solid #00695c; background: linear-gradient(135deg, #00897b 0%, #00695c 100%);">
-            `;
+                <!-- Single Scrollable Table Container -->
+                <div style="background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: auto; max-height: 650px;">
+                    <table style="border-collapse: collapse; width: max-content; min-width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="position: sticky; left: 0; top: 0; z-index: 3; min-width: 250px; max-width: 250px;
+                                           background: linear-gradient(135deg, #00897b 0%, #00695c 100%); color: white; 
+                                           padding: 12px 15px; font-weight: 600; font-size: 0.95em; text-align: left;
+                                           border-right: 3px solid #00695c; border-bottom: 2px solid #00695c;">
+                                    Tedarikçi Adı
+                                </th>`;
 
             // Belge türü başlıkları
             qualityCertTypes.forEach(cert => {
                 html += `
-                    <div style="min-width: ${colWidth}px; max-width: ${colWidth}px; height: ${rowHeight}px; 
-                                padding: 8px; display: flex; align-items: center; justify-content: center; 
-                                border-right: 1px solid rgba(255,255,255,0.3); color: white; font-weight: 600; 
-                                font-size: 0.85em; text-align: center; word-wrap: break-word;">
-                        ${cert.label}
-                    </div>
-                `;
+                                <th style="position: sticky; top: 0; z-index: 2; min-width: ${colWidth}px; max-width: ${colWidth}px;
+                                           background: linear-gradient(135deg, #00897b 0%, #00695c 100%); color: white;
+                                           padding: 8px; font-weight: 600; font-size: 0.85em; text-align: center;
+                                           border-right: 1px solid rgba(255,255,255,0.3); border-bottom: 2px solid #00695c;">
+                                    ${cert.label}
+                                </th>`;
             });
 
             html += `
-                                </div>
-                                
-                                <!-- Scrollable Content Area -->
-                                <div id="qcMatrixContent" style="overflow-y: scroll; max-height: 600px;">
-                                    <!-- Content rows will be here -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            content.innerHTML = html;
+                            </tr>
+                        </thead>
+                        <tbody>`;
 
             // Satırları ekle
-            const supplierNames = document.getElementById('qcMatrixSupplierNames');
-            const matrixContent = document.getElementById('qcMatrixContent');
-            
-            let namesHTML = '';
-            let rowsHTML = '<div>';
-
-            for (const supplier of suppliers) {
+            for (let i = 0; i < suppliers.length; i++) {
+                const supplier = suppliers[i];
                 const supplierName = supplier['Tedarikçi Adı'] || supplier.name;
-                const row = `qcMatrix_${supplierName.replace(/\s+/g, '_')}`;
+                const rowBg = i % 2 === 0 ? '#fff' : '#fafafa';
 
-                // Sol taraf - Tedarikçi adı
-                namesHTML += `
-                    <div class="qcMatrixRow" data-supplier="${supplierName.toLowerCase()}" 
-                         style="min-height: ${rowHeight}px; padding: 12px 15px; border-bottom: 1px solid #e0e0e0; 
-                                display: flex; align-items: center; font-size: 0.9em; background: white; color: #333;">
-                        ${supplierName}
-                    </div>
-                `;
-
-                // Sağ taraf - Belge hücreleri
-                rowsHTML += `<div class="qcMatrixRow" data-supplier="${supplierName.toLowerCase()}" style="display: flex; border-bottom: 1px solid #e0e0e0;">`;
+                html += `
+                            <tr class="qcMatrixRow" data-supplier="${supplierName.toLowerCase()}">
+                                <td style="position: sticky; left: 0; z-index: 1; min-width: 250px; max-width: 250px;
+                                           padding: 10px 15px; border-bottom: 1px solid #e0e0e0; border-right: 3px solid #00897b;
+                                           background: ${rowBg}; font-size: 0.9em; color: #333; font-weight: 500;
+                                           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    ${supplierName}
+                                </td>`;
 
                 for (const cert of qualityCertTypes) {
                     const hasCert = supplier[cert.key];
                     const expiryDate = supplier.certExpiryDates?.[cert.key];
                     
                     let cellContent = '-';
-                    let bgColor = '#fff';
+                    let bgColor = rowBg;
                     let textColor = '#999';
                     
                     // ISO 9001 yoksa kırmızı
@@ -5971,35 +5938,26 @@
                         }
                     }
 
-                    rowsHTML += `
-                        <div style="min-width: ${colWidth}px; max-width: ${colWidth}px; min-height: ${rowHeight}px; 
-                                    padding: 8px; display: flex; align-items: center; justify-content: center; 
-                                    border-right: 1px solid #e0e0e0; background: ${bgColor}; color: ${textColor}; 
-                                    font-size: 0.8em; text-align: center; font-weight: 500;">
-                            ${cellContent}
-                        </div>
-                    `;
+                    html += `
+                                <td style="min-width: ${colWidth}px; max-width: ${colWidth}px; padding: 8px;
+                                           border-bottom: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0;
+                                           background: ${bgColor}; color: ${textColor}; font-size: 0.8em; 
+                                           text-align: center; font-weight: 500;">
+                                    ${cellContent}
+                                </td>`;
                 }
 
-                rowsHTML += `</div>`;
+                html += `
+                            </tr>`;
             }
 
-            rowsHTML += '</div>';
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
 
-            supplierNames.innerHTML = namesHTML;
-            matrixContent.innerHTML = rowsHTML;
-
-            // Scroll senkronizasyonu
-            const supplierNamesEl = document.getElementById('qcMatrixSupplierNames');
-            const matrixContentEl = document.getElementById('qcMatrixContent');
-
-            supplierNamesEl.addEventListener('scroll', () => {
-                matrixContentEl.scrollTop = supplierNamesEl.scrollTop;
-            });
-
-            matrixContentEl.addEventListener('scroll', () => {
-                supplierNamesEl.scrollTop = matrixContentEl.scrollTop;
-            });
+            content.innerHTML = html;
         }
 
         function filterQualityCertMatrix() {
@@ -6009,7 +5967,7 @@
             rows.forEach(row => {
                 const supplierName = row.getAttribute('data-supplier');
                 if (!searchTerm || supplierName.includes(searchTerm)) {
-                    row.style.display = 'flex';
+                    row.style.display = '';
                 } else {
                     row.style.display = 'none';
                 }
