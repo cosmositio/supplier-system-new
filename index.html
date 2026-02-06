@@ -22021,19 +22021,28 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                     stores: {}
                 };
                 
-                // 1. localStorage'dan suppliers verilerini al
-                const suppliersData = localStorage.getItem('selectedSuppliers');
-                if (suppliersData) {
-                    try {
-                        const suppliers = JSON.parse(suppliersData);
-                        exportData.stores['suppliers'] = suppliers;
-                        console.log(`✅ suppliers (localStorage): ${suppliers.length} kayıt`);
-                    } catch (e) {
-                        console.error('Suppliers verisi parse edilemedi:', e);
+                // 1. ÖNCE allResults'tan suppliers al (aktif veriler - Excel'den yüklenmiş olabilir)
+                if (allResults && allResults.length > 0) {
+                    // allResults'ı localStorage'a da kaydet (güvenlik için)
+                    localStorage.setItem('selectedSuppliers', JSON.stringify(allResults));
+                    exportData.stores['suppliers'] = allResults;
+                    console.log(`✅ suppliers (allResults): ${allResults.length} kayıt`);
+                } else {
+                    // 2. allResults yoksa localStorage'dan al
+                    const suppliersData = localStorage.getItem('selectedSuppliers');
+                    if (suppliersData) {
+                        try {
+                            const suppliers = JSON.parse(suppliersData);
+                            exportData.stores['suppliers'] = suppliers;
+                            console.log(`✅ suppliers (localStorage): ${suppliers.length} kayıt`);
+                        } catch (e) {
+                            console.error('Suppliers verisi parse edilemedi:', e);
+                            exportData.stores['suppliers'] = [];
+                        }
+                    } else {
+                        console.warn('⚠️ Supplier verisi bulunamadı!');
                         exportData.stores['suppliers'] = [];
                     }
-                } else {
-                    exportData.stores['suppliers'] = [];
                 }
                 
                 // 2. IndexedDB'den diğer store'ları oku
@@ -22138,11 +22147,15 @@ Devam etmek istiyor musunuz?`;
                 showAlert('💾 Veritabanına yazılıyor...', 'info');
                 
                 // Tüm verileri yükle
+                let suppliersLoaded = false;
+                
                 for (const [storeName, data] of Object.entries(importData.stores || {})) {
-                    // suppliers verisi localStorage'a yazılır
+                    // suppliers verisi localStorage'a VE allResults'a yazılır
                     if (storeName === 'suppliers') {
                         localStorage.setItem('selectedSuppliers', JSON.stringify(data));
-                        console.log(`✅ suppliers (localStorage): ${data.length} kayıt yüklendi`);
+                        allResults = data; // Direkt allResults'a da yaz
+                        suppliersLoaded = true;
+                        console.log(`✅ suppliers: ${data.length} kayıt yüklendi (localStorage + allResults)`);
                         continue;
                     }
                     
@@ -22169,15 +22182,61 @@ Devam etmek istiyor musunuz?`;
                     console.log(`✅ ${storeName}: ${data.length} kayıt yüklendi`);
                 }
                 
-                showAlert(`✅ Veritabanı başarıyla yüklendi!
-
-📦 ${Object.keys(importData.stores).length} store güncellendi
-📅 Export tarihi: ${new Date(importData.exportedAt).toLocaleString('tr-TR')}
-
-🔄 Sayfa yenileniyor...`, 'success');
-                
-                // Sayfayı yenile
-                setTimeout(() => location.reload(), 2000);
+                // Eğer suppliers yüklendiyse, tabloyu render et
+                if (suppliersLoaded && allResults && allResults.length > 0) {
+                    console.log('🔄 Tabloya yükleniyor...');
+                    
+                    // PPM ve puanları yeniden hesapla
+                    allResults.forEach(supplier => {
+                        if (supplier.ppmTarget) {
+                            savePPMTargetToStorage(supplier.name, supplier.ppmTarget);
+                        }
+                        if (supplier.hataHedefi !== undefined) {
+                            saveHataHedefiToStorage(supplier.name, supplier.hataHedefi);
+                        }
+                        
+                        const totalSevk = supplier.totalSevk || 0;
+                        const totalIade = supplier.totalIade || 0;
+                        
+                        if (totalSevk > 0) {
+                            const calculatedPpm = (totalIade / totalSevk) * 1000000;
+                            supplier.currentPPM = calculatedPpm;
+                            supplier.ppm = calculatedPpm;
+                        }
+                        
+                        const targetPpm = supplier.ppmTarget || 1000;
+                        const monthlyPpm = supplier.ppm;
+                        
+                        let ppmPuan = 0;
+                        if (monthlyPpm === 0) {
+                            ppmPuan = 1;
+                        } else if (monthlyPpm <= 0.2 * targetPpm) {
+                            ppmPuan = 0.95;
+                        } else if (monthlyPpm <= 0.4 * targetPpm) {
+                            ppmPuan = 0.9;
+                        } else if (monthlyPpm <= 0.6 * targetPpm) {
+                            ppmPuan = 0.85;
+                        } else if (monthlyPpm <= 0.8 * targetPpm) {
+                            ppmPuan = 0.8;
+                        } else if (monthlyPpm < 1.2 * targetPpm) {
+                            ppmPuan = 0.6;
+                        } else {
+                            ppmPuan = 0;
+                        }
+                        supplier.ppmPuan = ppmPuan;
+                        
+                        recalculateSupplierScore(supplier);
+                    });
+                    
+                    // Tabloyu render et
+                    renderTable(allResults);
+                    updateStats(allResults);
+                    
+                    showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n📦 ${Object.keys(importData.stores).length} store güncellendi\n📊 ${allResults.length} tedarikçi tabloda görüntüleniyor\n📅 Export tarihi: ${new Date(importData.exportedAt).toLocaleString('tr-TR')}`, 'success');
+                } else {
+                    showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n📦 ${Object.keys(importData.stores).length} store güncellendi\n📅 Export tarihi: ${new Date(importData.exportedAt).toLocaleString('tr-TR')}\n\n🔄 Sayfa yenileniyor...`, 'success');
+                    setTimeout(() => location.reload(), 2000);
+                }
                 
             } catch (error) {
                 console.error('❌ İndirme hatası:', error);
@@ -22367,11 +22426,15 @@ Devam etmek istiyor musunuz?`;
                 showAlert('💾 Veritabanına yazılıyor...', 'info');
                 
                 // Tüm verileri yükle
+                let suppliersLoaded = false;
+                
                 for (const [storeName, data] of Object.entries(importData.stores || {})) {
-                    // suppliers verisi localStorage'a yazılır
+                    // suppliers verisi localStorage'a VE allResults'a yazılır
                     if (storeName === 'suppliers') {
                         localStorage.setItem('selectedSuppliers', JSON.stringify(data));
-                        console.log(`✅ suppliers (localStorage): ${data.length} kayıt yüklendi`);
+                        allResults = data; // Direkt allResults'a da yaz
+                        suppliersLoaded = true;
+                        console.log(`✅ suppliers: ${data.length} kayıt yüklendi (localStorage + allResults)`);
                         continue;
                     }
                     
@@ -22402,11 +22465,65 @@ Devam etmek istiyor musunuz?`;
                 document.getElementById('storjBackupsModal')?.remove();
                 document.getElementById('customAlertModal')?.remove();
                 
-                // Flag set et: Storj'dan yükledik, modal açılmasın
-                localStorage.setItem('skipAutoModal', 'true');
-                
-                showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n🔄 Sayfa yenileniyor...`, 'success');
-                setTimeout(() => location.reload(), 1500);
+                // Eğer suppliers yüklendiyse, tabloyu render et ve verilerle çalış
+                if (suppliersLoaded && allResults && allResults.length > 0) {
+                    console.log('🔄 Tabloya yükleniyor...');
+                    
+                    // PPM ve puanları yeniden hesapla
+                    allResults.forEach(supplier => {
+                        if (supplier.ppmTarget) {
+                            savePPMTargetToStorage(supplier.name, supplier.ppmTarget);
+                        }
+                        if (supplier.hataHedefi !== undefined) {
+                            saveHataHedefiToStorage(supplier.name, supplier.hataHedefi);
+                        }
+                        
+                        // PPM değerini yeniden hesapla
+                        const totalSevk = supplier.totalSevk || 0;
+                        const totalIade = supplier.totalIade || 0;
+                        
+                        if (totalSevk > 0) {
+                            const calculatedPpm = (totalIade / totalSevk) * 1000000;
+                            supplier.currentPPM = calculatedPpm;
+                            supplier.ppm = calculatedPpm;
+                        }
+                        
+                        // PPM puanını yeniden hesapla
+                        const targetPpm = supplier.ppmTarget || 1000;
+                        const monthlyPpm = supplier.ppm;
+                        
+                        let ppmPuan = 0;
+                        if (monthlyPpm === 0) {
+                            ppmPuan = 1;
+                        } else if (monthlyPpm <= 0.2 * targetPpm) {
+                            ppmPuan = 0.95;
+                        } else if (monthlyPpm <= 0.4 * targetPpm) {
+                            ppmPuan = 0.9;
+                        } else if (monthlyPpm <= 0.6 * targetPpm) {
+                            ppmPuan = 0.85;
+                        } else if (monthlyPpm <= 0.8 * targetPpm) {
+                            ppmPuan = 0.8;
+                        } else if (monthlyPpm < 1.2 * targetPpm) {
+                            ppmPuan = 0.6;
+                        } else {
+                            ppmPuan = 0;
+                        }
+                        supplier.ppmPuan = ppmPuan;
+                        
+                        // Tedarikçi puanı ve sınıfını yeniden hesapla
+                        recalculateSupplierScore(supplier);
+                    });
+                    
+                    // Tabloyu render et
+                    renderTable(allResults);
+                    updateStats(allResults);
+                    
+                    showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n📊 ${allResults.length} tedarikçi tabloda görüntüleniyor`, 'success');
+                } else {
+                    // Suppliers yüklenmediyse veya boşsa, sayfa reload gerekiyor
+                    showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n🔄 Sayfa yenileniyor...`, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                }
                 
             } catch (error) {
                 console.error('❌ Yükleme hatası:', error);
