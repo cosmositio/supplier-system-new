@@ -5873,9 +5873,9 @@
                     <table style="border-collapse: collapse; width: max-content; min-width: 100%;">
                         <thead>
                             <tr>
-                                <th style="position: sticky; left: 0; top: 0; z-index: 3; min-width: 250px; max-width: 250px;
+                                <th style="position: sticky; left: 0; top: 0; z-index: 3; min-width: 180px; max-width: 180px;
                                            background: linear-gradient(135deg, #00897b 0%, #00695c 100%); color: white; 
-                                           padding: 12px 15px; font-weight: 600; font-size: 0.95em; text-align: left;
+                                           padding: 10px 12px; font-weight: 600; font-size: 0.9em; text-align: left;
                                            border-right: 3px solid #00695c; border-bottom: 2px solid #00695c;">
                                     Tedarikçi Adı
                                 </th>`;
@@ -5904,9 +5904,9 @@
 
                 html += `
                             <tr class="qcMatrixRow" data-supplier="${supplierName.toLowerCase()}">
-                                <td style="position: sticky; left: 0; z-index: 1; min-width: 250px; max-width: 250px;
-                                           padding: 10px 15px; border-bottom: 1px solid #e0e0e0; border-right: 3px solid #00897b;
-                                           background: ${rowBg}; font-size: 0.9em; color: #333; font-weight: 500;
+                                <td style="position: sticky; left: 0; z-index: 1; min-width: 180px; max-width: 180px;
+                                           padding: 8px 10px; border-bottom: 1px solid #e0e0e0; border-right: 3px solid #00897b;
+                                           background: ${rowBg}; font-size: 0.82em; color: #333; font-weight: 500;
                                            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                     ${supplierName}
                                 </td>`;
@@ -13383,6 +13383,7 @@
                     iso9001: r.iso9001 ? 1 : 0,
                     iso14001: r.iso14001 ? 1 : 0,
                     iso45001: r.iso45001 ? 1 : 0,
+                    certExpiryDates: r.certExpiryDates || {},
                     // 8D verileri
                     td8D: r.talepEdilen8D || 0,
                     cv8D: r.cevaplanan8D || 0,
@@ -13484,6 +13485,7 @@
                     iso9001: savedSupplier.iso9001 === 1,
                     iso14001: savedSupplier.iso14001 === 1,
                     iso45001: savedSupplier.iso45001 === 1,
+                    certExpiryDates: savedSupplier.certExpiryDates || {},
                     
                     // 8D verileri (kısaltılmış veya tam alan adı)
                     talepEdilen8D: savedSupplier.td8D || savedSupplier.talepEdilen8D || 0,
