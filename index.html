@@ -5835,7 +5835,7 @@
                 return;
             }
 
-            const colWidth = 90;
+            const colWidth = 75;
 
             // Arama kutusu ekle
             let html = `
@@ -5873,9 +5873,9 @@
                     <table style="border-collapse: collapse; width: max-content; min-width: 100%;">
                         <thead>
                             <tr>
-                                <th style="position: sticky; left: 0; top: 0; z-index: 3; min-width: 150px; max-width: 150px;
+                                <th style="position: sticky; left: 0; top: 0; z-index: 3; min-width: 120px; max-width: 120px;
                                            background: linear-gradient(135deg, #00897b 0%, #00695c 100%); color: white; 
-                                           padding: 8px 10px; font-weight: 600; font-size: 0.8em; text-align: left;
+                                           padding: 6px 8px; font-weight: 600; font-size: 0.75em; text-align: left;
                                            border-right: 3px solid #00695c; border-bottom: 2px solid #00695c;">
                                     Tedarikçi Adı
                                 </th>`;
@@ -5904,9 +5904,9 @@
 
                 html += `
                             <tr class="qcMatrixRow" data-supplier="${supplierName.toLowerCase()}">
-                                <td style="position: sticky; left: 0; z-index: 1; min-width: 150px; max-width: 150px;
-                                           padding: 6px 8px; border-bottom: 1px solid #e0e0e0; border-right: 3px solid #00897b;
-                                           background: ${rowBg}; font-size: 0.78em; color: #333; font-weight: 500;
+                                <td style="position: sticky; left: 0; z-index: 1; min-width: 120px; max-width: 120px;
+                                           padding: 5px 6px; border-bottom: 1px solid #e0e0e0; border-right: 3px solid #00897b;
+                                           background: ${rowBg}; font-size: 0.73em; color: #333; font-weight: 500;
                                            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                     ${supplierName}
                                 </td>`;
