@@ -6113,90 +6113,97 @@
             // Tarih
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
-            doc.text(`Oluşturma: ${new Date().toLocaleString('tr-TR')}`, 15, 25);
-
-            let yPos = 35;
-            const pageHeight = 210;
-            const marginBottom = 15;
+            doc.setTextColor(255, 255, 255);
+            doc.text(`Oluşturma: ${new Date().toLocaleString('tr-TR')}`, 15, 17);
 
             // Tablo başlıkları
-            const headers = ['Tedarikçi'];
-            qualityCertTypes.forEach(cert => headers.push(cert.label));
-
-            doc.setFontSize(8);
-            doc.setFont(undefined, 'bold');
-            doc.setFillColor(0, 137, 123);
-            doc.setTextColor(255, 255, 255);
-
-            let xPos = 15;
-            doc.rect(xPos, yPos, 60, 8, 'F');
-            doc.text('Tedarikçi', xPos + 2, yPos + 5.5);
-            xPos += 60;
-
-            qualityCertTypes.forEach(cert => {
-                doc.rect(xPos, yPos, 30, 8, 'F');
-                doc.text(cert.label, xPos + 2, yPos + 5.5);
-                xPos += 30;
-            });
-
-            yPos += 8;
-
-            // Satırlar
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(0, 0, 0);
-
+            const headers = [['Tedarikçi', ...qualityCertTypes.map(cert => cert.label)]];
+            
+            // Tablo verileri
+            const tableData = [];
+            
             for (const supplier of qcMatrixCurrentSuppliers) {
-                if (yPos > pageHeight - marginBottom) {
-                    doc.addPage();
-                    yPos = 20;
-                }
-
                 const supplierName = supplier['Tedarikçi Adı'] || supplier.name;
-                xPos = 15;
+                const row = [supplierName];
 
-                // Tedarikçi adı
-                doc.setFillColor(255, 255, 255);
-                doc.rect(xPos, yPos, 60, 7);
-                doc.text(supplierName.substring(0, 35), xPos + 2, yPos + 5);
-                xPos += 60;
-
-                // Belge hücreleri
                 for (const cert of qualityCertTypes) {
                     const hasCert = supplier[cert.key];
                     const expiryDate = supplier.certExpiryDates?.[cert.key];
                     
                     let cellText = '-';
-                    let fillColor = [255, 255, 255];
                     
                     if (cert.key === 'iso9001' && !hasCert) {
-                        fillColor = [255, 205, 210];
                         cellText = 'YOK';
                     } else if (hasCert) {
                         if (expiryDate) {
                             const status = getExpiryStatus(expiryDate);
-                            if (status.status === 'expired') {
-                                fillColor = [255, 205, 210];
-                            } else if (status.status === 'warning') {
-                                fillColor = [255, 249, 196];
-                            } else {
-                                fillColor = [200, 230, 201];
-                            }
                             cellText = status.text;
                         } else {
-                            fillColor = [224, 224, 224];
                             cellText = 'Var';
                         }
                     }
 
-                    doc.setFillColor(...fillColor);
-                    doc.rect(xPos, yPos, 30, 7, 'F');
-                    doc.rect(xPos, yPos, 30, 7);
-                    doc.text(cellText, xPos + 2, yPos + 5);
-                    xPos += 30;
+                    row.push(cellText);
                 }
 
-                yPos += 7;
+                tableData.push(row);
             }
+
+            // autoTable ile tablo oluştur
+            doc.autoTable({
+                startY: 25,
+                head: headers,
+                body: tableData,
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [0, 137, 123],
+                    textColor: [255, 255, 255],
+                    fontSize: 9,
+                    fontStyle: 'bold',
+                    halign: 'center',
+                    valign: 'middle'
+                },
+                bodyStyles: {
+                    fontSize: 8,
+                    cellPadding: 2
+                },
+                columnStyles: {
+                    0: { cellWidth: 60, halign: 'left' }
+                },
+                styles: {
+                    lineColor: [200, 200, 200],
+                    lineWidth: 0.1
+                },
+                didParseCell: function(data) {
+                    // Renklendirme
+                    if (data.section === 'body' && data.column.index > 0) {
+                        const cellValue = data.cell.raw;
+                        const supplier = qcMatrixCurrentSuppliers[data.row.index];
+                        const cert = qualityCertTypes[data.column.index - 1];
+                        const hasCert = supplier[cert.key];
+                        const expiryDate = supplier.certExpiryDates?.[cert.key];
+                        
+                        if (cert.key === 'iso9001' && !hasCert) {
+                            data.cell.styles.fillColor = [255, 205, 210]; // Kırmızı
+                        } else if (hasCert && expiryDate) {
+                            const status = getExpiryStatus(expiryDate);
+                            if (status.status === 'expired') {
+                                data.cell.styles.fillColor = [255, 205, 210]; // Kırmızı
+                            } else if (status.status === 'warning') {
+                                data.cell.styles.fillColor = [255, 249, 196]; // Sarı
+                            } else {
+                                data.cell.styles.fillColor = [200, 230, 201]; // Yeşil
+                            }
+                        } else if (cellValue === '-') {
+                            data.cell.styles.fillColor = [245, 245, 245]; // Gri
+                        } else if (cellValue === 'Var') {
+                            data.cell.styles.fillColor = [224, 224, 224]; // Açık gri
+                        }
+                        
+                        data.cell.styles.halign = 'center';
+                    }
+                }
+            });
 
             // PDF'i indir
             const fileName = `Kalite_Belge_Matrisi_${new Date().toISOString().slice(0,10)}.pdf`;
