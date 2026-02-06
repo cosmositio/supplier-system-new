@@ -14087,16 +14087,10 @@
                     html += `</div>`;
                 }
                 
-                // Storj Yedekleri Kontrol
+                // Storj Yedekleri Kontrol ve Bölüm Oluştur
                 const settings = getStorjSettings();
                 
-                // STORJ AYARLARI YOK - DİREKT AYAR DIALOGUNU AÇ
-                if (!settings) {
-                    showSettingsDialog();
-                    return; // Fonksiyonu burada sonlandır
-                }
-                
-                // Storj Yedekleri Bölümü - Ayarlar varsa göster
+                // Storj Yedekleri Bölümü Başlığı - HER ZAMAN GÖSTER
                 html += `
                     <div style="background: linear-gradient(135deg, #4CAF50 0%, #2e7d32 100%); color: white; padding: 15px; border-radius: 8px 8px 0 0; margin-top: 30px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
@@ -14108,6 +14102,40 @@
                         </div>
                     </div>
                 `;
+                
+                // STORJ AYARLARI YOK - MODAL İÇİNDE AYAR BUTONU GÖSTER
+                if (!settings) {
+                    html += `
+                        <div id="storjBackupsSection" style="padding: 20px; background: #e8f5e9; border-radius: 0 0 8px 8px; margin-bottom: 20px;">
+                            <div style="text-align: center; padding: 25px; background: white; border-radius: 8px; border: 2px dashed #4caf50;">
+                                <div style="font-size: 2em; margin-bottom: 15px;">⚙️</div>
+                                <div style="font-weight: 600; color: #2e7d32; margin-bottom: 10px; font-size: 1.2em;">Bulut Yedekleme Yapılandır</div>
+                                <div style="font-size: 0.9em; color: #666; margin-bottom: 20px; line-height: 1.6;">
+                                    Tüm cihazlarınızdan erişebileceğiniz bulut yedekleme için<br>
+                                    <strong>Storj DCS</strong> ayarlarını yapılandırın
+                                </div>
+                                <button class="btn btn-primary" onclick="document.getElementById('customAlertModal').remove(); showSettingsDialog();" 
+                                        style="background: linear-gradient(135deg, #4CAF50 0%, #2e7d32 100%); color: white; padding: 12px 30px; font-size: 1em; border: none; border-radius: 25px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">
+                                    ⚙️ Ayarlar > Veritabanı > Storj DCS
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Bilgi notları
+                    html += `
+                        <div style="margin-top: 20px; padding: 12px; background: #d1ecf1; border-radius: 5px; border: 1px solid #17a2b8;">
+                            <strong>ℹ️ Bilgi:</strong> Lokal kayıtlar sadece bu tarayıcıda saklanır. Storj yedekleri tüm cihazlarınızdan erişilebilir.
+                        </div>
+                    `;
+                    
+                    html += `</div>`;
+
+                    // Modal'ı göster
+                    showCustomAlert(html, 'Kaydedilmiş Sürümler');
+                    
+                    return; // Fonksiyonu burada sonlandır
+                }
                 
                 // STORJ AYARLARI VAR - YEDEKLERİ YÜKLE
                 html += `<div id="storjBackupsSection" style="padding: 15px; background: #e8f5e9; border-radius: 0 0 8px 8px; margin-bottom: 20px;">
