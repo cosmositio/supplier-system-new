@@ -8610,6 +8610,9 @@
             
             // Excel yüklendikten sonra bekleyen JSON verilerini uygula
             applyPendingSupplierData();
+            
+            // Kaydedilmiş sertifika verilerini geri yükle
+            loadSupplierCertData();
         }
         
         // Bekleyen tedarikçi verilerini uygula
@@ -8659,6 +8662,72 @@
             } catch (err) {
                 console.error('Bekleyen veri uygulama hatası:', err);
                 localStorage.removeItem('pendingSupplierData');
+            }
+        }
+
+        // ======== Sertifika Verileri Otomatik Kaydetme/Yükleme ========
+        // Sertifika verilerini localStorage'a kaydet
+        function saveSupplierCertData() {
+            try {
+                const certData = {};
+                allResults.forEach(supplier => {
+                    const name = supplier.name;
+                    const hasCerts = supplier.iatf || supplier.iso9001 || supplier.iso14001 || supplier.iso45001;
+                    const hasExpiry = supplier.certExpiryDates && Object.keys(supplier.certExpiryDates).length > 0;
+                    if (hasCerts || hasExpiry) {
+                        certData[name] = {
+                            iatf: supplier.iatf || false,
+                            iso9001: supplier.iso9001 || false,
+                            iso14001: supplier.iso14001 || false,
+                            iso45001: supplier.iso45001 || false,
+                            certExpiryDates: supplier.certExpiryDates || {},
+                            kalitePuan: supplier.kalitePuan || 0
+                        };
+                    }
+                });
+                if (Object.keys(certData).length > 0) {
+                    localStorage.setItem('supplierCertData', JSON.stringify(certData));
+                    console.log(`💾 ${Object.keys(certData).length} tedarikçinin sertifika verisi kaydedildi`);
+                }
+            } catch (e) {
+                console.error('Sertifika verisi kaydetme hatası:', e);
+            }
+        }
+
+        // Sertifika verilerini localStorage'dan yükle
+        function loadSupplierCertData() {
+            try {
+                const saved = localStorage.getItem('supplierCertData');
+                if (!saved) return;
+                
+                const certData = JSON.parse(saved);
+                let appliedCount = 0;
+                
+                allResults.forEach(supplier => {
+                    const data = certData[supplier.name];
+                    if (data) {
+                        supplier.iatf = data.iatf || false;
+                        supplier.iso9001 = data.iso9001 || false;
+                        supplier.iso14001 = data.iso14001 || false;
+                        supplier.iso45001 = data.iso45001 || false;
+                        supplier.certExpiryDates = data.certExpiryDates || {};
+                        supplier.kalitePuan = data.kalitePuan || 0;
+                        // Aylık kalite puanlarını da güncelle
+                        if (supplier.monthlyKalitePuan) {
+                            for (let m = 0; m < 12; m++) {
+                                supplier.monthlyKalitePuan[m] = supplier.kalitePuan;
+                            }
+                        }
+                        recalculateSupplierScore(supplier);
+                        appliedCount++;
+                    }
+                });
+                
+                if (appliedCount > 0) {
+                    console.log(`📋 ${appliedCount} tedarikçinin sertifika verileri geri yüklendi`);
+                }
+            } catch (e) {
+                console.error('Sertifika verisi yükleme hatası:', e);
             }
         }
 
@@ -10937,6 +11006,7 @@
                 // Belge kaldırılıyor - tarihi de sil
                 delete supplier.certExpiryDates[belge];
                 supplier[belge] = checked;
+                saveSupplierCertData();
                 finalizeCertificateUpdate(supplier, supplierName, index, belge, checked, scrollY, horizontalScrollLeft);
             }
         }
@@ -11017,6 +11087,9 @@
                 supplier[belge] = true;
             }
             
+            // Sertifika verilerini otomatik kaydet
+            saveSupplierCertData();
+            
             // Modal'ı kapat
             const modal = document.getElementById('certExpiryModal');
             if (modal) modal.remove();
@@ -11084,6 +11157,9 @@
             
             // Dashboard güncelle
             updateDashboard(lastFilteredResults.length ? lastFilteredResults : allResults);
+            
+            // Sertifika verilerini otomatik kaydet
+            saveSupplierCertData();
             
             // Scroll'u geri yükle
             requestAnimationFrame(() => {
@@ -11406,6 +11482,9 @@
                 
                 // DOM'u doğrudan güncelle (sayfa yeniden render edilmez, scroll korunur)
                 updateSupplierCells(supplierName);
+                
+                // Sertifika verilerini otomatik kaydet
+                saveSupplierCertData();
             }
         }
 
