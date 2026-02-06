@@ -4200,6 +4200,16 @@
                                                 ℹ️ Bu yorum "Kaydet ve Paylaş" veya "Senkronize Et" butonuna bastığınızda Storj üzerinden tedarikçiye iletilir.
                                             </div>
                                         </div>
+                                        ${file.supplierComment ? `
+                                        <div style="margin-top: 8px; padding: 8px; background: #e8f5e9; border: 2px solid #4CAF50; border-radius: 6px;">
+                                            <label style="display: block; font-size: 0.75em; color: #2e7d32; margin-bottom: 3px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                                                💭 Tedarikçi Yorumu
+                                                <span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.85em;">☁️ STORJ</span>
+                                                ${file.supplierCommentDate ? `<span style="font-size: 0.9em; color: #666;">📅 ${new Date(file.supplierCommentDate).toLocaleDateString('tr-TR')}</span>` : ''}
+                                            </label>
+                                            <div style="padding: 6px 8px; background: white; border: 1px solid #4CAF50; border-radius: 4px; font-size: 0.8em; line-height: 1.4; color: #1b5e20; min-height: 40px;">${file.supplierComment}</div>
+                                        </div>
+                                        ` : ''}
                                     </div>
                                 `}).join('')}
                             </div>
@@ -22536,18 +22546,27 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             const gistId = urlParams.get('gist');
             const storjEncoded = urlParams.get('storj');
             
-            // Doküman paylaşımı kontrolü
-            if (mode === 'documents' && storjEncoded) {
-                await loadSharedDocumentsFromStorj(storjEncoded);
-                return;
-            }
-            
             if (storjEncoded) {
+                // Credentials'ı decode edip key'i kontrol et
+                try {
+                    const credsJson = atob(storjEncoded);
+                    const creds = JSON.parse(credsJson);
+                    
+                    // Key DOCS_ ile başlıyorsa doküman paylaşımı
+                    if (creds.key && creds.key.startsWith('DOCS_')) {
+                        console.log('📄 Doküman paylaşımı tespit edildi');
+                        await loadSharedDocumentsFromStorj(storjEncoded);
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Storj credentials parse hatası:', e);
+                }
+                
                 // Servisi Storj olarak ayarla
                 localStorage.setItem('preferred_8d_service', 'storj');
                 console.log('✅ Paylaşım servisi otomatik olarak Storj DCS olarak ayarlandı');
                 
-                // Storj DCS'den yükle
+                // 8D Rapor yükle
                 await loadShared8DReportFromStorj(storjEncoded);
                 // Sayfa açılışında bir kez senkronize et
                 if (current8DData && current8DData.sharedStorjKey) {
@@ -22904,6 +22923,16 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                                         <div style="font-size: 0.85em; color: #333; line-height: 1.4;">${file.reviewComment}</div>
                                     </div>
                                     ` : `<div style="font-size: 0.75em; color: #999; font-style: italic; margin-top: 4px;">Henüz müşteri yorumu yok</div>`}
+                                    <div style="margin-top: 8px; padding: 8px; background: #e8f5e9; border: 2px solid #4CAF50; border-radius: 6px;">
+                                        <label style="display: block; font-size: 0.75em; color: #2e7d32; margin-bottom: 3px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                                            💭 Tedarikçi Yorumu (Müşteriye iletilir):
+                                            <span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.85em;">☁️ STORJ</span>
+                                        </label>
+                                        <textarea id="supplierComment_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" placeholder="Müşteriye iletilecek yorumunuzu yazın..." onchange="updateSupplierComment('${safeDocType}', ${idx}, this.value)" style="width: 100%; min-height: 50px; padding: 6px 8px; border: 1px solid #4CAF50; border-radius: 4px; font-size: 0.8em; resize: vertical; box-sizing: border-box; line-height: 1.4;">${file.supplierComment || ''}</textarea>
+                                        <div style="font-size: 0.7em; color: #2e7d32; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
+                                            ℹ️ Bu yorum "Dokümanları Gönder" butonuna bastığınızda Storj üzerinden müşteriye iletilir.
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -23010,6 +23039,24 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             if (docs[fileIndex]) {
                 docs[fileIndex].description = newDescription;
                 console.log(`✅ "${docs[fileIndex].name}" açıklaması güncellendi: "${newDescription}"`);
+                console.log('📋 Güncel doküman objesi:', docs[fileIndex]);
+            } else {
+                console.error(`❌ Dosya bulunamadı: docType=${docType}, index=${fileIndex}`);
+            }
+        }
+
+        // Tedarikçi yorumunu güncelle
+        function updateSupplierComment(docType, fileIndex, comment) {
+            if (!window.sharedDocumentsData || !window.sharedDocumentsData.documents[docType]) {
+                console.error('❌ Doküman verisi bulunamadı');
+                return;
+            }
+            
+            const docs = window.sharedDocumentsData.documents[docType];
+            if (docs[fileIndex]) {
+                docs[fileIndex].supplierComment = comment;
+                docs[fileIndex].supplierCommentDate = new Date().toISOString();
+                console.log(`✅ "${docs[fileIndex].name}" tedarikçi yorumu güncellendi: "${comment}"`);
                 console.log('📋 Güncel doküman objesi:', docs[fileIndex]);
             } else {
                 console.error(`❌ Dosya bulunamadı: docType=${docType}, index=${fileIndex}`);
@@ -23181,6 +23228,8 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                             description: file.description || '',
                             status: file.status || 'pending',
                             reviewComment: file.reviewComment || '',
+                            supplierComment: file.supplierComment || '',
+                            supplierCommentDate: file.supplierCommentDate || null,
                             reviewedAt: file.reviewedAt || null,
                             uploadedBySupplier: file.uploadedBySupplier || false
                         };
