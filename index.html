@@ -22033,15 +22033,21 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                     if (suppliersData) {
                         try {
                             const suppliers = JSON.parse(suppliersData);
-                            exportData.stores['suppliers'] = suppliers;
-                            console.log(`✅ suppliers (localStorage): ${suppliers.length} kayıt`);
+                            if (suppliers && suppliers.length > 0) {
+                                exportData.stores['suppliers'] = suppliers;
+                                console.log(`✅ suppliers (localStorage): ${suppliers.length} kayıt`);
+                            } else {
+                                showAlert('❌ Yedeklenecek tedarikçi verisi yok!\n\n💡 Önce Excel dosyanızı yükleyin, sonra yedek oluşturun.', 'error');
+                                return;
+                            }
                         } catch (e) {
                             console.error('Suppliers verisi parse edilemedi:', e);
-                            exportData.stores['suppliers'] = [];
+                            showAlert('❌ Supplier verisi okunamadı!\n\n💡 Lütfen Excel dosyanızı tekrar yükleyin.', 'error');
+                            return;
                         }
                     } else {
-                        console.warn('⚠️ Supplier verisi bulunamadı!');
-                        exportData.stores['suppliers'] = [];
+                        showAlert('❌ Yedeklenecek tedarikçi verisi yok!\n\n💡 Önce Excel dosyanızı yükleyin, sonra yedek oluşturun.', 'error');
+                        return;
                     }
                 }
                 
@@ -22129,6 +22135,13 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 const storeSummary = Object.entries(importData.stores || {})
                     .map(([name, data]) => `• ${name}: ${data.length} kayıt`)
                     .join('\n');
+                
+                // Suppliers kontrolü
+                const suppliersCount = (importData.stores['suppliers'] || []).length;
+                if (suppliersCount === 0) {
+                    showAlert('⚠️ Bu yedekte tedarikçi verisi yok!\n\nBu yedek muhtemelen boş bir veritabanından alınmış.\n\n💡 Çözüm: Excel dosyanızı yükleyin ve yeni bir yedek oluşturun.', 'error');
+                    return;
+                }
                 
                 const confirmMessage = `⚠️ MEVCUT VERİLERİN ÜZERİNE YAZILACAK!
 
@@ -22416,9 +22429,17 @@ Devam etmek istiyor musunuz?`;
                     .map(([name, data]) => `• ${name}: ${data.length} kayıt`)
                     .join('\n');
                 
+                // Suppliers kontrolü
+                const suppliersCount = (importData.stores['suppliers'] || []).length;
+                if (suppliersCount === 0) {
+                    showAlert('⚠️ Bu yedekte tedarikçi verisi yok!\n\nBu yedek muhtemelen boş bir veritabanından alınmış.\n\n💡 Çözüm: Excel dosyanızı yükleyin ve yeni bir yedek oluşturun.', 'error');
+                    return;
+                }
+                
                 const confirmMessage = `✅ Veri indirildi!\n\n${storeSummary}\n\nExport tarihi: ${new Date(importData.exportedAt).toLocaleString('tr-TR')}\n\nDevam etmek istiyor musunuz?`;
                 
                 if (!confirm(confirmMessage)) {
+                    localStorage.removeItem('skipAutoModal'); // İptal edince flag'i temizle
                     showAlert('İşlem iptal edildi.', 'info');
                     return;
                 }
