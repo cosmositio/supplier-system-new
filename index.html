@@ -5834,6 +5834,9 @@
             // Matrisi yenile
             await generateQualityCertMatrix(qcMatrixCurrentSuppliers);
             
+            // Ana tabloyu yenile
+            filterAndDisplayResults();
+            
             showAlert(`✅ "${label}" belge türü eklendi!`, 'success');
         }
         
@@ -5868,6 +5871,9 @@
             
             // Matrisi yenile
             await generateQualityCertMatrix(qcMatrixCurrentSuppliers);
+            
+            // Ana tabloyu yenile
+            filterAndDisplayResults();
             
             showAlert(`✅ "${cert.label}" belge türü silindi!`, 'success');
         }
@@ -13161,6 +13167,9 @@
         // Enter tuşu ile filtre kaydetme
         document.addEventListener('DOMContentLoaded', async () => {
             updateFullscreenButton();
+            
+            // Özel belge türlerini yükle
+            loadCustomQualityCertTypes();
             
             // Kaydedilmiş filtreleri hemen göster (localStorage'dan)
             loadSavedFilters();
