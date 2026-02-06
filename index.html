@@ -3979,7 +3979,8 @@
                 if (record && record.documents && record.documents[docType]) {
                     const file = record.documents[docType].find(doc => doc.id === fileId);
                     if (file) {
-                        const blob = new Blob([file.blob]);
+                        // file.blob zaten Blob objesi
+                        const blob = file.blob;
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
@@ -4050,8 +4051,8 @@
                         
                         const mimeType = file.type || mimeTypes[ext] || 'application/octet-stream';
                         
-                        // Blob'u doğru MIME type ile oluştur
-                        const blob = new Blob([file.blob], { type: mimeType });
+                        // file.blob zaten Blob objesi, doğru MIME type ile kullan
+                        const blob = file.blob;
                         const url = URL.createObjectURL(blob);
                         
                         // Yeni pencerede aç
