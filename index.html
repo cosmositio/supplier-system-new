@@ -12474,90 +12474,9 @@
             // Kaydedilmiş filtreleri hemen göster (localStorage'dan)
             loadSavedFilters();
             
-            // localStorage'dan suppliers yükle (Storj'dan yüklendiyse)
-            const storedSuppliers = localStorage.getItem('selectedSuppliers');
-            if (storedSuppliers && (!allResults || allResults.length === 0)) {
-                try {
-                    const suppliers = JSON.parse(storedSuppliers);
-                    if (Array.isArray(suppliers) && suppliers.length > 0) {
-                        allResults = suppliers;
-                        console.log(`✅ ${suppliers.length} tedarikçi localStorage'dan yüklendi!`);
-                        
-                        // PPM ve hedefleri yeniden hesapla
-                        allResults.forEach(supplier => {
-                            if (supplier.ppmTarget) {
-                                savePPMTargetToStorage(supplier.name, supplier.ppmTarget);
-                            }
-                            if (supplier.hataHedefi !== undefined) {
-                                saveHataHedefiToStorage(supplier.name, supplier.hataHedefi);
-                            }
-                            
-                            // PPM değerini yeniden hesapla
-                            const totalSevk = supplier.totalSevk || 0;
-                            const totalIade = supplier.totalIade || 0;
-                            
-                            if (totalSevk > 0) {
-                                const calculatedPpm = (totalIade / totalSevk) * 1000000;
-                                supplier.currentPPM = calculatedPpm;
-                                supplier.ppm = calculatedPpm;
-                            }
-                            
-                            // PPM puanını yeniden hesapla
-                            const targetPpm = supplier.ppmTarget || 1000;
-                            const monthlyPpm = supplier.ppm;
-                            
-                            let ppmPuan = 0;
-                            if (monthlyPpm === 0) {
-                                ppmPuan = 1;
-                            } else if (monthlyPpm <= 0.2 * targetPpm) {
-                                ppmPuan = 0.95;
-                            } else if (monthlyPpm <= 0.4 * targetPpm) {
-                                ppmPuan = 0.9;
-                            } else if (monthlyPpm <= 0.6 * targetPpm) {
-                                ppmPuan = 0.85;
-                            } else if (monthlyPpm <= 0.8 * targetPpm) {
-                                ppmPuan = 0.8;
-                            } else if (monthlyPpm < 1.2 * targetPpm) {
-                                ppmPuan = 0.6;
-                            } else {
-                                ppmPuan = 0;
-                            }
-                            supplier.ppmPuan = ppmPuan;
-                            
-                            // Tedarikçi puanı ve sınıfını yeniden hesapla
-                            if (typeof recalculateSupplierScore === 'function') {
-                                recalculateSupplierScore(supplier);
-                            }
-                        });
-                        
-                        // Tabloyu render et (setTimeout ile bekle - fonksiyonlar yüklensin)
-                        setTimeout(() => {
-                            console.log('🎨 Tablo render ediliyor...');
-                            if (typeof renderTable === 'function') {
-                                renderTable(allResults);
-                                console.log('✅ renderTable çağrıldı');
-                            } else {
-                                console.error('❌ renderTable fonksiyonu tanımlı değil!');
-                            }
-                            
-                            // Eğer tabloda satır yoksa hata var demektir
-                            setTimeout(() => {
-                                const tableBody = document.querySelector('table tbody');
-                                const rowCount = tableBody ? tableBody.querySelectorAll('tr').length : 0;
-                                if (rowCount === 0) {
-                                    console.error('❌ Tabloda satır yok! Render hatası olabilir.');
-                                    console.log('🔄 Sayfa yenileniyor...');
-                                    location.reload();
-                                } else {
-                                    console.log(`✅ Tabloda ${rowCount} satır görüntüleniyor`);
-                                }
-                            }, 300);
-                        }, 800); // 800ms bekle - tüm fonksiyonlar yüklensin
-                    }
-                } catch (e) {
-                    console.error('❌ localStorage suppliers parse hatası:', e);
-                }
-            }
+            // ARTIK localStorage'dan otomatik yükleme yapmıyoruz
+            // Kullanıcı modal üzerinden seçim yapacak
+            console.log('📋 Sayfa boş ekranla açıldı, modal açılacak...');
             
             // IndexedDB'yi başlat
             try {
@@ -12572,7 +12491,7 @@
                 // 8D rapor sayısını güncelle
                 update8DReportCount();
                 
-                // Excel yüklü değilse ve kaydedilmiş sürüm varsa modal otomatik aç
+                // Modal kontrolü - Storj yüklemesi dışında HER ZAMAN aç
                 setTimeout(async () => {
                     // Storj'dan yeni yüklendiyse modal açma (flag kontrol et)
                     const skipFlag = localStorage.getItem('skipAutoModal');
@@ -12580,20 +12499,26 @@
                         localStorage.removeItem('skipAutoModal');
                         console.log('📊 Storj yüklemesi tamamlandı, modal atlandı');
                         console.log('📊 Tabloda', allResults ? allResults.length : 0, 'tedarikçi yüklü');
+                        
+                        // 8D sayılarını güncelle
+                        if (allResults && allResults.length > 0) {
+                            await load8DCountsFromDB();
+                        }
                         return;
                     }
                     
-                    // allResults boşsa VE kayıtlı sürüm varsa modal aç
-                    if (!allResults || allResults.length === 0) {
-                        // Kaydedilmiş sürüm var mı kontrol et
-                        const hasVersions = await checkIfVersionsExist();
-                        if (hasVersions) {
-                            console.log('📊 Excel yüklü değil, kaydedilmiş sürümler gösteriliyor...');
-                            showEditsHistory();
-                        }
+                    // İLK YÜKLEME - Modal HER ZAMAN açılsın
+                    console.log('📊 İlk yükleme, modal açılıyor...');
+                    
+                    // Kaydedilmiş sürüm var mı kontrol et
+                    const hasVersions = await checkIfVersionsExist();
+                    if (hasVersions) {
+                        console.log('📊 Kaydedilmiş sürümler bulundu, modal açılıyor...');
+                        showEditsHistory();
                     } else {
-                        // allResults doluysa tabloda veriler var demektir
-                        console.log('📊 Tabloda', allResults.length, 'tedarikçi yüklü, modal açılmadı');
+                        console.log('📊 Hiç kayıt yok, boş ekran');
+                        // İsterseniz burada da modal açabilirsiniz:
+                        // showEditsHistory();
                     }
                 }, 500);
                 
