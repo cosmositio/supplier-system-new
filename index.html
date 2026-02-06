@@ -318,7 +318,7 @@
         }
         
         table {
-            width: 3200px !important;
+            width: 2400px !important;
             border-collapse: collapse;
             white-space: nowrap;
         }
@@ -5094,7 +5094,7 @@
                 return;
             }
 
-            const colWidth = 120; // Sabit sütun genişliği
+            const colWidth = 85; // Sabit sütun genişliği
             const rowHeight = 50; // Sabit satır yüksekliği
             const totalDocWidth = docTypes.length * colWidth; // Toplam doküman genişliği
 
@@ -5352,7 +5352,7 @@
             const supplierName = supplier['Tedarikçi Adı'] || supplier.name;
             const bgColor = rowIndex % 2 === 0 ? '#f9f9f9' : 'white';
             const rowHeight = 50;
-            const colWidth = 120;
+            const colWidth = 85;
             
             // Doküman verilerini al
             const docs = await getSupplierDocuments(supplierName);
@@ -5835,7 +5835,7 @@
                 return;
             }
 
-            const colWidth = 65;
+            const colWidth = 55;
 
             // Arama kutusu ekle
             let html = `
