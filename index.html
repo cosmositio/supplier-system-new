@@ -4187,6 +4187,10 @@
                                                 <option value="rejected" ${selectedStatus === 'rejected' ? 'selected' : ''}>✗ Ret</option>
                                             </select>
                                         </div>
+                                        <div style="margin-top: 8px;">
+                                            <label style="display: block; font-size: 0.75em; color: #666; margin-bottom: 3px; font-weight: 600;">💬 Müşteri Yorumu (Tedarikçi bu yorumu görecek):</label>
+                                            <textarea id="reviewComment_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" placeholder="Tedarikçiye yorum yazın..." onchange="updateDocumentReviewComment('${supplierName.replace(/'/g, "\\'")}', '${docType.replace(/'/g, "\\'")}', ${idx}, this.value)" style="width: 100%; min-height: 50px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8em; resize: vertical; box-sizing: border-box;">${file.reviewComment || ''}</textarea>
+                                        </div>
                                     </div>
                                 `}).join('')}
                             </div>
@@ -14773,6 +14777,43 @@
             }
         }
         
+        // Doküman için müşteri yorumu güncelle
+        async function updateDocumentReviewComment(supplierName, docType, fileIndex, comment) {
+            if (!db) {
+                showAlert('⚠️ Veritabanı hazır değil!', 'error');
+                return;
+            }
+            
+            try {
+                // Mevcut dokümanları al
+                const currentDocs = await getSupplierDocuments(supplierName);
+                
+                if (!currentDocs || !currentDocs.documents || !currentDocs.documents[docType]) {
+                    showAlert('⚠️ Doküman bulunamadı!', 'error');
+                    return;
+                }
+                
+                const files = currentDocs.documents[docType];
+                if (!files[fileIndex]) {
+                    showAlert('⚠️ Dosya bulunamadı!', 'error');
+                    return;
+                }
+                
+                // Yorumu güncelle
+                files[fileIndex].reviewComment = comment;
+                files[fileIndex].reviewedAt = new Date().toISOString();
+                
+                // Veritabanına kaydet
+                await saveSupplierDocuments(supplierName, currentDocs);
+                
+                console.log(`✅ Müşteri yorumu kaydedildi: "${comment}"`);
+                
+            } catch (error) {
+                console.error('Yorum güncelleme hatası:', error);
+                showAlert('❌ Yorum kaydedilemedi: ' + error.message, 'error');
+            }
+        }
+        
         function displayCompleteness(supplier) {
             const container = document.getElementById('analysisCompleteness');
             
@@ -22109,6 +22150,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                     <strong>💡 Kullanım:</strong> Bu linki tedarikçiye e-posta, WhatsApp veya SMS ile gönderin. Tedarikçi linki açtığında 8D formunu doldurup kaydedebilir.
                 </div>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="sendDocumentShareEmail('${url}', '${binId}')" style="flex: 1; min-width: 120px; padding: 10px; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">📧 Mail Gönder</button>
                     <button onclick="navigator.clipboard.writeText('${url}').then(() => showAlert('📋 Link kopyalandı!', 'success'))" style="flex: 1; min-width: 120px; padding: 10px; background: #4caf50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">📋 Kopyala</button>
                     <button onclick="this.parentElement.parentElement.remove()" style="flex: 1; min-width: 120px; padding: 10px; background: #9e9e9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Kapat</button>
                 </div>
@@ -22808,7 +22850,17 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                                         <div style="font-size: 0.85em; color: #666;">
                                             ${new Date(file.timestamp).toLocaleDateString('tr-TR')} • ${(file.size / 1024).toFixed(1)} KB
                                         </div>
-                                        <input type="text" id="supplierFileDesc_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" value="${file.description || ''}" placeholder="Açıklama ekle..." onchange="updateSupplierFileDescription('${safeDocType}', ${idx}, this.value)" style="width: 100%; margin-top: 6px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8em; box-sizing: border-box; background: ${file.uploadedBySupplier ? '#e8f5e9' : '#fff'};" />
+                                        ${file.uploadedBySupplier ? `
+                                        <div style="margin-top: 6px;">
+                                            <label style="font-size: 0.75em; color: #666; display: block; margin-bottom: 2px;">Tedarikçi Açıklaması:</label>
+                                            <input type="text" id="supplierFileDesc_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" value="${file.description || ''}" placeholder="Açıklama ekle..." onchange="updateSupplierFileDescription('${safeDocType}', ${idx}, this.value)" style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8em; box-sizing: border-box; background: #e8f5e9;" />
+                                        </div>
+                                        ` : file.description ? `
+                                        <div style="margin-top: 6px; padding: 6px 8px; background: #e3f2fd; border-radius: 4px; border-left: 3px solid #2196f3;">
+                                            <div style="font-size: 0.75em; color: #666; margin-bottom: 2px;">Ana PC Açıklaması:</div>
+                                            <div style="font-size: 0.8em; color: #333;">${file.description}</div>
+                                        </div>
+                                        ` : ''}
                                     </div>
                                     <div style="display: flex; gap: 8px;">
                                         <button onclick="previewSharedDocument('${safeDocType}', ${idx})" style="padding: 8px 16px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
@@ -22822,10 +22874,17 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                                         </button>
                                     </div>
                                 </div>
-                                <div style="margin-top: 8px; padding: 8px; background: ${statusBg}; border-radius: 4px;">
-                                    <div style="font-size: 0.85em; font-weight: 600; color: #333; margin-bottom: 4px;">${statusText}</div>
-                                    ${file.reviewComment ? `<div style="font-size: 0.8em; color: #666; padding: 6px 8px; background: white; border-radius: 3px; margin-top: 4px;">📝 Müşteri Yorumu: ${file.reviewComment}</div>` : ''}
-                                    ${file.reviewedAt ? `<div style="font-size: 0.75em; color: #999; margin-top: 4px;">Değerlendirme: ${new Date(file.reviewedAt).toLocaleString('tr-TR')}</div>` : ''}
+                                <div style="margin-top: 8px; padding: 10px; background: ${statusBg}; border-radius: 4px; border: 2px solid ${statusColor};">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                                        <div style="font-size: 0.9em; font-weight: 700; color: ${statusColor};">${statusText}</div>
+                                        ${file.reviewedAt ? `<div style="font-size: 0.75em; color: #666;">📅 ${new Date(file.reviewedAt).toLocaleDateString('tr-TR')}</div>` : ''}
+                                    </div>
+                                    ${file.reviewComment ? `
+                                    <div style="margin-top: 6px; padding: 8px; background: white; border-radius: 4px; border-left: 3px solid #ff9800;">
+                                        <div style="font-size: 0.75em; color: #666; margin-bottom: 3px; font-weight: 600;">💬 Müşteri Yorumu:</div>
+                                        <div style="font-size: 0.85em; color: #333; line-height: 1.4;">${file.reviewComment}</div>
+                                    </div>
+                                    ` : `<div style="font-size: 0.75em; color: #999; font-style: italic; margin-top: 4px;">Henüz müşteri yorumu yok</div>`}
                                 </div>
                             </div>
                         `;
@@ -25156,6 +25215,141 @@ Quality Team
 `.trim();
 
                 // Kullanıcıya dil seçimi sun - daha açık bir dialog
+                let languageChoice = prompt(
+                    '📧 Mail Dili Seçimi / Select Email Language:\n\n' +
+                    '1 = Türkçe (Turkish)\n' +
+                    '2 = İngilizce (English)\n\n' +
+                    'Lütfen 1 veya 2 yazın / Please enter 1 or 2:',
+                    '1'
+                );
+                
+                // Varsayılan olarak Türkçe
+                if (languageChoice !== '1' && languageChoice !== '2') {
+                    languageChoice = '1';
+                }
+                
+                const useTurkish = languageChoice === '1';
+                
+                const emailSubject = useTurkish ? emailSubjectTR : emailSubjectEN;
+                const emailBody = useTurkish ? emailBodyTR : emailBodyEN;
+                
+                // Mailto linki oluştur
+                const mailtoLink = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+                
+                // Mail istemcisini aç
+                window.location.href = mailtoLink;
+                
+                showAlert('✅ Mail istemciniz açılıyor...', 'success');
+                
+            } catch (error) {
+                console.error('Mail gönderme hatası:', error);
+                showAlert('❌ Mail hazırlanırken hata oluştu: ' + error.message, 'error');
+            }
+        }
+
+        // Doküman Paylaşımı için Mail Gönder
+        function sendDocumentShareEmail(shareUrl, serviceName) {
+            try {
+                // Tedarikçi adını link dialogundan al
+                const supplierName = currentDocShareSupplier || 'Tedarikçi';
+                
+                // Türkçe mail içeriği
+                const emailSubjectTR = `📄 Doküman Paylaşımı - ${supplierName}`;
+                
+                const emailBodyTR = `
+Sayın Yetkili,
+
+${supplierName} için doküman paylaşımı oluşturulmuştur. Lütfen gerekli dokümanları yükleyiniz ve güncelleyiniz.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 DOKÜMAN PORTAL ERIŞIMI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Aşağıdaki bağlantıyı kullanarak doküman portalına erişebilirsiniz:
+
+🔗 Doküman Portal Linki:
+${shareUrl}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✨ ÖZELLİKLER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Tüm gerekli doküman türlerini görebilirsiniz
+✓ Her türe dosya yükleyebilirsiniz (PDF, Excel, Word, Resim)
+✓ Yüklenen dosyaları indirebilir ve görüntüleyebilirsiniz
+✓ Dosyalara açıklama ekleyebilirsiniz
+✓ Doküman durumunu takip edebilirsiniz (İnceleniyor/Kabul/Red)
+✓ Müşteri yorumlarını görebilirsiniz
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 NASIL KULLANILIR?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Yukarıdaki linke tıklayın
+2. Doküman türlerini görün
+3. "Dosya Yükle" butonuna basarak belgelerinizi yükleyin
+4. İsterseniz açıklama ekleyin
+5. "Dokümanları Gönder" butonu ile kaydedin
+6. "Yeni Değişiklikleri Al" ile güncellemeleri görebilirsiniz
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Not: Bu link ile dokümanlarınızı güvenli bir şekilde paylaşabilirsiniz.
+Herhangi bir sorunuz olursa lütfen bizimle iletişime geçin.
+
+Saygılarımızla,
+Kalite Ekibi
+`.trim();
+
+                // İngilizce mail içeriği
+                const emailSubjectEN = `📄 Document Sharing - ${supplierName}`;
+                
+                const emailBodyEN = `
+Dear Sir/Madam,
+
+Document sharing has been created for ${supplierName}. Please upload and update the required documents.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 DOCUMENT PORTAL ACCESS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You can access the document portal using the link below:
+
+🔗 Document Portal Link:
+${shareUrl}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✨ FEATURES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ View all required document types
+✓ Upload files for each type (PDF, Excel, Word, Images)
+✓ Download and preview uploaded files
+✓ Add descriptions to files
+✓ Track document status (Under Review/Approved/Rejected)
+✓ View customer comments
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 HOW TO USE?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Click the link above
+2. View document types
+3. Click "Upload File" to upload your documents
+4. Optionally add descriptions
+5. Save with "Send Documents" button
+6. Use "Get New Changes" to see updates
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Note: You can securely share your documents using this link.
+If you have any questions, please contact us.
+
+Best regards,
+Quality Team
+`.trim();
+
+                // Kullanıcıya dil seçimi sun
                 let languageChoice = prompt(
                     '📧 Mail Dili Seçimi / Select Email Language:\n\n' +
                     '1 = Türkçe (Turkish)\n' +
