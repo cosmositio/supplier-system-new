@@ -5980,7 +5980,7 @@
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('l', 'mm', 'a4');
 
-            // Başlık
+            // Üst Başlık (Kalite Belge Matrisi)
             doc.setFillColor(0, 137, 123);
             doc.rect(0, 0, 297, 20, 'F');
             doc.setTextColor(255, 255, 255);
@@ -8674,13 +8674,15 @@
                     const name = supplier.name;
                     const hasCerts = supplier.iatf || supplier.iso9001 || supplier.iso14001 || supplier.iso45001;
                     const hasExpiry = supplier.certExpiryDates && Object.keys(supplier.certExpiryDates).length > 0;
-                    if (hasCerts || hasExpiry) {
+                    const hasCustom = supplier.customCertificates && supplier.customCertificates.length > 0;
+                    if (hasCerts || hasExpiry || hasCustom) {
                         certData[name] = {
                             iatf: supplier.iatf || false,
                             iso9001: supplier.iso9001 || false,
                             iso14001: supplier.iso14001 || false,
                             iso45001: supplier.iso45001 || false,
                             certExpiryDates: supplier.certExpiryDates || {},
+                            customCertificates: supplier.customCertificates || [],
                             kalitePuan: supplier.kalitePuan || 0
                         };
                     }
@@ -8711,6 +8713,7 @@
                         supplier.iso14001 = data.iso14001 || false;
                         supplier.iso45001 = data.iso45001 || false;
                         supplier.certExpiryDates = data.certExpiryDates || {};
+                        supplier.customCertificates = data.customCertificates || [];
                         supplier.kalitePuan = data.kalitePuan || 0;
                         // Aylık kalite puanlarını da güncelle
                         if (supplier.monthlyKalitePuan) {
@@ -15047,17 +15050,71 @@
                 
                 <!-- Kalite Belgeleri ve Geçerlilik Tarihleri -->
                 <div style="margin-top: 20px; background: #fff; border: 2px solid #673ab7; border-radius: 10px; padding: 15px;">
-                    <h5 style="margin: 0 0 15px 0; color: #673ab7; font-size: 1em; display: flex; align-items: center; gap: 8px;">
-                        📜 Kalite Belgeleri ve Geçerlilik Tarihleri
+                    <h5 style="margin: 0 0 15px 0; color: #673ab7; font-size: 1em; display: flex; align-items: center; gap: 8px; justify-content: space-between;">
+                        <span>📜 Kalite Belgeleri ve Geçerlilik Tarihleri</span>
+                        <button onclick="addCustomCertificate('${(supplier['Tedarikçi Adı'] || supplier.name).replace(/'/g, "\\'")}')" 
+                                style="padding: 6px 12px; background: #673ab7; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em;">
+                            ➕ Manuel Belge Ekle
+                        </button>
                     </h5>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
                         ${generateCertificateCard(supplier, 'iatf', 'IATF 16949', '#9c27b0')}
                         ${generateCertificateCard(supplier, 'iso9001', 'ISO 9001', '#2196f3')}
                         ${generateCertificateCard(supplier, 'iso14001', 'ISO 14001', '#4caf50')}
                         ${generateCertificateCard(supplier, 'iso45001', 'ISO 45001', '#ff9800')}
+                        ${generateCustomCertificateCards(supplier)}
                     </div>
                 </div>
             `;
+        }
+        
+        // Özel belge kartları oluşturma
+        function generateCustomCertificateCards(supplier) {
+            const customCerts = supplier.customCertificates || [];
+            if (!customCerts.length) return '';
+            
+            return customCerts.map((cert, index) => {
+                const today = new Date();
+                const expDate = cert.expiryDate ? new Date(cert.expiryDate) : null;
+                let isExpired = false;
+                let isExpiringSoon = false;
+                let daysLeft = null;
+                
+                if (expDate) {
+                    const diffTime = expDate - today;
+                    daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    isExpired = daysLeft < 0;
+                    isExpiringSoon = daysLeft >= 0 && daysLeft <= 30;
+                }
+                
+                const statusColor = isExpired ? '#f44336' : isExpiringSoon ? '#ff9800' : '#4caf50';
+                const statusIcon = isExpired ? '⚠️' : isExpiringSoon ? '⏰' : '✓';
+                const statusText = isExpired ? 'SÜRESİ DOLDU' : isExpiringSoon ? `${daysLeft} gün kaldı` : 'Geçerli';
+                const formattedDate = expDate ? expDate.toLocaleDateString('tr-TR') : '-';
+                
+                return `
+                    <div style="padding: 12px; background: #e1bee715; border-radius: 8px; border-left: 4px solid ${statusColor}; position: relative;">
+                        <button onclick="removeCustomCertificate('${(supplier['Tedarikçi Adı'] || supplier.name).replace(/'/g, "\\'")}', ${index})" 
+                                style="position: absolute; top: 5px; right: 5px; background: #f44336; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 0.7em; padding: 0;">
+                            ✕
+                        </button>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-weight: 600; color: #673ab7; font-size: 0.95em;">${cert.name}</span>
+                            <span style="font-size: 1.2em;">${statusIcon}</span>
+                        </div>
+                        <div style="font-size: 0.85em; color: #666;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>Durum:</span>
+                                <span style="font-weight: 600; color: ${statusColor};">${statusText}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Geçerlilik:</span>
+                                <span style="font-weight: 500; color: ${isExpired ? '#f44336' : '#333'};">${formattedDate}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
         
         // Sertifika kartı oluşturma fonksiyonu
@@ -15103,6 +15160,73 @@
                     </div>
                 </div>
             `;
+        }
+        
+        // Manuel belge ekleme fonksiyonu
+        async function addCustomCertificate(supplierName) {
+            const certName = prompt('Belge Adı:');
+            if (!certName) return;
+            
+            const expiryDateStr = prompt('Geçerlilik Tarihi (GG.AA.YYYY):');
+            if (!expiryDateStr) return;
+            
+            // Tarih formatını kontrol et
+            const dateParts = expiryDateStr.split('.');
+            if (dateParts.length !== 3) {
+                showAlert('❌ Geçersiz tarih formatı! GG.AA.YYYY formatında girin.', 'error');
+                return;
+            }
+            
+            const expiryDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+            
+            // Supplier'ı bul
+            const supplier = allResults.find(s => (s['Tedarikçi Adı'] || s.name) === supplierName);
+            if (!supplier) {
+                showAlert('❌ Tedarikçi bulunamadı!', 'error');
+                return;
+            }
+            
+            // customCertificates array'ini oluştur
+            if (!supplier.customCertificates) {
+                supplier.customCertificates = [];
+            }
+            
+            // Yeni belgeyi ekle
+            supplier.customCertificates.push({
+                name: certName,
+                expiryDate: expiryDate.toISOString()
+            });
+            
+            // LocalStorage'a kaydet
+            saveSupplierCertData();
+            
+            // Detay pencereyi yenile
+            showSupplierAnalysis(supplierName);
+            
+            showAlert('✅ Manuel belge eklendi!', 'success');
+        }
+        
+        // Manuel belge silme fonksiyonu
+        async function removeCustomCertificate(supplierName, index) {
+            if (!confirm('Bu belgeyi silmek istediğinize emin misiniz?')) return;
+            
+            // Supplier'ı bul
+            const supplier = allResults.find(s => (s['Tedarikçi Adı'] || s.name) === supplierName);
+            if (!supplier || !supplier.customCertificates) {
+                showAlert('❌ Tedarikçi veya belge bulunamadı!', 'error');
+                return;
+            }
+            
+            // Belgeyi sil
+            supplier.customCertificates.splice(index, 1);
+            
+            // LocalStorage'a kaydet
+            saveSupplierCertData();
+            
+            // Detay pencereyi yenile
+            showSupplierAnalysis(supplierName);
+            
+            showAlert('✅ Manuel belge silindi!', 'success');
         }
         
         function displayMonthlyData(supplier) {
@@ -19155,9 +19279,9 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             return Math.max(...years);
         }
 
-        function buildPerformanceDataForSupplier(supplier) {
+        function buildPerformanceDataForSupplier(supplier, customYear = null) {
             const supplierName = supplier.name;
-            const baseYear = getLatestTargetAgreementYear(supplierName);
+            const baseYear = customYear || getLatestTargetAgreementYear(supplierName);
             const agreementsForYear = (targetAgreements[supplierName] || {})[String(baseYear)] || {};
             const ppmAgreement = agreementsForYear.PPM || {};
             const defectAgreement = agreementsForYear.HataTekrarı || {};
@@ -19182,7 +19306,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             };
         }
 
-        function applyPerformanceDataToDialog(data, includeChartData) {
+        function applyPerformanceDataToDialog(data, includeChartData, customReviewDate = null) {
             document.getElementById('perfSupplierName').textContent = data.supplierName;
             document.getElementById('perfYear').value = String(data.baseYear);
             document.getElementById('perfPPMTarget').value = data.ppmTarget;
@@ -19191,6 +19315,15 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             document.getElementById('perfDefectTarget').value = data.defectTarget;
             document.getElementById('perfDefectActual').value = data.defectActual;
             document.getElementById('perfDefectNextTarget').value = Math.round(data.defectNextTarget);
+            
+            // Gözden geçirme tarihini ayarla
+            if (customReviewDate) {
+                const reviewDateInput = document.getElementById('reviewDate');
+                if (reviewDateInput) {
+                    reviewDateInput.value = customReviewDate;
+                }
+            }
+            
             const chartCheckbox = document.getElementById('includeChartData');
             if (chartCheckbox) chartCheckbox.checked = !!includeChartData;
         }
@@ -19206,7 +19339,42 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             const suppliers = getSelectedSuppliersForBulkReports();
             if (suppliers.length === 0) return;
 
-            if (!confirm(`📄 ${suppliers.length} tedarikçi için PDF performans raporu indirilsin mi?`)) {
+            // Kullanıcıdan dönem (yıl) sor
+            const currentYear = new Date().getFullYear();
+            const yearInput = prompt(`📅 Performans Dönemi (Yıl):`, currentYear);
+            if (!yearInput || yearInput.trim() === '') {
+                showAlert('❌ Yıl girilmedi. İşlem iptal edildi.', 'warning');
+                return;
+            }
+            
+            const baseYear = parseInt(yearInput.trim());
+            if (isNaN(baseYear) || baseYear < 2000 || baseYear > 2100) {
+                showAlert('❌ Geçersiz yıl. Lütfen 2000-2100 arası bir yıl girin.', 'error');
+                return;
+            }
+            
+            // Kullanıcıdan gözden geçirme tarihi sor
+            const todayStr = new Date().toLocaleDateString('tr-TR');
+            const reviewDateInput = prompt(`📆 Gözden Geçirme Tarihi (GG.AA.YYYY):`, todayStr);
+            if (!reviewDateInput || reviewDateInput.trim() === '') {
+                showAlert('❌ Tarih girilmedi. İşlem iptal edildi.', 'warning');
+                return;
+            }
+            
+            // Tarihi YYYY-MM-DD formatına çevir (reviewDate input alanı için)
+            let reviewDateFormatted = '';
+            const dateParts = reviewDateInput.trim().split('.');
+            if (dateParts.length === 3) {
+                const day = dateParts[0].padStart(2, '0');
+                const month = dateParts[1].padStart(2, '0');
+                const year = dateParts[2];
+                reviewDateFormatted = `${year}-${month}-${day}`;
+            } else {
+                showAlert('❌ Geçersiz tarih formatı. GG.AA.YYYY formatında girin.', 'error');
+                return;
+            }
+
+            if (!confirm(`📄 ${suppliers.length} tedarikçi için PDF performans raporu indirilsin mi?\n\nDönem: ${baseYear}\nGözden Geçirme: ${reviewDateInput}`)) {
                 return;
             }
 
@@ -19217,10 +19385,10 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
 
             const zip = new JSZip();
             for (const supplier of suppliers) {
-                const data = buildPerformanceDataForSupplier(supplier);
-                applyPerformanceDataToDialog(data, includeChartData);
+                const data = buildPerformanceDataForSupplier(supplier, baseYear);
+                applyPerformanceDataToDialog(data, includeChartData, reviewDateFormatted);
                 const safeName = sanitizeFileName(data.supplierName || 'Supplier');
-                const fileName = `Target_Agreement_${safeName}_${data.baseYear}.pdf`;
+                const fileName = `Target_Agreement_${safeName}_${baseYear}.pdf`;
                 const blob = exportTargetAgreementPDF({
                     returnBlob: true,
                     includeChartData: includeChartData,
@@ -19234,15 +19402,50 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
 
             const zipBlob = await zip.generateAsync({ type: 'blob' });
             const dateStr = new Date().toISOString().split('T')[0];
-            saveAs(zipBlob, `Performans_Raporlari_PDF_${dateStr}.zip`);
-            showAlert('✅ PDF performans raporları ZIP olarak indirildi!', 'success');
+            saveAs(zipBlob, `Performans_Raporlari_PDF_${baseYear}_${dateStr}.zip`);
+            showAlert(`✅ PDF performans raporları ZIP olarak indirildi! (Dönem: ${baseYear})`, 'success');
         }
 
         async function exportSelectedPerformanceReportsExcel(includeChartData) {
             const suppliers = getSelectedSuppliersForBulkReports();
             if (suppliers.length === 0) return;
 
-            if (!confirm(`📊 ${suppliers.length} tedarikçi için Excel performans raporu indirilsin mi?`)) {
+            // Kullanıcıdan dönem (yıl) sor
+            const currentYear = new Date().getFullYear();
+            const yearInput = prompt(`📅 Performans Dönemi (Yıl):`, currentYear);
+            if (!yearInput || yearInput.trim() === '') {
+                showAlert('❌ Yıl girilmedi. İşlem iptal edildi.', 'warning');
+                return;
+            }
+            
+            const baseYear = parseInt(yearInput.trim());
+            if (isNaN(baseYear) || baseYear < 2000 || baseYear > 2100) {
+                showAlert('❌ Geçersiz yıl. Lütfen 2000-2100 arası bir yıl girin.', 'error');
+                return;
+            }
+            
+            // Kullanıcıdan gözden geçirme tarihi sor
+            const todayStr = new Date().toLocaleDateString('tr-TR');
+            const reviewDateInput = prompt(`📆 Gözden Geçirme Tarihi (GG.AA.YYYY):`, todayStr);
+            if (!reviewDateInput || reviewDateInput.trim() === '') {
+                showAlert('❌ Tarih girilmedi. İşlem iptal edildi.', 'warning');
+                return;
+            }
+            
+            // Tarihi YYYY-MM-DD formatına çevir (reviewDate input alanı için)
+            let reviewDateFormatted = '';
+            const dateParts = reviewDateInput.trim().split('.');
+            if (dateParts.length === 3) {
+                const day = dateParts[0].padStart(2, '0');
+                const month = dateParts[1].padStart(2, '0');
+                const year = dateParts[2];
+                reviewDateFormatted = `${year}-${month}-${day}`;
+            } else {
+                showAlert('❌ Geçersiz tarih formatı. GG.AA.YYYY formatında girin.', 'error');
+                return;
+            }
+
+            if (!confirm(`📊 ${suppliers.length} tedarikçi için Excel performans raporu indirilsin mi?\n\nDönem: ${baseYear}\nGözden Geçirme: ${reviewDateInput}`)) {
                 return;
             }
 
@@ -19253,10 +19456,10 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
 
             const zip = new JSZip();
             for (const supplier of suppliers) {
-                const data = buildPerformanceDataForSupplier(supplier);
-                applyPerformanceDataToDialog(data, includeChartData);
+                const data = buildPerformanceDataForSupplier(supplier, baseYear);
+                applyPerformanceDataToDialog(data, includeChartData, reviewDateFormatted);
                 const safeName = sanitizeFileName(data.supplierName || 'Supplier');
-                const fileName = `Target_Agreement_${safeName}_${data.baseYear}.xlsx`;
+                const fileName = `Target_Agreement_${safeName}_${baseYear}.xlsx`;
                 const buffer = await exportTargetAgreementExcel({
                     returnBuffer: true,
                     includeChartData: includeChartData,
@@ -19270,8 +19473,8 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
 
             const zipBlob = await zip.generateAsync({ type: 'blob' });
             const dateStr = new Date().toISOString().split('T')[0];
-            saveAs(zipBlob, `Performans_Raporlari_Excel_${dateStr}.zip`);
-            showAlert('✅ Excel performans raporları ZIP olarak indirildi!', 'success');
+            saveAs(zipBlob, `Performans_Raporlari_Excel_${baseYear}_${dateStr}.zip`);
+            showAlert(`✅ Excel performans raporları ZIP olarak indirildi! (Dönem: ${baseYear})`, 'success');
         }
 
         // PDF'e Target Agreement olarak kaydet
