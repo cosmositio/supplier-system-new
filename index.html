@@ -21741,6 +21741,15 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             
             const canonicalRequest = `${method}\n${canonicalUri}\n${canonicalQuerystring}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
             
+            // Debug logging (geliştirme için)
+            if (queryString) {
+                console.log('🔐 AWS Signature Debug:');
+                console.log('  Method:', method);
+                console.log('  Path:', path);
+                console.log('  Query:', queryString);
+                console.log('  Canonical Request:', canonicalRequest.substring(0, 200));
+            }
+            
             // String to sign
             const credentialScope = `${date}/${region}/${service}/aws4_request`;
             const canonicalRequestHash = await sha256(canonicalRequest);
@@ -21847,7 +21856,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
         async function listStorjBackups(settings) {
             const url = `https://${settings.endpoint}/${settings.bucket}?list-type=2&prefix=BACKUP_`;
             const method = 'GET';
-            const path = `/${settings.bucket}/`;
+            const path = `/${settings.bucket}`; // Trailing slash KALDIRILDI (S3 spec)
             const queryString = 'list-type=2&prefix=BACKUP_';
             
             const auth = await createAwsSignature(method, path, '', settings, queryString);
