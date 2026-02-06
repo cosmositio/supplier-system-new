@@ -11242,10 +11242,13 @@
             
             // Display'i güncelle
             const belgeler = [];
-            if (supplier.iatf) belgeler.push('IATF' + (supplier.certExpiryDates?.iatf ? ` (${new Date(supplier.certExpiryDates.iatf).toLocaleDateString('tr-TR')})` : ''));
-            if (supplier.iso9001) belgeler.push('ISO9001' + (supplier.certExpiryDates?.iso9001 ? ` (${new Date(supplier.certExpiryDates.iso9001).toLocaleDateString('tr-TR')})` : ''));
-            if (supplier.iso14001) belgeler.push('ISO14001' + (supplier.certExpiryDates?.iso14001 ? ` (${new Date(supplier.certExpiryDates.iso14001).toLocaleDateString('tr-TR')})` : ''));
-            if (supplier.iso45001) belgeler.push('ISO45001' + (supplier.certExpiryDates?.iso45001 ? ` (${new Date(supplier.certExpiryDates.iso45001).toLocaleDateString('tr-TR')})` : ''));
+            qualityCertTypes.forEach(cert => {
+                if (supplier[cert.key]) {
+                    const shortLabel = cert.label.replace(/\s/g, '');
+                    const dateStr = supplier.certExpiryDates?.[cert.key] ? ` (${new Date(supplier.certExpiryDates[cert.key]).toLocaleDateString('tr-TR')})` : '';
+                    belgeler.push(shortLabel + dateStr);
+                }
+            });
             const displayText = belgeler.length > 0 ? belgeler.join(', ') : 'Seçiniz';
             const displayElement = document.getElementById(`kaliteBelgeDisplay_${index}`);
             if (displayElement) {
@@ -14787,10 +14790,11 @@
             yPos += 7;
             
             const belgeler = [];
-            if (supplier.iso9001) belgeler.push(['ISO 9001', 'Var']);
-            if (supplier.iatf) belgeler.push(['IATF 16949', 'Var']);
-            if (supplier.iso14001) belgeler.push(['ISO 14001', 'Var']);
-            if (supplier.iso45001) belgeler.push(['ISO 45001', 'Var']);
+            qualityCertTypes.forEach(cert => {
+                if (supplier[cert.key]) {
+                    belgeler.push([cert.label, 'Var']);
+                }
+            });
             
             if (belgeler.length > 0) {
                 doc.autoTable({
@@ -15420,10 +15424,12 @@
             
             // Kalite Belgeleri
             const belgeler = [];
-            if (supplier.iso9001) belgeler.push('ISO 9001' + (supplier.certExpiryDates?.iso9001 ? ` (${new Date(supplier.certExpiryDates.iso9001).toLocaleDateString('tr-TR')})` : ''));
-            if (supplier.iatf) belgeler.push('IATF 16949' + (supplier.certExpiryDates?.iatf ? ` (${new Date(supplier.certExpiryDates.iatf).toLocaleDateString('tr-TR')})` : ''));
-            if (supplier.iso14001) belgeler.push('ISO 14001' + (supplier.certExpiryDates?.iso14001 ? ` (${new Date(supplier.certExpiryDates.iso14001).toLocaleDateString('tr-TR')})` : ''));
-            if (supplier.iso45001) belgeler.push('ISO 45001' + (supplier.certExpiryDates?.iso45001 ? ` (${new Date(supplier.certExpiryDates.iso45001).toLocaleDateString('tr-TR')})` : ''));
+            qualityCertTypes.forEach(cert => {
+                if (supplier[cert.key]) {
+                    const dateStr = supplier.certExpiryDates?.[cert.key] ? ` (${new Date(supplier.certExpiryDates[cert.key]).toLocaleDateString('tr-TR')})` : '';
+                    belgeler.push(cert.label + dateStr);
+                }
+            });
             
             let belgeHTML = '<h5 style="margin-top: 20px; margin-bottom: 15px; color: #673ab7; border-bottom: 2px solid #673ab7; padding-bottom: 8px;">📜 Kalite Belgeleri</h5>';
             
