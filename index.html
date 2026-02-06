@@ -12530,7 +12530,7 @@
                             }
                         });
                         
-                        // Tabloyu render et (setTimeout ile biraz bekle - fonksiyonlar yüklensin)
+                        // Tabloyu render et (setTimeout ile bekle - fonksiyonlar yüklensin)
                         setTimeout(() => {
                             console.log('🎨 Tablo render ediliyor...');
                             if (typeof renderTable === 'function') {
@@ -12539,12 +12539,6 @@
                             } else {
                                 console.error('❌ renderTable fonksiyonu tanımlı değil!');
                             }
-                            if (typeof updateStats === 'function') {
-                                updateStats(allResults);
-                                console.log('✅ updateStats çağrıldı');
-                            } else {
-                                console.error('❌ updateStats fonksiyonu tanımlı değil!');
-                            }
                             
                             // Eğer tabloda satır yoksa hata var demektir
                             setTimeout(() => {
@@ -12552,11 +12546,13 @@
                                 const rowCount = tableBody ? tableBody.querySelectorAll('tr').length : 0;
                                 if (rowCount === 0) {
                                     console.error('❌ Tabloda satır yok! Render hatası olabilir.');
+                                    console.log('🔄 Sayfa yenileniyor...');
+                                    location.reload();
                                 } else {
                                     console.log(`✅ Tabloda ${rowCount} satır görüntüleniyor`);
                                 }
-                            }, 200);
-                        }, 100);
+                            }, 300);
+                        }, 800); // 800ms bekle - tüm fonksiyonlar yüklensin
                     }
                 } catch (e) {
                     console.error('❌ localStorage suppliers parse hatası:', e);
@@ -22570,7 +22566,6 @@ Devam etmek istiyor musunuz?`;
                     console.log('🎨 Tablo render ediliyor...');
                     // Tabloyu render et
                     renderTable(allResults);
-                    updateStats(allResults);
                     console.log('✅ Render tamamlandı');
                     
                     showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n📊 ${allResults.length} tedarikçi tabloda görüntüleniyor`, 'success');
