@@ -9837,9 +9837,8 @@
                 // İsim filtresi
                 const nameMatch = r.name.toLowerCase().includes(searchTerm);
                 // Tedarikçi seçim filtresi (mapKey ile uyuşan seçili değer)
-                // Eğer selectedSuppliers boşsa, tüm tedarikçiler seçili sayılır
                 const supplierKey = r.mapKey || r.name;
-                const supplierMatch = selectedSuppliers.size === 0 ? true : selectedSuppliers.has(supplierKey);
+                const supplierMatch = selectedSuppliers.has(supplierKey);
 
                 // Lokasyon filtresi
                 let locationMatch = true;
@@ -12242,23 +12241,48 @@
             // Kaydedilmiş tedarikçiler için Set oluştur (hem mapKey hem eski isim uyumu)
             const savedSelections = new Set(filter.selectedSuppliers || []);
 
-            // Tedarikçi seçimlerini temizle
+            // Tedarikçi seçimlerini temizle ve filtredeki değerleri ekle
             selectedSuppliers.clear();
+            
+            // Önce filtredeki tüm tedarikçileri ekle (checkbox'lar bulunamasa bile)
+            savedSelections.forEach(key => selectedSuppliers.add(key));
+            console.log(`📋 Filtreden ${selectedSuppliers.size} tedarikçi yüklendi`);
 
-            // Tedarikçi checkbox'larını güncelle ve seçili seti normalize et
+            // Tedarikçi checkbox'larını güncelle
             const checkboxes = document.querySelectorAll('.multiselect-option:not(.select-all) input[type="checkbox"]');
+            console.log(`🔍 applyFilter: ${checkboxes.length} checkbox bulundu`);
             checkboxes.forEach(cb => {
                 const supplierName = cb.parentElement.getAttribute('data-supplier');
                 const supplierKey = cb.parentElement.getAttribute('data-supplier-key') || supplierName;
                 const isChecked = savedSelections.has(supplierKey) || savedSelections.has(supplierName);
                 cb.checked = isChecked;
-                if (isChecked) {
-                    selectedSuppliers.add(supplierKey);
-                }
             });
+            
+            console.log(`✅ applyFilter: ${selectedSuppliers.size} tedarikçi seçildi`);
 
-            // Seçimler güncel supplier listesiyle uyumlu olsun
+            // Seçimleri normalize et (geçerlileri tut, geçersizleri sil)
+            const beforeNormalize = selectedSuppliers.size;
             normalizeSelectedSuppliers();
+            const afterNormalize = selectedSuppliers.size;
+            console.log(`🔄 normalizeSelectedSuppliers: ${beforeNormalize} → ${afterNormalize} (${beforeNormalize - afterNormalize} silindi)`);
+            
+            // Eğer normalize sonrası hiç tedarikçi kalmadıysa, isme göre eşleştirmeyi dene
+            if (selectedSuppliers.size === 0 && savedSelections.size > 0) {
+                console.log('⚠️ Normalize sonrası boş kaldı, isme göre eşleştiriliyor...');
+                
+                // allResults içinde filtredeki isimleri ara
+                allResults.forEach(supplier => {
+                    const supplierKey = supplier.mapKey || supplier.name;
+                    const supplierName = supplier.name;
+                    
+                    // Hem key hem name ile kontrol et
+                    if (savedSelections.has(supplierKey) || savedSelections.has(supplierName)) {
+                        selectedSuppliers.add(supplierKey);
+                    }
+                });
+                
+                console.log(`✅ İsme göre eşleştirme: ${selectedSuppliers.size} tedarikçi bulundu`);
+            }
             
             // Lokasyon seçimlerini uygula
             if (filter.selectedLocations) {
