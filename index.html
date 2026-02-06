@@ -22449,8 +22449,8 @@ Devam etmek istiyor musunuz?`;
                 modalContent.style.cssText = `
                     background: white;
                     border-radius: 12px;
-                    max-width: 900px;
-                    width: 95%;
+                    max-width: 750px;
+                    width: 90%;
                     max-height: 80vh;
                     overflow-y: auto;
                     overflow-x: hidden;
@@ -22488,13 +22488,13 @@ Devam etmek istiyor musunuz?`;
                 
                 // Tablo
                 let tableHTML = `
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85em; table-layout: fixed; box-sizing: border-box;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85em; table-layout: auto; box-sizing: border-box;">
                         <thead>
                             <tr style="background: #f5f5f5; border-bottom: 2px solid #4CAF50;">
-                                <th style="padding: 6px; text-align: left; font-weight: 600; color: #2e7d32; width: 20%;">📅 Tarih</th>
-                                <th style="padding: 6px; text-align: left; font-weight: 600; color: #2e7d32; width: 10%;">📦 Boyut</th>
-                                <th style="padding: 6px; text-align: left; font-weight: 600; color: #2e7d32; width: 45%;">🔑 Backup Key</th>
-                                <th style="padding: 6px; text-align: center; font-weight: 600; color: #2e7d32; width: 25%;">İşlemler</th>
+                                <th style="padding: 6px; text-align: left; font-weight: 600; color: #2e7d32; white-space: nowrap;">📅 Tarih</th>
+                                <th style="padding: 6px; text-align: left; font-weight: 600; color: #2e7d32; white-space: nowrap;">📦 Boyut</th>
+                                <th style="padding: 6px; text-align: left; font-weight: 600; color: #2e7d32;">🔑 Backup Key</th>
+                                <th style="padding: 6px; text-align: center; font-weight: 600; color: #2e7d32; white-space: nowrap;">İşlemler</th>
                             </tr>
                         </thead>
                         <tbody>
