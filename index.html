@@ -13797,6 +13797,9 @@
                     showAlert(`✅ "${editsSnapshot.name}" başarıyla yüklendi! (${allResults.length} tedarikçi)`, 'success');
                 }
                 
+                // En güncel sertifika verilerini localStorage'dan yükle (merge)
+                loadSupplierCertData();
+                
             } catch (e) {
                 console.error('Saved edits load error:', e);
                 showAlert('❌ Veri yükleme hatası!', 'error');
@@ -18091,6 +18094,11 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 
                 console.log('✅ Import tamamlandı:', stats);
                 
+                // En güncel sertifika verilerini localStorage'dan yükle (merge)
+                if (stats.suppliers > 0) {
+                    loadSupplierCertData();
+                }
+                
                 // Eğer tedarikçiler yüklendiyse UI'ı güncelle
                 if (stats.suppliers > 0) {
                     // İkinci dosya bölümünü göster (eğer monthly scores için gerekiyorsa)
@@ -18138,6 +18146,10 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             
             const loadName = jsonData.name || 'Eski Kayıt';
             const loadDate = new Date(jsonData.timestamp).toLocaleString('tr-TR');
+            
+            // En güncel sertifika verilerini localStorage'dan yükle (merge)
+            loadSupplierCertData();
+            
             showAlert(`✅ "${loadName}" yüklendi! (${loadDate})\n\n⚠️ Not: Eski format - sadece tedarikçi düzenlemeleri yüklendi.`, 'success');
         }
 
