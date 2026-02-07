@@ -8883,6 +8883,25 @@
                     r.totalIade = sumSelected(r.monthlyIade) + (r.hasKnownIadeMonths ? 0 : (r.unknownIade || 0));
                     r.totalHata = sumSelected(r.monthlyHata) + (r.hasKnownHataMonths ? 0 : (r.unknownHata || 0));
                     r.ppm = r.totalSevk > 0 ? (r.totalIade / r.totalSevk) * 1000000 : 0;
+                    
+                    // PPM Puanı hesaplama
+                    const ppmTarget = r.ppmTarget || 1000;
+                    if (r.ppm === 0) {
+                        r.ppmPuan = 1;
+                    } else if (r.ppm <= 0.2 * ppmTarget) {
+                        r.ppmPuan = 0.95;
+                    } else if (r.ppm <= 0.4 * ppmTarget) {
+                        r.ppmPuan = 0.9;
+                    } else if (r.ppm <= 0.6 * ppmTarget) {
+                        r.ppmPuan = 0.85;
+                    } else if (r.ppm <= 0.8 * ppmTarget) {
+                        r.ppmPuan = 0.8;
+                    } else if (r.ppm < 1.2 * ppmTarget) {
+                        r.ppmPuan = 0.6;
+                    } else {
+                        r.ppmPuan = 0;
+                    }
+                    
                     const hataHedefi = r.hataHedefi || 2;
                     // Excel formülü: =EĞER(Hata=0;1;EĞER(Hedef/Hata>1;1;Hedef/Hata))
                     if (hataHedefi === 0) {
