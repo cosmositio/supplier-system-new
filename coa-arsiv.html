@@ -6216,12 +6216,8 @@
                         
                         console.log(`📐 Bölge ${i+1}/${template.regions.length}: ${region.propertyName} (${x},${y},${width}x${height})`);
                         
-                        // Minimum boyut kontrolü (OCR.space için de geçerli)
-                        const minSizeForOCR = ocrEngine === 'azure' ? 50 : 30; // Azure: 50px, OCR.space: 30px
-                        if (width < minSizeForOCR || height < minSizeForOCR) {
-                            console.warn(`⚠️ Bölge ${i+1} çok küçük (${width}x${height}px), OCR için uygun değil, atlanıyor`);
-                            continue;
-                        }
+                        // Minimum boyut kontrolü kaldırıldı - büyütme her durumda yapılacak
+                        // Azure ve OCR.space için küçük bölgeler otomatik büyütülecek
                         
                         // Canvas'tan bu bölgeyi kırp
                         const croppedCanvas = document.createElement('canvas');
@@ -6241,12 +6237,13 @@
                         // Azure için minimum boyut kontrolü ve upscaling
                         let finalImageData;
                         if (ocrEngine === 'azure') {
-                            const minSize = 50; // Azure minimum: 50x50 piksel
+                            // Azure için daha agresif büyütme: minimum 150x150px hedefle
+                            const targetSize = 150; // Azure için ideal boyut
                             let scaleFactor = 1;
                             
-                            if (width < minSize || height < minSize) {
-                                const scaleW = width < minSize ? minSize / width : 1;
-                                const scaleH = height < minSize ? minSize / height : 1;
+                            if (width < targetSize || height < targetSize) {
+                                const scaleW = width < targetSize ? targetSize / width : 1;
+                                const scaleH = height < targetSize ? targetSize / height : 1;
                                 scaleFactor = Math.max(scaleW, scaleH);
                                 
                                 const scaledCanvas = document.createElement('canvas');
@@ -6264,13 +6261,13 @@
                                 );
                                 
                                 finalImageData = scaledCanvas.toDataURL('image/png');
-                                console.log(`   📏 Büyütüldü: ${width}x${height} → ${scaledCanvas.width}x${scaledCanvas.height}px`);
+                                console.log(`   📏 Azure büyütme: ${width}x${height} → ${scaledCanvas.width}x${scaledCanvas.height}px (${scaleFactor.toFixed(1)}x)`);
                             } else {
                                 finalImageData = enhancedCanvas.toDataURL('image/png');
                             }
                         } else {
-                            // OCR.space için de 2x büyütme uygula (daha iyi sonuç için)
-                            if (width < 100 || height < 40) {
+                            // OCR.space için 2.5x büyütme (küçük bölgeler için)
+                            if (width < 150 || height < 60) { // Daha liberal limit: 150x60px altındaki her şeyi büyüt
                                 const scaleFactor = 2.5; // 2.5x büyüt
                                 const scaledCanvas = document.createElement('canvas');
                                 scaledCanvas.width = Math.ceil(width * scaleFactor);
@@ -6287,7 +6284,7 @@
                                 );
                                 
                                 finalImageData = scaledCanvas.toDataURL('image/png');
-                                console.log(`   📏 Küçük bölge büyütüldü: ${width}x${height} → ${scaledCanvas.width}x${scaledCanvas.height}px (2.5x)`);
+                                console.log(`   📏 OCR.space büyütme: ${width}x${height} → ${scaledCanvas.width}x${scaledCanvas.height}px (2.5x)`);
                             } else {
                                 finalImageData = enhancedCanvas.toDataURL('image/png');
                             }
