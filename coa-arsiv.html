@@ -10916,19 +10916,16 @@
             if (window.pendingTemplateRegions && window.pendingTemplateRegions.length > 0) {
                 console.log('📍 Pending regions yükleniyor (edit mode):', window.pendingTemplateRegions.length, 'bölge');
                 // Regions normalized olarak kaydedilmiş (original scale'de)
-                // Current scale'e dönüştür
-                templateRegions = window.pendingTemplateRegions.map(r => ({
-                    ...r,
-                    x: r.x * templateScaleFactor,
-                    y: r.y * templateScaleFactor,
-                    width: r.width * templateScaleFactor,
-                    height: r.height * templateScaleFactor
-                }));
-                console.log('⚙️ Regions current scale\'e dönüştürüldü (scaleFactor:', templateScaleFactor, ')');
-                window.pendingTemplateRegions = null; // Clear after loading
-            } else {
-                templateRegions = [];
-            }
+            // Saved scaleFactor kullanarak current scale'e dönüştür
+            const scaleFactor = window.savedTemplateConfig?.scaleFactor || 1;
+            templateRegions = window.pendingTemplateRegions.map(r => ({
+                ...r,
+                x: r.x * scaleFactor,
+                y: r.y * scaleFactor,
+                width: r.width * scaleFactor,
+                height: r.height * scaleFactor
+            }));
+            console.log('⚙️ Regions current scale\'e dönüştürüldü (scaleFactor:', scaleFactor, ')');
             updateTemplateRegionsList();
             
             // Setup event listeners
@@ -10953,6 +10950,12 @@
                 await loadTemplateWord(file);
             } else {
                 await loadTemplateImage(file);
+            }
+            
+            // Eğer regions yüklendiyse, canvas'ı yeniden çiz
+            if (templateRegions && templateRegions.length > 0) {
+                console.log('🔄 Canvas regions ile yeniden çiziliyor...');
+                redrawTemplateCanvas();
             }
             
             // Show modal
@@ -11982,6 +11985,19 @@
                 console.log('➕ Yeni template oluşturuluyor: v1.0');
             }
             
+            // Orijinal görseli kaydet (bölgeler olmadan)
+            let originalImageData = null;
+            if (templateImageObj) {
+                // Geçici canvas oluştur ve sadece görseli çiz (bölgeler olmadan)
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = templateCanvas.width;
+                tempCanvas.height = templateCanvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(templateImageObj, 0, 0, templateCanvas.width, templateCanvas.height);
+                originalImageData = tempCanvas.toDataURL('image/png', 1.0);
+                console.log('📸 Orijinal görsel kaydedildi (bölgeler olmadan)');
+            }
+            
             const template = {
                 supplier: supplierName,
                 version: newVersion,
@@ -11989,7 +12005,7 @@
                 canvasWidth: templateCanvas.width,
                 canvasHeight: templateCanvas.height,
                 scaleFactor: templateScaleFactor,
-                imageData: templateCanvas.toDataURL('image/png', 1.0), // Yüksek kalite
+                imageData: originalImageData || templateCanvas.toDataURL('image/png', 1.0), // Orijinal görsel (bölgeler olmadan)
                 regions: templateRegions.map(r => ({
                     propertyName: r.propertyName,
                     type: r.type,
