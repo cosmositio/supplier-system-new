@@ -10825,8 +10825,25 @@
                 ];
                 
                 propData.forEach(r => {
-                    const val = parseFloat(r.coaValue);
-                    if (isNaN(val)) {
+                    // COA değerini temizle ve parse et
+                    let cleanValue = String(r.coaValue || '').trim();
+                    
+                    // Tarih formatlarını filtrele (DD.MM.YYYY veya DD/MM/YYYY gibi)
+                    if (/^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4}$/.test(cleanValue)) {
+                        console.warn('⚠️ Tarih değeri tespit edildi, atlanıyor:', cleanValue, 'Property:', property);
+                        values.push(null);
+                        backgroundColors.push(colors[propIndex % colors.length].bg);
+                        borderColors.push(colors[propIndex % colors.length].border);
+                        pointBackgroundColors.push(colors[propIndex % colors.length].border);
+                        pointBorderColors.push(colors[propIndex % colors.length].border);
+                        return;
+                    }
+                    
+                    // Virgülü noktaya çevir (Türkçe ondalık)
+                    cleanValue = cleanValue.replace(',', '.');
+                    
+                    const val = parseFloat(cleanValue);
+                    if (isNaN(val) || !isFinite(val)) {
                         values.push(null);
                         backgroundColors.push(colors[propIndex % colors.length].bg);
                         borderColors.push(colors[propIndex % colors.length].border);
@@ -11061,7 +11078,7 @@
                 analysisCharts.push(chart);
                 
                 // Bu grafik için istatistikleri hesapla ve göster
-                const validValues = values.filter(v => v !== null);
+                const validValues = values.filter(v => v !== null && !isNaN(v) && isFinite(v));
                 const propStats = {
                     count: validValues.length,
                     min: validValues.length > 0 ? Math.min(...validValues) : 0,
