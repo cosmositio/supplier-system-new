@@ -12192,7 +12192,7 @@
             // Drive'dan görseli yükle
             let imageLoaded = false;
             if (template.imageFileId) {
-                console.log('📥 Template görseli Drive\\'dan yükleniyor:', template.imageFileId);
+                console.log('📥 Template görseli Drive\'dan yükleniyor:', template.imageFileId);
                 showToast('📥 Template görseli yükleniyor...', 'info');
                 
                 try {
@@ -12211,7 +12211,7 @@
                         const blob = new Blob([ab], { type: 'image/png' });
                         selectedFile = new File([blob], fileName, { type: 'image/png' });
                         
-                        console.log('✅ Template görseli Drive\\'dan yüklendi:', fileName);
+                        console.log('✅ Template görseli Drive\'dan yüklendi:', fileName);
                         imageLoaded = true;
                     }
                 } catch (error) {
