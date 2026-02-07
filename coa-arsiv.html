@@ -2185,14 +2185,14 @@
             };
             console.log('📌 Kaydedilmiş template config yüklendi:', window.savedTemplateConfig);
             
-            await openTemplateEditorWithFile(selectedFile);
-            
-            // Template'i canvas'a yükle
+            // Template bölgelerini ÖNCE yükle (openTemplateEditorWithFile içinde kullanılacak)
             if (templateObj.regions && templateObj.regions.length > 0) {
-                console.log('📍 Template bölgeleri yükleniyor:', templateObj.regions.length, 'bölge');
-                // Regions'ı global değişkene koy, editor açıldığında kullanılacak
+                console.log('📍 Template bölgeleri hazırlanıyor:', templateObj.regions.length, 'bölge');
                 window.pendingTemplateRegions = templateObj.regions;
             }
+            
+            // Editor'ı aç (pendingTemplateRegions kullanacak)
+            await openTemplateEditorWithFile(selectedFile);
         }
         
         // Drive linkinden file ID çıkar
@@ -11242,16 +11242,20 @@
             if (window.pendingTemplateRegions && window.pendingTemplateRegions.length > 0) {
                 console.log('📍 Pending regions yükleniyor (edit mode):', window.pendingTemplateRegions.length, 'bölge');
                 // Regions normalized olarak kaydedilmiş (original scale'de)
-            // Saved scaleFactor kullanarak current scale'e dönüştür
-            const scaleFactor = window.savedTemplateConfig?.scaleFactor || 1;
-            templateRegions = window.pendingTemplateRegions.map(r => ({
-                ...r,
-                x: r.x * scaleFactor,
-                y: r.y * scaleFactor,
-                width: r.width * scaleFactor,
-                height: r.height * scaleFactor
-            }));
-            console.log('⚙️ Regions current scale\'e dönüştürüldü (scaleFactor:', scaleFactor, ')');
+                // Saved scaleFactor kullanarak current scale'e dönüştür
+                const scaleFactor = window.savedTemplateConfig?.scaleFactor || 1;
+                templateRegions = window.pendingTemplateRegions.map(r => ({
+                    ...r,
+                    x: r.x * scaleFactor,
+                    y: r.y * scaleFactor,
+                    width: r.width * scaleFactor,
+                    height: r.height * scaleFactor
+                }));
+                console.log('⚙️ Regions current scale\'e dönüştürüldü (scaleFactor:', scaleFactor, ')');
+                window.pendingTemplateRegions = null; // Clear after loading
+            } else {
+                templateRegions = [];
+            }
             updateTemplateRegionsList();
             
             // Setup event listeners
