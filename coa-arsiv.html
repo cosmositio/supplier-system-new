@@ -4951,6 +4951,24 @@
                 console.log('🧹 clearForm: pendingOCRData temizlendi');
                 window.pendingOCRData = null;
             }
+            
+            // lastOCRMaterialCode'u temizle (yeni sorgu başlıyor)
+            if (lastOCRMaterialCode) {
+                console.log('🧹 clearForm: lastOCRMaterialCode temizlendi:', lastOCRMaterialCode);
+                lastOCRMaterialCode = null;
+            }
+            
+            // TDS'teki tüm COA değerlerini temizle (yeni sorgu)
+            Object.keys(tdsData).forEach(materialCode => {
+                if (tdsData[materialCode] && tdsData[materialCode].properties) {
+                    tdsData[materialCode].properties.forEach(prop => {
+                        delete prop.coaValue;
+                        delete prop.coaCompliance;
+                    });
+                }
+            });
+            localStorage.setItem('tdsData', JSON.stringify(tdsData));
+            console.log('🧹 clearForm: Tüm TDS COA değerleri temizlendi');
         }
         
         function editCOA(id) {
@@ -8266,15 +8284,8 @@
                         console.log('🏴 lastOCRMaterialCode set edildi:', lastOCRMaterialCode, `(${coaCount} özellik okundu)`);
                         showToast(`✅ ${coaCount} özellik okundu ve TDS ile karşılaştırıldı!`, 'success', 5000);
                         
-                        // Transfer butonunu göster ve bilgilendir
-                        setTimeout(() => {
-                            const transferBtn = document.getElementById('transferOCRBtn');
-                            const ocrInfo = document.getElementById('ocrDataInfo');
-                            const ocrCount = document.getElementById('ocrDataCount');
-                            if (transferBtn) transferBtn.style.display = 'block';
-                            if (ocrInfo) ocrInfo.style.display = 'block';
-                            if (ocrCount) ocrCount.textContent = coaCount;
-                        }, 500);
+                        // NOT: Transfer butonu updateTransferButtonVisibility() tarafından gösterilecek
+                        // Modal açıldığında otomatik olarak çağrılıyor
                     } else {
                         console.log('⚠️ Hiçbir özellik okunamadı, lastOCRMaterialCode set edilmedi');
                         showToast('⚠️ Hiçbir özellik okunamadı! Bölgeler çok küçük veya bulanık olabilir.', 'warning', 5000);
@@ -8656,17 +8667,43 @@
             document.getElementById('tdsModal').classList.remove('active');
             currentTDSMaterial = null;
             
-            // Modal kapanınca OCR flag'ini temizle
-            if (lastOCRMaterialCode) {
-                console.log('🧹 Modal kapandı, lastOCRMaterialCode temizleniyor:', lastOCRMaterialCode);
-                lastOCRMaterialCode = null;
-            }
+            // NOT: lastOCRMaterialCode temizlenmiyor! 
+            // COA değerleri modal tekrar açılınca korunsun.
+            // Sadece "Yeni Sorgu" butonuna basıldığında temizlenecek (sayfa yenilenince).
+            console.log('📋 Modal kapandı, lastOCRMaterialCode korunuyor:', lastOCRMaterialCode);
             
-            // Transfer butonunu gizle
+            // NOT: Transfer butonu gizlenmiyor!
+            // Modal tekrar açılınca COA değerleri varsa gösterilecek.
+        }
+        
+        // Transfer butonu görünürlüğünü güncelle
+        function updateTransferButtonVisibility(materialCode) {
             const transferBtn = document.getElementById('transferOCRBtn');
             const ocrInfo = document.getElementById('ocrDataInfo');
-            if (transferBtn) transferBtn.style.display = 'none';
-            if (ocrInfo) ocrInfo.style.display = 'none';
+            const ocrCount = document.getElementById('ocrDataCount');
+            
+            if (!transferBtn || !ocrInfo || !ocrCount) return;
+            
+            // COA değeri olan özellikleri say
+            const tds = tdsData[materialCode];
+            if (!tds || !tds.properties) {
+                transferBtn.style.display = 'none';
+                ocrInfo.style.display = 'none';
+                return;
+            }
+            
+            const coaPropertiesCount = tds.properties.filter(p => p.coaValue && p.coaValue.trim() !== '').length;
+            
+            if (coaPropertiesCount > 0) {
+                transferBtn.style.display = 'block';
+                ocrInfo.style.display = 'block';
+                ocrCount.textContent = coaPropertiesCount;
+                console.log(`✅ Transfer butonu gösteriliyor: ${coaPropertiesCount} özellik`);
+            } else {
+                transferBtn.style.display = 'none';
+                ocrInfo.style.display = 'none';
+                console.log('⚠️ COA değeri yok, transfer butonu gizleniyor');
+            }
         }
         
         // OCR verilerini COA kaydı olarak kaydetmek için ana forma aktar
@@ -9107,6 +9144,9 @@
                     });
                 }
                 renderTDSProperties(tds.properties);
+                
+                // Transfer butonu görünürlüğünü güncelle (COA değerleri varsa göster)
+                updateTransferButtonVisibility(materialCode);
             } else {
                 // Boş başlat
                 renderTDSProperties([]);
