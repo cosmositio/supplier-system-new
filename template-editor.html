@@ -277,6 +277,7 @@
             <div style="display: flex; gap: 10px;">
                 <button class="btn-success" onclick="saveTemplate()">💾 Template Kaydet</button>
                 <button class="btn-primary" onclick="loadTemplate()">📂 Template Yükle</button>
+                <button class="btn-primary" onclick="window.open(DRIVE_TEMPLATES_FOLDER, '_blank')" style="background: #0066cc;">☁️ Drive'dan İndir</button>
             </div>
         </div>
         
@@ -287,7 +288,8 @@
                 <li>Canvas üzerinde mouse ile sürükleyerek bölgeleri işaretleyin</li>
                 <li>Her bölge için TDS özellik adını ve bölge tipini seçin</li>
                 <li>Tüm bölgeleri işaretledikten sonra "Template Kaydet" butonuna tıklayın</li>
-                <li>Kaydedilen template COA analizi sırasında otomatik kullanılacak</li>
+                <li>Kaydedilen template'i Google Drive'a yükleyin (☁️ Drive'dan İndir butonu ile klasöre erişin)</li>
+                <li>Template'i tekrar kullanmak için "📂 Template Yükle" ile yükleyin - görsel ve bölgeler birebir gelecek!</li>
             </ol>
         </div>
         
@@ -371,6 +373,10 @@
         let selectedRegionIndex = null;
         let imageObj = null;
         let scaleFactor = 1;
+        let currentImageData = null; // Canvas görselini sakla
+        
+        // Google Drive COA Templates Folder Link
+        const DRIVE_TEMPLATES_FOLDER = 'https://drive.google.com/drive/folders/YOUR_FOLDER_ID'; // Buraya drive klasör linkini ekle
         
         // Initialize
         window.onload = function() {
@@ -418,6 +424,7 @@
             // Save as image for drawing
             imageObj = new Image();
             imageObj.src = canvas.toDataURL();
+            currentImageData = canvas.toDataURL('image/png'); // Görseli sakla
             scaleFactor = 1;
         }
         
@@ -449,6 +456,7 @@
                     canvas.height = height;
                     
                     ctx.drawImage(imageObj, 0, 0, width, height);
+                    currentImageData = canvas.toDataURL('image/png'); // Görseli sakla
                 };
                 imageObj.src = e.target.result;
             };
@@ -629,6 +637,7 @@
                 canvasWidth: canvas.width,
                 canvasHeight: canvas.height,
                 scaleFactor: scaleFactor,
+                imageData: currentImageData, // Canvas görselini kaydet
                 regions: regions.map(r => ({
                     propertyName: r.propertyName,
                     type: r.type,
@@ -665,18 +674,44 @@
                         const template = JSON.parse(e.target.result);
                         
                         document.getElementById('supplierName').value = template.supplier;
-                        regions = template.regions.map(r => ({
-                            ...r,
-                            x: r.x * scaleFactor,
-                            y: r.y * scaleFactor,
-                            width: r.width * scaleFactor,
-                            height: r.height * scaleFactor
-                        }));
                         
-                        updateRegionsList();
-                        redrawCanvas();
-                        
-                        alert('✅ Template yüklendi!');
+                        // Görseli yükle
+                        if (template.imageData) {
+                            imageObj = new Image();
+                            imageObj.onload = function() {
+                                canvas.width = template.canvasWidth || imageObj.width;
+                                canvas.height = template.canvasHeight || imageObj.height;
+                                scaleFactor = template.scaleFactor || 1;
+                                currentImageData = template.imageData;
+                                
+                                // Regions'ı yükle
+                                regions = template.regions.map(r => ({
+                                    ...r,
+                                    x: r.x * scaleFactor,
+                                    y: r.y * scaleFactor,
+                                    width: r.width * scaleFactor,
+                                    height: r.height * scaleFactor
+                                }));
+                                
+                                updateRegionsList();
+                                redrawCanvas();
+                                
+                                alert('✅ Template yüklendi! Görsel ve tüm bölgeler geri yüklendi.');
+                            };
+                            imageObj.src = template.imageData;
+                        } else {
+                            // Eski format (sadece regions)
+                            regions = template.regions.map(r => ({
+                                ...r,
+                                x: r.x * scaleFactor,
+                                y: r.y * scaleFactor,
+                                width: r.width * scaleFactor,
+                                height: r.height * scaleFactor
+                            }));
+                            updateRegionsList();
+                            redrawCanvas();
+                            alert('⚠️ Template yüklendi ama görsel bulunamadı. Lütfen COA belgesini tekrar yükleyin.');
+                        }
                     } catch (err) {
                         alert('❌ Template yüklenemedi: ' + err.message);
                     }

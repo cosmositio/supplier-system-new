@@ -1224,7 +1224,7 @@
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px; background: #fff3cd; border-radius: 6px;">
                         <input type="checkbox" id="templateModeCheckbox" style="width: 20px; height: 20px; cursor: pointer;" onchange="toggleTemplateMode()">
                         <label for="templateModeCheckbox" style="margin: 0; cursor: pointer; font-size: 0.9em; color: #856404;">
-                            🎨 <strong>Template Oluştur</strong> - Yüklenen belge üzerinde bölgeleri işaretleyin
+                            🎨 <strong>Template Oluştur</strong> - Yüklenen belge üzerinde bölgeleri işaretleyin ve kaydedin. Kaydedilen template'i tekrar yükleyebilirsiniz.
                         </label>
                     </div>
                     
@@ -1530,13 +1530,20 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #e0e0e0;">
                 <h2 style="margin: 0;">🎨 COA Template Editor</h2>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-success" onclick="saveTemplate()">💾 Template Kaydet</button>
+                    <button class="btn btn-success" onclick="saveTemplateWithImage()">💾 Template Kaydet</button>
+                    <button class="btn btn-primary" onclick="loadTemplateWithImage()">📂 Template Yükle</button>
                     <button class="btn btn-secondary" onclick="closeTemplateEditor()">❌ Kapat</button>
                 </div>
             </div>
             
             <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
-                <strong>📋 Talimatlar:</strong> Mouse ile sürükleyerek her özellik için 2 bölge çizin: (1) Özellik adı (sol), (2) COA değeri (requirement sütunu)
+                <strong>📋 Talimatlar:</strong>
+                <ol style="margin: 8px 0 0 20px; padding: 0;">
+                    <li>Mouse ile sürükleyerek her özellik için 2 bölge çizin: (1) Özellik adı (sol), (2) COA değeri (requirement sütunu)</li>
+                    <li>"💾 Template Kaydet" ile Google Sheets'e kaydet + JSON dosyası olarak indir</li>
+                    <li>İndirilen JSON'u güvenli yerde sakla (Google Drive önerilir)</li>
+                    <li>"📂 Template Yükle" ile JSON yükle - görsel ve bölgeler birebir gelecek!</li>
+                </ol>
             </div>
             
             <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
@@ -11303,6 +11310,7 @@
                 canvasWidth: templateCanvas.width,
                 canvasHeight: templateCanvas.height,
                 scaleFactor: templateScaleFactor,
+                imageData: templateCanvas.toDataURL('image/png'), // Canvas görselini kaydet
                 regions: templateRegions.map(r => ({
                     propertyName: r.propertyName,
                     type: r.type,
@@ -11397,6 +11405,110 @@
             }
             
             closeTemplateEditor();
+        }
+        
+        // Template'i görsel ile kaydet ve indir
+        async function saveTemplateWithImage() {
+            const supplierName = document.getElementById('templateSupplierName').value.trim();
+            
+            if (!supplierName) {
+                alert('Lütfen tedarikçi adı girin!');
+                return;
+            }
+            
+            if (templateRegions.length === 0) {
+                alert('Lütfen en az bir bölge işaretleyin!');
+                return;
+            }
+            
+            const template = {
+                supplier: supplierName,
+                version: '1.0',
+                createdAt: new Date().toISOString(),
+                canvasWidth: templateCanvas.width,
+                canvasHeight: templateCanvas.height,
+                scaleFactor: templateScaleFactor,
+                imageData: templateCanvas.toDataURL('image/png'),
+                regions: templateRegions.map(r => ({
+                    propertyName: r.propertyName,
+                    type: r.type,
+                    x: Math.round(r.x / templateScaleFactor),
+                    y: Math.round(r.y / templateScaleFactor),
+                    width: Math.round(r.width / templateScaleFactor),
+                    height: Math.round(r.height / templateScaleFactor)
+                }))
+            };
+            
+            // Google Sheets'e kaydet
+            await saveTemplate();
+            
+            // JSON dosyası olarak indir
+            const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `template_${supplierName.toLowerCase().replace(/\\s+/g, '_')}_${new Date().getTime()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('✅ Template kaydedildi ve indirildi!', 'success');
+        }
+        
+        // Template'i görsel ile yükle
+        function loadTemplateWithImage() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json';
+            
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const template = JSON.parse(e.target.result);
+                        
+                        document.getElementById('templateSupplierName').value = template.supplier;
+                        
+                        // Görseli yükle
+                        if (template.imageData) {
+                            templateImageObj = new Image();
+                            templateImageObj.onload = function() {
+                                templateCanvas.width = template.canvasWidth || templateImageObj.width;
+                                templateCanvas.height = template.canvasHeight || templateImageObj.height;
+                                templateScaleFactor = template.scaleFactor || 1;
+                                
+                                // Regions'ı yükle
+                                templateRegions = template.regions.map(r => ({
+                                    ...r,
+                                    x: r.x * templateScaleFactor,
+                                    y: r.y * templateScaleFactor,
+                                    width: r.width * templateScaleFactor,
+                                    height: r.height * templateScaleFactor
+                                }));
+                                
+                                updateTemplateRegionsList();
+                                redrawTemplateCanvas();
+                                
+                                // Template editor'ı aç
+                                document.getElementById('templateModeCheckbox').checked = true;
+                                document.getElementById('templateEditorPanel').style.display = 'flex';
+                                
+                                showToast('✅ Template yüklendi! Görsel ve tüm bölgeler geri yüklendi.', 'success');
+                            };
+                            templateImageObj.src = template.imageData;
+                        } else {
+                            showToast('⚠️ Template görsel içermiyor. Lütfen COA belgesini tekrar yükleyin.', 'warning');
+                        }
+                    } catch (err) {
+                        showToast('❌ Template yüklenemedi: ' + err.message, 'error');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            
+            input.click();
         }
         
         function closeTemplateEditor() {
