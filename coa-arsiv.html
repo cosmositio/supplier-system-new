@@ -11451,6 +11451,12 @@
                 templateImageObj = new Image();
                 templateImageObj.onload = function() {
                     console.log('✅ Template image yüklendi');
+                    // Canvas'ı yeniden çiz (bölgeler varsa göster)
+                    redrawTemplateCanvas();
+                    console.log('🖱️ HAZIR: Şimdi canvas üzerinde mouse ile sürükleyerek bölgeler çizebilirsiniz!');
+                    console.log('   📍 Yeni bölge çizmek için: Boş bir alandan başlayıp sürükleyin');
+                    console.log('   ✏️ Bölge düzenlemek için: Mevcut bölgenin üzerine tıklayın');
+                    console.log('   🔧 Bölge boyutlandırmak için: Köşe veya kenar handle\'larını sürükleyin');
                 };
                 templateImageObj.src = templateCanvas.toDataURL();
                 templateScaleFactor = 1;
@@ -11642,6 +11648,10 @@
                 
                 // Store as image
                 templateImageObj = new Image();
+                templateImageObj.onload = function() {
+                    // Canvas'ı yeniden çiz (bölgeler varsa göster)
+                    redrawTemplateCanvas();
+                };
                 templateImageObj.src = templateCanvas.toDataURL();
                 
                 console.log('✅ Excel template hazırlandı');
@@ -11733,6 +11743,10 @@
                 
                 // Store as image
                 templateImageObj = new Image();
+                templateImageObj.onload = function() {
+                    // Canvas'ı yeniden çiz (bölgeler varsa göster)
+                    redrawTemplateCanvas();
+                };
                 templateImageObj.src = templateCanvas.toDataURL();
                 
                 console.log('✅ Word template hazırlandı (Ölçekleme yok, orijinal boyut:', width, 'x', height, ')');
@@ -11785,6 +11799,9 @@
                         }
                         
                         templateCtx.drawImage(templateImageObj, 0, 0, templateCanvas.width, templateCanvas.height);
+                        
+                        // Canvas'ı yeniden çiz (bölgeler varsa göster)
+                        redrawTemplateCanvas();
                         resolve();
                     };
                     templateImageObj.src = e.target.result;
@@ -11827,9 +11844,11 @@
         }
         
         function startTemplateDrawing(e) {
+            console.log('🖱️ startTemplateDrawing çağrıldı');
             const rect = templateCanvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
+            console.log('📍 Mouse pozisyonu:', mouseX, mouseY);
             
             // Önce seçili bölgenin resize handle'ına bakıyoruz
             if (selectedTemplateRegionIndex !== null) {
@@ -11951,6 +11970,13 @@
             // Yeni bölge çizimi
             if (!isTemplateDrawing) return;
             
+            // Debug: İlk çizim olup olmadığını kontrol et
+            if (!window._drawTemplateLogShown) {
+                console.log('🖌️ drawTemplate çalışıyor - Mouse hareket ediyor, bölge çiziliyor...');
+                window._drawTemplateLogShown = true;
+                setTimeout(() => { window._drawTemplateLogShown = false; }, 1000); // 1 saniye throttle
+            }
+            
             redrawTemplateCanvas();
             
             templateCtx.strokeStyle = '#007bff';
@@ -11987,7 +12013,10 @@
             const width = endX - templateStartX;
             const height = endY - templateStartY;
             
+            console.log('📏 Bölge boyutu:', Math.abs(width), 'x', Math.abs(height));
+            
             if (Math.abs(width) > 20 && Math.abs(height) > 20) {
+                console.log('✅ Yeni bölge çizildi! Modal açılıyor...');
                 currentTemplateRegion = {
                     x: Math.min(templateStartX, endX),
                     y: Math.min(templateStartY, endY),
