@@ -8040,6 +8040,9 @@
             return null;
         }
 
+        // Manuel düzenlenen aylık değerleri sakla (Excel yüklendiğinde korunması için)
+        let manualMonthlyEdits = {}; // { 'supplierName': { termin: [month1, month2], tamamlanma: [month3] } }
+        
         function updateResultsWithMonthlyScores() {
             console.log('updateResultsWithMonthlyScores çağrıldı');
             console.log('monthlyScoresData size:', monthlyScoresData.size);
@@ -8132,7 +8135,9 @@
                         result.ppmPuan = ppmPuanAvg;
                     }
                     
-                    // Aylık değerleri de depola
+                    // Aylık değerleri de depola - MANUEL DÜZENLEMELER KORUNUR!
+                    const supplierEdits = manualMonthlyEdits[result.name] || { termin: [], tamamlanma: [] };
+                    
                     for (let m = 1; m <= 12; m++) {
                         let mKalite = result.kalitePuan;
                         let mVda = result.vdaPuan;
@@ -8140,15 +8145,26 @@
                         let mTermin = result.terminPuan;
                         let mTamamlanma = result.tamamlanmaPuan;
                         
-                        if (md.terminByMonth.has(m)) {
+                        // Termin: Eğer bu ay MANUEL DÜZENLENMEMİŞSE Excel'den al
+                        if (md.terminByMonth.has(m) && !supplierEdits.termin.includes(m)) {
                             const vals = md.terminByMonth.get(m);
                             mTermin = vals.reduce((a,b)=>a+b,0) / vals.length;
                             if (mTermin <= 1) mTermin *= 100;
+                        } else if (supplierEdits.termin.includes(m)) {
+                            // Manuel düzenlenmişse mevcut değeri koru
+                            mTermin = result.monthlyTerminPuan[m-1] || result.terminPuan;
+                            console.log(`🔒 ${result.name} Ay ${m} TERMİN değeri KORUNDU (manuel düzenleme): ${mTermin.toFixed(1)}`);
                         }
-                        if (md.tamamlanmaByMonth.has(m)) {
+                        
+                        // Tamamlanma: Eğer bu ay MANUEL DÜZENLENMEMİŞSE Excel'den al
+                        if (md.tamamlanmaByMonth.has(m) && !supplierEdits.tamamlanma.includes(m)) {
                             const vals = md.tamamlanmaByMonth.get(m);
                             mTamamlanma = vals.reduce((a,b)=>a+b,0) / vals.length;
                             if (mTamamlanma <= 1) mTamamlanma *= 100;
+                        } else if (supplierEdits.tamamlanma.includes(m)) {
+                            // Manuel düzenlenmişse mevcut değeri koru
+                            mTamamlanma = result.monthlyTamamlanmaPuan[m-1] || result.tamamlanmaPuan;
+                            console.log(`🔒 ${result.name} Ay ${m} TAMAMLANMA değeri KORUNDU (manuel düzenleme): ${mTamamlanma.toFixed(1)}`);
                         }
                         if (md.kaliteByMonth.has(m)) {
                             const vals = md.kaliteByMonth.get(m);
@@ -11874,6 +11890,12 @@
                 const oldPuan = supplier.terminPuan;
                 supplier.terminPuan = puan;
                 
+                // Genel puan değiştirildi - TÜM AYLAR değişeceği için Manuel düzenleme işaretlerini TEMİZLE
+                if (manualMonthlyEdits[supplierName] && manualMonthlyEdits[supplierName].termin) {
+                    manualMonthlyEdits[supplierName].termin = [];
+                    console.log(`🧽 Genel termin puanı değiştirildi - ${supplierName} için manuel düzenleme işaretleri temizlendi`);
+                }
+                
                 // Aylık puanları AKILLI DAĞILIMLA ayarla
                 if (supplier.monthlyTerminPuan && Array.isArray(supplier.monthlyTerminPuan)) {
                     const oldMonthlyArray = supplier.monthlyTerminPuan.slice(0, 12);
@@ -11933,6 +11955,12 @@
             if (supplier) {
                 const oldPuan = supplier.tamamlanmaPuan;
                 supplier.tamamlanmaPuan = puan;
+                
+                // Genel puan değiştirildi - TÜM AYLAR değişeceği için Manuel düzenleme işaretlerini TEMİZLE
+                if (manualMonthlyEdits[supplierName] && manualMonthlyEdits[supplierName].tamamlanma) {
+                    manualMonthlyEdits[supplierName].tamamlanma = [];
+                    console.log(`🧽 Genel tamamlanma puanı değiştirildi - ${supplierName} için manuel düzenleme işaretleri temizlendi`);
+                }
                 
                 // Aylık puanları AKILLI DAĞILIMLA ayarla
                 if (supplier.monthlyTamamlanmaPuan && Array.isArray(supplier.monthlyTamamlanmaPuan)) {
@@ -13773,7 +13801,8 @@
             const editsSnapshot = {
                 timestamp: new Date().toISOString(),
                 name: saveName.trim(),
-                data: allSuppliersData
+                data: allSuppliersData,
+                manualMonthlyEdits: manualMonthlyEdits // Manuel düzenlemeleri de kaydet
             };
 
             // saveName varsa, tam versiyonlama yap
@@ -13824,6 +13853,14 @@
             if (!editsSnapshot) return;
 
             try {
+                // MANUEL DÜZENLEME İŞARETLERİNİ GERİ YÜKLE
+                if (editsSnapshot.manualMonthlyEdits) {
+                    manualMonthlyEdits = editsSnapshot.manualMonthlyEdits;
+                    console.log('🔄 Manuel düzenleme işaretleri geri yüklendi:', Object.keys(manualMonthlyEdits).length, 'tedarikçi');
+                } else {
+                    manualMonthlyEdits = {}; // Boş başlat
+                }
+                
                 // KAYDEDİLEN TÜM TEDARİKÇİLERİ YENİDEN YÜKLE
                 allResults = editsSnapshot.data.map(savedSupplier => ({
                     // Temel bilgiler
@@ -19249,6 +19286,15 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                         console.log('Kontrol - değişen index:', snapshotArray[monthIndex]);
                         console.log('Supplier referansı:', supplier.name);
                         
+                        // MANUEL DÜZENLEME KAYDI - Excel yüklendiğinde korunması için
+                        if (!manualMonthlyEdits[supplier.name]) {
+                            manualMonthlyEdits[supplier.name] = { termin: [], tamamlanma: [] };
+                        }
+                        if (!manualMonthlyEdits[supplier.name].termin.includes(targetMonth)) {
+                            manualMonthlyEdits[supplier.name].termin.push(targetMonth);
+                            console.log(`📝 Manuel düzenleme kaydedildi: ${supplier.name} - Termin - Ay ${targetMonth}`);
+                        }
+                        
                         // Ortalamayı yeniden hesapla (TÜM 12 aydan)
                         supplier.terminPuan = snapshotArray.reduce((a,b)=>a+b,0) / 12;
                         console.log('Yeni ortalama (tüm 12 ay):', supplier.terminPuan.toFixed(2));
@@ -19377,6 +19423,15 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                         console.log('Yeni dizi:', JSON.stringify(snapshotArray));
                         console.log('Kontrol - değişen index:', snapshotArray[monthIndex]);
                         console.log('Supplier referansı:', supplier.name);
+                        
+                        // MANUEL DÜZENLEME KAYDI - Excel yüklendiğinde korunması için
+                        if (!manualMonthlyEdits[supplier.name]) {
+                            manualMonthlyEdits[supplier.name] = { termin: [], tamamlanma: [] };
+                        }
+                        if (!manualMonthlyEdits[supplier.name].tamamlanma.includes(targetMonth)) {
+                            manualMonthlyEdits[supplier.name].tamamlanma.push(targetMonth);
+                            console.log(`📝 Manuel düzenleme kaydedildi: ${supplier.name} - Tamamlanma - Ay ${targetMonth}`);
+                        }
                         
                         // Ortalamayı yeniden hesapla (TÜM 12 aydan)
                         supplier.tamamlanmaPuan = snapshotArray.reduce((a,b)=>a+b,0) / 12;
