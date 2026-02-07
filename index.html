@@ -15559,6 +15559,13 @@
         
         function displayPerformanceCharts(supplier) {
             const container = document.getElementById('analysisPerformanceCharts');
+            if (!container) {
+                console.error('❌ analysisPerformanceCharts container bulunamadı!');
+                return;
+            }
+            
+            console.log('📊 displayPerformanceCharts çağrıldı:', supplier.name);
+            
             const months = ['1.Ay', '2.Ay', '3.Ay', '4.Ay', '5.Ay', '6.Ay', '7.Ay', '8.Ay', '9.Ay', '10.Ay', '11.Ay', '12.Ay'];
             const ppmTarget = supplier.ppmTarget || 10000;
             const hataHedefi = supplier.hataHedefi || 2;
@@ -15743,6 +15750,7 @@
             html += `</div>`;
             
             container.innerHTML = html;
+            console.log('✅ Performans grafikleri görüntülendi:', html.length, 'karakter');
         }
         
         // Grafik tablolarını göster/gizle
@@ -15759,6 +15767,12 @@
         
         function displayDocuments(supplier) {
             const container = document.getElementById('analysisDocuments');
+            if (!container) {
+                console.error('❌ analysisDocuments container bulunamadı!');
+                return;
+            }
+            
+            console.log('📄 displayDocuments çağrıldı:', supplier.name);
             
             // Tedarikçi Bilgileri
             const supplierInfo = getSupplierInfo(supplier.name);
@@ -15969,6 +15983,7 @@
             docHTML += docDetails;
             
             container.innerHTML = infoHTML + belgeHTML + docHTML;
+            console.log('✅ Dokümanlar görüntülendi');
         }
         
         // Doküman durumunu güncelle
@@ -16089,6 +16104,12 @@
         
         function displayCompleteness(supplier) {
             const container = document.getElementById('analysisCompleteness');
+            if (!container) {
+                console.error('❌ analysisCompleteness container bulunamadı!');
+                return;
+            }
+            
+            console.log('✅ displayCompleteness çağrıldı:', supplier.name);
             
             // Tedarikçi bilgilerini kontrol et
             const supplierInfo = getSupplierInfo(supplier.name);
@@ -16196,6 +16217,7 @@
             });
             
             container.innerHTML = html;
+            console.log('✅ Tamamlanma durumu görüntülendi');
         }
         
         // Bu fonksiyon showPDFExportOptions ile çağrılacak (ana PDF export fonksiyonu)
