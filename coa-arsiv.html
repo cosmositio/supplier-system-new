@@ -8602,8 +8602,8 @@
                 
                 showToast(`✅ ${propertyNames.length} özellik adı TDS'e eklendi!`, 'success', 5000);
                 
-                // TDS'i yeniden yükle
-                loadTDSForMaterial(false);
+                // TDS'i yeniden yükle (skipReload=true - Sheets'ten yeniden yükleme!)
+                loadTDSForMaterial(false, true);
                 return;
             }
             
@@ -8637,8 +8637,8 @@
                 
                 showToast(`✅ ${Object.keys(extractedProperties).length} özellik TDS'e kaydedildi!`, 'success', 5000);
                 
-                // TDS'i yeniden yükle
-                loadTDSForMaterial(false);
+                // TDS'i yeniden yükle (skipReload=true - Sheets'ten yeniden yükleme, eklediğimiz özellikleri koruyalım!)
+                loadTDSForMaterial(false, true);
                 
             } catch (error) {
                 console.error('❌ TDS Template OCR hatası:', error);
