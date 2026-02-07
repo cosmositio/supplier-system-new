@@ -15704,7 +15704,7 @@
                                                 <td style="padding: 5px; border: 1px solid #ddd; font-weight: 600; background: ${chart.color}20;">Gecikme (gün)</td>
                                                 ${Array(12).fill(0).map((_, idx) => {
                                                     const gun = chart.tableData.gun[idx] || 0;
-                                                    const gunText = gun > 0 ? `+${Math.round(gun)}` : gun < 0 ? Math.round(gun) : '0';
+                                                    const gunText = gun > 0 ? `+${gun.toFixed(1)}` : gun < 0 ? Math.round(gun) : '0';
                                                     const color = gun > 0 ? '#d32f2f' : gun < 0 ? '#388e3c' : '#666';
                                                     return `<td style="padding: 5px; border: 1px solid #ddd; text-align: right; color: ${color}; font-weight: 600;">${gunText}</td>`;
                                                 }).join('')}
@@ -19665,12 +19665,12 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                                         
                                         if (hasRealValue) {
                                             gun = gecikmeGunArr[m-1]; // Gerçek değer (EKSİ GÜNLER DAHİL!)
-                                            console.log(`✅ GERÇEK GÜN KULLANILDI: ${Math.round(gun)}`);
+                                            console.log(`✅ GERÇEK GÜN KULLANILDI: ${gun}`);
                                         } else {
                                             gun = terminPuanToGecikmeGun(puan); // Puandan hesapla
-                                            console.log(`⚠️ Puandan hesaplandı: ${Math.round(gun)}`);
+                                            console.log(`⚠️ Puandan hesaplandı: ${gun}`);
                                         }
-                                        const gunText = gun > 0 ? `+${Math.round(gun)}` : gun < 0 ? Math.round(gun) : '0';
+                                        const gunText = gun > 0 ? `+${gun.toFixed(1)}` : gun < 0 ? Math.round(gun) : '0';
                                         const color = gun > 0 ? '#d32f2f' : gun < 0 ? '#388e3c' : '#666';
                                         return `<td style="padding: 6px; border: 1px solid #ddd; text-align: right; color: ${color}; font-weight: 600;">${gunText}</td>`;
                                     }).join('')}
