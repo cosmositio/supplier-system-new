@@ -12189,13 +12189,44 @@
             window.currentEditingTemplate = template;
             window.currentEditingTemplateIndex = index;
             
-            // Eğer template'de görsel varsa, onu da yükle
-            if (template.imageData) {
-                selectedFileData = template.imageData;
+            // Drive'dan görseli yükle
+            let imageLoaded = false;
+            if (template.imageFileId) {
+                console.log('📥 Template görseli Drive\\'dan yükleniyor:', template.imageFileId);
+                showToast('📥 Template görseli yükleniyor...', 'info');
                 
-                // Fake file object oluştur
+                try {
+                    const imageData = await loadTemplateImageFromDrive(template.imageFileId);
+                    if (imageData) {
+                        selectedFileData = imageData;
+                        
+                        // Fake file object oluştur
+                        const fileName = `${template.supplier}_template.png`;
+                        const byteString = atob(imageData.split(',')[1]);
+                        const ab = new ArrayBuffer(byteString.length);
+                        const ia = new Uint8Array(ab);
+                        for (let i = 0; i < byteString.length; i++) {
+                            ia[i] = byteString.charCodeAt(i);
+                        }
+                        const blob = new Blob([ab], { type: 'image/png' });
+                        selectedFile = new File([blob], fileName, { type: 'image/png' });
+                        
+                        console.log('✅ Template görseli Drive\\'dan yüklendi:', fileName);
+                        imageLoaded = true;
+                    }
+                } catch (error) {
+                    console.error('❌ Drive görsel yükleme hatası:', error);
+                    showToast('⚠️ Görsel yüklenemedi, yeni bir görsel yükleyin.', 'warning');
+                }
+            }
+            
+            // Eğer Drive'dan yükleyemediysek ve template'de imageData varsa onu kullan (fallback)
+            if (!imageLoaded && template.template && template.template.imageData) {
+                console.log('📄 Template görseli imageData\\'dan yükleniyor (fallback)');
+                selectedFileData = template.template.imageData;
+                
                 const fileName = `${template.supplier}_template.png`;
-                const byteString = atob(template.imageData.split(',')[1]);
+                const byteString = atob(template.template.imageData.split(',')[1]);
                 const ab = new ArrayBuffer(byteString.length);
                 const ia = new Uint8Array(ab);
                 for (let i = 0; i < byteString.length; i++) {
@@ -12204,8 +12235,11 @@
                 const blob = new Blob([ab], { type: 'image/png' });
                 selectedFile = new File([blob], fileName, { type: 'image/png' });
                 
-                console.log('📄 Template görseli yüklendi:', fileName);
-            } else {
+                console.log('✅ Template görseli imageData\\'dan yüklendi:', fileName);
+                imageLoaded = true;
+            }
+            
+            if (!imageLoaded) {
                 showToast('⚠️ Bu template görsel içermiyor. Yeni bir görsel yükleyin.', 'warning');
             }
             
@@ -12216,10 +12250,51 @@
             await openTemplateEditorWithFile(selectedFile);
             
             // Template'i canvas'a yükle
-            if (template.regions && template.regions.length > 0) {
-                console.log('📍 Template bölgeleri yükleniyor:', template.regions.length, 'bölge');
+            const templateObj = template.template || template;
+            if (templateObj.regions && templateObj.regions.length > 0) {
+                console.log('📍 Template bölgeleri yükleniyor:', templateObj.regions.length, 'bölge');
                 // Regions'ı global değişkene koy, editor açıldığında kullanılacak
-                window.pendingTemplateRegions = template.regions;
+                window.pendingTemplateRegions = templateObj.regions;
+            }
+        }
+        
+        // Drive'dan template görselini yükle
+        async function loadTemplateImageFromDrive(fileId) {
+            if (!fileId) {
+                console.error('❌ File ID boş!');
+                return null;
+            }
+            
+            try {
+                const response = await new Promise((resolve, reject) => {
+                    const callbackName = 'jsonpCallback_' + Math.random().toString(36).substring(7);
+                    
+                    window[callbackName] = function(data) {
+                        delete window[callbackName];
+                        resolve(data);
+                    };
+                    
+                    const script = document.createElement('script');
+                    script.src = `${GOOGLE_SCRIPT_URL}?action=getTemplateImage&fileId=${encodeURIComponent(fileId)}&callback=${callbackName}`;
+                    script.onerror = () => reject(new Error('Script yüklenemedi'));
+                    document.body.appendChild(script);
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(script);
+                        reject(new Error('Timeout'));
+                    }, 30000);
+                });
+                
+                if (response.success) {
+                    console.log('✅ Drive görsel başarıyla yüklendi');
+                    return response.imageData;
+                } else {
+                    console.error('❌ Drive görsel yükleme hatası:', response.error);
+                    return null;
+                }
+            } catch (error) {
+                console.error('❌ Drive görsel yükleme exception:', error);
+                return null;
             }
         }
         

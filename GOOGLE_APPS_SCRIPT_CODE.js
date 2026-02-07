@@ -153,6 +153,9 @@ function doGet(e) {
       case 'getAllCOATemplates':
         result = getAllCOATemplates();
         break;
+      case 'getTemplateImage':
+        result = getTemplateImage(e.parameter.fileId);
+        break;
       case 'deleteCOATemplate':
         result = deleteCOATemplate(e.parameter.supplier);
         break;
@@ -1710,8 +1713,16 @@ function saveCOATemplate(templateData) {
     // Create sheet if doesn't exist
     if (!sheet) {
       sheet = ss.insertSheet('COA_Templates');
-      sheet.appendRow(['Supplier', 'Version', 'Created At', 'Template JSON']);
-      sheet.getRange('A1:D1').setBackground('#2c5f2d').setFontColor('#ffffff').setFontWeight('bold');
+      sheet.appendRow(['Supplier', 'Version', 'Created At', 'Template JSON', 'Template Image ID']);
+      sheet.getRange('A1:E1').setBackground('#2c5f2d').setFontColor('#ffffff').setFontWeight('bold');
+    } else {
+      // Eski sheet'lere Template Image ID sütunu ekle (eğer yoksa)
+      const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      if (!headers.includes('Template Image ID')) {
+        const lastCol = sheet.getLastColumn();
+        sheet.getRange(1, lastCol + 1).setValue('Template Image ID');
+        sheet.getRange(1, lastCol + 1).setBackground('#2c5f2d').setFontColor('#ffffff').setFontWeight('bold');
+      }
     }
     
     // Check if template already exists for this supplier
@@ -1725,15 +1736,33 @@ function saveCOATemplate(templateData) {
       }
     }
     
+    // imageData'yı templateData'dan çıkar Drive'a yükle
+    let imageFileId = '';
+    if (templateData.imageData) {
+      const fileName = `${templateData.supplier}_template_v${templateData.version}.png`;
+      const uploadResult = uploadFileToDrive(templateData.imageData, fileName, 'image/png');
+      
+      if (uploadResult.success) {
+        imageFileId = uploadResult.fileId;
+        console.log('✅ Template görseli Drive\'a yüklendi:', imageFileId);
+      } else {
+        console.error('❌ Template görseli Drive\'a yüklenemedi:', uploadResult.error);
+      }
+      
+      // imageData'yı template JSON'dan çıkar (Drive'da olduğu için gereksiz)
+      delete templateData.imageData;
+    }
+    
     const templateJson = JSON.stringify(templateData);
     
     if (rowIndex > 0) {
       // Update existing template
-      sheet.getRange(rowIndex, 1, 1, 4).setValues([[
+      sheet.getRange(rowIndex, 1, 1, 5).setValues([[
         templateData.supplier,
         templateData.version,
         templateData.createdAt,
-        templateJson
+        templateJson,
+        imageFileId
       ]]);
     } else {
       // Add new template
@@ -1741,7 +1770,8 @@ function saveCOATemplate(templateData) {
         templateData.supplier,
         templateData.version,
         templateData.createdAt,
-        templateJson
+        templateJson,
+        imageFileId
       ]);
     }
     
@@ -1800,11 +1830,13 @@ function getAllCOATemplates() {
     const templates = [];
     
     for (let i = 1; i < data.length; i++) {
+      const imageFileId = data[i][4] || ''; // 5. sütun: Template Image ID
       templates.push({
         supplier: data[i][0],
         version: data[i][1],
         createdAt: data[i][2],
-        template: JSON.parse(data[i][3])
+        template: JSON.parse(data[i][3]),
+        imageFileId: imageFileId
       });
     }
     
@@ -1812,6 +1844,34 @@ function getAllCOATemplates() {
     
   } catch(error) {
     return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Get Template Image from Drive
+ */
+function getTemplateImage(fileId) {
+  try {
+    if (!fileId) {
+      return { success: false, error: 'File ID boş' };
+    }
+    
+    const file = DriveApp.getFileById(fileId);
+    const blob = file.getBlob();
+    const base64Data = Utilities.base64Encode(blob.getBytes());
+    const mimeType = blob.getContentType();
+    
+    return {
+      success: true,
+      imageData: `data:${mimeType};base64,${base64Data}`,
+      fileName: file.getName(),
+      mimeType: mimeType
+    };
+  } catch(error) {
+    return { 
+      success: false, 
+      error: 'Drive görsel yükleme hatası: ' + error.toString() 
+    };
   }
 }
 
