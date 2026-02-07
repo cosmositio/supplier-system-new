@@ -12222,7 +12222,7 @@
             
             // Eğer Drive'dan yükleyemediysek ve template'de imageData varsa onu kullan (fallback)
             if (!imageLoaded && template.template && template.template.imageData) {
-                console.log('📄 Template görseli imageData\\'dan yükleniyor (fallback)');
+                console.log('📄 Template görseli imageData\'dan yükleniyor (fallback)');
                 selectedFileData = template.template.imageData;
                 
                 const fileName = `${template.supplier}_template.png`;
@@ -12235,7 +12235,7 @@
                 const blob = new Blob([ab], { type: 'image/png' });
                 selectedFile = new File([blob], fileName, { type: 'image/png' });
                 
-                console.log('✅ Template görseli imageData\\'dan yüklendi:', fileName);
+                console.log('✅ Template görseli imageData\'dan yüklendi:', fileName);
                 imageLoaded = true;
             }
             
