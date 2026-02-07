@@ -1682,8 +1682,12 @@
                 <div id="perfChartSupplierInfo" style="margin-bottom: 10px; font-weight: 600;"></div>
                 <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));">
                     <div class="stat-card" style="padding: 10px;">
-                        <div class="stat-label">Aylık İade PPM Değişimi</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div class="stat-label">Aylık İade PPM Değişimi</div>
+                            <button onclick="toggleModalTable('modalTablePPM')" style="padding: 4px 10px; background: #ff9800; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.8em; transition: opacity 0.3s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">📊 Tablo</button>
+                        </div>
                         <canvas id="chartReturnPPM" width="100%" height="180" style="width: 100%;"></canvas>
+                        <div id="modalTablePPM" style="display: none; margin-top: 15px; overflow-x: auto; animation: fadeIn 0.3s;"></div>
                     </div>
                     <div class="stat-card" style="padding: 10px;">
                         <div class="stat-label">Aylık PPM Puanı</div>
@@ -1707,12 +1711,20 @@
                         <canvas id="chart8D" width="100%" height="180" style="width: 100%;"></canvas>
                     </div>
                     <div class="stat-card hide-for-musteri" style="padding: 10px;">
-                        <div class="stat-label">Termin Puanı</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div class="stat-label">Termin Puanı</div>
+                            <button onclick="toggleModalTable('modalTableTermin')" style="padding: 4px 10px; background: #3949ab; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.8em; transition: opacity 0.3s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">📊 Tablo</button>
+                        </div>
                         <canvas id="chartTermin" width="100%" height="180" style="width: 100%;"></canvas>
+                        <div id="modalTableTermin" style="display: none; margin-top: 15px; overflow-x: auto; animation: fadeIn 0.3s;"></div>
                     </div>
                     <div class="stat-card hide-for-musteri" style="padding: 10px;">
-                        <div class="stat-label">Tamamlanma Puanı</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div class="stat-label">Tamamlanma Puanı</div>
+                            <button onclick="toggleModalTable('modalTableTamamlanma')" style="padding: 4px 10px; background: #00796b; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.8em; transition: opacity 0.3s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">📊 Tablo</button>
+                        </div>
                         <canvas id="chartCompletion" width="100%" height="180" style="width: 100%;"></canvas>
+                        <div id="modalTableTamamlanma" style="display: none; margin-top: 15px; overflow-x: auto; animation: fadeIn 0.3s;"></div>
                     </div>
                     <div class="stat-card" style="padding: 10px;">
                         <div class="stat-label">Hata Puanı</div>
@@ -19300,6 +19312,123 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 drawBarChart('chartCompletion', monthLabels, completionSeries, '#00796b', 'Tamamlanma', null, completionCallback, months);
             }
             drawBarChart('chartDefectScore', monthLabels, defectScoreSeries, '#f4511e', 'Hata Puanı');
+            
+            // Tabloları doldur
+            populateModalTables(supplier, months, monthLabels, returnPPMSeries, terminSeries, completionSeries);
+        }
+        
+        // Modal tabloları dolduran fonksiyon
+        function populateModalTables(supplier, months, monthLabels, ppmSeries, terminSeries, completionSeries) {
+            // PPM Tablosu
+            const ppmTableDiv = document.getElementById('modalTablePPM');
+            if (ppmTableDiv) {
+                let ppmHTML = `
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+                        <thead>
+                            <tr style="background: #ff9800; color: white;">
+                                <th style="padding: 8px; border: 1px solid #ff9800; text-align: center;">Ay</th>
+                                <th style="padding: 8px; border: 1px solid #ff9800; text-align: center;">Sevk</th>
+                                <th style="padding: 8px; border: 1px solid #ff9800; text-align: center;">İade</th>
+                                <th style="padding: 8px; border: 1px solid #ff9800; text-align: center;">PPM</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                months.forEach((m, idx) => {
+                    const bgColor = idx % 2 === 0 ? '#f9f9f9' : '#ffffff';
+                    const sevk = supplier.monthlySevk?.[m-1] || 0;
+                    const iade = supplier.monthlyIade?.[m-1] || 0;
+                    const ppm = ppmSeries[idx] || 0;
+                    
+                    ppmHTML += `
+                        <tr style="background: ${bgColor};">
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: center; font-weight: 600;">${m}</td>
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${sevk.toLocaleString('tr-TR')}</td>
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${iade.toLocaleString('tr-TR')}</td>
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: right; font-weight: 600;">${ppm.toFixed(0)}</td>
+                        </tr>
+                    `;
+                });
+                
+                ppmHTML += '</tbody></table>';
+                ppmTableDiv.innerHTML = ppmHTML;
+            }
+            
+            // Termin Tablosu
+            const terminTableDiv = document.getElementById('modalTableTermin');
+            if (terminTableDiv) {
+                let terminHTML = `
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+                        <thead>
+                            <tr style="background: #3949ab; color: white;">
+                                <th style="padding: 8px; border: 1px solid #3949ab; text-align: center;">Ay</th>
+                                <th style="padding: 8px; border: 1px solid #3949ab; text-align: center;">Gün</th>
+                                <th style="padding: 8px; border: 1px solid #3949ab; text-align: center;">Puan (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                months.forEach((m, idx) => {
+                    const bgColor = idx % 2 === 0 ? '#f9f9f9' : '#ffffff';
+                    const gun = supplier.monthlyTermin?.[m-1] || 0;
+                    const puan = terminSeries[idx] || 100;
+                    
+                    terminHTML += `
+                        <tr style="background: ${bgColor};">
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: center; font-weight: 600;">${m}</td>
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${gun.toFixed(1)}</td>
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: right; font-weight: 600;">${puan.toFixed(1)}%</td>
+                        </tr>
+                    `;
+                });
+                
+                terminHTML += '</tbody></table>';
+                terminTableDiv.innerHTML = terminHTML;
+            }
+            
+            // Tamamlanma Tablosu
+            const tamamlanmaTableDiv = document.getElementById('modalTableTamamlanma');
+            if (tamamlanmaTableDiv) {
+                let tamamlanmaHTML = `
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+                        <thead>
+                            <tr style="background: #00796b; color: white;">
+                                <th style="padding: 8px; border: 1px solid #00796b; text-align: center;">Ay</th>
+                                <th style="padding: 8px; border: 1px solid #00796b; text-align: center;">Puan (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                months.forEach((m, idx) => {
+                    const bgColor = idx % 2 === 0 ? '#f9f9f9' : '#ffffff';
+                    const puan = completionSeries[idx] || 100;
+                    
+                    tamamlanmaHTML += `
+                        <tr style="background: ${bgColor};">
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: center; font-weight: 600;">${m}</td>
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: right; font-weight: 600;">${puan.toFixed(1)}%</td>
+                        </tr>
+                    `;
+                });
+                
+                tamamlanmaHTML += '</tbody></table>';
+                tamamlanmaTableDiv.innerHTML = tamamlanmaHTML;
+            }
+        }
+        
+        // Modal tabloları göster/gizle
+        function toggleModalTable(tableId) {
+            const table = document.getElementById(tableId);
+            if (table) {
+                if (table.style.display === 'none') {
+                    table.style.display = 'block';
+                } else {
+                    table.style.display = 'none';
+                }
+            }
         }
 
         function calculateNextTargets() {
