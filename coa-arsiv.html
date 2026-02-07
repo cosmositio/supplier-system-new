@@ -10478,6 +10478,13 @@
         let templateMode = false;
         let pendingTemplateFile = null;
         
+        // Bölge düzenleme değişkenleri
+        let isDraggingRegion = false;
+        let isResizingRegion = false;
+        let resizeHandle = null; // 'tl', 'tr', 'bl', 'br', 'top', 'right', 'bottom', 'left'
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        
         function toggleTemplateMode() {
             templateMode = document.getElementById('templateModeCheckbox').checked;
             
@@ -10922,19 +10929,163 @@
             });
         }
         
+        // Mouse'un hangi bölgenin içinde olduğunu bul
+        function getRegionAtPoint(x, y) {
+            for (let i = templateRegions.length - 1; i >= 0; i--) {
+                const r = templateRegions[i];
+                if (x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+        
+        // Mouse'un hangi resize handle'ında olduğunu bul
+        function getResizeHandle(x, y, region) {
+            const handleSize = 8;
+            const handles = [
+                { name: 'tl', x: region.x, y: region.y },
+                { name: 'tr', x: region.x + region.width, y: region.y },
+                { name: 'bl', x: region.x, y: region.y + region.height },
+                { name: 'br', x: region.x + region.width, y: region.y + region.height },
+                { name: 'top', x: region.x + region.width / 2, y: region.y },
+                { name: 'right', x: region.x + region.width, y: region.y + region.height / 2 },
+                { name: 'bottom', x: region.x + region.width / 2, y: region.y + region.height },
+                { name: 'left', x: region.x, y: region.y + region.height / 2 }
+            ];
+            
+            for (const handle of handles) {
+                if (Math.abs(x - handle.x) <= handleSize && Math.abs(y - handle.y) <= handleSize) {
+                    return handle.name;
+                }
+            }
+            return null;
+        }
+        
         function startTemplateDrawing(e) {
-            isTemplateDrawing = true;
             const rect = templateCanvas.getBoundingClientRect();
-            templateStartX = e.clientX - rect.left;
-            templateStartY = e.clientY - rect.top;
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            // Önce seçili bölgenin resize handle'ına bakıyoruz
+            if (selectedTemplateRegionIndex !== null) {
+                const region = templateRegions[selectedTemplateRegionIndex];
+                const handle = getResizeHandle(mouseX, mouseY, region);
+                
+                if (handle) {
+                    isResizingRegion = true;
+                    resizeHandle = handle;
+                    templateStartX = mouseX;
+                    templateStartY = mouseY;
+                    return;
+                }
+            }
+            
+            // Sonra herhangi bir bölgenin içine tıklanmış mı bakıyoruz
+            const regionIndex = getRegionAtPoint(mouseX, mouseY);
+            if (regionIndex !== -1) {
+                selectedTemplateRegionIndex = regionIndex;
+                isDraggingRegion = true;
+                const region = templateRegions[regionIndex];
+                dragOffsetX = mouseX - region.x;
+                dragOffsetY = mouseY - region.y;
+                redrawTemplateCanvas();
+                return;
+            }
+            
+            // Hiçbir bölgeye tıklanmadıysa, yeni bölge çizimi başlat
+            selectedTemplateRegionIndex = null;
+            isTemplateDrawing = true;
+            templateStartX = mouseX;
+            templateStartY = mouseY;
         }
         
         function drawTemplate(e) {
-            if (!isTemplateDrawing) return;
-            
             const rect = templateCanvas.getBoundingClientRect();
             const currentX = e.clientX - rect.left;
             const currentY = e.clientY - rect.top;
+            
+            // Cursor değiştir (eğer seçili bölge varsa)
+            if (!isTemplateDrawing && !isDraggingRegion && !isResizingRegion && selectedTemplateRegionIndex !== null) {
+                const region = templateRegions[selectedTemplateRegionIndex];
+                const handle = getResizeHandle(currentX, currentY, region);
+                
+                if (handle) {
+                    // Resize cursor'ları
+                    const cursorMap = {
+                        'tl': 'nw-resize', 'tr': 'ne-resize', 'bl': 'sw-resize', 'br': 'se-resize',
+                        'top': 'n-resize', 'right': 'e-resize', 'bottom': 's-resize', 'left': 'w-resize'
+                    };
+                    templateCanvas.style.cursor = cursorMap[handle];
+                } else if (getRegionAtPoint(currentX, currentY) === selectedTemplateRegionIndex) {
+                    templateCanvas.style.cursor = 'move';
+                } else {
+                    templateCanvas.style.cursor = 'default';
+                }
+            } else if (!isTemplateDrawing && !isDraggingRegion && !isResizingRegion) {
+                // Hiç seçili bölge yok, sadece hover kontrolü
+                const hoverIndex = getRegionAtPoint(currentX, currentY);
+                templateCanvas.style.cursor = hoverIndex !== -1 ? 'pointer' : 'crosshair';
+            }
+            
+            // Bölge taşıma
+            if (isDraggingRegion && selectedTemplateRegionIndex !== null) {
+                const region = templateRegions[selectedTemplateRegionIndex];
+                region.x = currentX - dragOffsetX;
+                region.y = currentY - dragOffsetY;
+                redrawTemplateCanvas();
+                return;
+            }
+            
+            // Bölge resize
+            if (isResizingRegion && selectedTemplateRegionIndex !== null) {
+                const region = templateRegions[selectedTemplateRegionIndex];
+                const deltaX = currentX - templateStartX;
+                const deltaY = currentY - templateStartY;
+                
+                const originalX = region.x;
+                const originalY = region.y;
+                const originalWidth = region.width;
+                const originalHeight = region.height;
+                
+                if (resizeHandle === 'tl') {
+                    region.x = originalX + deltaX;
+                    region.y = originalY + deltaY;
+                    region.width = originalWidth - deltaX;
+                    region.height = originalHeight - deltaY;
+                } else if (resizeHandle === 'tr') {
+                    region.y = originalY + deltaY;
+                    region.width = originalWidth + deltaX;
+                    region.height = originalHeight - deltaY;
+                } else if (resizeHandle === 'bl') {
+                    region.x = originalX + deltaX;
+                    region.width = originalWidth - deltaX;
+                    region.height = originalHeight + deltaY;
+                } else if (resizeHandle === 'br') {
+                    region.width = originalWidth + deltaX;
+                    region.height = originalHeight + deltaY;
+                } else if (resizeHandle === 'top') {
+                    region.y = originalY + deltaY;
+                    region.height = originalHeight - deltaY;
+                } else if (resizeHandle === 'right') {
+                    region.width = originalWidth + deltaX;
+                } else if (resizeHandle === 'bottom') {
+                    region.height = originalHeight + deltaY;
+                } else if (resizeHandle === 'left') {
+                    region.x = originalX + deltaX;
+                    region.width = originalWidth - deltaX;
+                }
+                
+                // Başlangıç noktasını güncelle (smooth resize için)
+                templateStartX = currentX;
+                templateStartY = currentY;
+                
+                redrawTemplateCanvas();
+                return;
+            }
+            
+            // Yeni bölge çizimi
+            if (!isTemplateDrawing) return;
             
             redrawTemplateCanvas();
             
@@ -10946,6 +11097,22 @@
         }
         
         async function stopTemplateDrawing(e) {
+            // Bölge taşımayı bitir
+            if (isDraggingRegion) {
+                isDraggingRegion = false;
+                templateCanvas.style.cursor = 'default';
+                return;
+            }
+            
+            // Bölge resize'ı bitir
+            if (isResizingRegion) {
+                isResizingRegion = false;
+                resizeHandle = null;
+                templateCanvas.style.cursor = 'default';
+                return;
+            }
+            
+            // Yeni bölge çizimini bitir
             if (!isTemplateDrawing) return;
             isTemplateDrawing = false;
             
@@ -10981,16 +11148,49 @@
                 templateCtx.drawImage(templateImageObj, 0, 0, templateCanvas.width, templateCanvas.height);
             }
             
+            // Tüm bölgeleri çiz
             templateRegions.forEach((region, index) => {
-                templateCtx.strokeStyle = index === selectedTemplateRegionIndex ? '#28a745' : '#dc3545';
-                templateCtx.lineWidth = 2;
+                const isSelected = index === selectedTemplateRegionIndex;
+                
+                // Bölge kutusu
+                templateCtx.strokeStyle = isSelected ? '#28a745' : '#dc3545';
+                templateCtx.lineWidth = isSelected ? 3 : 2;
                 templateCtx.strokeRect(region.x, region.y, region.width, region.height);
                 
-                templateCtx.fillStyle = 'rgba(220, 53, 69, 0.8)';
+                // Özellik adı etiketi
+                templateCtx.fillStyle = isSelected ? 'rgba(40, 167, 69, 0.9)' : 'rgba(220, 53, 69, 0.8)';
                 templateCtx.fillRect(region.x, region.y - 25, 150, 25);
                 templateCtx.fillStyle = 'white';
                 templateCtx.font = '12px Arial';
                 templateCtx.fillText(region.propertyName || 'Unnamed', region.x + 5, region.y - 8);
+                
+                // Seçili bölge için resize handle'ları çiz
+                if (isSelected) {
+                    drawResizeHandles(region);
+                }
+            });
+        }
+        
+        // Resize handle'larını çiz
+        function drawResizeHandles(region) {
+            const handleSize = 8;
+            const handles = [
+                { x: region.x, y: region.y }, // top-left
+                { x: region.x + region.width, y: region.y }, // top-right
+                { x: region.x, y: region.y + region.height }, // bottom-left
+                { x: region.x + region.width, y: region.y + region.height }, // bottom-right
+                { x: region.x + region.width / 2, y: region.y }, // top
+                { x: region.x + region.width, y: region.y + region.height / 2 }, // right
+                { x: region.x + region.width / 2, y: region.y + region.height }, // bottom
+                { x: region.x, y: region.y + region.height / 2 } // left
+            ];
+            
+            handles.forEach(handle => {
+                templateCtx.fillStyle = 'white';
+                templateCtx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
+                templateCtx.strokeStyle = '#28a745';
+                templateCtx.lineWidth = 2;
+                templateCtx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
             });
         }
         
