@@ -12019,7 +12019,7 @@
                     // Her zaman saveTemplate action kullan (backend zaten update/insert karar veriyor)
                     console.log(`📤 Google Sheets'e template gönderiliyor (${isUpdate ? 'GÜNCELLEME' : 'YENİ'})...`);
                     
-                    // imageData olmadan template gönder, regions ile birlikte
+                    // Template'i imageData ile birlikte gönder (Drive'a yüklenecek)
                     const templateForSheets = {
                         supplier: template.supplier,
                         version: template.version,
@@ -12027,6 +12027,7 @@
                         canvasWidth: template.canvasWidth,
                         canvasHeight: template.canvasHeight,
                         scaleFactor: template.scaleFactor,
+                        imageData: template.imageData, // Drive'a yüklenecek
                         regions: template.regions
                     };
                     
