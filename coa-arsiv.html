@@ -1847,6 +1847,7 @@
         let resizeHandle = null; // 'tl', 'tr', 'bl', 'br', 'top', 'right', 'bottom', 'left'
         let dragOffsetX = 0;
         let dragOffsetY = 0;
+        let editingRegionIndex = null; // Düzenlenmekte olan bölgenin index'i
         
         // Dosya tipine göre ikon oluştur
         function getFileIcon(fileName, fileType, itemId) {
@@ -12231,6 +12232,7 @@
         function closeTemplateRegionModal() {
             document.getElementById('templateRegionModal').classList.remove('show');
             currentTemplateRegion = null;
+            editingRegionIndex = null; // Düzenleme modunu kapat
             
             // Reset OCR field
             const ocrInput = document.getElementById('templateOcrValue');
@@ -12258,7 +12260,16 @@
             currentTemplateRegion.type = regionType;
             currentTemplateRegion.ocrValue = ocrValue;  // OCR değerini kaydet
             
-            templateRegions.push(currentTemplateRegion);
+            // Düzenleme modundaysa mevcut region'u güncelle
+            if (editingRegionIndex !== null) {
+                templateRegions[editingRegionIndex] = currentTemplateRegion;
+                editingRegionIndex = null;
+                console.log('✏️ Bölge güncellendi:', propertyName);
+            } else {
+                // Yeni bölge ekle
+                templateRegions.push(currentTemplateRegion);
+                console.log('➕ Yeni bölge eklendi:', propertyName);
+            }
             
             closeTemplateRegionModal();
             updateTemplateRegionsList();
@@ -12275,7 +12286,10 @@
                 <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 4px; padding: 8px; margin-bottom: 8px; cursor: pointer;" onclick="selectTemplateRegion(${index})">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                         <span style="font-weight: 600; color: #2c5f2d; font-size: 13px;">${region.propertyName}</span>
-                        <button onclick="deleteTemplateRegion(${index}); event.stopPropagation();" style="background: #dc3545; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 11px;">🗑️</button>
+                        <div style="display: flex; gap: 4px;">
+                            <button onclick="editTemplateRegion(${index}); event.stopPropagation();" style="background: #17a2b8; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 11px;" title="Düzenle">✏️</button>
+                            <button onclick="deleteTemplateRegion(${index}); event.stopPropagation();" style="background: #dc3545; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 11px;" title="Sil">🗑️</button>
+                        </div>
                     </div>
                     <div style="font-size: 11px; color: #666;">
                         ${region.type === 'value' ? 'COA Değeri' : 'Özellik Adı'}<br>
