@@ -11668,7 +11668,7 @@
             // Google Sheets'e kaydet (XMLHttpRequest POST)
             if (googleScriptUrl) {
                 try {
-                    const actionType = isUpdate ? 'updateTemplate' : 'saveTemplate';
+                    // Her zaman saveTemplate action kullan (backend zaten update/insert karar veriyor)
                     console.log(`📤 Google Sheets'e template gönderiliyor (${isUpdate ? 'GÜNCELLEME' : 'YENİ'})...`);
                     
                     // imageData olmadan template gönder, regions ile birlikte
@@ -11705,7 +11705,7 @@
                         xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
                         
                         const formData = new URLSearchParams();
-                        formData.append('action', actionType);
+                        formData.append('action', 'saveTemplate'); // Her zaman saveTemplate
                         formData.append('template', JSON.stringify(templateForSheets));
                         
                         xhr.send(formData.toString());
@@ -11795,8 +11795,11 @@
             console.log('🔍 İşlenmiş template:', template);
             console.log('📍 Regions var mı?', template.regions);
             
-            // Modal'i kapat
-            document.getElementById('templateLoadModal').style.display = 'none';
+            // Modal'i kapat (eğer varsa)
+            const modal = document.getElementById('templateLoadModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
             
             // Tedarikçi adını yaz
             document.getElementById('templateSupplierName').value = template.supplier || rawTemplate.supplier || 'Bilinmeyen';
@@ -11830,9 +11833,12 @@
                     updateTemplateRegionsList();
                     redrawTemplateCanvas();
                     
-                    // Template editor'ı aç (eğer kapalıysa)
-                    document.getElementById('templateModeCheckbox').checked = true;
-                    document.getElementById('templateEditorPanel').style.display = 'flex';
+                    // Template editor'ı aç (eğer kapalıysa ve element varsa)
+                    const checkbox = document.getElementById('templateModeCheckbox');
+                    const panel = document.getElementById('templateEditorPanel');
+                    
+                    if (checkbox) checkbox.checked = true;
+                    if (panel) panel.style.display = 'flex';
                     
                     showToast(`✅ ${template.supplier} template'i yüklendi! Görsel ve ${templateRegions.length} bölge geri yüklendi.`, 'success');
                 };
@@ -11852,9 +11858,12 @@
                 updateTemplateRegionsList();
                 redrawTemplateCanvas(); // Canvas'ı yeniden çiz - bölgeler görünsün!
                 
-                // Template editor'ı aç (eğer kapalıysa)
-                document.getElementById('templateModeCheckbox').checked = true;
-                document.getElementById('templateEditorPanel').style.display = 'flex';
+                // Template editor'ı aç (eğer kapalıysa ve element varsa)
+                const checkbox = document.getElementById('templateModeCheckbox');
+                const panel = document.getElementById('templateEditorPanel');
+                
+                if (checkbox) checkbox.checked = true;
+                if (panel) panel.style.display = 'flex';
                 
                 showToast(`✅ ${template.supplier} template'i yüklendi! ${templateRegions.length} bölge mevcut canvas üzerine eklendi.`, 'success');
             }
