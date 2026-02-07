@@ -12109,6 +12109,16 @@
         
         // Template'i görsel ile yükle - Google Sheets'ten
         async function loadTemplateWithImage() {
+            // Template editor açıkken template yükle modalını aç
+            const editorModal = document.getElementById('templateEditorModal');
+            const isEditorOpen = editorModal && editorModal.classList.contains('show');
+            
+            if (isEditorOpen) {
+                // Template editor açık - farklı bir modal kullan veya uyarı ver
+                showToast('⚠️ Lütfen önce Template Editor\'ı kapatın. "✏️ Template Düzenle" butonunu kullanabilirsiniz.', 'warning', 5000);
+                return;
+            }
+            
             // Google Sheets'ten template'leri yükle
             await loadTemplatesFromGoogleSheets();
             
