@@ -817,6 +817,17 @@
             to { transform: translateX(0); opacity: 1; }
         }
         
+        @keyframes pulse {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            }
+            50% { 
+                transform: scale(1.05);
+                box-shadow: 0 4px 20px rgba(76, 175, 80, 0.6);
+            }
+        }
+        
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -1514,9 +1525,17 @@
                     </table>
                 </div>
                 
-                <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
-                    <button class="btn btn-secondary" onclick="closeTDSModal()">İptal</button>
-                    <button class="btn btn-primary" onclick="saveTDS()">💾 TDS Kaydet</button>
+                <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: space-between; align-items: center;">
+                    <div id="ocrDataInfo" style="display: none; padding: 10px; background: #e3f2fd; border-radius: 5px; font-size: 13px; color: #1976d2;">
+                        📊 <span id="ocrDataCount">0</span> özellik OCR ile okundu
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-left: auto;">
+                        <button class="btn btn-secondary" onclick="closeTDSModal()">İptal</button>
+                        <button id="transferOCRBtn" class="btn btn-success" onclick="transferOCRDataToCOA()" style="display: none; background: #4CAF50;">
+                            💾 COA Kaydı Olarak Kaydet
+                        </button>
+                        <button class="btn btn-primary" onclick="saveTDS()">💾 TDS Kaydet</button>
+                    </div>
                 </div>
             </div>
             
@@ -4842,6 +4861,12 @@
                 createdAt: new Date().toISOString()
             };
             
+            // OCR'dan transfer edilen verileri ekle (varsa)
+            if (window.pendingOCRData && window.pendingOCRData.properties) {
+                record.ocrProperties = window.pendingOCRData.properties;
+                console.log('📊 OCR verileri COA kaydına eklendi:', record.ocrProperties.length, 'özellik');
+            }
+            
             // OCR zaten fotoğraf çekilirken yapıldı (startOCRAnalysis), tekrar yapmaya gerek yok
             console.log('ℹ️ OCR atlanıyor (çekim sırasında yapıldı)');
             
@@ -4861,9 +4886,25 @@
                     
                     console.log('🔑 Clean Material Code for Records:', cleanMaterialCode);
                     
-                    if (tdsData[cleanMaterialCode]) {
+                    // OCR'dan gelen veriler varsa onları kullan, yoksa TDS'i kullan
+                    let propertiesToSave = null;
+                    if (window.pendingOCRData && window.pendingOCRData.properties) {
+                        propertiesToSave = window.pendingOCRData.properties;
+                        console.log('📊 COA_Records için OCR verileri kullanılıyor:', propertiesToSave.length, 'özellik');
+                    } else if (tdsData[cleanMaterialCode]) {
+                        propertiesToSave = tdsData[cleanMaterialCode].properties;
+                        console.log('📊 COA_Records için TDS verileri kullanılıyor');
+                    }
+                    
+                    if (propertiesToSave) {
                         console.log('📊 COA_Records kaydı başlatılıyor...');
-                        await saveCOARecordToSheets(cleanMaterialCode, tdsData[cleanMaterialCode].properties);
+                        await saveCOARecordToSheets(cleanMaterialCode, propertiesToSave);
+                        
+                        // Pending OCR data'yı temizle
+                        if (window.pendingOCRData) {
+                            console.log('🧹 pendingOCRData temizlendi');
+                            window.pendingOCRData = null;
+                        }
                     } else {
                         console.log('⚠️ TDS tanımlı değil:', cleanMaterialCode);
                     }
@@ -4904,6 +4945,12 @@
             editingId = null;
             document.getElementById('saveBtn').textContent = '💾 Kaydet';
             document.getElementById('cancelEditBtn').style.display = 'none';
+            
+            // Pending OCR data'yı temizle
+            if (window.pendingOCRData) {
+                console.log('🧹 clearForm: pendingOCRData temizlendi');
+                window.pendingOCRData = null;
+            }
         }
         
         function editCOA(id) {
@@ -8226,6 +8273,16 @@
                         lastOCRMaterialCode = materialCodeOnly;
                         console.log('🏴 lastOCRMaterialCode set edildi:', lastOCRMaterialCode, `(${coaCount} özellik okundu)`);
                         showToast(`✅ ${coaCount} özellik okundu ve TDS ile karşılaştırıldı!`, 'success', 5000);
+                        
+                        // Transfer butonunu göster ve bilgilendir
+                        setTimeout(() => {
+                            const transferBtn = document.getElementById('transferOCRBtn');
+                            const ocrInfo = document.getElementById('ocrDataInfo');
+                            const ocrCount = document.getElementById('ocrDataCount');
+                            if (transferBtn) transferBtn.style.display = 'block';
+                            if (ocrInfo) ocrInfo.style.display = 'block';
+                            if (ocrCount) ocrCount.textContent = coaCount;
+                        }, 500);
                     } else {
                         console.log('⚠️ Hiçbir özellik okunamadı, lastOCRMaterialCode set edilmedi');
                         showToast('⚠️ Hiçbir özellik okunamadı! Bölgeler çok küçük veya bulanık olabilir.', 'warning', 5000);
@@ -8611,6 +8668,82 @@
             if (lastOCRMaterialCode) {
                 console.log('🧹 Modal kapandı, lastOCRMaterialCode temizleniyor:', lastOCRMaterialCode);
                 lastOCRMaterialCode = null;
+            }
+            
+            // Transfer butonunu gizle
+            const transferBtn = document.getElementById('transferOCRBtn');
+            const ocrInfo = document.getElementById('ocrDataInfo');
+            if (transferBtn) transferBtn.style.display = 'none';
+            if (ocrInfo) ocrInfo.style.display = 'none';
+        }
+        
+        // OCR verilerini COA kaydı olarak kaydetmek için ana forma aktar
+        function transferOCRDataToCOA() {
+            const materialCode = document.getElementById('tdsMaterialSelect').value;
+            if (!materialCode) {
+                showToast('⚠️ Hammadde kodu seçili değil!', 'warning');
+                return;
+            }
+            
+            // TDS verilerinden OCR'dan okunan değerleri al
+            const tds = tdsData[materialCode];
+            if (!tds || !tds.properties) {
+                showToast('⚠️ TDS verisi bulunamadı!', 'warning');
+                return;
+            }
+            
+            // COA değeri olan özellikleri say
+            const coaProperties = tds.properties.filter(p => p.coaValue && p.coaValue.trim() !== '');
+            
+            if (coaProperties.length === 0) {
+                showToast('⚠️ Kaydedilecek COA değeri bulunamadı!', 'warning');
+                return;
+            }
+            
+            // Ana formdaki hammadde kodunu doldur
+            const materialCodeInput = document.getElementById('materialCode');
+            if (materialCodeInput) {
+                materialCodeInput.value = materialCode;
+                // Onchange event'ini tetikle (tedarikçi otomatik dolsun)
+                const event = new Event('change', { bubbles: true });
+                materialCodeInput.dispatchEvent(event);
+            }
+            
+            // Tedarikçiyi bul ve doldur (hammadde kodundan)
+            const materialCodeOnly = materialCode.split('|')[0].trim();
+            const material = materialsList.find(m => m.hammaddeAdi === materialCodeOnly);
+            if (material) {
+                const supplierInput = document.getElementById('supplierInput');
+                if (supplierInput) {
+                    supplierInput.value = material.tedarikci;
+                }
+            }
+            
+            // Global değişkene kaydet (saveCOA sırasında kullanılacak)
+            window.pendingOCRData = {
+                materialCode: materialCode,
+                properties: coaProperties,
+                timestamp: Date.now()
+            };
+            
+            console.log('✅ OCR verileri COA kaydı için hazırlandı:', coaProperties.length, 'özellik');
+            coaProperties.forEach(p => {
+                console.log(`  - ${p.name}: ${p.coaValue} [${p.coaCompliance}]`);
+            });
+            
+            // Modal'ı kapat
+            closeTDSModal();
+            
+            // Başarı mesajı
+            showToast(`✅ ${coaProperties.length} özellik COA kaydına hazırlandı! Şimdi "Kaydet" butonuna basın.`, 'success', 5000);
+            
+            // Kaydet butonunu vurgula
+            const saveBtn = document.querySelector('button[onclick="saveCOA()"]');
+            if (saveBtn) {
+                saveBtn.style.animation = 'pulse 1s ease-in-out 3';
+                setTimeout(() => {
+                    saveBtn.style.animation = '';
+                }, 3000);
             }
         }
         
