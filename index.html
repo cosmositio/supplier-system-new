@@ -8155,26 +8155,81 @@
             });
         }
         
-        // Termin Puanından Gecikme Gününü Hesaplayan Fonksiyon
+        // Termin Puanından Gecikme Gününü Hesaplayan Fonksiyon (Lineer İnterpolasyon ile)
         function terminPuanToGecikmeGun(puan) {
+            // 100% üzeri veya erken teslimat (-) durumu için eksi gün olabilir
+            // Ama biz sadece puandan güne gidiyoruz, 100% = 0 gün
             if (puan >= 100) return 0;
-            if (puan >= 80) return 1;
-            if (puan >= 60) return 2;
-            if (puan >= 40) return 3;
-            if (puan >= 30) return 4;
-            if (puan >= 20) return 5;
-            return 6; // 0-20% arası 6+ gün
+            
+            // 80-100% arası: 0-1 gün lineer
+            if (puan >= 80) {
+                return ((100 - puan) / 20) * 1; // 20 puan farkı = 1 gün
+            }
+            
+            // 60-80% arası: 1-2 gün lineer
+            if (puan >= 60) {
+                return 1 + ((80 - puan) / 20) * 1;
+            }
+            
+            // 40-60% arası: 2-3 gün lineer
+            if (puan >= 40) {
+                return 2 + ((60 - puan) / 20) * 1;
+            }
+            
+            // 30-40% arası: 3-4 gün lineer
+            if (puan >= 30) {
+                return 3 + ((40 - puan) / 10) * 1;
+            }
+            
+            // 20-30% arası: 4-5 gün lineer
+            if (puan >= 20) {
+                return 4 + ((30 - puan) / 10) * 1;
+            }
+            
+            // 0-20% arası: 5-6 gün lineer
+            if (puan > 0) {
+                return 5 + ((20 - puan) / 20) * 1;
+            }
+            
+            return 6; // 0% = 6 gün
         }
         
-        // Gecikme Gününden Termin Puanını Hesaplayan Fonksiyon
+        // Gecikme Gününden Termin Puanını Hesaplayan Fonksiyon (Eksi günler dahil)
         function gecikmeGunToTerminPuan(gun) {
+            // Eksi günler (erken teslimat) = 100%
             if (gun <= 0) return 100;
-            if (gun <= 1) return 80;
-            if (gun <= 2) return 60;
-            if (gun <= 3) return 40;
-            if (gun <= 4) return 30;
-            if (gun <= 5) return 20;
-            return 0; // 6+ gün
+            
+            // 0-1 gün arası: 100-80% lineer
+            if (gun <= 1) {
+                return 100 - (gun * 20);
+            }
+            
+            // 1-2 gün arası: 80-60% lineer
+            if (gun <= 2) {
+                return 80 - ((gun - 1) * 20);
+            }
+            
+            // 2-3 gün arası: 60-40% lineer
+            if (gun <= 3) {
+                return 60 - ((gun - 2) * 20);
+            }
+            
+            // 3-4 gün arası: 40-30% lineer
+            if (gun <= 4) {
+                return 40 - ((gun - 3) * 10);
+            }
+            
+            // 4-5 gün arası: 30-20% lineer
+            if (gun <= 5) {
+                return 30 - ((gun - 4) * 10);
+            }
+            
+            // 5-6 gün arası: 20-0% lineer
+            if (gun <= 6) {
+                return 20 - ((gun - 5) * 20);
+            }
+            
+            return 0; // 6+ gün = 0%
         }
 
         function recalculateSupplierScore(result) {
@@ -15514,8 +15569,8 @@
                                                 <td style="padding: 5px; border: 1px solid #ddd; font-weight: 600; background: ${chart.color}20;">Gecikme (gün)</td>
                                                 ${Array(12).fill(0).map((_, idx) => {
                                                     const gun = chart.tableData.gun[idx] || 0;
-                                                    const gunText = gun > 0 ? `+${gun}` : '0';
-                                                    const color = gun > 0 ? '#d32f2f' : '#666';
+                                                    const gunText = gun > 0 ? `+${gun.toFixed(1)}` : gun < 0 ? gun.toFixed(1) : '0.0';
+                                                    const color = gun > 0 ? '#d32f2f' : gun < 0 ? '#388e3c' : '#666';
                                                     return `<td style="padding: 5px; border: 1px solid #ddd; text-align: right; color: ${color}; font-weight: 600;">${gunText}</td>`;
                                                 }).join('')}
                                             </tr>
@@ -19438,7 +19493,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                                     ${months.map((m, idx) => {
                                         const puan = terminSeries[idx] || 100;
                                         const gun = terminPuanToGecikmeGun(puan);
-                                        const gunText = gun > 0 ? `+${gun}` : '0';
+                                        const gunText = gun > 0 ? `+${gun.toFixed(1)}` : gun < 0 ? gun.toFixed(1) : '0.0';
                                         const color = gun > 0 ? '#d32f2f' : gun < 0 ? '#388e3c' : '#666';
                                         return `<td style="padding: 6px; border: 1px solid #ddd; text-align: right; color: ${color}; font-weight: 600;">${gunText}</td>`;
                                     }).join('')}
