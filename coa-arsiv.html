@@ -1564,11 +1564,13 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #e0e0e0;">
                 <h2 style="margin: 0;">🎨 COA Template Editor</h2>
                 <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-info" onclick="document.getElementById('templateFileChangeInput').click()">🔄 Dosya Değiştir</button>
                     <button class="btn btn-success" onclick="saveTemplateWithImage()">💾 Template Kaydet</button>
                     <button class="btn btn-primary" onclick="loadTemplateWithImage()">📂 Template Yükle</button>
                     <button class="btn btn-secondary" onclick="closeTemplateEditor()">❌ Kapat</button>
                 </div>
             </div>
+            <input type="file" id="templateFileChangeInput" accept="image/*,.pdf,.xlsx,.xls,.docx,.doc" style="display: none;" onchange="changeTemplateDocument(event)">
             
             <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
                 <strong>📋 Talimatlar:</strong>
@@ -2469,6 +2471,76 @@
             selectedTemplateRegionIndex = null;
             pendingTemplateFile = null;
             editingRegionIndex = null;
+        }
+        
+        // Template düzenleme sırasında dosya değiştir
+        async function changeTemplateDocument(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            console.log('🔄 Template dosyası değiştiriliyor:', file.name);
+            
+            // Mevcut bölgeleri sakla
+            const keepRegions = templateRegions.length > 0 && confirm(
+                `📍 Mevcut ${templateRegions.length} bölge var.\n\n` +
+                '✅ EVET: Bölgeleri koru (koordinatları yeni dosyaya göre ayarlanacak)\n' +
+                '❌ HAYIR: Bölgeleri sil ve sıfırdan başla'
+            );
+            
+            const oldRegions = keepRegions ? [...templateRegions] : [];
+            const oldWidth = templateCanvas.width;
+            const oldHeight = templateCanvas.height;
+            
+            // Canvas'ı temizle
+            if (!keepRegions) {
+                templateRegions = [];
+                selectedTemplateRegionIndex = null;
+            }
+            
+            // Dosyayı yükle
+            try {
+                const fileType = file.type;
+                const fileName = file.name.toLowerCase();
+                
+                if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+                    await loadTemplatePDF(file);
+                } else if (fileType.includes('spreadsheet') || fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                    await loadTemplateExcel(file);
+                } else if (fileType.includes('word') || fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
+                    await loadTemplateWord(file);
+                } else if (fileType.startsWith('image/')) {
+                    await loadTemplateImage(file);
+                } else {
+                    showToast('⚠️ Desteklenmeyen dosya türü!', 'warning');
+                    return;
+                }
+                
+                // Bölgeleri koru ve ölçeklendir
+                if (keepRegions && oldRegions.length > 0) {
+                    const scaleX = templateCanvas.width / oldWidth;
+                    const scaleY = templateCanvas.height / oldHeight;
+                    
+                    templateRegions = oldRegions.map(region => ({
+                        ...region,
+                        x: region.x * scaleX,
+                        y: region.y * scaleY,
+                        width: region.width * scaleX,
+                        height: region.height * scaleY
+                    }));
+                    
+                    console.log(`✅ ${templateRegions.length} bölge yeni dosyaya uyarlandı (${scaleX.toFixed(2)}x, ${scaleY.toFixed(2)}y)`);
+                    updateTemplateRegionsList();
+                    redrawTemplateCanvas();
+                }
+                
+                showToast(`✅ ${file.name} yüklendi!`, 'success');
+            } catch (error) {
+                console.error('❌ Dosya yükleme hatası:', error);
+                showToast('❌ Dosya yüklenemedi: ' + error.message, 'error');
+            }
+            
+            // Input'u temizle
+            event.target.value = '';
         }
         
         // Bölge düzenleme fonksiyonu (HTML inline handler'dan erişilebilir olmalı)
