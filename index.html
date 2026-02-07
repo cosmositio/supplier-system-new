@@ -7854,12 +7854,24 @@
                 // Aylara göre gruplandırılmış sütunları işle
                 if (monthlyColumns.size > 0) {
                     monthlyColumns.forEach((cols, month) => {
-                        // Termin puanlarını al (negatif değerlere de izin ver - erken teslimat)
+                        // Termin puanlarını al
                         cols.termin.forEach(colIndex => {
                             const value = parseFloat(row[colIndex]);
                             if (!isNaN(value)) {
-                                if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
-                                supplierData.terminByMonth.get(month).push(value);
+                                // NEGATİF DEĞER = GÜN (erken teslimat)
+                                if (value < 0) {
+                                    // Gün olarak sakla
+                                    if (!supplierData.terminGunByMonth.has(month)) supplierData.terminGunByMonth.set(month, []);
+                                    supplierData.terminGunByMonth.get(month).push(value);
+                                    // Puan her zaman 100% (erken teslimat)
+                                    if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
+                                    supplierData.terminByMonth.get(month).push(100);
+                                    console.log(`📅 Excel (NEGATİF): ${normalizedSupplier} Ay ${month} → Gün: ${value.toFixed(1)}, Puan: 100%`);
+                                } else {
+                                    // POZİTİF DEĞER = PUAN 
+                                    if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
+                                    supplierData.terminByMonth.get(month).push(value);
+                                }
                             }
                         });
                         
@@ -8068,25 +8080,15 @@
             });
             
             allResults.forEach(result => {
+                // monthlyTerminGecikmeGun array'ini tüm tedarikçilerde başlat
+                if (!result.monthlyTerminGecikmeGun) {
+                    result.monthlyTerminGecikmeGun = new Array(12).fill(null);
+                }
+                
                 const normalizedSupplierName = normalizeName(result.name);
                 if (monthlyScoresData.has(normalizedSupplierName)) {
                     const md = monthlyScoresData.get(normalizedSupplierName);
                     const months = Array.from(selectedMonths);
-                    
-                    // monthlyTerminGecikmeGun array'ini başlat (yoksa)
-                    if (!result.monthlyTerminGecikmeGun) {
-                        result.monthlyTerminGecikmeGun = new Array(12).fill(null);
-                    }
-                    
-                    // monthlyTerminGecikmeGun array'ini başlat
-                    if (!result.monthlyTerminGecikmeGun) {
-                        result.monthlyTerminGecikmeGun = new Array(12).fill(null);
-                    }
-                    
-                    // monthlyTerminGecikmeGun array'ini başlat (yoksa)
-                    if (!result.monthlyTerminGecikmeGun) {
-                        result.monthlyTerminGecikmeGun = new Array(12).fill(null);
-                    }
                     
                     // Seçilen aylar içinde TÜM kayıtlı değerleri topla
                     let allTermValues = [];
@@ -13957,7 +13959,8 @@
                     // Aylık puan array'lerini başlat (eksikse)
                     monthlyKalitePuan: savedSupplier.monthlyKalitePuan ? [...savedSupplier.monthlyKalitePuan] : new Array(12).fill(savedSupplier.klt || savedSupplier.kalitePuan || 0),
                     monthlyVdaPuan: savedSupplier.monthlyVdaPuan ? [...savedSupplier.monthlyVdaPuan] : new Array(12).fill(savedSupplier.vda || savedSupplier.vdaPuan || 0),
-                    monthlyPpmPuan: savedSupplier.monthlyPpmPuan ? [...savedSupplier.monthlyPpmPuan] : new Array(12).fill(savedSupplier.ppmP || savedSupplier.ppmPuan || 0)
+                    monthlyPpmPuan: savedSupplier.monthlyPpmPuan ? [...savedSupplier.monthlyPpmPuan] : new Array(12).fill(savedSupplier.ppmP || savedSupplier.ppmPuan || 0),
+                    monthlyTerminGecikmeGun: savedSupplier.monthlyTerminGecikmeGun ? [...savedSupplier.monthlyTerminGecikmeGun] : new Array(12).fill(null)
                 }));
 
                 console.log(`✅ ${allResults.length} tedarikçi geri yüklendi!`);
