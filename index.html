@@ -7710,6 +7710,7 @@
                 let isKalite = false;
                 let isVda = false;
                 let isPpmPuan = false;
+                let isTerminDays = false; // Gecikme günü olarak mı saklanıyor?
                 
                 if (headerLower.includes('tamamlan')) {
                     isTamamlanma = true;
@@ -7721,6 +7722,10 @@
                     isPpmPuan = true;
                 } else if (headerLower.includes('termin')) {
                     isTermin = true;
+                    // Eğer "gün" veya "gecik" kelimesi varsa değer GÜN olarak gelmiş demektir
+                    if (headerLower.includes('gün') || headerLower.includes('gun') || headerLower.includes('gecik')) {
+                        isTerminDays = true;
+                    }
                 } else if (headerLower.includes('puan')) {
                     // Sadece "Puan" yazıyorsa, Termin olarak kabul et
                     isTermin = true;
@@ -7731,6 +7736,7 @@
                         name: header,
                         nameLower: headerLower,
                         isTermin: isTermin,
+                        isTerminDays: isTerminDays,
                         isTamamlanma: isTamamlanma,
                         isKalite: isKalite,
                         isVda: isVda,
@@ -7747,11 +7753,15 @@
             allColumns.forEach(col => {
                 if (col.monthNumber !== null) {
                     if (!monthlyColumns.has(col.monthNumber)) {
-                        monthlyColumns.set(col.monthNumber, { termin: [], tamamlanma: [], kalite: [], vda: [], ppmPuan: [] });
+                        monthlyColumns.set(col.monthNumber, { termin: [], terminDays: [], tamamlanma: [], kalite: [], vda: [], ppmPuan: [] });
                     }
                     
                     if (col.isTermin) {
-                        monthlyColumns.get(col.monthNumber).termin.push(col.index);
+                        if (col.isTerminDays) {
+                            monthlyColumns.get(col.monthNumber).terminDays.push(col.index);
+                        } else {
+                            monthlyColumns.get(col.monthNumber).termin.push(col.index);
+                        }
                     }
                     if (col.isTamamlanma) {
                         monthlyColumns.get(col.monthNumber).tamamlanma.push(col.index);
@@ -7775,24 +7785,40 @@
                 console.log('Ay numarası bulunamadı, tüm sütunları sırayla işleniyor...');
                 
                 let terminColumns = [];
+                let terminDaysColumns = [];
                 let tamamlanmaColumns = [];
                 
                 allColumns.forEach(col => {
-                    if (col.isTermin) terminColumns.push(col.index);
+                    if (col.isTermin) {
+                        if (col.isTerminDays) {
+                            terminDaysColumns.push(col.index);
+                        } else {
+                            terminColumns.push(col.index);
+                        }
+                    }
                     if (col.isTamamlanma) tamamlanmaColumns.push(col.index);
                 });
                 
                 console.log('Termin sütunları:', terminColumns.map(i => headers[i]));
+                console.log('Termin GÜN sütunları:', terminDaysColumns.map(i => headers[i]));
                 console.log('Tamamlanma sütunları:', tamamlanmaColumns.map(i => headers[i]));
                 
                 // Ay olmadan sütunları gruplayıp işle
                 terminColumns.forEach((colIndex, idx) => {
-                    monthlyColumns.set(idx + 1, { termin: [colIndex], tamamlanma: [], kalite: [], vda: [], ppmPuan: [] });
+                    monthlyColumns.set(idx + 1, { termin: [colIndex], terminDays: [], tamamlanma: [], kalite: [], vda: [], ppmPuan: [] });
+                });
+                
+                terminDaysColumns.forEach((colIndex, idx) => {
+                    if (!monthlyColumns.has(idx + 1)) {
+                        monthlyColumns.set(idx + 1, { termin: [], terminDays: [colIndex], tamamlanma: [], kalite: [], vda: [], ppmPuan: [] });
+                    } else {
+                        monthlyColumns.get(idx + 1).terminDays.push(colIndex);
+                    }
                 });
                 
                 tamamlanmaColumns.forEach((colIndex, idx) => {
                     if (!monthlyColumns.has(idx + 1)) {
-                        monthlyColumns.set(idx + 1, { termin: [], tamamlanma: [colIndex], kalite: [], vda: [], ppmPuan: [] });
+                        monthlyColumns.set(idx + 1, { termin: [], terminDays: [], tamamlanma: [colIndex], kalite: [], vda: [], ppmPuan: [] });
                     } else {
                         monthlyColumns.get(idx + 1).tamamlanma.push(colIndex);
                     }
@@ -7824,19 +7850,29 @@
                 // Aylara göre gruplandırılmış sütunları işle
                 if (monthlyColumns.size > 0) {
                     monthlyColumns.forEach((cols, month) => {
-                        // Termin puanlarını al
+                        // Termin puanlarını al (negatif değerlere de izin ver - erken teslimat)
                         cols.termin.forEach(colIndex => {
                             const value = parseFloat(row[colIndex]);
-                            if (!isNaN(value) && value >= 0) {
+                            if (!isNaN(value)) {
                                 if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
                                 supplierData.terminByMonth.get(month).push(value);
                             }
                         });
                         
-                        // Tamamlanma puanlarını al
+                        // Termin GÜN değerlerini al ve PUAN'a çevir
+                        (cols.terminDays || []).forEach(colIndex => {
+                            const gecikmeGun = parseFloat(row[colIndex]);
+                            if (!isNaN(gecikmeGun)) {
+                                const puan = gecikmeGunToTerminPuan(gecikmeGun);
+                                if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
+                                supplierData.terminByMonth.get(month).push(puan);
+                            }
+                        });
+                        
+                        // Tamamlanma puanlarını al (negatif değerlere de izin ver)
                         cols.tamamlanma.forEach(colIndex => {
                             const value = parseFloat(row[colIndex]);
-                            if (!isNaN(value) && value >= 0) {
+                            if (!isNaN(value)) {
                                 if (!supplierData.tamamlanmaByMonth.has(month)) supplierData.tamamlanmaByMonth.set(month, []);
                                 supplierData.tamamlanmaByMonth.get(month).push(value);
                             }
@@ -7873,7 +7909,7 @@
                     // Ay gruplaması yoksa, filtre aylarına etkisi olmayacak şekilde tek bir grup olarak kaydet
                     allColumns.forEach(col => {
                         const value = parseFloat(row[col.index]);
-                        if (!isNaN(value) && value >= 0) {
+                        if (!isNaN(value)) {
                             if (col.isTermin) {
                                 if (!supplierData.terminByMonth.has(0)) supplierData.terminByMonth.set(0, []);
                                 supplierData.terminByMonth.get(0).push(value);
