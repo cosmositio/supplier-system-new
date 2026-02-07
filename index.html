@@ -8184,16 +8184,19 @@
                         
                         // Termin: Eğer bu ay MANUEL DÜZENLENMEMİŞSE Excel'den al
                         if (md.terminByMonth.has(m) && !supplierEdits.termin.includes(m)) {
-                            const vals = md.terminByMonth.get(m);
-                            mTermin = vals.reduce((a,b)=>a+b,0) / vals.length;
-                            if (mTermin <= 1) mTermin *= 100;
-                            
-                            // Gerçek gün değerleri de varsa sakla (eksi günler dahil)
+                            // ÖNCELİK: Gün değeri varsa ("Gecikme Gün" sütunu) onu kullan
                             if (md.terminGunByMonth.has(m)) {
                                 const gunVals = md.terminGunByMonth.get(m);
                                 const avgGun = gunVals.reduce((a,b)=>a+b,0) / gunVals.length;
+                                // Günden puan hesapla (Excel'deki Puan sütununu görmezden gel)
+                                mTermin = gecikmeGunToTerminPuan(avgGun);
                                 result.monthlyTerminGecikmeGun[m-1] = avgGun;
-                                console.log(`🔵 ${result.name} Ay ${m}: Gerçek gün değeri = ${avgGun.toFixed(2)}`);
+                                console.log(`🔵 ${result.name} Ay ${m}: Gün = ${Math.round(avgGun)}, Puan = ${mTermin.toFixed(1)}%`);
+                            } else {
+                                // Gün değeri yoksa doğrudan puan kullan
+                                const vals = md.terminByMonth.get(m);
+                                mTermin = vals.reduce((a,b)=>a+b,0) / vals.length;
+                                if (mTermin <= 1) mTermin *= 100;
                             }
                         } else if (supplierEdits.termin.includes(m)) {
                             // Manuel düzenlenmişse mevcut değeri koru
@@ -15695,7 +15698,7 @@
                                                 <td style="padding: 5px; border: 1px solid #ddd; font-weight: 600; background: ${chart.color}20;">Gecikme (gün)</td>
                                                 ${Array(12).fill(0).map((_, idx) => {
                                                     const gun = chart.tableData.gun[idx] || 0;
-                                                    const gunText = gun > 0 ? `+${gun.toFixed(1)}` : gun < 0 ? gun.toFixed(1) : '0.0';
+                                                    const gunText = gun > 0 ? `+${Math.round(gun)}` : gun < 0 ? Math.round(gun) : '0';
                                                     const color = gun > 0 ? '#d32f2f' : gun < 0 ? '#388e3c' : '#666';
                                                     return `<td style="padding: 5px; border: 1px solid #ddd; text-align: right; color: ${color}; font-weight: 600;">${gunText}</td>`;
                                                 }).join('')}
@@ -19648,12 +19651,12 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                                         
                                         if (hasRealValue) {
                                             gun = gecikmeGunArr[m-1]; // Gerçek değer (EKSİ GÜNLER DAHİL!)
-                                            console.log(`✅ GERÇEK GÜN KULLANILDI: ${gun.toFixed(2)}`);
+                                            console.log(`✅ GERÇEK GÜN KULLANILDI: ${Math.round(gun)}`);
                                         } else {
                                             gun = terminPuanToGecikmeGun(puan); // Puandan hesapla
-                                            console.log(`⚠️ Puandan hesaplandı: ${gun.toFixed(2)}`);
+                                            console.log(`⚠️ Puandan hesaplandı: ${Math.round(gun)}`);
                                         }
-                                        const gunText = gun > 0 ? `+${gun.toFixed(1)}` : gun < 0 ? gun.toFixed(1) : '0.0';
+                                        const gunText = gun > 0 ? `+${Math.round(gun)}` : gun < 0 ? Math.round(gun) : '0';
                                         const color = gun > 0 ? '#d32f2f' : gun < 0 ? '#388e3c' : '#666';
                                         return `<td style="padding: 6px; border: 1px solid #ddd; text-align: right; color: ${color}; font-weight: 600;">${gunText}</td>`;
                                     }).join('')}
