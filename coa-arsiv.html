@@ -5625,14 +5625,14 @@
             const formData = new FormData();
             formData.append('file', blob, 'coa.png');
             formData.append('apikey', apiKey);
-            formData.append('language', 'tur,eng'); // Türkçe + İngilizce dil desteği (Ğ, İ, Ş, Ç gibi karakterler için)
+            formData.append('language', 'tur'); // Türkçe (Ğ, İ, Ş, Ç gibi karakterler için)
             formData.append('isOverlayRequired', 'false');
             formData.append('detectOrientation', 'true');
             formData.append('scale', 'true'); // Otomatik upscaling
             formData.append('OCREngine', '2'); // Engine 2 daha iyi
             formData.append('isTable', 'true'); // Tablo modu
             formData.append('filetype', 'PNG'); // PNG format
-            console.log('✅ FormData hazır (Türkçe+İngilizce dil desteği)');
+            console.log('✅ FormData hazır (Türkçe dil desteği)');
             
             console.log('🌐 API\'ye istek gönderiliyor...');
             const response = await fetch('https://api.ocr.space/parse/image', {
