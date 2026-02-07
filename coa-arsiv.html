@@ -2096,7 +2096,7 @@
                 const date = new Date(template.createdAt).toLocaleDateString('tr-TR');
                 const time = new Date(template.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
                 const hasImage = (template.imageUrl || template.imageData) ? '✅' : '❌';
-                const regionCount = template.regions?.length || 0;
+                const regionCount = template.regions?.length || template.template?.regions?.length || 0;
                 
                 return `
                     <div class="template-load-item" onclick="selectTemplateToEdit(${index})" style="padding: 15px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.3s; background: white;">
@@ -12374,7 +12374,7 @@
                 const date = new Date(template.createdAt).toLocaleDateString('tr-TR');
                 const time = new Date(template.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
                 const hasImage = (template.imageUrl || template.imageData) ? '✅' : '❌';
-                const regionCount = template.regions?.length || 0;
+                const regionCount = template.regions?.length || template.template?.regions?.length || 0;
                 
                 return `
                     <div class="template-load-item" onclick="selectTemplateToLoad(${index})" style="padding: 15px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.3s; background: white;">
