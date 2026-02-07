@@ -7720,12 +7720,17 @@
                     isVda = true;
                 } else if (headerLower.includes('ppm puan') || headerLower.includes('ppm puanı')) {
                     isPpmPuan = true;
+                } else if (headerLower.includes('gecik') && (headerLower.includes('gün') || headerLower.includes('gun'))) {
+                    // "Gecikme Gün" gibi başlıklar - doğrudan GÜN değeri
+                    isTermin = true;
+                    isTerminDays = true;
+                    console.log(`✅ GECİKME GÜN SÜTUNU BULUNDU: "${header}" → isTerminDays=true`);
                 } else if (headerLower.includes('termin')) {
                     isTermin = true;
                     // Eğer "gün" veya "gecik" kelimesi varsa değer GÜN olarak gelmiş demektir
                     if (headerLower.includes('gün') || headerLower.includes('gun') || headerLower.includes('gecik')) {
                         isTerminDays = true;
-                        console.log(`✅ GÜN SÜTUNU BULUNDU: "${header}" → isTerminDays=true`);
+                        console.log(`✅ TERMİN GÜN SÜTUNU BULUNDU: "${header}" → isTerminDays=true`);
                     } else {
                         console.log(`ℹ️ Termin sütunu (puan): "${header}"`);
                     }
