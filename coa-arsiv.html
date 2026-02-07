@@ -1455,7 +1455,7 @@
             <div id="tdsTemplateSection" style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: none;">
                 <div style="color: white; margin-bottom: 12px;">
                     <h3 style="margin: 0 0 8px 0; font-size: 16px;">🎨 Template ile Otomatik Doldur</h3>
-                    <p style="margin: 0; font-size: 12px; opacity: 0.9;">Doküman yükleyip template seçin, alanlar otomatik okunup TDS'e kaydedilsin</p>
+                    <p style="margin: 0; font-size: 12px; opacity: 0.9;">Template seçin - Sadece özellik adlarını veya doküman yükleyerek değerleriyle birlikte TDS'e ekleyin</p>
                 </div>
                 
                 <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
@@ -8520,7 +8520,8 @@
             
             if (!file) {
                 tdsTemplateFileData = null;
-                processBtn.disabled = true;
+                // Dosya olmasa da template varsa buton aktif kalabilir (sadece özellik adları ekler)
+                processBtn.disabled = !templateSelect.value;
                 return;
             }
             
@@ -8543,7 +8544,8 @@
             if (templateSelect) {
                 templateSelect.addEventListener('change', function() {
                     const processBtn = document.getElementById('tdsProcessBtn');
-                    processBtn.disabled = !this.value || !tdsTemplateFileData;
+                    // Template seçiliyse butonu aktif et (dosya olmasa da sadece özellik adlarını ekleyebilir)
+                    processBtn.disabled = !this.value;
                 });
             }
         });
@@ -8555,11 +8557,6 @@
             
             if (!materialCode) {
                 showToast('❌ Önce hammadde seçin', 'error');
-                return;
-            }
-            
-            if (!tdsTemplateFileData) {
-                showToast('❌ Önce doküman yükleyin', 'error');
                 return;
             }
             
@@ -8582,6 +8579,31 @@
             if (!actualTemplate.regions || !Array.isArray(actualTemplate.regions)) {
                 showToast('❌ Template yapısı hatalı', 'error');
                 console.error('Template yapısı:', actualTemplate);
+                return;
+            }
+            
+            // Eğer doküman yüklenmemişse, sadece özellik adlarını ekle
+            if (!tdsTemplateFileData) {
+                console.log('📋 Doküman yok - Sadece özellik adları ekleniyor...');
+                console.log('🎨 Template:', actualTemplate.supplier, '|', actualTemplate.regions.length, 'bölge');
+                
+                // Özellik adlarını topla
+                const propertyNames = actualTemplate.regions
+                    .map(r => r.propertyName)
+                    .filter(name => name && name.trim() !== '');
+                
+                if (propertyNames.length === 0) {
+                    showToast('❌ Template\'de özellik adı bulunamadı', 'error');
+                    return;
+                }
+                
+                // TDS'e sadece özellik adlarını ekle
+                addPropertyNamesToTDS(materialCode, propertyNames);
+                
+                showToast(`✅ ${propertyNames.length} özellik adı TDS'e eklendi!`, 'success', 5000);
+                
+                // TDS'i yeniden yükle
+                loadTDSForMaterial(false);
                 return;
             }
             
@@ -8624,6 +8646,60 @@
                 processBtn.disabled = false;
                 showToast('❌ OCR hatası: ' + error.message, 'error', 5000);
             }
+        }
+        
+        // Template'ten sadece özellik adlarını TDS'e ekle
+        function addPropertyNamesToTDS(materialCode, propertyNames) {
+            console.log('📝 Özellik adları TDS\'e ekleniyor:', materialCode, propertyNames);
+            
+            // Mevcut TDS'i yükle
+            if (!tdsData[materialCode]) {
+                tdsData[materialCode] = { properties: [] };
+            }
+            
+            const tds = tdsData[materialCode];
+            
+            // Properties dizisi yoksa oluştur
+            if (!Array.isArray(tds.properties)) {
+                tds.properties = [];
+            }
+            
+            let addedCount = 0;
+            
+            // Her bir özellik adı için
+            propertyNames.forEach(propertyName => {
+                // Bu property TDS'te var mı kontrol et
+                const exists = tds.properties.some(p => 
+                    p.name && p.name.toLowerCase() === propertyName.toLowerCase()
+                );
+                
+                if (!exists) {
+                    // Yoksa yeni property ekle (sadece ad, diğer alanlar boş)
+                    tds.properties.push({
+                        name: propertyName,
+                        unit: '',
+                        standard: '',
+                        operator: '=',
+                        standardValue: '',
+                        lowerTolerance: '1.5',
+                        upperTolerance: '1.5',
+                        lowerLimit: '0.00',
+                        upperLimit: '0.00',
+                        coaValue: '',
+                        coaCompliance: '-'
+                    });
+                    addedCount++;
+                    console.log(`➕ Eklendi: ${propertyName}`);
+                } else {
+                    console.log(`⏩ Zaten var: ${propertyName}`);
+                }
+            });
+            
+            // TDS'i localStorage'a kaydet
+            localStorage.setItem('tdsData', JSON.stringify(tdsData));
+            console.log(`✅ ${addedCount} yeni özellik eklendi, localStorage'a kaydedildi`);
+            
+            return addedCount;
         }
         
         // Okunan özellikleri TDS'e kaydet
