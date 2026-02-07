@@ -1088,6 +1088,14 @@
                 padding: 15px;
             }
         }
+        
+        /* Template Load Item Styles */
+        .template-load-item:hover {
+            border-color: #2c5f2d !important;
+            background: #f0f9f4 !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(44, 95, 45, 0.15);
+        }
     </style>
 </head>
 <body>
@@ -1564,6 +1572,22 @@
                     <div id="templateRegionsList"></div>
                 </div>
             </div>
+        </div>
+    </div>
+    
+    <!-- Template Load Modal -->
+    <div id="templateLoadModal" class="modal" style="z-index: 10002;">
+        <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e0e0e0;">
+                <h3 style="margin: 0; color: #2c5f2d;">📂 Kayıtlı Template'leri Yükle</h3>
+                <button onclick="document.getElementById('templateLoadModal').style.display='none'" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 16px;">❌</button>
+            </div>
+            <div style="background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
+                <p style="margin: 0; font-size: 0.9em; color: #0c5460;">
+                    📊 Google Sheets'teki kayıtlı template'lerinizi seçin. Görsel ve bölgeler birebir yüklenecek.
+                </p>
+            </div>
+            <div id="templateLoadList" style="flex: 1; overflow-y: auto; padding-right: 10px;"></div>
         </div>
     </div>
     
@@ -11454,61 +11478,101 @@
             showToast('✅ Template kaydedildi ve indirildi!', 'success');
         }
         
-        // Template'i görsel ile yükle
-        function loadTemplateWithImage() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'application/json';
+        // Template'i görsel ile yükle - Google Sheets'ten
+        async function loadTemplateWithImage() {
+            // Google Sheets'ten template'leri yükle
+            await loadTemplatesFromGoogleSheets();
             
-            input.onchange = function(e) {
-                const file = e.target.files[0];
-                if (!file) return;
+            const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
+            
+            if (templates.length === 0) {
+                showToast('⚠️ Kayıtlı template bulunamadı! Lütfen önce template oluşturun.', 'warning');
+                return;
+            }
+            
+            // Modal aç ve template'leri listele
+            const modal = document.getElementById('templateLoadModal');
+            const list = document.getElementById('templateLoadList');
+            
+            list.innerHTML = templates.map((template, index) => {
+                const date = new Date(template.createdAt).toLocaleDateString('tr-TR');
+                const time = new Date(template.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                const hasImage = template.imageData ? '✅' : '❌';
+                const regionCount = template.regions?.length || 0;
                 
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const template = JSON.parse(e.target.result);
-                        
-                        document.getElementById('templateSupplierName').value = template.supplier;
-                        
-                        // Görseli yükle
-                        if (template.imageData) {
-                            templateImageObj = new Image();
-                            templateImageObj.onload = function() {
-                                templateCanvas.width = template.canvasWidth || templateImageObj.width;
-                                templateCanvas.height = template.canvasHeight || templateImageObj.height;
-                                templateScaleFactor = template.scaleFactor || 1;
-                                
-                                // Regions'ı yükle
-                                templateRegions = template.regions.map(r => ({
-                                    ...r,
-                                    x: r.x * templateScaleFactor,
-                                    y: r.y * templateScaleFactor,
-                                    width: r.width * templateScaleFactor,
-                                    height: r.height * templateScaleFactor
-                                }));
-                                
-                                updateTemplateRegionsList();
-                                redrawTemplateCanvas();
-                                
-                                // Template editor'ı aç
-                                document.getElementById('templateModeCheckbox').checked = true;
-                                document.getElementById('templateEditorPanel').style.display = 'flex';
-                                
-                                showToast('✅ Template yüklendi! Görsel ve tüm bölgeler geri yüklendi.', 'success');
-                            };
-                            templateImageObj.src = template.imageData;
-                        } else {
-                            showToast('⚠️ Template görsel içermiyor. Lütfen COA belgesini tekrar yükleyin.', 'warning');
-                        }
-                    } catch (err) {
-                        showToast('❌ Template yüklenemedi: ' + err.message, 'error');
-                    }
-                };
-                reader.readAsText(file);
-            };
+                return `
+                    <div class="template-load-item" onclick="selectTemplateToLoad(${index})" style="padding: 15px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.3s; background: white;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                            <div style="font-weight: 600; color: #2c5f2d; font-size: 1.1em;">${template.supplier}</div>
+                            <div style="font-size: 0.85em; color: #666;">${date} ${time}</div>
+                        </div>
+                        <div style="display: flex; gap: 15px; font-size: 0.9em; color: #555;">
+                            <span>${hasImage} Görsel</span>
+                            <span>📍 ${regionCount} Bölge</span>
+                            <span>📊 v${template.version || '1.0'}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
             
-            input.click();
+            modal.style.display = 'flex';
+        }
+        
+        // Template seç ve yükle
+        function selectTemplateToLoad(index) {
+            const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
+            const template = templates[index];
+            
+            if (!template) {
+                showToast('❌ Template bulunamadı!', 'error');
+                return;
+            }
+            
+            // Modal'i kapat
+            document.getElementById('templateLoadModal').style.display = 'none';
+            
+            // Tedarikçi adını yaz
+            document.getElementById('templateSupplierName').value = template.supplier;
+            
+            // Görseli yükle
+            if (template.imageData) {
+                templateImageObj = new Image();
+                templateImageObj.onload = function() {
+                    templateCanvas.width = template.canvasWidth || templateImageObj.width;
+                    templateCanvas.height = template.canvasHeight || templateImageObj.height;
+                    templateScaleFactor = template.scaleFactor || 1;
+                    
+                    // Regions'ı yükle
+                    templateRegions = template.regions.map(r => ({
+                        ...r,
+                        x: r.x * templateScaleFactor,
+                        y: r.y * templateScaleFactor,
+                        width: r.width * templateScaleFactor,
+                        height: r.height * templateScaleFactor
+                    }));
+                    
+                    updateTemplateRegionsList();
+                    redrawTemplateCanvas();
+                    
+                    // Template editor'ı aç (eğer kapalıysa)
+                    document.getElementById('templateModeCheckbox').checked = true;
+                    document.getElementById('templateEditorPanel').style.display = 'flex';
+                    
+                    showToast(`✅ ${template.supplier} template'i yüklendi! Görsel ve tüm bölgeler geri yüklendi.`, 'success');
+                };
+                templateImageObj.src = template.imageData;
+            } else {
+                // Görsel yok ama regions var
+                templateRegions = template.regions.map(r => ({
+                    ...r,
+                    x: r.x * (template.scaleFactor || 1),
+                    y: r.y * (template.scaleFactor || 1),
+                    width: r.width * (template.scaleFactor || 1),
+                    height: r.height * (template.scaleFactor || 1)
+                }));
+                updateTemplateRegionsList();
+                showToast(`⚠️ ${template.supplier} yüklendi ama görsel yok. COA belgesi yükleyin.`, 'warning');
+            }
         }
         
         function closeTemplateEditor() {
