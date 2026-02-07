@@ -8181,6 +8181,18 @@
             console.log('📋 Hammadde:', materialCodeOnly);
             console.log('🎨 Template:', window.currentTemplate.supplier);
             
+            // 🧹 Yeni OCR başlatılıyor - eski COA değerlerini temizle (yanıltmasın)
+            if (tdsData[materialCodeOnly] && tdsData[materialCodeOnly].properties) {
+                tdsData[materialCodeOnly].properties.forEach(prop => {
+                    prop.coaValue = '';
+                    prop.coaCompliance = '-';
+                });
+                console.log('🧹 Eski COA değerleri temizlendi, yeni OCR başlatılıyor...');
+            }
+            
+            // Eski lastOCRMaterialCode flag'ini de temizle
+            lastOCRMaterialCode = null;
+            
             showToast('🎨 Template ile COA okunuyor...', 'info');
             
             try {
@@ -8208,13 +8220,17 @@
                             console.log(`  - ${prop.name}: "${prop.coaValue}" [${prop.coaCompliance}]`);
                         }
                     });
+                    
+                    // Flag'i sadece başarılı OCR sonrası set et (en az 1 özellik okunmuşsa)
+                    if (coaCount > 0) {
+                        lastOCRMaterialCode = materialCodeOnly;
+                        console.log('🏴 lastOCRMaterialCode set edildi:', lastOCRMaterialCode, `(${coaCount} özellik okundu)`);
+                        showToast(`✅ ${coaCount} özellik okundu ve TDS ile karşılaştırıldı!`, 'success', 5000);
+                    } else {
+                        console.log('⚠️ Hiçbir özellik okunamadı, lastOCRMaterialCode set edilmedi');
+                        showToast('⚠️ Hiçbir özellik okunamadı! Bölgeler çok küçük veya bulanık olabilir.', 'warning', 5000);
+                    }
                 }
-                
-                // Flag'i set et - bu hammadde için OCR yapıldı (modal açılınca COA değerlerini korumak için)
-                lastOCRMaterialCode = materialCodeOnly;
-                console.log('🏴 lastOCRMaterialCode set edildi:', lastOCRMaterialCode);
-                
-                showToast(`✅ ${Object.keys(extractedProperties).length} özellik okundu ve TDS ile karşılaştırıldı!`, 'success', 5000);
                 
                 // TDS modalını aç ve sonuçları göster
                 openTDSModal(materialCodeOnly);
