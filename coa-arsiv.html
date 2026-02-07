@@ -8212,7 +8212,7 @@
             window.currentTemplate = actualTemplate;
             
             console.log('📋 Template yapısı:', actualTemplate);
-            showToast(`🎨 ${template.supplier} template\'i yüklendi`, 'success');
+            showToast(`🎨 ${template.supplier} template'i yüklendi`, 'success');
         }
         
         // Clear selected template
@@ -12192,7 +12192,7 @@
             // Drive'dan görseli yükle
             let imageLoaded = false;
             if (template.imageFileId) {
-                console.log('📥 Template görseli Drive\'dan yükleniyor:', template.imageFileId);
+                console.log("📥 Template görseli Drive'dan yükleniyor:", template.imageFileId);
                 showToast('📥 Template görseli yükleniyor...', 'info');
                 
                 try {
@@ -12211,7 +12211,7 @@
                         const blob = new Blob([ab], { type: 'image/png' });
                         selectedFile = new File([blob], fileName, { type: 'image/png' });
                         
-                        console.log('✅ Template görseli Drive\'dan yüklendi:', fileName);
+                        console.log("✅ Template görseli Drive'dan yüklendi:", fileName);
                         imageLoaded = true;
                     }
                 } catch (error) {
@@ -12222,7 +12222,7 @@
             
             // Eğer Drive'dan yükleyemediysek ve template'de imageData varsa onu kullan (fallback)
             if (!imageLoaded && template.template && template.template.imageData) {
-                console.log('📄 Template görseli imageData\'dan yükleniyor (fallback)');
+                console.log("📄 Template görseli imageData'dan yükleniyor (fallback)");
                 selectedFileData = template.template.imageData;
                 
                 const fileName = `${template.supplier}_template.png`;
@@ -12235,7 +12235,7 @@
                 const blob = new Blob([ab], { type: 'image/png' });
                 selectedFile = new File([blob], fileName, { type: 'image/png' });
                 
-                console.log('✅ Template görseli imageData\'dan yüklendi:', fileName);
+                console.log("✅ Template görseli imageData'dan yüklendi:", fileName);
                 imageLoaded = true;
             }
             
