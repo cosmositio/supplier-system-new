@@ -1532,7 +1532,7 @@
                     <div style="display: flex; gap: 10px; margin-left: auto;">
                         <button class="btn btn-secondary" onclick="closeTDSModal()">İptal</button>
                         <button id="transferOCRBtn" class="btn btn-success" onclick="transferOCRDataToCOA()" style="display: none; background: #4CAF50;">
-                            💾 COA Kaydı Olarak Kaydet
+                            💾 Kaydet
                         </button>
                         <button class="btn btn-primary" onclick="saveTDS()">💾 TDS Kaydet</button>
                     </div>
@@ -8706,8 +8706,8 @@
             }
         }
         
-        // OCR verilerini COA kaydı olarak kaydetmek için ana forma aktar
-        function transferOCRDataToCOA() {
+        // OCR verilerini COA kaydı olarak direkt kaydet
+        async function transferOCRDataToCOA() {
             const materialCode = document.getElementById('tdsMaterialSelect').value;
             if (!materialCode) {
                 showToast('⚠️ Hammadde kodu seçili değil!', 'warning');
@@ -8729,13 +8729,16 @@
                 return;
             }
             
+            // Dosya kontrolü (Template OCR sırasında yüklendi mi?)
+            if (!selectedFile || !selectedFileData) {
+                showToast('❌ Dosya yüklü değil! Önce COA dosyasını yükleyin.', 'error');
+                return;
+            }
+            
             // Ana formdaki hammadde kodunu doldur
             const materialCodeInput = document.getElementById('materialCode');
             if (materialCodeInput) {
                 materialCodeInput.value = materialCode;
-                // Onchange event'ini tetikle (tedarikçi otomatik dolsun)
-                const event = new Event('change', { bubbles: true });
-                materialCodeInput.dispatchEvent(event);
             }
             
             // Tedarikçiyi bul ve doldur (varsa)
@@ -8744,12 +8747,21 @@
                 (m.code || m.stockCode || m.stokKodu) === materialCodeOnly
             );
             
-            if (material && material.deliveries && material.deliveries.length > 0) {
-                // İlk delivery'den tedarikçiyi al
-                const supplierInput = document.getElementById('supplierInput');
-                if (supplierInput && material.deliveries[0].supplier) {
-                    supplierInput.value = material.deliveries[0].supplier;
+            const supplierInput = document.getElementById('supplierInput');
+            if (supplierInput) {
+                if (material && material.deliveries && material.deliveries.length > 0) {
+                    // İlk delivery'den tedarikçiyi al
+                    supplierInput.value = material.deliveries[0].supplier || '';
+                } else {
+                    // Manuel girilmesi için boş bırak
+                    supplierInput.value = '';
                 }
+            }
+            
+            // Tarih bugünün tarihi (eğer boşsa)
+            const deliveryDateInput = document.getElementById('deliveryDate');
+            if (deliveryDateInput && !deliveryDateInput.value) {
+                deliveryDateInput.value = new Date().toISOString().split('T')[0];
             }
             
             // Global değişkene kaydet (saveCOA sırasında kullanılacak)
@@ -8767,17 +8779,19 @@
             // Modal'ı kapat
             closeTDSModal();
             
-            // Başarı mesajı
-            showToast(`✅ ${coaProperties.length} özellik COA kaydına hazırlandı! Şimdi "Kaydet" butonuna basın.`, 'success', 5000);
+            // Kaydet fonksiyonunu çağır
+            console.log('💾 saveCOA() otomatik çağrılıyor...');
+            showToast('💾 COA kaydı oluşturuluyor...', 'info', 2000);
             
-            // Kaydet butonunu vurgula
-            const saveBtn = document.querySelector('button[onclick="saveCOA()"]');
-            if (saveBtn) {
-                saveBtn.style.animation = 'pulse 1s ease-in-out 3';
-                setTimeout(() => {
-                    saveBtn.style.animation = '';
-                }, 3000);
-            }
+            // Kısa bir timeout ile saveCOA'yı çağır (UI'nin güncellenmesi için)
+            setTimeout(async () => {
+                try {
+                    await saveCOA();
+                } catch (error) {
+                    console.error('❌ COA kayıt hatası:', error);
+                    showToast('❌ Kayıt hatası: ' + error.message, 'error');
+                }
+            }, 300);
         }
         
         // ==================== TDS Template OCR Functions ====================
