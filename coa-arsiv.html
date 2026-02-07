@@ -1934,6 +1934,122 @@
             return false; // URL'de tedarikçi verisi yok
         }
         
+        // ==================== Template Property Management ====================
+        function loadTemplatePropertyNames() {
+            const saved = localStorage.getItem('template_property_names');
+            if (saved) {
+                try {
+                    templatePropertyNames = JSON.parse(saved);
+                    console.log('📋 Template özellik adları yüklendi:', templatePropertyNames.length);
+                } catch (e) {
+                    console.error('❌ Template property names parse hatası:', e);
+                }
+            }
+        }
+        
+        function saveTemplatePropertyNames() {
+            localStorage.setItem('template_property_names', JSON.stringify(templatePropertyNames));
+        }
+        
+        function updateTemplatePropertyDropdown() {
+            const select = document.getElementById('templatePropertyName');
+            if (!select) return;
+            
+            const currentValue = select.value;
+            
+            // Clear existing options except first
+            select.innerHTML = '<option value="">-- Seçiniz --</option>';
+            
+            // Add all property names
+            templatePropertyNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+            
+            // Restore selection if it still exists
+            if (currentValue && templatePropertyNames.includes(currentValue)) {
+                select.value = currentValue;
+            }
+            
+            console.log('🔄 Template property dropdown güncellendi:', templatePropertyNames.length, 'özellik');
+        }
+        
+        function handlePropertyNameChange() {
+            const select = document.getElementById('templatePropertyName');
+            const selectedValue = select.value;
+            const infoDiv = document.getElementById('templateSelectedPropertyInfo');
+            const displayDiv = document.getElementById('selectedPropertyDisplay');
+            
+            if (selectedValue) {
+                infoDiv.style.display = 'block';
+                displayDiv.textContent = selectedValue;
+            } else {
+                infoDiv.style.display = 'none';
+            }
+        }
+        
+        function showAddPropertyModal() {
+            const propertyName = prompt('🎯 Yeni TDS özellik adını girin:');
+            if (propertyName && propertyName.trim()) {
+                addPropertyToList(propertyName.trim());
+            }
+        }
+        
+        function addPropertyToList(propertyName) {
+            // Check if already exists (case insensitive)
+            const exists = templatePropertyNames.some(name => 
+                name.toLowerCase() === propertyName.toLowerCase()
+            );
+            
+            if (exists) {
+                showToast('⚠️ Bu özellik zaten listede mevcut', 'warning');
+                return false;
+            }
+            
+            // Add to list
+            templatePropertyNames.push(propertyName);
+            saveTemplatePropertyNames();
+            updateTemplatePropertyDropdown();
+            
+            // Auto-select the new property
+            document.getElementById('templatePropertyName').value = propertyName;
+            handlePropertyNameChange();
+            
+            showToast(`✅ "${propertyName}" listeye eklendi`, 'success');
+            console.log('➕ Yeni özellik eklendi:', propertyName);
+            return true;
+        }
+        
+        function removeSelectedProperty() {
+            const select = document.getElementById('templatePropertyName');
+            const propertyName = select.value;
+            
+            if (!propertyName) {
+                showToast('⚠️ Önce bir özellik seçin', 'warning');
+                return;
+            }
+            
+            if (!confirm(`"${propertyName}" özelliğini listeden silmek istediğinizden emin misiniz?`)) {
+                return;
+            }
+            
+            // Remove from list
+            const index = templatePropertyNames.indexOf(propertyName);
+            if (index > -1) {
+                templatePropertyNames.splice(index, 1);
+                saveTemplatePropertyNames();
+                updateTemplatePropertyDropdown();
+                
+                // Hide info div
+                document.getElementById('templateSelectedPropertyInfo').style.display = 'none';
+                
+                showToast(`✅ "${propertyName}" listeden silindi`, 'success');
+                console.log('➖ Özellik silindi:', propertyName);
+            }
+        }
+        
         // ==================== Initialization ====================
         document.addEventListener('DOMContentLoaded', function() {
             // PDF.js worker ayarla (global)
@@ -11625,122 +11741,6 @@
                 templateCtx.lineWidth = 2;
                 templateCtx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
             });
-        }
-        
-        // ==================== Template Property Management ====================
-        function loadTemplatePropertyNames() {
-            const saved = localStorage.getItem('template_property_names');
-            if (saved) {
-                try {
-                    templatePropertyNames = JSON.parse(saved);
-                    console.log('📋 Template özellik adları yüklendi:', templatePropertyNames.length);
-                } catch (e) {
-                    console.error('❌ Template property names parse hatası:', e);
-                }
-            }
-        }
-        
-        function saveTemplatePropertyNames() {
-            localStorage.setItem('template_property_names', JSON.stringify(templatePropertyNames));
-        }
-        
-        function updateTemplatePropertyDropdown() {
-            const select = document.getElementById('templatePropertyName');
-            if (!select) return;
-            
-            const currentValue = select.value;
-            
-            // Clear existing options except first
-            select.innerHTML = '<option value="">-- Seçiniz --</option>';
-            
-            // Add all property names
-            templatePropertyNames.forEach(name => {
-                const option = document.createElement('option');
-                option.value = name;
-                option.textContent = name;
-                select.appendChild(option);
-            });
-            
-            // Restore selection if it still exists
-            if (currentValue && templatePropertyNames.includes(currentValue)) {
-                select.value = currentValue;
-            }
-            
-            console.log('🔄 Template property dropdown güncellendi:', templatePropertyNames.length, 'özellik');
-        }
-        
-        function handlePropertyNameChange() {
-            const select = document.getElementById('templatePropertyName');
-            const selectedValue = select.value;
-            const infoDiv = document.getElementById('templateSelectedPropertyInfo');
-            const displayDiv = document.getElementById('selectedPropertyDisplay');
-            
-            if (selectedValue) {
-                infoDiv.style.display = 'block';
-                displayDiv.textContent = selectedValue;
-            } else {
-                infoDiv.style.display = 'none';
-            }
-        }
-        
-        function showAddPropertyModal() {
-            const propertyName = prompt('🎯 Yeni TDS özellik adını girin:');
-            if (propertyName && propertyName.trim()) {
-                addPropertyToList(propertyName.trim());
-            }
-        }
-        
-        function addPropertyToList(propertyName) {
-            // Check if already exists (case insensitive)
-            const exists = templatePropertyNames.some(name => 
-                name.toLowerCase() === propertyName.toLowerCase()
-            );
-            
-            if (exists) {
-                showToast('⚠️ Bu özellik zaten listede mevcut', 'warning');
-                return false;
-            }
-            
-            // Add to list
-            templatePropertyNames.push(propertyName);
-            saveTemplatePropertyNames();
-            updateTemplatePropertyDropdown();
-            
-            // Auto-select the new property
-            document.getElementById('templatePropertyName').value = propertyName;
-            handlePropertyNameChange();
-            
-            showToast(`✅ "${propertyName}" listeye eklendi`, 'success');
-            console.log('➕ Yeni özellik eklendi:', propertyName);
-            return true;
-        }
-        
-        function removeSelectedProperty() {
-            const select = document.getElementById('templatePropertyName');
-            const propertyName = select.value;
-            
-            if (!propertyName) {
-                showToast('⚠️ Önce bir özellik seçin', 'warning');
-                return;
-            }
-            
-            if (!confirm(`"${propertyName}" özelliğini listeden silmek istediğinizden emin misiniz?`)) {
-                return;
-            }
-            
-            // Remove from list
-            const index = templatePropertyNames.indexOf(propertyName);
-            if (index > -1) {
-                templatePropertyNames.splice(index, 1);
-                saveTemplatePropertyNames();
-                updateTemplatePropertyDropdown();
-                
-                // Hide info div
-                document.getElementById('templateSelectedPropertyInfo').style.display = 'none';
-                
-                showToast(`✅ "${propertyName}" listeden silindi`, 'success');
-                console.log('➖ Özellik silindi:', propertyName);
-            }
         }
         
         function showTemplateRegionModal() {
