@@ -478,6 +478,15 @@
             }
         }
         
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        
         .alert-info {
             background: #d1ecf1;
             color: #0c5460;
@@ -15367,12 +15376,46 @@
             
             // Chart verilerini oluştur
             const chartData = [
-                { title: 'AYLIK İADE PPM DEĞİŞİMİ', data: supplier.monthlyPPM || Array(12).fill(0), color: '#ff9800', maxVal: Math.max(...(supplier.monthlyPPM || [0]), ppmTarget) * 1.2, showTarget: true, target: ppmTarget },
+                { 
+                    title: 'AYLIK İADE PPM DEĞİŞİMİ', 
+                    data: supplier.monthlyPPM || Array(12).fill(0), 
+                    color: '#ff9800', 
+                    maxVal: Math.max(...(supplier.monthlyPPM || [0]), ppmTarget) * 1.2, 
+                    showTarget: true, 
+                    target: ppmTarget,
+                    showTable: true,
+                    tableId: 'ppmTable',
+                    tableData: {
+                        sevk: supplier.monthlySevk || Array(12).fill(0),
+                        iade: supplier.monthlyIade || Array(12).fill(0)
+                    }
+                },
                 { title: 'AYLIK PPM PUANI', data: monthlyPPMScores, color: '#2196f3', maxVal: 100 },
                 { title: 'AYLIK HATA SAYISI', data: supplier.monthlyHata || Array(12).fill(0), color: '#e53935', maxVal: Math.max(...(supplier.monthlyHata || [0]), hataHedefi) + 1 },
                 { title: 'HATA PUANI', data: monthlyHataScores, color: '#f4511e', maxVal: 100 },
-                { title: 'TERMİN PUANI', data: monthlyTermin, color: '#3949ab', maxVal: 100 },
-                { title: 'TAMAMLANMA PUANI', data: monthlyTamamlanma, color: '#00796b', maxVal: 100 }
+                { 
+                    title: 'TERMİN PUANI', 
+                    data: monthlyTermin, 
+                    color: '#3949ab', 
+                    maxVal: 100,
+                    showTable: true,
+                    tableId: 'terminTable',
+                    tableData: {
+                        gun: supplier.monthlyTermin || Array(12).fill(0),
+                        puan: monthlyTermin
+                    }
+                },
+                { 
+                    title: 'TAMAMLANMA PUANI', 
+                    data: monthlyTamamlanma, 
+                    color: '#00796b', 
+                    maxVal: 100,
+                    showTable: true,
+                    tableId: 'tamamlanmaTable',
+                    tableData: {
+                        puan: monthlyTamamlanma
+                    }
+                }
             ];
             
             // Sabit değerler
@@ -15385,11 +15428,16 @@
             let html = `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">`;
             
             // Aylık grafikler (6 adet)
-            chartData.forEach(chart => {
+            chartData.forEach((chart, chartIdx) => {
                 const maxVal = chart.maxVal || Math.max(...chart.data, 1);
+                const hasTable = chart.showTable && chart.tableData;
+                
                 html += `
                     <div style="background: #fff; border: 2px solid ${chart.color}20; border-radius: 10px; padding: 15px; border-left: 4px solid ${chart.color};">
-                        <div style="font-weight: 600; color: ${chart.color}; margin-bottom: 15px; font-size: 0.95em;">${chart.title}</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <div style="font-weight: 600; color: ${chart.color}; font-size: 0.95em;">${chart.title}</div>
+                            ${hasTable ? `<button onclick="toggleChartTable('${chart.tableId}')" style="padding: 4px 10px; background: ${chart.color}; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.8em; transition: opacity 0.3s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">📊 Tablo</button>` : ''}
+                        </div>
                         <div style="display: flex; align-items: flex-end; height: 100px; gap: 3px; padding: 5px 0; background: #fafafa; border-radius: 5px;">
                             ${chart.data.map((val, idx) => {
                                 const height = Math.min(val / maxVal * 100, 100);
@@ -15406,6 +15454,44 @@
                             }).join('')}
                         </div>
                         ${chart.showTarget ? `<div style="font-size: 0.75em; color: #f44336; margin-top: 5px; text-align: right;">Hedef: ${chart.target.toLocaleString('tr-TR')}</div>` : ''}
+                        
+                        ${hasTable ? `
+                            <div id="${chart.tableId}" style="display: none; margin-top: 15px; overflow-x: auto; animation: fadeIn 0.3s;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 0.8em;">
+                                    <thead>
+                                        <tr style="background: ${chart.color}; color: white;">
+                                            <th style="padding: 8px; border: 1px solid ${chart.color}; text-align: center;">Ay</th>
+                                            ${chart.tableData.sevk !== undefined ? `
+                                                <th style="padding: 8px; border: 1px solid ${chart.color}; text-align: center;">Sevk</th>
+                                                <th style="padding: 8px; border: 1px solid ${chart.color}; text-align: center;">İade</th>
+                                            ` : ''}
+                                            ${chart.tableData.gun !== undefined ? `
+                                                <th style="padding: 8px; border: 1px solid ${chart.color}; text-align: center;">Gün</th>
+                                            ` : ''}
+                                            <th style="padding: 8px; border: 1px solid ${chart.color}; text-align: center;">Puan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${Array(12).fill(0).map((_, idx) => {
+                                            const bgColor = idx % 2 === 0 ? '#f9f9f9' : '#ffffff';
+                                            return `
+                                                <tr style="background: ${bgColor};">
+                                                    <td style="padding: 6px; border: 1px solid #ddd; text-align: center; font-weight: 600;">${idx + 1}</td>
+                                                    ${chart.tableData.sevk !== undefined ? `
+                                                        <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${(chart.tableData.sevk[idx] || 0).toLocaleString('tr-TR')}</td>
+                                                        <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${(chart.tableData.iade[idx] || 0).toLocaleString('tr-TR')}</td>
+                                                    ` : ''}
+                                                    ${chart.tableData.gun !== undefined ? `
+                                                        <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${(chart.tableData.gun[idx] || 0).toFixed(1)}</td>
+                                                    ` : ''}
+                                                    <td style="padding: 6px; border: 1px solid #ddd; text-align: right; font-weight: 600;">${(chart.tableData.puan[idx] || 0).toFixed(1)}%</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ` : ''}
                     </div>
                 `;
             });
@@ -15431,6 +15517,18 @@
             html += `</div>`;
             
             container.innerHTML = html;
+        }
+        
+        // Grafik tablolarını göster/gizle
+        function toggleChartTable(tableId) {
+            const table = document.getElementById(tableId);
+            if (table) {
+                if (table.style.display === 'none') {
+                    table.style.display = 'block';
+                } else {
+                    table.style.display = 'none';
+                }
+            }
         }
         
         function displayDocuments(supplier) {
