@@ -11521,18 +11521,34 @@
         // Template seç ve yükle
         function selectTemplateToLoad(index) {
             const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
-            const template = templates[index];
+            const rawTemplate = templates[index];
             
-            if (!template) {
+            if (!rawTemplate) {
                 showToast('❌ Template bulunamadı!', 'error');
                 return;
             }
+            
+            console.log('📦 Ham template yapısı:', rawTemplate);
+            
+            // Google Sheets'ten gelen template yapısını düzelt
+            // Bazen template.template içinde gerçek template var
+            const template = rawTemplate.template || rawTemplate;
+            
+            console.log('🔍 İşlenmiş template:', template);
+            console.log('📍 Regions var mı?', template.regions);
             
             // Modal'i kapat
             document.getElementById('templateLoadModal').style.display = 'none';
             
             // Tedarikçi adını yaz
-            document.getElementById('templateSupplierName').value = template.supplier;
+            document.getElementById('templateSupplierName').value = template.supplier || rawTemplate.supplier || 'Bilinmeyen';
+            
+            // Regions kontrolü - güvenli erişim
+            if (!template.regions || !Array.isArray(template.regions)) {
+                showToast('⚠️ Template bölge bilgisi içermiyor!', 'warning');
+                console.error('❌ Regions bulunamadı. Template yapısı:', template);
+                return;
+            }
             
             // Görseli yükle
             if (template.imageData) {
@@ -11551,6 +11567,8 @@
                         height: r.height * templateScaleFactor
                     }));
                     
+                    console.log(`✅ ${templateRegions.length} bölge yüklendi`);
+                    
                     updateTemplateRegionsList();
                     redrawTemplateCanvas();
                     
@@ -11558,7 +11576,7 @@
                     document.getElementById('templateModeCheckbox').checked = true;
                     document.getElementById('templateEditorPanel').style.display = 'flex';
                     
-                    showToast(`✅ ${template.supplier} template'i yüklendi! Görsel ve tüm bölgeler geri yüklendi.`, 'success');
+                    showToast(`✅ ${template.supplier} template'i yüklendi! Görsel ve ${templateRegions.length} bölge geri yüklendi.`, 'success');
                 };
                 templateImageObj.src = template.imageData;
             } else {
@@ -11570,8 +11588,10 @@
                     width: r.width * (template.scaleFactor || 1),
                     height: r.height * (template.scaleFactor || 1)
                 }));
+                
+                console.log(`✅ ${templateRegions.length} bölge yüklendi (görsel yok)`);
                 updateTemplateRegionsList();
-                showToast(`⚠️ ${template.supplier} yüklendi ama görsel yok. COA belgesi yükleyin.`, 'warning');
+                showToast(`⚠️ ${template.supplier} yüklendi ama görsel yok. ${templateRegions.length} bölge var. COA belgesi yükleyin.`, 'warning');
             }
         }
         
