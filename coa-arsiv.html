@@ -2444,104 +2444,6 @@
             pendingTemplateFile = null;
         }
         
-        function toggleTemplateMode() {
-            templateMode = document.getElementById('templateModeCheckbox').checked;
-            
-            if (templateMode) {
-                // Template mode ON
-                showToast('🎨 Template modu aktif - Dosya yükleyin', 'info');
-            } else {
-                // Template mode OFF
-                closeTemplateEditor();
-            }
-        }
-        
-        async function openTemplateEditorWithFile(file) {
-            console.log('🎨 Template editor açılıyor...', file.name);
-            
-            // Eğer bir render işlemi devam ediyorsa bekle
-            if (currentRenderTask) {
-                console.log('⏳ Önceki render bekleniyor...');
-                try {
-                    await currentRenderTask.promise;
-                } catch (e) {
-                    // İptal edilmiş olabilir, önemli değil
-                }
-            }
-            
-            // Initialize canvas
-            templateCanvas = document.getElementById('templateCanvas');
-            if (!templateCanvas) {
-                console.error('❌ Template canvas bulunamadı!');
-                showToast('❌ Template canvas bulunamadı', 'error');
-                return;
-            }
-            templateCtx = templateCanvas.getContext('2d');
-            
-            // Clear previous regions (ama edit modundaysa pending regions'ı yükle)
-            if (window.pendingTemplateRegions && window.pendingTemplateRegions.length > 0) {
-                console.log('📍 Pending regions yükleniyor (edit mode):', window.pendingTemplateRegions.length, 'bölge');
-                // Regions normalized olarak kaydedilmiş (original scale'de)
-                // Saved scaleFactor kullanarak current scale'e dönüştür
-                const scaleFactor = window.savedTemplateConfig?.scaleFactor || 1;
-                templateRegions = window.pendingTemplateRegions.map(r => ({
-                    ...r,
-                    x: r.x * scaleFactor,
-                    y: r.y * scaleFactor,
-                    width: r.width * scaleFactor,
-                    height: r.height * scaleFactor
-                }));
-                console.log('⚙️ Regions current scale\'e dönüştürüldü (scaleFactor:', scaleFactor, ')');
-                window.pendingTemplateRegions = null; // Clear after loading
-            } else {
-                templateRegions = [];
-            }
-            updateTemplateRegionsList();
-            
-            // Setup event listeners
-            templateCanvas.removeEventListener('mousedown', startTemplateDrawing);
-            templateCanvas.removeEventListener('mousemove', drawTemplate);
-            templateCanvas.removeEventListener('mouseup', stopTemplateDrawing);
-            
-            templateCanvas.addEventListener('mousedown', startTemplateDrawing);
-            templateCanvas.addEventListener('mousemove', drawTemplate);
-            templateCanvas.addEventListener('mouseup', stopTemplateDrawing);
-            
-            // Load file
-            console.log('📄 Dosya yükleniyor:', file.type);
-            const isExcel = file.type.includes('spreadsheet') || file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls');
-            const isWord = file.type.includes('word') || file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc');
-            
-            if (file.type === 'application/pdf') {
-                await loadTemplatePDF(file);
-            } else if (isExcel) {
-                await loadTemplateExcel(file);
-            } else if (isWord) {
-                await loadTemplateWord(file);
-            } else {
-                await loadTemplateImage(file);
-            }
-            
-            // Eğer regions yüklendiyse, canvas'ı yeniden çiz
-            if (templateRegions && templateRegions.length > 0) {
-                console.log('🔄 Canvas regions ile yeniden çiziliyor...');
-                redrawTemplateCanvas();
-            }
-            
-            // Show modal
-            console.log('🎨 Modal gösteriliyor');
-            document.getElementById('templateEditorModal').classList.add('show');
-            
-            // Edit modundaysa tedarikçi adını doldur
-            if (window.currentEditingTemplate) {
-                const supplierInput = document.getElementById('templateSupplierName');
-                if (supplierInput) {
-                    supplierInput.value = window.currentEditingTemplate.supplier || '';
-                    console.log('✏️ Tedarikçi adı dolduruldu (edit mode):', supplierInput.value);
-                }
-            }
-        }
-        
         // ==================== Initialization ====================
         document.addEventListener('DOMContentLoaded', function() {
             // PDF.js worker ayarla (global)
@@ -12488,6 +12390,104 @@
                 if (panel) panel.style.display = 'flex';
                 
                 showToast(`✅ ${template.supplier} template'i yüklendi! ${templateRegions.length} bölge mevcut canvas üzerine eklendi.`, 'success');
+            }
+        }
+        
+        function toggleTemplateMode() {
+            templateMode = document.getElementById('templateModeCheckbox').checked;
+            
+            if (templateMode) {
+                // Template mode ON
+                showToast('🎨 Template modu aktif - Dosya yükleyin', 'info');
+            } else {
+                // Template mode OFF
+                closeTemplateEditor();
+            }
+        }
+        
+        async function openTemplateEditorWithFile(file) {
+            console.log('🎨 Template editor açılıyor...', file.name);
+            
+            // Eğer bir render işlemi devam ediyorsa bekle
+            if (currentRenderTask) {
+                console.log('⏳ Önceki render bekleniyor...');
+                try {
+                    await currentRenderTask.promise;
+                } catch (e) {
+                    // İptal edilmiş olabilir, önemli değil
+                }
+            }
+            
+            // Initialize canvas
+            templateCanvas = document.getElementById('templateCanvas');
+            if (!templateCanvas) {
+                console.error('❌ Template canvas bulunamadı!');
+                showToast('❌ Template canvas bulunamadı', 'error');
+                return;
+            }
+            templateCtx = templateCanvas.getContext('2d');
+            
+            // Clear previous regions (ama edit modundaysa pending regions'ı yükle)
+            if (window.pendingTemplateRegions && window.pendingTemplateRegions.length > 0) {
+                console.log('📍 Pending regions yükleniyor (edit mode):', window.pendingTemplateRegions.length, 'bölge');
+                // Regions normalized olarak kaydedilmiş (original scale'de)
+                // Saved scaleFactor kullanarak current scale'e dönüştür
+                const scaleFactor = window.savedTemplateConfig?.scaleFactor || 1;
+                templateRegions = window.pendingTemplateRegions.map(r => ({
+                    ...r,
+                    x: r.x * scaleFactor,
+                    y: r.y * scaleFactor,
+                    width: r.width * scaleFactor,
+                    height: r.height * scaleFactor
+                }));
+                console.log('⚙️ Regions current scale\'e dönüştürüldü (scaleFactor:', scaleFactor, ')');
+                window.pendingTemplateRegions = null; // Clear after loading
+            } else {
+                templateRegions = [];
+            }
+            updateTemplateRegionsList();
+            
+            // Setup event listeners
+            templateCanvas.removeEventListener('mousedown', startTemplateDrawing);
+            templateCanvas.removeEventListener('mousemove', drawTemplate);
+            templateCanvas.removeEventListener('mouseup', stopTemplateDrawing);
+            
+            templateCanvas.addEventListener('mousedown', startTemplateDrawing);
+            templateCanvas.addEventListener('mousemove', drawTemplate);
+            templateCanvas.addEventListener('mouseup', stopTemplateDrawing);
+            
+            // Load file
+            console.log('📄 Dosya yükleniyor:', file.type);
+            const isExcel = file.type.includes('spreadsheet') || file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls');
+            const isWord = file.type.includes('word') || file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc');
+            
+            if (file.type === 'application/pdf') {
+                await loadTemplatePDF(file);
+            } else if (isExcel) {
+                await loadTemplateExcel(file);
+            } else if (isWord) {
+                await loadTemplateWord(file);
+            } else {
+                await loadTemplateImage(file);
+            }
+            
+            // Eğer regions yüklendiyse, canvas'ı yeniden çiz
+            if (templateRegions && templateRegions.length > 0) {
+                console.log('🔄 Canvas regions ile yeniden çiziliyor...');
+                redrawTemplateCanvas();
+            }
+            
+            // Show modal
+            console.log('🎨 Modal gösteriliyor');
+            document.getElementById('templateEditorModal').classList.add('show');
+            
+            // Edit modundaysa tedarikçi adını doldur
+            if (window.currentEditingTemplate) {
+                const supplierInput = document.getElementById('templateSupplierName');
+                if (supplierInput) {
+                    supplierInput.value = window.currentEditingTemplate.supplier || '';
+                    console.log('✏️ Tedarikçi adı dolduruldu (edit mode):', supplierInput.value);
+                }
             }
         }
     }
