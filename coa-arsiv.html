@@ -2095,7 +2095,7 @@
             list.innerHTML = templates.map((template, index) => {
                 const date = new Date(template.createdAt).toLocaleDateString('tr-TR');
                 const time = new Date(template.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-                const hasImage = template.imageData ? '✅' : '❌';
+                const hasImage = (template.imageUrl || template.imageData) ? '✅' : '❌';
                 const regionCount = template.regions?.length || 0;
                 
                 return `
@@ -12373,7 +12373,7 @@
             list.innerHTML = templates.map((template, index) => {
                 const date = new Date(template.createdAt).toLocaleDateString('tr-TR');
                 const time = new Date(template.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-                const hasImage = template.imageData ? '✅' : '❌';
+                const hasImage = (template.imageUrl || template.imageData) ? '✅' : '❌';
                 const regionCount = template.regions?.length || 0;
                 
                 return `
