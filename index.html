@@ -7838,6 +7838,7 @@
                 if (!monthlyScoresData.has(normalizedSupplier)) {
                     monthlyScoresData.set(normalizedSupplier, {
                         terminByMonth: new Map(),
+                        terminGunByMonth: new Map(), // Gerçek gecikme gün değerleri için
                         tamamlanmaByMonth: new Map(),
                         kaliteByMonth: new Map(),
                         vdaByMonth: new Map(),
@@ -7859,13 +7860,17 @@
                             }
                         });
                         
-                        // Termin GÜN değerlerini al ve PUAN'a çevir
+                        // Termin GÜN değerlerini al ve PUAN'a çevir + GÜN değerini de sakla
                         (cols.terminDays || []).forEach(colIndex => {
                             const gecikmeGun = parseFloat(row[colIndex]);
                             if (!isNaN(gecikmeGun)) {
                                 const puan = gecikmeGunToTerminPuan(gecikmeGun);
                                 if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
                                 supplierData.terminByMonth.get(month).push(puan);
+                                
+                                // Gerçek gün değerini de sakla (tabloda göstermek için)
+                                if (!supplierData.terminGunByMonth.has(month)) supplierData.terminGunByMonth.set(month, []);
+                                supplierData.terminGunByMonth.get(month).push(gecikmeGun);
                             }
                         });
                         
@@ -8064,6 +8069,21 @@
                     const md = monthlyScoresData.get(normalizedSupplierName);
                     const months = Array.from(selectedMonths);
                     
+                    // monthlyTerminGecikmeGun array'ini başlat (yoksa)
+                    if (!result.monthlyTerminGecikmeGun) {
+                        result.monthlyTerminGecikmeGun = new Array(12).fill(null);
+                    }
+                    
+                    // monthlyTerminGecikmeGun array'ini başlat
+                    if (!result.monthlyTerminGecikmeGun) {
+                        result.monthlyTerminGecikmeGun = new Array(12).fill(null);
+                    }
+                    
+                    // monthlyTerminGecikmeGun array'ini başlat (yoksa)
+                    if (!result.monthlyTerminGecikmeGun) {
+                        result.monthlyTerminGecikmeGun = new Array(12).fill(null);
+                    }
+                    
                     // Seçilen aylar içinde TÜM kayıtlı değerleri topla
                     let allTermValues = [];
                     let allTamamValues = [];
@@ -8150,6 +8170,14 @@
                             const vals = md.terminByMonth.get(m);
                             mTermin = vals.reduce((a,b)=>a+b,0) / vals.length;
                             if (mTermin <= 1) mTermin *= 100;
+                            
+                            // Gerçek gün değerleri de varsa sakla (eksi günler dahil)
+                            if (md.terminGunByMonth.has(m)) {
+                                const gunVals = md.terminGunByMonth.get(m);
+                                const avgGun = gunVals.reduce((a,b)=>a+b,0) / gunVals.length;
+                                result.monthlyTerminGecikmeGun[m-1] = avgGun;
+                                console.log(`🔵 ${result.name} Ay ${m}: Gerçek gün değeri = ${avgGun.toFixed(2)}`);
+                            }
                         } else if (supplierEdits.termin.includes(m)) {
                             // Manuel düzenlenmişse mevcut değeri koru
                             mTermin = result.monthlyTerminPuan[m-1] || result.terminPuan;
@@ -15563,7 +15591,14 @@
                     showTable: true,
                     tableId: 'terminTable',
                     tableData: {
-                        gun: monthlyTermin.map(puan => terminPuanToGecikmeGun(puan)),
+                        gun: monthlyTermin.map((puan, idx) => {
+                            // Önce gerçek gün değerine bak, yoksa puandan hesapla
+                            if (supplier.monthlyTerminGecikmeGun && supplier.monthlyTerminGecikmeGun[idx] !== null && supplier.monthlyTerminGecikmeGun[idx] !== undefined) {
+                                return supplier.monthlyTerminGecikmeGun[idx]; // Gerçek değer (eksi günler dahil!)
+                            } else {
+                                return terminPuanToGecikmeGun(puan); // Puandan hesapla
+                            }
+                        }),
                         puan: monthlyTermin
                     }
                 },
@@ -19583,7 +19618,13 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                                     <td style="padding: 6px; border: 1px solid #ddd; font-weight: 600; background: #c5cae9;">Gecikme (gün)</td>
                                     ${months.map((m, idx) => {
                                         const puan = terminSeries[idx] || 100;
-                                        const gun = terminPuanToGecikmeGun(puan);
+                                        // Önce gerçek gün değerine bak (Excel'den gelen), yoksa puandan hesapla
+                                        let gun;
+                                        if (supplier.monthlyTerminGecikmeGun && supplier.monthlyTerminGecikmeGun[m-1] !== null && supplier.monthlyTerminGecikmeGun[m-1] !== undefined) {
+                                            gun = supplier.monthlyTerminGecikmeGun[m-1]; // Gerçek değer
+                                        } else {
+                                            gun = terminPuanToGecikmeGun(puan); // Puandan hesapla
+                                        }
                                         const gunText = gun > 0 ? `+${gun.toFixed(1)}` : gun < 0 ? gun.toFixed(1) : '0.0';
                                         const color = gun > 0 ? '#d32f2f' : gun < 0 ? '#388e3c' : '#666';
                                         return `<td style="padding: 6px; border: 1px solid #ddd; text-align: right; color: ${color}; font-weight: 600;">${gunText}</td>`;
