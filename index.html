@@ -7859,41 +7859,47 @@
                 // Aylara göre gruplandırılmış sütunları işle
                 if (monthlyColumns.size > 0) {
                     monthlyColumns.forEach((cols, month) => {
-                        // Termin puanlarını al
-                        cols.termin.forEach(colIndex => {
-                            const value = parseFloat(row[colIndex]);
-                            if (!isNaN(value)) {
-                                // NEGATİF DEĞER = GÜN (erken teslimat)
-                                if (value < 0) {
-                                    // Gün olarak sakla
-                                    if (!supplierData.terminGunByMonth.has(month)) supplierData.terminGunByMonth.set(month, []);
-                                    supplierData.terminGunByMonth.get(month).push(value);
-                                    // Puan her zaman 100% (erken teslimat)
-                                    if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
-                                    supplierData.terminByMonth.get(month).push(100);
-                                    console.log(`📅 Excel (NEGATİF): ${normalizedSupplier} Ay ${month} → Gün: ${Math.round(value)}, Puan: 100%`);
-                                } else {
-                                    // POZİTİF DEĞER = PUAN 
-                                    if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
-                                    supplierData.terminByMonth.get(month).push(value);
-                                }
-                            }
-                        });
+                        // ÖNCELİK: Eğer "Gecikme Gün" sütunu varsa, "Puan" sütununu görmezden gel
+                        const hasTerminDays = cols.terminDays && cols.terminDays.length > 0;
                         
-                        // Termin GÜN değerlerini al ve PUAN'a çevir + GÜN değerini de sakla
-                        (cols.terminDays || []).forEach(colIndex => {
-                            const gecikmeGun = parseFloat(row[colIndex]);
-                            if (!isNaN(gecikmeGun)) {
-                                const puan = gecikmeGunToTerminPuan(gecikmeGun);
-                                if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
-                                supplierData.terminByMonth.get(month).push(puan);
-                                
-                                // Gerçek gün değerini de sakla (tabloda göstermek için)
-                                if (!supplierData.terminGunByMonth.has(month)) supplierData.terminGunByMonth.set(month, []);
-                                supplierData.terminGunByMonth.get(month).push(gecikmeGun);
-                                console.log(`📅 Excel: ${normalizedSupplier} Ay ${month} → Gün: ${Math.round(gecikmeGun)}, Puan: ${puan.toFixed(1)}%`);
-                            }
-                        });
+                        // Termin GÜN değerlerini al (ÖNCELİKLİ)
+                        if (hasTerminDays) {
+                            (cols.terminDays || []).forEach(colIndex => {
+                                const gecikmeGun = parseFloat(row[colIndex]);
+                                if (!isNaN(gecikmeGun)) {
+                                    const puan = gecikmeGunToTerminPuan(gecikmeGun);
+                                    if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
+                                    supplierData.terminByMonth.get(month).push(puan);
+                                    
+                                    // Gerçek gün değerini de sakla (tabloda göstermek için)
+                                    if (!supplierData.terminGunByMonth.has(month)) supplierData.terminGunByMonth.set(month, []);
+                                    supplierData.terminGunByMonth.get(month).push(gecikmeGun);
+                                    console.log(`✅ Excel (GÜN ÖNCELİKLİ): ${normalizedSupplier} Ay ${month} → Gün: ${Math.round(gecikmeGun)}, Puan: ${puan.toFixed(1)}%`);
+                                }
+                            });
+                        } else {
+                            // Gün sütunu yoksa Termin puanlarını al
+                            cols.termin.forEach(colIndex => {
+                                const value = parseFloat(row[colIndex]);
+                                if (!isNaN(value)) {
+                                    // NEGATİF DEĞER = GÜN (erken teslimat)
+                                    if (value < 0) {
+                                        // Gün olarak sakla
+                                        if (!supplierData.terminGunByMonth.has(month)) supplierData.terminGunByMonth.set(month, []);
+                                        supplierData.terminGunByMonth.get(month).push(value);
+                                        // Puan her zaman 100% (erken teslimat)
+                                        if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
+                                        supplierData.terminByMonth.get(month).push(100);
+                                        console.log(`📅 Excel (NEGATİF): ${normalizedSupplier} Ay ${month} → Gün: ${Math.round(value)}, Puan: 100%`);
+                                    } else {
+                                        // POZİTİF DEĞER = PUAN 
+                                        if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
+                                        supplierData.terminByMonth.get(month).push(value);
+                                        console.log(`📅 Excel (PUAN): ${normalizedSupplier} Ay ${month} → Puan: ${value.toFixed(1)}%`);
+                                    }
+                                }
+                            });
+                        }
                         
                         // Tamamlanma puanlarını al (negatif değerlere de izin ver)
                         cols.tamamlanma.forEach(colIndex => {
