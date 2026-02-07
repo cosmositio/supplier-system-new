@@ -1466,7 +1466,7 @@
             
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 500;">Hammadde Kodu Seç:</label>
-                <select id="tdsMaterialSelect" onchange="loadTDSForMaterial()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
+                <select id="tdsMaterialSelect" onchange="loadTDSForMaterial(false)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
                     <option value="">Hammadde seçin...</option>
                 </select>
             </div>
@@ -8228,17 +8228,9 @@
             console.log('📋 Hammadde:', materialCodeOnly);
             console.log('🎨 Template:', window.currentTemplate.supplier);
             
-            // 🧹 Yeni OCR başlatılıyor - eski COA değerlerini temizle (yanıltmasın)
-            if (tdsData[materialCodeOnly] && tdsData[materialCodeOnly].properties) {
-                tdsData[materialCodeOnly].properties.forEach(prop => {
-                    prop.coaValue = '';
-                    prop.coaCompliance = '-';
-                });
-                console.log('🧹 Eski COA değerleri temizlendi, yeni OCR başlatılıyor...');
-            }
-            
-            // Eski lastOCRMaterialCode flag'ini de temizle
-            lastOCRMaterialCode = null;
+            // NOT: Eski COA değerlerini TEMİZLEME! 
+            // Kullanıcı yeni sorguya başlayana kadar değerler korunsun.
+            // Yeni OCR sonuçları otomatik olarak üzerine yazılacak.
             
             showToast('🎨 Template ile COA okunuyor...', 'info');
             
@@ -8709,13 +8701,17 @@
                 materialCodeInput.dispatchEvent(event);
             }
             
-            // Tedarikçiyi bul ve doldur (hammadde kodundan)
+            // Tedarikçiyi bul ve doldur (varsa)
             const materialCodeOnly = materialCode.split('|')[0].trim();
-            const material = materialsList.find(m => m.hammaddeAdi === materialCodeOnly);
-            if (material) {
+            const material = materials.find(m => 
+                (m.code || m.stockCode || m.stokKodu) === materialCodeOnly
+            );
+            
+            if (material && material.deliveries && material.deliveries.length > 0) {
+                // İlk delivery'den tedarikçiyi al
                 const supplierInput = document.getElementById('supplierInput');
-                if (supplierInput) {
-                    supplierInput.value = material.tedarikci;
+                if (supplierInput && material.deliveries[0].supplier) {
+                    supplierInput.value = material.deliveries[0].supplier;
                 }
             }
             
