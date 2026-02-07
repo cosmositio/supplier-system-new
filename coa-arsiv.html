@@ -11580,7 +11580,7 @@
                 };
                 templateImageObj.src = template.imageData;
             } else {
-                // Görsel yok ama regions var
+                // Görsel yok ama regions var - mevcut canvas üzerine çiz
                 templateRegions = template.regions.map(r => ({
                     ...r,
                     x: r.x * (template.scaleFactor || 1),
@@ -11590,8 +11590,15 @@
                 }));
                 
                 console.log(`✅ ${templateRegions.length} bölge yüklendi (görsel yok)`);
+                
                 updateTemplateRegionsList();
-                showToast(`⚠️ ${template.supplier} yüklendi ama görsel yok. ${templateRegions.length} bölge var. COA belgesi yükleyin.`, 'warning');
+                redrawTemplateCanvas(); // Canvas'ı yeniden çiz - bölgeler görünsün!
+                
+                // Template editor'ı aç (eğer kapalıysa)
+                document.getElementById('templateModeCheckbox').checked = true;
+                document.getElementById('templateEditorPanel').style.display = 'flex';
+                
+                showToast(`✅ ${template.supplier} template'i yüklendi! ${templateRegions.length} bölge mevcut canvas üzerine eklendi.`, 'success');
             }
         }
         
