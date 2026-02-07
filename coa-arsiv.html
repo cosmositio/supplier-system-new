@@ -1249,11 +1249,16 @@
                             📁 Dosya Yükle
                         </button>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px; background: #fff3cd; border-radius: 6px;">
-                        <input type="checkbox" id="templateModeCheckbox" style="width: 20px; height: 20px; cursor: pointer;" onchange="toggleTemplateMode()">
-                        <label for="templateModeCheckbox" style="margin: 0; cursor: pointer; font-size: 0.9em; color: #856404;">
-                            🎨 <strong>Template Oluştur</strong> - Yüklenen belge üzerinde bölgeleri işaretleyin ve kaydedin. Kaydedilen template'i tekrar yükleyebilirsiniz.
-                        </label>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <div style="flex: 1; padding: 10px; background: #fff3cd; border-radius: 6px; display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="templateModeCheckbox" style="width: 20px; height: 20px; cursor: pointer;" onchange="toggleTemplateMode()">
+                            <label for="templateModeCheckbox" style="margin: 0; cursor: pointer; font-size: 0.9em; color: #856404;">
+                                🎨 <strong>Template Oluştur</strong> - Yüklenen belge üzerinde bölgeleri işaretleyin ve kaydedin.
+                            </label>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="editExistingTemplate()" style="padding: 10px 20px; white-space: nowrap; font-size: 0.9em;">
+                            ✏️ Template Düzenle
+                        </button>
                     </div>
                     
                     <div style="margin-bottom: 10px; padding: 10px; background: #d1ecf1; border-radius: 6px;">
