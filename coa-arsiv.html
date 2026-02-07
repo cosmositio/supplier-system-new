@@ -10915,7 +10915,16 @@
             // Clear previous regions (ama edit modundaysa pending regions'ı yükle)
             if (window.pendingTemplateRegions && window.pendingTemplateRegions.length > 0) {
                 console.log('📍 Pending regions yükleniyor (edit mode):', window.pendingTemplateRegions.length, 'bölge');
-                templateRegions = JSON.parse(JSON.stringify(window.pendingTemplateRegions)); // Deep copy
+                // Regions normalized olarak kaydedilmiş (original scale'de)
+                // Current scale'e dönüştür
+                templateRegions = window.pendingTemplateRegions.map(r => ({
+                    ...r,
+                    x: r.x * templateScaleFactor,
+                    y: r.y * templateScaleFactor,
+                    width: r.width * templateScaleFactor,
+                    height: r.height * templateScaleFactor
+                }));
+                console.log('⚙️ Regions current scale\'e dönüştürüldü (scaleFactor:', templateScaleFactor, ')');
                 window.pendingTemplateRegions = null; // Clear after loading
             } else {
                 templateRegions = [];
@@ -11307,28 +11316,41 @@
                 reader.onload = function(e) {
                     templateImageObj = new Image();
                     templateImageObj.onload = function() {
-                        const maxWidth = 1400;
-                        const maxHeight = 1000;
-                        
-                        let width = templateImageObj.width;
-                        let height = templateImageObj.height;
-                        
-                        if (width > maxWidth) {
-                            templateScaleFactor = maxWidth / width;
-                            width = maxWidth;
-                            height = height * templateScaleFactor;
+                        // Eğer kaydedilmiş template config varsa, onu kullan
+                        if (window.savedTemplateConfig) {
+                            console.log('🔄 Kaydedilmiş template boyutları kullanılıyor:', window.savedTemplateConfig);
+                            templateCanvas.width = window.savedTemplateConfig.canvasWidth;
+                            templateCanvas.height = window.savedTemplateConfig.canvasHeight;
+                            templateScaleFactor = window.savedTemplateConfig.scaleFactor;
+                            
+                            // Config kullanıldı, temizle
+                            window.savedTemplateConfig = null;
+                        } else {
+                            // Yeni template - normal scale hesaplama
+                            const maxWidth = 1400;
+                            const maxHeight = 1000;
+                            
+                            let width = templateImageObj.width;
+                            let height = templateImageObj.height;
+                            templateScaleFactor = 1;
+                            
+                            if (width > maxWidth) {
+                                templateScaleFactor = maxWidth / width;
+                                width = maxWidth;
+                                height = height * templateScaleFactor;
+                            }
+                            
+                            if (height > maxHeight) {
+                                templateScaleFactor = maxHeight / height;
+                                height = maxHeight;
+                                width = width * templateScaleFactor;
+                            }
+                            
+                            templateCanvas.width = width;
+                            templateCanvas.height = height;
                         }
                         
-                        if (height > maxHeight) {
-                            templateScaleFactor = maxHeight / height;
-                            height = maxHeight;
-                            width = width * templateScaleFactor;
-                        }
-                        
-                        templateCanvas.width = width;
-                        templateCanvas.height = height;
-                        
-                        templateCtx.drawImage(templateImageObj, 0, 0, width, height);
+                        templateCtx.drawImage(templateImageObj, 0, 0, templateCanvas.width, templateCanvas.height);
                         resolve();
                     };
                     templateImageObj.src = e.target.result;
@@ -11967,7 +11989,7 @@
                 canvasWidth: templateCanvas.width,
                 canvasHeight: templateCanvas.height,
                 scaleFactor: templateScaleFactor,
-                imageData: templateCanvas.toDataURL('image/png'),
+                imageData: templateCanvas.toDataURL('image/png', 1.0), // Yüksek kalite
                 regions: templateRegions.map(r => ({
                     propertyName: r.propertyName,
                     type: r.type,
@@ -12251,10 +12273,18 @@
             templateMode = true;
             document.getElementById('templateModeCheckbox').checked = true;
             
+            // Kaydedilmiş template bilgilerini sakla (scale için)
+            const templateObj = template.template || template;
+            window.savedTemplateConfig = {
+                canvasWidth: templateObj.canvasWidth,
+                canvasHeight: templateObj.canvasHeight,
+                scaleFactor: templateObj.scaleFactor || 1
+            };
+            console.log('📌 Kaydedilmiş template config yüklendi:', window.savedTemplateConfig);
+            
             await openTemplateEditorWithFile(selectedFile);
             
             // Template'i canvas'a yükle
-            const templateObj = template.template || template;
             if (templateObj.regions && templateObj.regions.length > 0) {
                 console.log('📍 Template bölgeleri yükleniyor:', templateObj.regions.length, 'bölge');
                 // Regions'ı global değişkene koy, editor açıldığında kullanılacak
