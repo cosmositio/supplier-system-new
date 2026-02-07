@@ -8154,6 +8154,28 @@
                 }
             });
         }
+        
+        // Termin Puanından Gecikme Gününü Hesaplayan Fonksiyon
+        function terminPuanToGecikmeGun(puan) {
+            if (puan >= 100) return 0;
+            if (puan >= 80) return 1;
+            if (puan >= 60) return 2;
+            if (puan >= 40) return 3;
+            if (puan >= 30) return 4;
+            if (puan >= 20) return 5;
+            return 6; // 0-20% arası 6+ gün
+        }
+        
+        // Gecikme Gününden Termin Puanını Hesaplayan Fonksiyon
+        function gecikmeGunToTerminPuan(gun) {
+            if (gun <= 0) return 100;
+            if (gun <= 1) return 80;
+            if (gun <= 2) return 60;
+            if (gun <= 3) return 40;
+            if (gun <= 4) return 30;
+            if (gun <= 5) return 20;
+            return 0; // 6+ gün
+        }
 
         function recalculateSupplierScore(result) {
             // Normalizasyon: 0-100 aralığındaki değerleri 0-1 aralığına çevir
@@ -15413,7 +15435,7 @@
                     showTable: true,
                     tableId: 'terminTable',
                     tableData: {
-                        gun: supplier.monthlyTermin || Array(12).fill(0),
+                        gun: monthlyTermin.map(puan => terminPuanToGecikmeGun(puan)),
                         puan: monthlyTermin
                     }
                 },
@@ -15492,8 +15514,8 @@
                                                 <td style="padding: 5px; border: 1px solid #ddd; font-weight: 600; background: ${chart.color}20;">Gecikme (gün)</td>
                                                 ${Array(12).fill(0).map((_, idx) => {
                                                     const gun = chart.tableData.gun[idx] || 0;
-                                                    const gunText = gun > 0 ? `+${gun.toFixed(1)}` : gun < 0 ? gun.toFixed(1) : '0.0';
-                                                    const color = gun > 0 ? '#d32f2f' : gun < 0 ? '#388e3c' : '#666';
+                                                    const gunText = gun > 0 ? `+${gun}` : '0';
+                                                    const color = gun > 0 ? '#d32f2f' : '#666';
                                                     return `<td style="padding: 5px; border: 1px solid #ddd; text-align: right; color: ${color}; font-weight: 600;">${gunText}</td>`;
                                                 }).join('')}
                                             </tr>
@@ -19166,6 +19188,24 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                         const newTerminCallback = createTerminCallback(currentMonths);
                         
                         drawBarChart('chartTermin', currentMonthLabels, terminSeriesNew, '#3949ab', 'Termin', null, newTerminCallback, currentMonths);
+                        
+                        // Tabloyu da güncelle (gecikme günleri puandan hesaplanacak)
+                        const modal = document.getElementById('performanceChartModal');
+                        if (modal && modal.style.display === 'flex') {
+                            const ppmSeries = currentMonths.map(m => {
+                                if (supplier.monthlyPPM && Array.isArray(supplier.monthlyPPM)) {
+                                    return supplier.monthlyPPM[m-1] || 0;
+                                }
+                                const sevk = supplier.monthlySevk?.[m-1] || 0;
+                                const iade = supplier.monthlyIade?.[m-1] || 0;
+                                return sevk > 0 ? (iade / sevk) * 1_000_000 : 0;
+                            });
+                            const completionSeriesNew = currentMonths.map(m => {
+                                const val = supplier.monthlyTamamlanmaPuan?.[m-1];
+                                return (val !== undefined && val !== null) ? val : 100;
+                            });
+                            populateModalTables(supplier, currentMonths, currentMonthLabels, ppmSeries, terminSeriesNew, completionSeriesNew);
+                        }
                     }
                     input.remove();
                 };
@@ -19277,6 +19317,24 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                         const newCompletionCallback = createCompletionCallback(currentMonths);
                         
                         drawBarChart('chartCompletion', currentMonthLabels, completionSeriesNew, '#00796b', 'Tamamlanma', null, newCompletionCallback, currentMonths);
+                        
+                        // Tabloyu da güncelle
+                        const modal = document.getElementById('performanceChartModal');
+                        if (modal && modal.style.display === 'flex') {
+                            const ppmSeries = currentMonths.map(m => {
+                                if (supplier.monthlyPPM && Array.isArray(supplier.monthlyPPM)) {
+                                    return supplier.monthlyPPM[m-1] || 0;
+                                }
+                                const sevk = supplier.monthlySevk?.[m-1] || 0;
+                                const iade = supplier.monthlyIade?.[m-1] || 0;
+                                return sevk > 0 ? (iade / sevk) * 1_000_000 : 0;
+                            });
+                            const terminSeriesNew = currentMonths.map(m => {
+                                const val = supplier.monthlyTerminPuan?.[m-1];
+                                return (val !== undefined && val !== null) ? val : 100;
+                            });
+                            populateModalTables(supplier, currentMonths, currentMonthLabels, ppmSeries, terminSeriesNew, completionSeriesNew);
+                        }
                     }
                     input.remove();
                 };
@@ -19377,9 +19435,10 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                             <tbody>
                                 <tr style="background: #fff;">
                                     <td style="padding: 6px; border: 1px solid #ddd; font-weight: 600; background: #c5cae9;">Gecikme (gün)</td>
-                                    ${months.map(m => {
-                                        const gun = supplier.monthlyTermin?.[m-1] || 0;
-                                        const gunText = gun > 0 ? `+${gun.toFixed(1)}` : gun < 0 ? gun.toFixed(1) : '0.0';
+                                    ${months.map((m, idx) => {
+                                        const puan = terminSeries[idx] || 100;
+                                        const gun = terminPuanToGecikmeGun(puan);
+                                        const gunText = gun > 0 ? `+${gun}` : '0';
                                         const color = gun > 0 ? '#d32f2f' : gun < 0 ? '#388e3c' : '#666';
                                         return `<td style="padding: 6px; border: 1px solid #ddd; text-align: right; color: ${color}; font-weight: 600;">${gunText}</td>`;
                                     }).join('')}
