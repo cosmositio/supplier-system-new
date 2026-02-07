@@ -1713,15 +1713,19 @@ function saveCOATemplate(templateData) {
     // Create sheet if doesn't exist
     if (!sheet) {
       sheet = ss.insertSheet('COA_Templates');
-      sheet.appendRow(['Supplier', 'Version', 'Created At', 'Template JSON', 'Template Image ID']);
+      sheet.appendRow(['Supplier', 'Version', 'Created At', 'Template JSON', 'Template Image URL']);
       sheet.getRange('A1:E1').setBackground('#2c5f2d').setFontColor('#ffffff').setFontWeight('bold');
     } else {
-      // Eski sheet'lere Template Image ID sütunu ekle (eğer yoksa)
+      // Eski sheet'lere Template Image URL sütunu ekle (eğer yoksa)
       const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-      if (!headers.includes('Template Image ID')) {
+      if (!headers.includes('Template Image URL') && !headers.includes('Template Image ID')) {
         const lastCol = sheet.getLastColumn();
-        sheet.getRange(1, lastCol + 1).setValue('Template Image ID');
+        sheet.getRange(1, lastCol + 1).setValue('Template Image URL');
         sheet.getRange(1, lastCol + 1).setBackground('#2c5f2d').setFontColor('#ffffff').setFontWeight('bold');
+      } else if (headers.includes('Template Image ID')) {
+        // Eski header'ı güncelle
+        const idIndex = headers.indexOf('Template Image ID');
+        sheet.getRange(1, idIndex + 1).setValue('Template Image URL');
       }
     }
     
@@ -1737,14 +1741,14 @@ function saveCOATemplate(templateData) {
     }
     
     // imageData'yı templateData'dan çıkar Drive'a yükle
-    let imageFileId = '';
+    let imageFileUrl = '';
     if (templateData.imageData) {
       const fileName = `${templateData.supplier}_template_v${templateData.version}.png`;
       const uploadResult = uploadFileToDrive(templateData.imageData, fileName, 'image/png');
       
       if (uploadResult.success) {
-        imageFileId = uploadResult.fileId;
-        console.log('✅ Template görseli Drive\'a yüklendi:', imageFileId);
+        imageFileUrl = uploadResult.viewUrl; // Tam Drive linki kaydet
+        console.log('✅ Template görseli Drive\'a yüklendi:', imageFileUrl);
       } else {
         console.error('❌ Template görseli Drive\'a yüklenemedi:', uploadResult.error);
       }
@@ -1762,7 +1766,7 @@ function saveCOATemplate(templateData) {
         templateData.version,
         templateData.createdAt,
         templateJson,
-        imageFileId
+        imageFileUrl
       ]]);
     } else {
       // Add new template
@@ -1771,7 +1775,7 @@ function saveCOATemplate(templateData) {
         templateData.version,
         templateData.createdAt,
         templateJson,
-        imageFileId
+        imageFileUrl
       ]);
     }
     
@@ -1830,13 +1834,13 @@ function getAllCOATemplates() {
     const templates = [];
     
     for (let i = 1; i < data.length; i++) {
-      const imageFileId = data[i][4] || ''; // 5. sütun: Template Image ID
+      const imageUrl = data[i][4] || ''; // 5. sütun: Template Image URL (Drive link)
       templates.push({
         supplier: data[i][0],
         version: data[i][1],
         createdAt: data[i][2],
         template: JSON.parse(data[i][3]),
-        imageFileId: imageFileId
+        imageUrl: imageUrl // Tam Drive linki döndür
       });
     }
     

@@ -12192,12 +12192,15 @@
             
             // Drive'dan görseli yükle
             let imageLoaded = false;
-            if (template.imageFileId) {
-                console.log("📥 Template görseli Drive'dan yükleniyor:", template.imageFileId);
+            if (template.imageUrl) {
+                // Drive linkinden file ID çıkar
+                const fileId = extractDriveFileId(template.imageUrl);
+                console.log("📥 Template görseli Drive'dan yükleniyor:", template.imageUrl);
+                console.log("🆔 Drive File ID:", fileId);
                 showToast('📥 Template görseli yükleniyor...', 'info');
                 
                 try {
-                    const imageData = await loadTemplateImageFromDrive(template.imageFileId);
+                    const imageData = await loadTemplateImageFromDrive(fileId);
                     if (imageData) {
                         selectedFileData = imageData;
                         
@@ -12257,6 +12260,31 @@
                 // Regions'ı global değişkene koy, editor açıldığında kullanılacak
                 window.pendingTemplateRegions = templateObj.regions;
             }
+        }
+        
+        // Drive linkinden file ID çıkar
+        function extractDriveFileId(url) {
+            if (!url) return '';
+            
+            // Eğer zaten file ID ise (hiç / içermiyor), direkt döndür
+            if (!url.includes('/') && !url.includes(':')) {
+                return url;
+            }
+            
+            // https://drive.google.com/file/d/FILE_ID/view formatı
+            const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (match && match[1]) {
+                return match[1];
+            }
+            
+            // https://drive.google.com/open?id=FILE_ID formatı
+            const match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+            if (match2 && match2[1]) {
+                return match2[1];
+            }
+            
+            // Diğer durumlar için URL'in kendisini döndür
+            return url;
         }
         
         // Drive'dan template görselini yükle
