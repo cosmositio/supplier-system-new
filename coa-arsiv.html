@@ -2050,6 +2050,46 @@
             }
         }
         
+        // Template'i düzenlemek için yükle
+        async function editExistingTemplate() {
+            // Google Sheets'ten template'leri yükle
+            await loadTemplatesFromGoogleSheets();
+            
+            const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
+            
+            if (templates.length === 0) {
+                showToast('⚠️ Kayıtlı template bulunamadı! Lütfen önce template oluşturun.', 'warning');
+                return;
+            }
+            
+            // Modal aç ve template'leri listele (edit mode için)
+            const modal = document.getElementById('templateLoadModal');
+            const list = document.getElementById('templateLoadList');
+            
+            list.innerHTML = templates.map((template, index) => {
+                const date = new Date(template.createdAt).toLocaleDateString('tr-TR');
+                const time = new Date(template.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                const hasImage = template.imageData ? '✅' : '❌';
+                const regionCount = template.regions?.length || 0;
+                
+                return `
+                    <div class="template-load-item" onclick="selectTemplateToEdit(${index})" style="padding: 15px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.3s; background: white;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                            <div style="font-weight: 600; color: #2c5f2d; font-size: 1.1em;">${template.supplier}</div>
+                            <div style="font-size: 0.85em; color: #666;">${date} ${time}</div>
+                        </div>
+                        <div style="display: flex; gap: 15px; font-size: 0.9em; color: #555;">
+                            <span>${hasImage} Görsel</span>
+                            <span>📍 ${regionCount} Bölge</span>
+                            <span>📊 v${template.version || '1.0'}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            modal.style.display = 'flex';
+        }
+        
         // ==================== Initialization ====================
         document.addEventListener('DOMContentLoaded', function() {
             // PDF.js worker ayarla (global)
@@ -12157,46 +12197,6 @@
                 
                 return `
                     <div class="template-load-item" onclick="selectTemplateToLoad(${index})" style="padding: 15px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.3s; background: white;">
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                            <div style="font-weight: 600; color: #2c5f2d; font-size: 1.1em;">${template.supplier}</div>
-                            <div style="font-size: 0.85em; color: #666;">${date} ${time}</div>
-                        </div>
-                        <div style="display: flex; gap: 15px; font-size: 0.9em; color: #555;">
-                            <span>${hasImage} Görsel</span>
-                            <span>📍 ${regionCount} Bölge</span>
-                            <span>📊 v${template.version || '1.0'}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            
-            modal.style.display = 'flex';
-        }
-        
-        // Template'i düzenlemek için yükle
-        async function editExistingTemplate() {
-            // Google Sheets'ten template'leri yükle
-            await loadTemplatesFromGoogleSheets();
-            
-            const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
-            
-            if (templates.length === 0) {
-                showToast('⚠️ Kayıtlı template bulunamadı! Lütfen önce template oluşturun.', 'warning');
-                return;
-            }
-            
-            // Modal aç ve template'leri listele (edit mode için)
-            const modal = document.getElementById('templateLoadModal');
-            const list = document.getElementById('templateLoadList');
-            
-            list.innerHTML = templates.map((template, index) => {
-                const date = new Date(template.createdAt).toLocaleDateString('tr-TR');
-                const time = new Date(template.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-                const hasImage = template.imageData ? '✅' : '❌';
-                const regionCount = template.regions?.length || 0;
-                
-                return `
-                    <div class="template-load-item" onclick="selectTemplateToEdit(${index})" style="padding: 15px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.3s; background: white;">
                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                             <div style="font-weight: 600; color: #2c5f2d; font-size: 1.1em;">${template.supplier}</div>
                             <div style="font-size: 0.85em; color: #666;">${date} ${time}</div>
