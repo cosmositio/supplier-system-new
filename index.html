@@ -7871,7 +7871,7 @@
                                     // Puan her zaman 100% (erken teslimat)
                                     if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
                                     supplierData.terminByMonth.get(month).push(100);
-                                    console.log(`📅 Excel (NEGATİF): ${normalizedSupplier} Ay ${month} → Gün: ${value.toFixed(1)}, Puan: 100%`);
+                                    console.log(`📅 Excel (NEGATİF): ${normalizedSupplier} Ay ${month} → Gün: ${Math.round(value)}, Puan: 100%`);
                                 } else {
                                     // POZİTİF DEĞER = PUAN 
                                     if (!supplierData.terminByMonth.has(month)) supplierData.terminByMonth.set(month, []);
@@ -7891,7 +7891,7 @@
                                 // Gerçek gün değerini de sakla (tabloda göstermek için)
                                 if (!supplierData.terminGunByMonth.has(month)) supplierData.terminGunByMonth.set(month, []);
                                 supplierData.terminGunByMonth.get(month).push(gecikmeGun);
-                                console.log(`📅 Excel: ${normalizedSupplier} Ay ${month} → Gün: ${gecikmeGun.toFixed(1)}, Puan: ${puan.toFixed(1)}%`);
+                                console.log(`📅 Excel: ${normalizedSupplier} Ay ${month} → Gün: ${Math.round(gecikmeGun)}, Puan: ${puan.toFixed(1)}%`);
                             }
                         });
                         
@@ -8103,7 +8103,13 @@
                     let allPpmPuanValues = [];
                     
                     months.forEach(m => {
-                        if (md.terminByMonth.has(m)) {
+                        // Gerçek gün değeri varsa, ondan puan hesapla (Excel'deki puan yerine)
+                        if (md.terminGunByMonth.has(m)) {
+                            const gunArr = md.terminGunByMonth.get(m);
+                            gunArr.forEach(gun => {
+                                allTermValues.push(gecikmeGunToTerminPuan(gun));
+                            });
+                        } else if (md.terminByMonth.has(m)) {
                             const arr = md.terminByMonth.get(m);
                             allTermValues.push(...arr);
                         }
