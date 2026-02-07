@@ -8262,10 +8262,50 @@
                 
                 const cleanedCoaValue = coaValue.trim();
                 
-                // TDS'te bu özelliği bul
+                // TDS'te bu özelliği bul - Fuzzy matching ile
+                // 1. Tam eşleşme dene
                 let tdsProp = tdsProperties.find(p => 
                     p.name && p.name.toLowerCase() === propertyName.toLowerCase()
                 );
+                
+                // 2. Tam eşleşme yoksa, normalize edilmiş eşleşme dene
+                if (!tdsProp) {
+                    const normalizeText = (text) => {
+                        return text.toLowerCase()
+                            .replace(/\s+/g, ' ')  // Çoklu boşlukları tek boşluğa çevir
+                            .replace(/\n/g, ' ')   // Satır sonları → boşluk
+                            .replace(/ğ/g, 'g').replace(/ı/g, 'i')  // Türkçe → İngilizce
+                            .replace(/ş/g, 's').replace(/ç/g, 'c')
+                            .replace(/ö/g, 'o').replace(/ü/g, 'u')
+                            .trim();
+                    };
+                    
+                    const normalizedProp = normalizeText(propertyName);
+                    
+                    tdsProp = tdsProperties.find(p => {
+                        if (!p.name) return false;
+                        const normalizedTDS = normalizeText(p.name);
+                        
+                        // Tam normalize eşleşme
+                        if (normalizedTDS === normalizedProp) return true;
+                        
+                        // Kelime bazlı eşleşme: "TASIYICI AGIRLIK" içinde "AGIRLIK" var mı?
+                        const tdsWords = normalizedTDS.split(' ');
+                        const propWords = normalizedProp.split(' ');
+                        
+                        // Eğer prop tek kelimeyse ve TDS içinde geçiyorsa eşleşir
+                        if (propWords.length === 1 && tdsWords.includes(propWords[0])) return true;
+                        
+                        // Tersi: TDS tek kelimeyse ve prop içinde geçiyorsa
+                        if (tdsWords.length === 1 && propWords.includes(tdsWords[0])) return true;
+                        
+                        return false;
+                    });
+                    
+                    if (tdsProp) {
+                        console.log(`🔗 Fuzzy match: "${propertyName}" → "${tdsProp.name}"`);
+                    }
+                }
                 
                 if (!tdsProp) {
                     // TDS'te yok, yeni property olarak ekle
@@ -8666,12 +8706,50 @@
             
             let addedCount = 0;
             
+            // Normalize function (fuzzy matching için)
+            const normalizeText = (text) => {
+                return text.toLowerCase()
+                    .replace(/\s+/g, ' ')  // Çoklu boşlukları tek boşluğa çevir
+                    .replace(/\n/g, ' ')   // Satır sonları → boşluk
+                    .replace(/ğ/g, 'g').replace(/ı/g, 'i')  // Türkçe → İngilizce
+                    .replace(/ş/g, 's').replace(/ç/g, 'c')
+                    .replace(/ö/g, 'o').replace(/ü/g, 'u')
+                    .trim();
+            };
+            
             // Her bir özellik adı için
             propertyNames.forEach(propertyName => {
-                // Bu property TDS'te var mı kontrol et
-                const exists = tds.properties.some(p => 
+                // 1. Tam eşleşme dene
+                let exists = tds.properties.some(p => 
                     p.name && p.name.toLowerCase() === propertyName.toLowerCase()
                 );
+                
+                // 2. Tam eşleşme yoksa fuzzy matching
+                if (!exists) {
+                    const normalizedProp = normalizeText(propertyName);
+                    
+                    exists = tds.properties.some(p => {
+                        if (!p.name) return false;
+                        const normalizedTDS = normalizeText(p.name);
+                        
+                        // Tam normalize eşleşme
+                        if (normalizedTDS === normalizedProp) return true;
+                        
+                        // Kelime bazlı eşleşme
+                        const tdsWords = normalizedTDS.split(' ');
+                        const propWords = normalizedProp.split(' ');
+                        
+                        // Tek kelime → içinde geçiyor mu?
+                        if (propWords.length === 1 && tdsWords.includes(propWords[0])) return true;
+                        if (tdsWords.length === 1 && propWords.includes(tdsWords[0])) return true;
+                        
+                        return false;
+                    });
+                    
+                    if (exists) {
+                        console.log(`🔗 Fuzzy match (template): "${propertyName}" zaten var (benzer eşleşme)`);
+                    }
+                }
                 
                 if (!exists) {
                     // Yoksa yeni property ekle (sadece ad, diğer alanlar boş)
@@ -8742,10 +8820,48 @@
                 
                 if (!coaValue || coaValue.trim() === '') continue;
                 
-                // Bu property TDS'te var mı kontrol et
+                // TDS'te bu property'yi bul - Fuzzy matching ile
+                const normalizeText = (text) => {
+                    return text.toLowerCase()
+                        .replace(/\s+/g, ' ')  // Çoklu boşlukları tek boşluğa çevir
+                        .replace(/\n/g, ' ')   // Satır sonları → boşluk
+                        .replace(/ğ/g, 'g').replace(/ı/g, 'i')  // Türkçe → İngilizce
+                        .replace(/ş/g, 's').replace(/ç/g, 'c')
+                        .replace(/ö/g, 'o').replace(/ü/g, 'u')
+                        .trim();
+                };
+                
+                // 1. Tam eşleşme dene
                 let existingProp = tds.properties.find(p => 
                     p.name && p.name.toLowerCase() === propertyName.toLowerCase()
                 );
+                
+                // 2. Tam eşleşme yoksa fuzzy matching
+                if (!existingProp) {
+                    const normalizedProp = normalizeText(propertyName);
+                    
+                    existingProp = tds.properties.find(p => {
+                        if (!p.name) return false;
+                        const normalizedTDS = normalizeText(p.name);
+                        
+                        // Tam normalize eşleşme
+                        if (normalizedTDS === normalizedProp) return true;
+                        
+                        // Kelime bazlı eşleşme
+                        const tdsWords = normalizedTDS.split(' ');
+                        const propWords = normalizedProp.split(' ');
+                        
+                        // Tek kelime → içinde geçiyor mu?
+                        if (propWords.length === 1 && tdsWords.includes(propWords[0])) return true;
+                        if (tdsWords.length === 1 && propWords.includes(tdsWords[0])) return true;
+                        
+                        return false;
+                    });
+                    
+                    if (existingProp) {
+                        console.log(`🔗 Fuzzy match (save): "${propertyName}" → "${existingProp.name}"`);
+                    }
+                }
                 
                 if (existingProp) {
                     // Varsa COA değerini ve durumunu güncelle
