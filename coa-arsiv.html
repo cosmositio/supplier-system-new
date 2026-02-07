@@ -2260,6 +2260,190 @@
             }
         }
         
+        async function saveTemplate() {
+            const supplierName = document.getElementById('templateSupplierName').value.trim();
+            
+            if (!supplierName) {
+                alert('Lütfen tedarikçi adı girin!');
+                return;
+            }
+            
+            if (templateRegions.length === 0) {
+                alert('Lütfen en az bir bölge işaretleyin!');
+                return;
+            }
+            
+            // Mevcut template'leri yükle ve aynı supplier'ı bul
+            const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
+            const existingIndex = templates.findIndex(t => {
+                const tSupplier = (t.template?.supplier || t.supplier || '').trim().toLowerCase();
+                return tSupplier === supplierName.toLowerCase();
+            });
+            
+            let newVersion = '1.0';
+            let isUpdate = false;
+            
+            if (existingIndex !== -1) {
+                // Mevcut template var - version'ı artır
+                const existing = templates[existingIndex].template || templates[existingIndex];
+                const currentVersion = existing.version || '1.0';
+                const [major, minor] = currentVersion.split('.').map(Number);
+                
+                // Minor version artır (1.0 -> 1.1 -> 1.2 ...)
+                newVersion = `${major}.${minor + 1}`;
+                isUpdate = true;
+                
+                console.log(`🔄 Mevcut template güncelleniyor: v${currentVersion} → v${newVersion}`);
+            } else {
+                console.log('➕ Yeni template oluşturuluyor: v1.0');
+            }
+            
+            // Orijinal görseli kaydet (bölgeler olmadan)
+            let originalImageData = null;
+            if (templateImageObj) {
+                // Geçici canvas oluştur ve sadece görseli çiz (bölgeler olmadan)
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = templateCanvas.width;
+                tempCanvas.height = templateCanvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(templateImageObj, 0, 0, templateCanvas.width, templateCanvas.height);
+                originalImageData = tempCanvas.toDataURL('image/png', 1.0);
+                console.log('📸 Orijinal görsel kaydedildi (bölgeler olmadan)');
+            }
+            
+            const template = {
+                supplier: supplierName,
+                version: newVersion,
+                createdAt: new Date().toISOString(),
+                canvasWidth: templateCanvas.width,
+                canvasHeight: templateCanvas.height,
+                scaleFactor: templateScaleFactor,
+                imageData: originalImageData || templateCanvas.toDataURL('image/png', 1.0), // Orijinal görsel (bölgeler olmadan)
+                regions: templateRegions.map(r => ({
+                    propertyName: r.propertyName,
+                    type: r.type,
+                    x: Math.round(r.x / templateScaleFactor),
+                    y: Math.round(r.y / templateScaleFactor),
+                    width: Math.round(r.width / templateScaleFactor),
+                    height: Math.round(r.height / templateScaleFactor)
+                }))
+            };
+            
+            // Save to localStorage and Google Sheets
+            try {
+                if (isUpdate) {
+                    // Mevcut template'i güncelle
+                    templates[existingIndex] = template;
+                    console.log(`✅ Template güncellendi: ${supplierName} v${newVersion}`);
+                } else {
+                    // Yeni template ekle
+                    templates.push(template);
+                    console.log(`✅ Yeni template eklendi: ${supplierName} v${newVersion}`);
+                }
+                
+                localStorage.setItem('coaTemplates', JSON.stringify(templates));
+                
+                showToast(`💾 Template kaydediliyor (v${newVersion})...`, 'info');
+                
+                // Google Sheets'e kaydet
+                await saveTemplateToGoogleSheets(template, isUpdate);
+                
+                // Edit mode değişkenlerini temizle
+                if (window.currentEditingTemplate) {
+                    console.log('✅ Edit mode tamamlandı. Değişkenler temizleniyor.');
+                    window.currentEditingTemplate = null;
+                    window.currentEditingTemplateIndex = null;
+                }
+                
+            } catch (error) {
+                console.error('❌ Template kaydetme hatası:', error);
+                alert('❌ Template kaydetme hatası: ' + error.message);
+            }
+        }
+        
+        async function saveTemplateToGoogleSheets(template, isUpdate = false) {
+            console.log('💾 Template localStorage\'da kaydedildi');
+            
+            // Google Sheets'e kaydet (XMLHttpRequest POST)
+            if (googleScriptUrl) {
+                try {
+                    // Her zaman saveTemplate action kullan (backend zaten update/insert karar veriyor)
+                    console.log(`📤 Google Sheets'e template gönderiliyor (${isUpdate ? 'GÜNCELLEME' : 'YENİ'})...`);
+                    
+                    // Template'i imageData ile birlikte gönder (Drive'a yüklenecek)
+                    const templateForSheets = {
+                        supplier: template.supplier,
+                        version: template.version,
+                        createdAt: template.createdAt,
+                        canvasWidth: template.canvasWidth,
+                        canvasHeight: template.canvasHeight,
+                        scaleFactor: template.scaleFactor,
+                        imageData: template.imageData, // Drive'a yüklenecek
+                        regions: template.regions
+                    };
+                    
+                    const result = await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.timeout = 15000;
+                        
+                        xhr.onload = function() {
+                            if (xhr.status === 200) {
+                                try {
+                                    resolve(JSON.parse(xhr.responseText));
+                                } catch(e) {
+                                    reject(new Error('JSON parse hatası'));
+                                }
+                            } else {
+                                reject(new Error('HTTP ' + xhr.status));
+                            }
+                        };
+                        
+                        xhr.onerror = () => reject(new Error('Network error'));
+                        xhr.ontimeout = () => reject(new Error('Timeout'));
+                        
+                        xhr.open('POST', googleScriptUrl, true);
+                        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                        
+                        const formData = new URLSearchParams();
+                        formData.append('action', 'saveTemplate'); // Her zaman saveTemplate
+                        formData.append('template', JSON.stringify(templateForSheets));
+                        
+                        xhr.send(formData.toString());
+                    });
+                    
+                    if (result && result.success) {
+                        console.log(`✅ Template Google Sheets'e ${isUpdate ? 'güncellendi' : 'kaydedildi'}: v${template.version}`);
+                        showToast(`✅ Template başarıyla ${isUpdate ? 'güncellendi' : 'kaydedildi'} (v${template.version})!`, 'success', 5000);
+                        
+                        // Template listesini güncelle
+                        await loadTemplatesFromGoogleSheets();
+                    } else {
+                        console.warn('⚠️ Template kaydedilemedi:', result?.error);
+                        showToast('⚠️ Template sadece local\'de', 'warning');
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Google Sheets template kaydetme hatası:', error.message);
+                    showToast('⚠️ Template sadece local\'de', 'warning');
+                }
+            }
+            
+            closeTemplateEditor();
+        }
+        
+        async function saveTemplateWithImage() {
+            // Sadece Google Sheets'e kaydet (JSON indirme kaldırıldı)
+            await saveTemplate();
+        }
+        
+        function closeTemplateEditor() {
+            document.getElementById('templateEditorModal').classList.remove('show');
+            document.getElementById('templateModeCheckbox').checked = false;
+            templateMode = false;
+            templateRegions = [];
+            selectedTemplateRegionIndex = null;
+            pendingTemplateFile = null;
+        }
+        
         // ==================== Initialization ====================
         document.addEventListener('DOMContentLoaded', function() {
             // PDF.js worker ayarla (global)
@@ -12161,182 +12345,6 @@
             }
         }
         
-        async function saveTemplate() {
-            const supplierName = document.getElementById('templateSupplierName').value.trim();
-            
-            if (!supplierName) {
-                alert('Lütfen tedarikçi adı girin!');
-                return;
-            }
-            
-            if (templateRegions.length === 0) {
-                alert('Lütfen en az bir bölge işaretleyin!');
-                return;
-            }
-            
-            // Mevcut template'leri yükle ve aynı supplier'ı bul
-            const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
-            const existingIndex = templates.findIndex(t => {
-                const tSupplier = (t.template?.supplier || t.supplier || '').trim().toLowerCase();
-                return tSupplier === supplierName.toLowerCase();
-            });
-            
-            let newVersion = '1.0';
-            let isUpdate = false;
-            
-            if (existingIndex !== -1) {
-                // Mevcut template var - version'ı artır
-                const existing = templates[existingIndex].template || templates[existingIndex];
-                const currentVersion = existing.version || '1.0';
-                const [major, minor] = currentVersion.split('.').map(Number);
-                
-                // Minor version artır (1.0 -> 1.1 -> 1.2 ...)
-                newVersion = `${major}.${minor + 1}`;
-                isUpdate = true;
-                
-                console.log(`🔄 Mevcut template güncelleniyor: v${currentVersion} → v${newVersion}`);
-            } else {
-                console.log('➕ Yeni template oluşturuluyor: v1.0');
-            }
-            
-            // Orijinal görseli kaydet (bölgeler olmadan)
-            let originalImageData = null;
-            if (templateImageObj) {
-                // Geçici canvas oluştur ve sadece görseli çiz (bölgeler olmadan)
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = templateCanvas.width;
-                tempCanvas.height = templateCanvas.height;
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCtx.drawImage(templateImageObj, 0, 0, templateCanvas.width, templateCanvas.height);
-                originalImageData = tempCanvas.toDataURL('image/png', 1.0);
-                console.log('📸 Orijinal görsel kaydedildi (bölgeler olmadan)');
-            }
-            
-            const template = {
-                supplier: supplierName,
-                version: newVersion,
-                createdAt: new Date().toISOString(),
-                canvasWidth: templateCanvas.width,
-                canvasHeight: templateCanvas.height,
-                scaleFactor: templateScaleFactor,
-                imageData: originalImageData || templateCanvas.toDataURL('image/png', 1.0), // Orijinal görsel (bölgeler olmadan)
-                regions: templateRegions.map(r => ({
-                    propertyName: r.propertyName,
-                    type: r.type,
-                    x: Math.round(r.x / templateScaleFactor),
-                    y: Math.round(r.y / templateScaleFactor),
-                    width: Math.round(r.width / templateScaleFactor),
-                    height: Math.round(r.height / templateScaleFactor)
-                }))
-            };
-            
-            // Save to localStorage and Google Sheets
-            try {
-                if (isUpdate) {
-                    // Mevcut template'i güncelle
-                    templates[existingIndex] = template;
-                    console.log(`✅ Template güncellendi: ${supplierName} v${newVersion}`);
-                } else {
-                    // Yeni template ekle
-                    templates.push(template);
-                    console.log(`✅ Yeni template eklendi: ${supplierName} v${newVersion}`);
-                }
-                
-                localStorage.setItem('coaTemplates', JSON.stringify(templates));
-                
-                showToast(`💾 Template kaydediliyor (v${newVersion})...`, 'info');
-                
-                // Google Sheets'e kaydet
-                await saveTemplateToGoogleSheets(template, isUpdate);
-                
-                // Edit mode değişkenlerini temizle
-                if (window.currentEditingTemplate) {
-                    console.log('✅ Edit mode tamamlandı. Değişkenler temizleniyor.');
-                    window.currentEditingTemplate = null;
-                    window.currentEditingTemplateIndex = null;
-                }
-                
-            } catch (error) {
-                console.error('❌ Template kaydetme hatası:', error);
-                alert('❌ Template kaydetme hatası: ' + error.message);
-            }
-        }
-        
-        async function saveTemplateToGoogleSheets(template, isUpdate = false) {
-            console.log('💾 Template localStorage\'da kaydedildi');
-            
-            // Google Sheets'e kaydet (XMLHttpRequest POST)
-            if (googleScriptUrl) {
-                try {
-                    // Her zaman saveTemplate action kullan (backend zaten update/insert karar veriyor)
-                    console.log(`📤 Google Sheets'e template gönderiliyor (${isUpdate ? 'GÜNCELLEME' : 'YENİ'})...`);
-                    
-                    // Template'i imageData ile birlikte gönder (Drive'a yüklenecek)
-                    const templateForSheets = {
-                        supplier: template.supplier,
-                        version: template.version,
-                        createdAt: template.createdAt,
-                        canvasWidth: template.canvasWidth,
-                        canvasHeight: template.canvasHeight,
-                        scaleFactor: template.scaleFactor,
-                        imageData: template.imageData, // Drive'a yüklenecek
-                        regions: template.regions
-                    };
-                    
-                    const result = await new Promise((resolve, reject) => {
-                        const xhr = new XMLHttpRequest();
-                        xhr.timeout = 15000;
-                        
-                        xhr.onload = function() {
-                            if (xhr.status === 200) {
-                                try {
-                                    resolve(JSON.parse(xhr.responseText));
-                                } catch(e) {
-                                    reject(new Error('JSON parse hatası'));
-                                }
-                            } else {
-                                reject(new Error('HTTP ' + xhr.status));
-                            }
-                        };
-                        
-                        xhr.onerror = () => reject(new Error('Network error'));
-                        xhr.ontimeout = () => reject(new Error('Timeout'));
-                        
-                        xhr.open('POST', googleScriptUrl, true);
-                        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                        
-                        const formData = new URLSearchParams();
-                        formData.append('action', 'saveTemplate'); // Her zaman saveTemplate
-                        formData.append('template', JSON.stringify(templateForSheets));
-                        
-                        xhr.send(formData.toString());
-                    });
-                    
-                    if (result && result.success) {
-                        console.log(`✅ Template Google Sheets'e ${isUpdate ? 'güncellendi' : 'kaydedildi'}: v${template.version}`);
-                        showToast(`✅ Template başarıyla ${isUpdate ? 'güncellendi' : 'kaydedildi'} (v${template.version})!`, 'success', 5000);
-                        
-                        // Template listesini güncelle
-                        await loadTemplatesFromGoogleSheets();
-                    } else {
-                        console.warn('⚠️ Template kaydedilemedi:', result?.error);
-                        showToast('⚠️ Template sadece local\'de', 'warning');
-                    }
-                } catch (error) {
-                    console.warn('⚠️ Google Sheets template kaydetme hatası:', error.message);
-                    showToast('⚠️ Template sadece local\'de', 'warning');
-                }
-            }
-            
-            closeTemplateEditor();
-        }
-        
-        // Template'i görsel ile kaydet ve indir
-        async function saveTemplateWithImage() {
-            // Sadece Google Sheets'e kaydet (JSON indirme kaldırıldı)
-            await saveTemplate();
-        }
-        
         // Template'i görsel ile yükle - Google Sheets'ten
         async function loadTemplateWithImage() {
             // Template editor açıkken template yükle modalını aç
@@ -12481,14 +12489,6 @@
             }
         }
         
-        function closeTemplateEditor() {
-            document.getElementById('templateEditorModal').classList.remove('show');
-            document.getElementById('templateModeCheckbox').checked = false;
-            templateMode = false;
-            templateRegions = [];
-            selectedTemplateRegionIndex = null;
-            pendingTemplateFile = null;
-        }
     }
     </script>
 </body>
