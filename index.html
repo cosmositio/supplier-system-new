@@ -7725,6 +7725,9 @@
                     // Eğer "gün" veya "gecik" kelimesi varsa değer GÜN olarak gelmiş demektir
                     if (headerLower.includes('gün') || headerLower.includes('gun') || headerLower.includes('gecik')) {
                         isTerminDays = true;
+                        console.log(`✅ GÜN SÜTUNU BULUNDU: "${header}" → isTerminDays=true`);
+                    } else {
+                        console.log(`ℹ️ Termin sütunu (puan): "${header}"`);
                     }
                 } else if (headerLower.includes('puan')) {
                     // Sadece "Puan" yazıyorsa, Termin olarak kabul et
@@ -7871,6 +7874,7 @@
                                 // Gerçek gün değerini de sakla (tabloda göstermek için)
                                 if (!supplierData.terminGunByMonth.has(month)) supplierData.terminGunByMonth.set(month, []);
                                 supplierData.terminGunByMonth.get(month).push(gecikmeGun);
+                                console.log(`📅 Excel: ${normalizedSupplier} Ay ${month} → Gün: ${gecikmeGun.toFixed(1)}, Puan: ${puan.toFixed(1)}%`);
                             }
                         });
                         
@@ -19560,6 +19564,9 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
         
         // Modal tabloları dolduran fonksiyon
         function populateModalTables(supplier, months, monthLabels, ppmSeries, terminSeries, completionSeries) {
+            console.log(`📊 populateModalTables çağrıldı: ${supplier.name}`);
+            console.log(`   monthlyTerminGecikmeGun:`, supplier.monthlyTerminGecikmeGun);
+            
             // PPM Tablosu (Yatay - aylar sütunlarda)
             const ppmTableDiv = document.getElementById('modalTablePPM');
             if (ppmTableDiv) {
@@ -19620,10 +19627,17 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                                         const puan = terminSeries[idx] || 100;
                                         // Önce gerçek gün değerine bak (Excel'den gelen), yoksa puandan hesapla
                                         let gun;
-                                        if (supplier.monthlyTerminGecikmeGun && supplier.monthlyTerminGecikmeGun[m-1] !== null && supplier.monthlyTerminGecikmeGun[m-1] !== undefined) {
-                                            gun = supplier.monthlyTerminGecikmeGun[m-1]; // Gerçek değer
+                                        const gecikmeGunArr = supplier.monthlyTerminGecikmeGun;
+                                        const hasRealValue = gecikmeGunArr && gecikmeGunArr[m-1] !== null && gecikmeGunArr[m-1] !== undefined;
+                                        
+                                        console.log(`🔍 Modal Tablo: ${supplier.name} Ay ${m}, idx=${idx}, m-1=${m-1}, hasArray=${!!gecikmeGunArr}, hasValue=${hasRealValue}, value=${hasRealValue ? gecikmeGunArr[m-1] : 'N/A'}`);
+                                        
+                                        if (hasRealValue) {
+                                            gun = gecikmeGunArr[m-1]; // Gerçek değer (EKSİ GÜNLER DAHİL!)
+                                            console.log(`✅ GERÇEK GÜN KULLANILDI: ${gun.toFixed(2)}`);
                                         } else {
                                             gun = terminPuanToGecikmeGun(puan); // Puandan hesapla
+                                            console.log(`⚠️ Puandan hesaplandı: ${gun.toFixed(2)}`);
                                         }
                                         const gunText = gun > 0 ? `+${gun.toFixed(1)}` : gun < 0 ? gun.toFixed(1) : '0.0';
                                         const color = gun > 0 ? '#d32f2f' : gun < 0 ? '#388e3c' : '#666';
