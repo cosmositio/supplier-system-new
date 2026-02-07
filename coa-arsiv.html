@@ -1535,9 +1535,9 @@
                 <strong>📋 Talimatlar:</strong>
                 <ol style="margin: 8px 0 0 20px; padding: 0;">
                     <li>Mouse ile sürükleyerek her özellik için 2 bölge çizin: (1) Özellik adı (sol), (2) COA değeri (requirement sütunu)</li>
-                    <li>"💾 Template Kaydet" ile Google Sheets'e kaydet + JSON dosyası olarak indir</li>
-                    <li>İndirilen JSON'u güvenli yerde sakla (Google Drive önerilir)</li>
-                    <li>"📂 Template Yükle" ile JSON yükle - görsel ve bölgeler birebir gelecek!</li>
+                    <li>"💾 Template Kaydet" ile Google Sheets'e kaydet (Mevcut varsa version artar: v1.0→v1.1→v1.2...)</li>
+                    <li>Seçili bölgelere tıklayarak düzenleyin: Taşı, yeniden boyutlandır, sil</li>
+                    <li>"📂 Template Yükle" ile Google Sheets'ten geri çağır - görsel ve bölgeler birebir gelecek!</li>
                 </ol>
             </div>
             
@@ -11594,14 +11594,39 @@
                 return;
             }
             
+            // Mevcut template'leri yükle ve aynı supplier'ı bul
+            const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
+            const existingIndex = templates.findIndex(t => {
+                const tSupplier = (t.template?.supplier || t.supplier || '').trim().toLowerCase();
+                return tSupplier === supplierName.toLowerCase();
+            });
+            
+            let newVersion = '1.0';
+            let isUpdate = false;
+            
+            if (existingIndex !== -1) {
+                // Mevcut template var - version'ı artır
+                const existing = templates[existingIndex].template || templates[existingIndex];
+                const currentVersion = existing.version || '1.0';
+                const [major, minor] = currentVersion.split('.').map(Number);
+                
+                // Minor version artır (1.0 -> 1.1 -> 1.2 ...)
+                newVersion = `${major}.${minor + 1}`;
+                isUpdate = true;
+                
+                console.log(`🔄 Mevcut template güncelleniyor: v${currentVersion} → v${newVersion}`);
+            } else {
+                console.log('➕ Yeni template oluşturuluyor: v1.0');
+            }
+            
             const template = {
                 supplier: supplierName,
-                version: '1.0',
+                version: newVersion,
                 createdAt: new Date().toISOString(),
                 canvasWidth: templateCanvas.width,
                 canvasHeight: templateCanvas.height,
                 scaleFactor: templateScaleFactor,
-                imageData: templateCanvas.toDataURL('image/png'), // Canvas görselini kaydet
+                imageData: templateCanvas.toDataURL('image/png'),
                 regions: templateRegions.map(r => ({
                     propertyName: r.propertyName,
                     type: r.type,
@@ -11614,16 +11639,22 @@
             
             // Save to localStorage and Google Sheets
             try {
-                // LocalStorage'a kaydet
-                const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
-                templates.push(template);
+                if (isUpdate) {
+                    // Mevcut template'i güncelle
+                    templates[existingIndex] = template;
+                    console.log(`✅ Template güncellendi: ${supplierName} v${newVersion}`);
+                } else {
+                    // Yeni template ekle
+                    templates.push(template);
+                    console.log(`✅ Yeni template eklendi: ${supplierName} v${newVersion}`);
+                }
+                
                 localStorage.setItem('coaTemplates', JSON.stringify(templates));
-                console.log('✅ Template localStorage\'a kaydedildi');
                 
-                showToast('💾 Template kaydediliyor...', 'info');
+                showToast(`💾 Template kaydediliyor (v${newVersion})...`, 'info');
                 
-                // Google Sheets'e kaydet (fetch ile)
-                await saveTemplateToGoogleSheets(template);
+                // Google Sheets'e kaydet
+                await saveTemplateToGoogleSheets(template, isUpdate);
                 
             } catch (error) {
                 console.error('❌ Template kaydetme hatası:', error);
@@ -11631,13 +11662,14 @@
             }
         }
         
-        async function saveTemplateToGoogleSheets(template) {
+        async function saveTemplateToGoogleSheets(template, isUpdate = false) {
             console.log('💾 Template localStorage\'da kaydedildi');
             
             // Google Sheets'e kaydet (XMLHttpRequest POST)
             if (googleScriptUrl) {
                 try {
-                    console.log('📤 Google Sheets\'e template gönderiliyor (XMLHttpRequest POST)...');
+                    const actionType = isUpdate ? 'updateTemplate' : 'saveTemplate';
+                    console.log(`📤 Google Sheets'e template gönderiliyor (${isUpdate ? 'GÜNCELLEME' : 'YENİ'})...`);
                     
                     // imageData olmadan template gönder, regions ile birlikte
                     const templateForSheets = {
@@ -11673,15 +11705,15 @@
                         xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
                         
                         const formData = new URLSearchParams();
-                        formData.append('action', 'saveTemplate');
+                        formData.append('action', actionType);
                         formData.append('template', JSON.stringify(templateForSheets));
                         
                         xhr.send(formData.toString());
                     });
                     
                     if (result && result.success) {
-                        console.log('✅ Template Google Sheets\'e kaydedildi');
-                        showToast('✅ Template başarıyla kaydedildi!', 'success');
+                        console.log(`✅ Template Google Sheets'e ${isUpdate ? 'güncellendi' : 'kaydedildi'}: v${template.version}`);
+                        showToast(`✅ Template başarıyla ${isUpdate ? 'güncellendi' : 'kaydedildi'} (v${template.version})!`, 'success', 5000);
                         
                         // Template listesini güncelle
                         await loadTemplatesFromGoogleSheets();
@@ -11700,49 +11732,8 @@
         
         // Template'i görsel ile kaydet ve indir
         async function saveTemplateWithImage() {
-            const supplierName = document.getElementById('templateSupplierName').value.trim();
-            
-            if (!supplierName) {
-                alert('Lütfen tedarikçi adı girin!');
-                return;
-            }
-            
-            if (templateRegions.length === 0) {
-                alert('Lütfen en az bir bölge işaretleyin!');
-                return;
-            }
-            
-            const template = {
-                supplier: supplierName,
-                version: '1.0',
-                createdAt: new Date().toISOString(),
-                canvasWidth: templateCanvas.width,
-                canvasHeight: templateCanvas.height,
-                scaleFactor: templateScaleFactor,
-                imageData: templateCanvas.toDataURL('image/png'),
-                regions: templateRegions.map(r => ({
-                    propertyName: r.propertyName,
-                    type: r.type,
-                    x: Math.round(r.x / templateScaleFactor),
-                    y: Math.round(r.y / templateScaleFactor),
-                    width: Math.round(r.width / templateScaleFactor),
-                    height: Math.round(r.height / templateScaleFactor)
-                }))
-            };
-            
-            // Google Sheets'e kaydet
+            // Sadece Google Sheets'e kaydet (JSON indirme kaldırıldı)
             await saveTemplate();
-            
-            // JSON dosyası olarak indir
-            const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `template_${supplierName.toLowerCase().replace(/\\s+/g, '_')}_${new Date().getTime()}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            
-            showToast('✅ Template kaydedildi ve indirildi!', 'success');
         }
         
         // Template'i görsel ile yükle - Google Sheets'ten
