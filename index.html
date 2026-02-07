@@ -19342,6 +19342,14 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                         console.log('Kontrol - değişen index:', snapshotArray[monthIndex]);
                         console.log('Supplier referansı:', supplier.name);
                         
+                        // Puandan gün sayısını hesapla ve güncelle
+                        const yeniGun = terminPuanToGecikmeGun(newValue);
+                        if (!supplier.monthlyTerminGecikmeGun) {
+                            supplier.monthlyTerminGecikmeGun = Array(12).fill(null);
+                        }
+                        supplier.monthlyTerminGecikmeGun[monthIndex] = yeniGun;
+                        console.log(`📅 Gün değeri güncellendi: Ay ${targetMonth} → ${Math.round(yeniGun)} gün (puan: ${newValue}%)`);
+                        
                         // MANUEL DÜZENLEME KAYDI - Excel yüklendiğinde korunması için
                         if (!manualMonthlyEdits[supplier.name]) {
                             manualMonthlyEdits[supplier.name] = { termin: [], tamamlanma: [] };
