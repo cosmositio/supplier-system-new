@@ -2462,6 +2462,30 @@
             templateRegions = [];
             selectedTemplateRegionIndex = null;
             pendingTemplateFile = null;
+            editingRegionIndex = null;
+        }
+        
+        // Bölge düzenleme fonksiyonu (HTML inline handler'dan erişilebilir olmalı)
+        function editTemplateRegion(index) {
+            editingRegionIndex = index;
+            const region = templateRegions[index];
+            
+            // Modal'ı aç ve mevcut değerleri yükle
+            document.getElementById('templateRegionModal').classList.add('show');
+            document.getElementById('templatePropertyName').value = region.propertyName || '';
+            document.getElementById('templateRegionType').value = region.type || 'value';
+            
+            const ocrInput = document.getElementById('templateOcrValue');
+            if (ocrInput) {
+                ocrInput.value = region.ocrValue || '';
+                ocrInput.placeholder = 'OCR değeri';
+                ocrInput.style.background = '#ffffff';
+            }
+            
+            // currentTemplateRegion'u güncelle (resize/drag için)
+            currentTemplateRegion = { ...region };
+            
+            console.log('✏️ Bölge düzenleme modu:', region.propertyName);
         }
         
         function toggleTemplateMode() {
