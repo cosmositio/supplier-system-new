@@ -19383,34 +19383,34 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             const ppmTableDiv = document.getElementById('modalTablePPM');
             if (ppmTableDiv) {
                 let ppmHTML = `
-                    <div style="overflow-x: auto; margin-left: 130px; margin-right: 100px;">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.65em; min-width: fit-content;">
+                    <div style="padding-left: 130px; padding-right: 100px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.75em;">
                             <thead>
                                 <tr style="background: #ff9800; color: white;">
-                                    <th style="padding: 4px 6px; border: 1px solid #ff9800; text-align: left; min-width: 60px; position: sticky; left: 0; background: #ff9800; z-index: 1;">Veri</th>
-                                    ${months.map(m => `<th style="padding: 4px 6px; border: 1px solid #ff9800; text-align: center; min-width: 50px;">${m}</th>`).join('')}
+                                    <th style="padding: 6px; border: 1px solid #ff9800; text-align: left; width: 80px;">Veri</th>
+                                    ${months.map(m => `<th style="padding: 6px; border: 1px solid #ff9800; text-align: center;">${m}</th>`).join('')}
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr style="background: #fff;">
-                                    <td style="padding: 4px 6px; border: 1px solid #ddd; font-weight: 600; background: #ffe0b2; position: sticky; left: 0; z-index: 1;">Sevk</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd; font-weight: 600; background: #ffe0b2;">Sevk</td>
                                     ${months.map(m => {
                                         const sevk = supplier.monthlySevk?.[m-1] || 0;
-                                        return `<td style="padding: 4px 6px; border: 1px solid #ddd; text-align: right; white-space: nowrap;">${sevk.toLocaleString('tr-TR')}</td>`;
+                                        return `<td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${sevk.toLocaleString('tr-TR')}</td>`;
                                     }).join('')}
                                 </tr>
                                 <tr style="background: #f9f9f9;">
-                                    <td style="padding: 4px 6px; border: 1px solid #ddd; font-weight: 600; background: #ffe0b2; position: sticky; left: 0; z-index: 1;">İade</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd; font-weight: 600; background: #ffe0b2;">İade</td>
                                     ${months.map(m => {
                                         const iade = supplier.monthlyIade?.[m-1] || 0;
-                                        return `<td style="padding: 4px 6px; border: 1px solid #ddd; text-align: right; white-space: nowrap;">${iade.toLocaleString('tr-TR')}</td>`;
+                                        return `<td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${iade.toLocaleString('tr-TR')}</td>`;
                                     }).join('')}
                                 </tr>
                                 <tr style="background: #fff;">
-                                    <td style="padding: 4px 6px; border: 1px solid #ddd; font-weight: 600; background: #ffe0b2; position: sticky; left: 0; z-index: 1;">PPM</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd; font-weight: 600; background: #ffe0b2;">PPM</td>
                                     ${months.map((m, idx) => {
                                         const ppm = ppmSeries[idx] || 0;
-                                        return `<td style="padding: 4px 6px; border: 1px solid #ddd; text-align: right; font-weight: 600; white-space: nowrap;">${ppm.toFixed(0)}</td>`;
+                                        return `<td style="padding: 6px; border: 1px solid #ddd; text-align: right; font-weight: 600;">${ppm.toFixed(0)}</td>`;
                                     }).join('')}
                                 </tr>
                             </tbody>
@@ -19424,30 +19424,30 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             const terminTableDiv = document.getElementById('modalTableTermin');
             if (terminTableDiv) {
                 let terminHTML = `
-                    <div style="overflow-x: auto; margin-left: 130px; margin-right: 100px;">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.65em; min-width: fit-content;">
+                    <div style="padding-left: 130px; padding-right: 100px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.75em;">
                             <thead>
                                 <tr style="background: #3949ab; color: white;">
-                                    <th style="padding: 4px 6px; border: 1px solid #3949ab; text-align: left; min-width: 90px; position: sticky; left: 0; background: #3949ab; z-index: 1;">Veri</th>
-                                    ${months.map(m => `<th style="padding: 4px 6px; border: 1px solid #3949ab; text-align: center; min-width: 50px;">${m}</th>`).join('')}
+                                    <th style="padding: 6px; border: 1px solid #3949ab; text-align: left; width: 80px;">Veri</th>
+                                    ${months.map(m => `<th style="padding: 6px; border: 1px solid #3949ab; text-align: center;">${m}</th>`).join('')}
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr style="background: #fff;">
-                                    <td style="padding: 4px 6px; border: 1px solid #ddd; font-weight: 600; background: #c5cae9; position: sticky; left: 0; z-index: 1; white-space: nowrap;">Gecikme (gün)</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd; font-weight: 600; background: #c5cae9;">Gecikme (gün)</td>
                                     ${months.map((m, idx) => {
                                         const puan = terminSeries[idx] || 100;
                                         const gun = terminPuanToGecikmeGun(puan);
                                         const gunText = gun > 0 ? `+${gun}` : '0';
                                         const color = gun > 0 ? '#d32f2f' : gun < 0 ? '#388e3c' : '#666';
-                                        return `<td style="padding: 4px 6px; border: 1px solid #ddd; text-align: right; color: ${color}; font-weight: 600; white-space: nowrap;">${gunText}</td>`;
+                                        return `<td style="padding: 6px; border: 1px solid #ddd; text-align: right; color: ${color}; font-weight: 600;">${gunText}</td>`;
                                     }).join('')}
                                 </tr>
                                 <tr style="background: #f9f9f9;">
-                                    <td style="padding: 4px 6px; border: 1px solid #ddd; font-weight: 600; background: #c5cae9; position: sticky; left: 0; z-index: 1; white-space: nowrap;">Puan (%)</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd; font-weight: 600; background: #c5cae9;">Puan (%)</td>
                                     ${months.map((m, idx) => {
                                         const puan = terminSeries[idx] || 100;
-                                        return `<td style="padding: 4px 6px; border: 1px solid #ddd; text-align: right; font-weight: 600; white-space: nowrap;">${puan.toFixed(1)}%</td>`;
+                                        return `<td style="padding: 6px; border: 1px solid #ddd; text-align: right; font-weight: 600;">${puan.toFixed(1)}%</td>`;
                                     }).join('')}
                                 </tr>
                             </tbody>
@@ -19461,20 +19461,20 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             const tamamlanmaTableDiv = document.getElementById('modalTableTamamlanma');
             if (tamamlanmaTableDiv) {
                 let tamamlanmaHTML = `
-                    <div style="overflow-x: auto; margin-left: 130px; margin-right: 100px;">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.65em; min-width: fit-content;">
+                    <div style="padding-left: 130px; padding-right: 100px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.75em;">
                             <thead>
                                 <tr style="background: #00796b; color: white;">
-                                    <th style="padding: 4px 6px; border: 1px solid #00796b; text-align: left; min-width: 70px; position: sticky; left: 0; background: #00796b; z-index: 1;">Veri</th>
-                                    ${months.map(m => `<th style="padding: 4px 6px; border: 1px solid #00796b; text-align: center; min-width: 50px;">${m}</th>`).join('')}
+                                    <th style="padding: 6px; border: 1px solid #00796b; text-align: left; width: 80px;">Veri</th>
+                                    ${months.map(m => `<th style="padding: 6px; border: 1px solid #00796b; text-align: center;">${m}</th>`).join('')}
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr style="background: #f9f9f9;">
-                                    <td style="padding: 4px 6px; border: 1px solid #ddd; font-weight: 600; background: #b2dfdb; position: sticky; left: 0; z-index: 1; white-space: nowrap;">Puan (%)</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd; font-weight: 600; background: #b2dfdb;">Puan (%)</td>
                                     ${months.map((m, idx) => {
                                         const puan = completionSeries[idx] || 100;
-                                        return `<td style="padding: 4px 6px; border: 1px solid #ddd; text-align: right; font-weight: 600; white-space: nowrap;">${puan.toFixed(1)}%</td>`;
+                                        return `<td style="padding: 6px; border: 1px solid #ddd; text-align: right; font-weight: 600;">${puan.toFixed(1)}%</td>`;
                                     }).join('')}
                                 </tr>
                             </tbody>
