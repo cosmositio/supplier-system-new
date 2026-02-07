@@ -1829,6 +1829,25 @@
             'Emission of VOC'
         ];
         
+        // Template Editor Global Variables
+        let templateCanvas, templateCtx;
+        let templateRegions = [];
+        let currentTemplateRegion = null;
+        let isTemplateDrawing = false;
+        let templateStartX, templateStartY;
+        let selectedTemplateRegionIndex = null;
+        let templateImageObj = null;
+        let templateScaleFactor = 1;
+        let templateMode = false;
+        let pendingTemplateFile = null;
+        
+        // Bölge düzenleme değişkenleri
+        let isDraggingRegion = false;
+        let isResizingRegion = false;
+        let resizeHandle = null; // 'tl', 'tr', 'bl', 'br', 'top', 'right', 'bottom', 'left'
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        
         // Dosya tipine göre ikon oluştur
         function getFileIcon(fileName, fileType, itemId) {
             // Dosya uzantısını al
@@ -2442,6 +2461,18 @@
             templateRegions = [];
             selectedTemplateRegionIndex = null;
             pendingTemplateFile = null;
+        }
+        
+        function toggleTemplateMode() {
+            templateMode = document.getElementById('templateModeCheckbox').checked;
+            
+            if (templateMode) {
+                // Template mode ON
+                showToast('🎨 Template modu aktif - Dosya yükleyin', 'info');
+            } else {
+                // Template mode OFF
+                closeTemplateEditor();
+            }
         }
         
         // ==================== Initialization ====================
@@ -11370,24 +11401,6 @@
         // TEMPLATE EDITOR FUNCTIONS
         // ==============================================
         
-        let templateCanvas, templateCtx;
-        let templateRegions = [];
-        let currentTemplateRegion = null;
-        let isTemplateDrawing = false;
-        let templateStartX, templateStartY;
-        let selectedTemplateRegionIndex = null;
-        let templateImageObj = null;
-        let templateScaleFactor = 1;
-        let templateMode = false;
-        let pendingTemplateFile = null;
-        
-        // Bölge düzenleme değişkenleri
-        let isDraggingRegion = false;
-        let isResizingRegion = false;
-        let resizeHandle = null; // 'tl', 'tr', 'bl', 'br', 'top', 'right', 'bottom', 'left'
-        let dragOffsetX = 0;
-        let dragOffsetY = 0;
-        
 
         
         async function loadTemplatePDF(file) {
@@ -12393,18 +12406,6 @@
             }
         }
         
-        function toggleTemplateMode() {
-            templateMode = document.getElementById('templateModeCheckbox').checked;
-            
-            if (templateMode) {
-                // Template mode ON
-                showToast('🎨 Template modu aktif - Dosya yükleyin', 'info');
-            } else {
-                // Template mode OFF
-                closeTemplateEditor();
-            }
-        }
-        
         async function openTemplateEditorWithFile(file) {
             console.log('🎨 Template editor açılıyor...', file.name);
             
@@ -12490,7 +12491,6 @@
                 }
             }
         }
-    }
     </script>
 </body>
 </html>
