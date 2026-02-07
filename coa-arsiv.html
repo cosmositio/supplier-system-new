@@ -2090,6 +2090,176 @@
             modal.style.display = 'flex';
         }
         
+        // Template'i edit için seç ve aç
+        async function selectTemplateToEdit(index) {
+            const modal = document.getElementById('templateLoadModal');
+            if (!modal) {
+                console.error('❌ templateLoadModal bulunamadı');
+                return;
+            }
+            
+            const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
+            const template = templates[index];
+            
+            if (!template) {
+                showToast('❌ Template bulunamadı!', 'error');
+                return;
+            }
+            
+            console.log('✏️ Template edit için yükleniyor:', template.supplier, 'v' + (template.version || '1.0'));
+            
+            // Modal'ı kapat
+            modal.style.display = 'none';
+            
+            // Template'i global değişkene yükle
+            window.currentEditingTemplate = template;
+            window.currentEditingTemplateIndex = index;
+            
+            // Drive'dan görseli yükle
+            let imageLoaded = false;
+            if (template.imageUrl) {
+                // Drive linkinden file ID çıkar
+                const fileId = extractDriveFileId(template.imageUrl);
+                console.log("📥 Template görseli Drive'dan yükleniyor:", template.imageUrl);
+                console.log("🆔 Drive File ID:", fileId);
+                showToast('📥 Template görseli yükleniyor...', 'info');
+                
+                try {
+                    const imageData = await loadTemplateImageFromDrive(fileId);
+                    if (imageData) {
+                        selectedFileData = imageData;
+                        
+                        // Fake file object oluştur
+                        const fileName = `${template.supplier}_template.png`;
+                        const byteString = atob(imageData.split(',')[1]);
+                        const ab = new ArrayBuffer(byteString.length);
+                        const ia = new Uint8Array(ab);
+                        for (let i = 0; i < byteString.length; i++) {
+                            ia[i] = byteString.charCodeAt(i);
+                        }
+                        const blob = new Blob([ab], { type: 'image/png' });
+                        selectedFile = new File([blob], fileName, { type: 'image/png' });
+                        
+                        console.log("✅ Template görseli Drive'dan yüklendi:", fileName);
+                        imageLoaded = true;
+                    }
+                } catch (error) {
+                    console.error('❌ Drive görsel yükleme hatası:', error);
+                    showToast('⚠️ Görsel yüklenemedi, yeni bir görsel yükleyin.', 'warning');
+                }
+            }
+            
+            // Eğer Drive'dan yükleyemediysek ve template'de imageData varsa onu kullan (fallback)
+            if (!imageLoaded && template.template && template.template.imageData) {
+                console.log("📄 Template görseli imageData'dan yükleniyor (fallback)");
+                selectedFileData = template.template.imageData;
+                
+                const fileName = `${template.supplier}_template.png`;
+                const byteString = atob(template.template.imageData.split(',')[1]);
+                const ab = new ArrayBuffer(byteString.length);
+                const ia = new Uint8Array(ab);
+                for (let i = 0; i < byteString.length; i++) {
+                    ia[i] = byteString.charCodeAt(i);
+                }
+                const blob = new Blob([ab], { type: 'image/png' });
+                selectedFile = new File([blob], fileName, { type: 'image/png' });
+                
+                console.log("✅ Template görseli imageData'dan yüklendi:", fileName);
+                imageLoaded = true;
+            }
+            
+            if (!imageLoaded) {
+                showToast('⚠️ Bu template görsel içermiyor. Yeni bir görsel yükleyin.', 'warning');
+            }
+            
+            // Template editor'ı aç (edit mode)
+            templateMode = true;
+            document.getElementById('templateModeCheckbox').checked = true;
+            
+            // Kaydedilmiş template bilgilerini sakla (scale için)
+            const templateObj = template.template || template;
+            window.savedTemplateConfig = {
+                canvasWidth: templateObj.canvasWidth,
+                canvasHeight: templateObj.canvasHeight,
+                scaleFactor: templateObj.scaleFactor || 1
+            };
+            console.log('📌 Kaydedilmiş template config yüklendi:', window.savedTemplateConfig);
+            
+            await openTemplateEditorWithFile(selectedFile);
+            
+            // Template'i canvas'a yükle
+            if (templateObj.regions && templateObj.regions.length > 0) {
+                console.log('📍 Template bölgeleri yükleniyor:', templateObj.regions.length, 'bölge');
+                // Regions'ı global değişkene koy, editor açıldığında kullanılacak
+                window.pendingTemplateRegions = templateObj.regions;
+            }
+        }
+        
+        // Drive linkinden file ID çıkar
+        function extractDriveFileId(url) {
+            if (!url) return '';
+            
+            // Eğer zaten file ID ise (hiç / içermiyor), direkt döndür
+            if (!url.includes('/') && !url.includes(':')) {
+                return url;
+            }
+            
+            // https://drive.google.com/file/d/FILE_ID/view formatı
+            const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (match && match[1]) {
+                return match[1];
+            }
+            
+            // https://drive.google.com/open?id=FILE_ID formatı
+            const match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+            if (match2 && match2[1]) {
+                return match2[1];
+            }
+            
+            // Diğer durumlar için URL'in kendisini döndür
+            return url;
+        }
+        
+        // Drive'dan template görselini yükle
+        async function loadTemplateImageFromDrive(fileId) {
+            if (!fileId) {
+                console.error('❌ File ID boş!');
+                return null;
+            }
+            
+            try {
+                const response = await new Promise((resolve, reject) => {
+                    const callbackName = 'jsonpCallback_' + Math.random().toString(36).substring(7);
+                    
+                    window[callbackName] = function(data) {
+                        delete window[callbackName];
+                        resolve(data);
+                    };
+                    
+                    const script = document.createElement('script');
+                    script.src = `${googleScriptUrl}?action=getTemplateImage&fileId=${encodeURIComponent(fileId)}&callback=${callbackName}`;
+                    script.onerror = () => reject(new Error('Script yüklenemedi'));
+                    document.body.appendChild(script);
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(script);
+                        reject(new Error('Timeout'));
+                    }, 30000);
+                });
+                
+                if (response.success) {
+                    console.log('✅ Drive görsel başarıyla yüklendi');
+                    return response.imageData;
+                } else {
+                    console.error('❌ Drive görsel yükleme hatası:', response.error);
+                    return null;
+                }
+            } catch (error) {
+                console.error('❌ Drive görsel yükleme exception:', error);
+                return null;
+            }
+        }
+        
         // ==================== Initialization ====================
         document.addEventListener('DOMContentLoaded', function() {
             // PDF.js worker ayarla (global)
@@ -12212,176 +12382,7 @@
             
             modal.style.display = 'flex';
         }
-        
-        // Template'i edit için seç ve aç
-        async function selectTemplateToEdit(index) {
-            const modal = document.getElementById('templateLoadModal');
-            if (!modal) {
-                console.error('❌ templateLoadModal bulunamadı');
-                return;
-            }
-            
-            const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
-            const template = templates[index];
-            
-            if (!template) {
-                showToast('❌ Template bulunamadı!', 'error');
-                return;
-            }
-            
-            console.log('✏️ Template edit için yükleniyor:', template.supplier, 'v' + (template.version || '1.0'));
-            
-            // Modal'ı kapat
-            modal.style.display = 'none';
-            
-            // Template'i global değişkene yükle
-            window.currentEditingTemplate = template;
-            window.currentEditingTemplateIndex = index;
-            
-            // Drive'dan görseli yükle
-            let imageLoaded = false;
-            if (template.imageUrl) {
-                // Drive linkinden file ID çıkar
-                const fileId = extractDriveFileId(template.imageUrl);
-                console.log("📥 Template görseli Drive'dan yükleniyor:", template.imageUrl);
-                console.log("🆔 Drive File ID:", fileId);
-                showToast('📥 Template görseli yükleniyor...', 'info');
-                
-                try {
-                    const imageData = await loadTemplateImageFromDrive(fileId);
-                    if (imageData) {
-                        selectedFileData = imageData;
-                        
-                        // Fake file object oluştur
-                        const fileName = `${template.supplier}_template.png`;
-                        const byteString = atob(imageData.split(',')[1]);
-                        const ab = new ArrayBuffer(byteString.length);
-                        const ia = new Uint8Array(ab);
-                        for (let i = 0; i < byteString.length; i++) {
-                            ia[i] = byteString.charCodeAt(i);
-                        }
-                        const blob = new Blob([ab], { type: 'image/png' });
-                        selectedFile = new File([blob], fileName, { type: 'image/png' });
-                        
-                        console.log("✅ Template görseli Drive'dan yüklendi:", fileName);
-                        imageLoaded = true;
-                    }
-                } catch (error) {
-                    console.error('❌ Drive görsel yükleme hatası:', error);
-                    showToast('⚠️ Görsel yüklenemedi, yeni bir görsel yükleyin.', 'warning');
-                }
-            }
-            
-            // Eğer Drive'dan yükleyemediysek ve template'de imageData varsa onu kullan (fallback)
-            if (!imageLoaded && template.template && template.template.imageData) {
-                console.log("📄 Template görseli imageData'dan yükleniyor (fallback)");
-                selectedFileData = template.template.imageData;
-                
-                const fileName = `${template.supplier}_template.png`;
-                const byteString = atob(template.template.imageData.split(',')[1]);
-                const ab = new ArrayBuffer(byteString.length);
-                const ia = new Uint8Array(ab);
-                for (let i = 0; i < byteString.length; i++) {
-                    ia[i] = byteString.charCodeAt(i);
-                }
-                const blob = new Blob([ab], { type: 'image/png' });
-                selectedFile = new File([blob], fileName, { type: 'image/png' });
-                
-                console.log("✅ Template görseli imageData'dan yüklendi:", fileName);
-                imageLoaded = true;
-            }
-            
-            if (!imageLoaded) {
-                showToast('⚠️ Bu template görsel içermiyor. Yeni bir görsel yükleyin.', 'warning');
-            }
-            
-            // Template editor'ı aç (edit mode)
-            templateMode = true;
-            document.getElementById('templateModeCheckbox').checked = true;
-            
-            // Kaydedilmiş template bilgilerini sakla (scale için)
-            const templateObj = template.template || template;
-            window.savedTemplateConfig = {
-                canvasWidth: templateObj.canvasWidth,
-                canvasHeight: templateObj.canvasHeight,
-                scaleFactor: templateObj.scaleFactor || 1
-            };
-            console.log('📌 Kaydedilmiş template config yüklendi:', window.savedTemplateConfig);
-            
-            await openTemplateEditorWithFile(selectedFile);
-            
-            // Template'i canvas'a yükle
-            if (templateObj.regions && templateObj.regions.length > 0) {
-                console.log('📍 Template bölgeleri yükleniyor:', templateObj.regions.length, 'bölge');
-                // Regions'ı global değişkene koy, editor açıldığında kullanılacak
-                window.pendingTemplateRegions = templateObj.regions;
-            }
-        }
-        
-        // Drive linkinden file ID çıkar
-        function extractDriveFileId(url) {
-            if (!url) return '';
-            
-            // Eğer zaten file ID ise (hiç / içermiyor), direkt döndür
-            if (!url.includes('/') && !url.includes(':')) {
-                return url;
-            }
-            
-            // https://drive.google.com/file/d/FILE_ID/view formatı
-            const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-            if (match && match[1]) {
-                return match[1];
-            }
-            
-            // https://drive.google.com/open?id=FILE_ID formatı
-            const match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-            if (match2 && match2[1]) {
-                return match2[1];
-            }
-            
-            // Diğer durumlar için URL'in kendisini döndür
-            return url;
-        }
-        
-        // Drive'dan template görselini yükle
-        async function loadTemplateImageFromDrive(fileId) {
-            if (!fileId) {
-                console.error('❌ File ID boş!');
-                return null;
-            }
-            
-            try {
-                const response = await new Promise((resolve, reject) => {
-                    const callbackName = 'jsonpCallback_' + Math.random().toString(36).substring(7);
-                    
-                    window[callbackName] = function(data) {
-                        delete window[callbackName];
-                        resolve(data);
-                    };
-                    
-                    const script = document.createElement('script');
-                    script.src = `${googleScriptUrl}?action=getTemplateImage&fileId=${encodeURIComponent(fileId)}&callback=${callbackName}`;
-                    script.onerror = () => reject(new Error('Script yüklenemedi'));
-                    document.body.appendChild(script);
-                    
-                    setTimeout(() => {
-                        document.body.removeChild(script);
-                        reject(new Error('Timeout'));
-                    }, 30000);
-                });
-                
-                if (response.success) {
-                    console.log('✅ Drive görsel başarıyla yüklendi');
-                    return response.imageData;
-                } else {
-                    console.error('❌ Drive görsel yükleme hatası:', response.error);
-                    return null;
-                }
-            } catch (error) {
-                console.error('❌ Drive görsel yükleme exception:', error);
-                return null;
-            }
-        }
+
         
         // Template seç ve yükle
         function selectTemplateToLoad(index) {
