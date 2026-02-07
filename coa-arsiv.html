@@ -1297,7 +1297,7 @@
                 <!-- Settings -->
                 <div class="settings-section">
                     <h3>⚙️ Google Sheets Bağlantısı</h3>
-                    <input type="text" id="googleScriptUrl" value="https://script.google.com/macros/s/AKfycbyDBlf4KuuCj_9A9UjNEIr3AEEBDaV9VMDaJRvxESHJABmhIlQcRFFB7NYQJbX8_H6MXw/exec" placeholder="Google Apps Script URL" style="width:100%; margin-bottom:10px;">
+                    <input type="text" id="googleScriptUrl" value="https://script.google.com/macros/s/AKfycbz3KZblRoWV0uU7_LU24Wih4npAl2x8_vFWDjmc-F0bDeRHgmrSEi0XB-YsaaD0_i4u/exec" placeholder="Google Apps Script URL" style="width:100%; margin-bottom:10px;">
                     <button class="btn btn-secondary btn-sm" onclick="connectGoogleSheets()">🔗 Bağlan</button>
                 </div>
                 
@@ -1808,7 +1808,7 @@
         let materials = []; // Hammadde listesi
         let tdsData = {}; // TDS verileri: { materialCode: { properties: [] } }
         let selectedSuppliers = new Set(); // Seçili tedarikçiler
-        let googleScriptUrl = 'https://script.google.com/macros/s/AKfycbyDBlf4KuuCj_9A9UjNEIr3AEEBDaV9VMDaJRvxESHJABmhIlQcRFFB7NYQJbX8_H6MXw/exec';
+        let googleScriptUrl = 'https://script.google.com/macros/s/AKfycbz3KZblRoWV0uU7_LU24Wih4npAl2x8_vFWDjmc-F0bDeRHgmrSEi0XB-YsaaD0_i4u/exec';
         let selectedFile = null;
         let selectedFileData = null;
         let editMode = false;
@@ -2057,7 +2057,7 @@
             }
             
             // Doğru URL - her zaman bu URL kulanılsın
-            const correctUrl = 'https://script.google.com/macros/s/AKfycbyDBlf4KuuCj_9A9UjNEIr3AEEBDaV9VMDaJRvxESHJABmhIlQcRFFB7NYQJbX8_H6MXw/exec';
+            const correctUrl = 'https://script.google.com/macros/s/AKfycbz3KZblRoWV0uU7_LU24Wih4npAl2x8_vFWDjmc-F0bDeRHgmrSEi0XB-YsaaD0_i4u/exec';
             
             // Her zaman default URL'yi kullan ve kaydet
             localStorage.setItem('google_script_url', correctUrl);
@@ -12275,7 +12275,7 @@
                     };
                     
                     const script = document.createElement('script');
-                    script.src = `${GOOGLE_SCRIPT_URL}?action=getTemplateImage&fileId=${encodeURIComponent(fileId)}&callback=${callbackName}`;
+                    script.src = `${googleScriptUrl}?action=getTemplateImage&fileId=${encodeURIComponent(fileId)}&callback=${callbackName}`;
                     script.onerror = () => reject(new Error('Script yüklenemedi'));
                     document.body.appendChild(script);
                     
