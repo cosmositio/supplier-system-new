@@ -15252,22 +15252,52 @@
             document.getElementById('supplierAnalysisContent').style.display = 'block';
             
             // 1. Genel Bilgiler
-            displayGeneralInfo(supplier);
+            try {
+                displayGeneralInfo(supplier);
+            } catch (e) {
+                console.error('❌ displayGeneralInfo hatası:', e);
+                document.getElementById('analysisGeneralInfo').innerHTML = '<p style="color: red;">Hata: Genel bilgiler yüklenemedi</p>';
+            }
             
             // 2. Performans Metrikleri
-            displayPerformanceData(supplier);
+            try {
+                displayPerformanceData(supplier);
+            } catch (e) {
+                console.error('❌ displayPerformanceData hatası:', e);
+                document.getElementById('analysisPerformanceData').innerHTML = '<p style="color: red;">Hata: Performans verileri yüklenemedi</p>';
+            }
             
             // 3. Aylık Detaylar
-            displayMonthlyData(supplier);
+            try {
+                displayMonthlyData(supplier);
+            } catch (e) {
+                console.error('❌ displayMonthlyData hatası:', e);
+                document.getElementById('analysisMonthlyData').innerHTML = '<p style="color: red;">Hata: Aylık veriler yüklenemedi</p>';
+            }
             
             // 4. Performans Grafikleri
-            displayPerformanceCharts(supplier);
+            try {
+                displayPerformanceCharts(supplier);
+            } catch (e) {
+                console.error('❌ displayPerformanceCharts hatası:', e);
+                document.getElementById('analysisPerformanceCharts').innerHTML = '<p style="color: red;">Hata: Performans grafikleri yüklenemedi. Detay: ' + e.message + '</p>';
+            }
             
             // 5. Dokümanlar
-            displayDocuments(supplier);
+            try {
+                displayDocuments(supplier);
+            } catch (e) {
+                console.error('❌ displayDocuments hatası:', e);
+                document.getElementById('analysisDocuments').innerHTML = '<p style="color: red;">Hata: Dokümanlar yüklenemedi. Detay: ' + e.message + '</p>';
+            }
             
             // 6. Eksik/Tam Bilgiler
-            displayCompleteness(supplier);
+            try {
+                displayCompleteness(supplier);
+            } catch (e) {
+                console.error('❌ displayCompleteness hatası:', e);
+                document.getElementById('analysisCompleteness').innerHTML = '<p style="color: red;">Hata: Tamamlanma durumu yüklenemedi. Detay: ' + e.message + '</p>';
+            }
         }
         
         function displayGeneralInfo(supplier) {
