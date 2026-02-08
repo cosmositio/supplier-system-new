@@ -20341,48 +20341,46 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                     doc.text('HESAPLAMA FORMULLERI / CALCULATION FORMULAS', pageWidth/2, yPos + 4, { align: 'center' });
                     yPos += 7;
                     
-                    // Tedarikçi puanını al (zaten hesaplanmış)
-                    const tedarikcipuaniDecimal = supplier.tedarikcipuani || 0; // 0-1 arası
-                    const tedarikcipuaniPercent = (tedarikcipuaniDecimal * 100).toFixed(1); // %82 gibi
+                    // Tedarikçi Puanı Formülleri
                     const vdaPuan = supplier.vdaPuan || 0;
                     
-                    let formulaTextTr = '';
-                    let formulaTextEn = '';
+                    // Her iki formülü de göster
+                    const formulaVDA1Tr = 'VDA>0: (VDA x 0.20) + (Kalite x 0.05) + (PPM x 0.30) + (8D x 0.05) + (Termin x 0.20) + (Tamamlanma x 0.10) + (Hata x 0.10)';
+                    const formulaVDA1En = 'VDA>0: (VDA x 0.20) + (Quality x 0.05) + (PPM x 0.30) + (8D x 0.05) + (Delivery x 0.20) + (Completion x 0.10) + (Defect x 0.10)';
+                    const formulaVDA0Tr = 'VDA=0: (Kalite x 0.05) + (PPM x 0.40) + (8D x 0.10) + (Termin x 0.20) + (Tamamlanma x 0.10) + (Hata x 0.15)';
+                    const formulaVDA0En = 'VDA=0: (Quality x 0.05) + (PPM x 0.40) + (8D x 0.10) + (Delivery x 0.20) + (Completion x 0.10) + (Defect x 0.15)';
                     
-                    if (vdaPuan > 0) {
-                        formulaTextTr = 'VDA>0: (VDA x 0.20) + (Kalite x 0.05) + (PPM x 0.30) + (8D x 0.05) + (Termin x 0.20) + (Tamamlanma x 0.10) + (Hata x 0.10)';
-                        formulaTextEn = 'VDA>0: (VDA x 0.20) + (Quality x 0.05) + (PPM x 0.30) + (8D x 0.05) + (Delivery x 0.20) + (Completion x 0.10) + (Defect x 0.10)';
-                    } else {
-                        formulaTextTr = 'VDA=0: (Kalite x 0.05) + (PPM x 0.40) + (8D x 0.10) + (Termin x 0.20) + (Tamamlanma x 0.10) + (Hata x 0.15)';
-                        formulaTextEn = 'VDA=0: (Quality x 0.05) + (PPM x 0.40) + (8D x 0.10) + (Delivery x 0.20) + (Completion x 0.10) + (Defect x 0.15)';
-                    }
-                    
-                    // Tedarikçi Puanı kutusu
+                    // Tedarikçi Puanı kutusu (puan değeri yok, sadece formüller)
                     doc.setFillColor(33, 150, 243);
-                    doc.rect(margin, yPos, usableWidth, 10, 'FD');
+                    doc.rect(margin, yPos, usableWidth, 13, 'FD');
                     doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(8);
+                    doc.setFontSize(7);
                     doc.setTextColor(255, 255, 255);
-                    doc.text(normalizeTurkish(`TEDARIKCI PUANI / SUPPLIER SCORE: %${tedarikcipuaniPercent}`), pageWidth/2, yPos + 3, { align: 'center' });
-                    doc.setFontSize(5);
+                    doc.text(normalizeTurkish('TEDARIKCI PUANI / SUPPLIER SCORE'), pageWidth/2, yPos + 3, { align: 'center' });
+                    doc.setFontSize(4.5);
                     doc.setFont('helvetica', 'normal');
-                    doc.text(normalizeTurkish(formulaTextTr), pageWidth/2, yPos + 6, { align: 'center' });
-                    doc.text(formulaTextEn, pageWidth/2, yPos + 8.5, { align: 'center' });
-                    yPos += 11;
+                    doc.text(normalizeTurkish(formulaVDA1Tr), pageWidth/2, yPos + 5.5, { align: 'center' });
+                    doc.text(formulaVDA1En, pageWidth/2, yPos + 7.5, { align: 'center' });
+                    doc.text(normalizeTurkish(formulaVDA0Tr), pageWidth/2, yPos + 9.5, { align: 'center' });
+                    doc.text(formulaVDA0En, pageWidth/2, yPos + 11.5, { align: 'center' });
+                    yPos += 14;
                     
                     // Formül detayları - kompakt boyut
                     doc.setFontSize(5);
                     doc.setTextColor(0, 0, 0);
                     const lineHeight = 4.5;
+                    const doubleLineHeight = 6;
                     
-                    // 1) Hata Puanı
+                    // 1) Hata Puanı (iki satır)
                     doc.setFillColor(250, 250, 250);
-                    doc.rect(margin, yPos, usableWidth, lineHeight, 'FD');
+                    doc.rect(margin, yPos, usableWidth, doubleLineHeight, 'FD');
                     doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(5);
                     doc.text(normalizeTurkish('Hata Puani / Defect Score:'), margin + 2, yPos + 2.8, { align: 'left' });
                     doc.setFont('helvetica', 'normal');
-                    doc.text(normalizeTurkish('Hedef=0: Hata=0->1, Hata>0->0  |  Hedef>0: Hata=0->1, Hedef/Hata>1->1, Aksi->Hedef/Hata'), margin + 36, yPos + 2.8, { align: 'left' });
-                    yPos += lineHeight;
+                    doc.text(normalizeTurkish('Hedef=0: Hata=0->1, Hata>0->0 | Hedef>0: Hata=0->1, Hedef/Hata>1->1, Aksi->Hedef/Hata'), margin + 36, yPos + 2.3, { align: 'left' });
+                    doc.text('Target=0: Defect=0->1, Defect>0->0 | Target>0: Defect=0->1, Target/Defect>1->1, Otherwise->Target/Defect', margin + 36, yPos + 4.3, { align: 'left' });
+                    yPos += doubleLineHeight;
                     
                     // 2) PPM Puanı
                     doc.setFillColor(255, 255, 255);
@@ -20399,7 +20397,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                     doc.setFont('helvetica', 'bold');
                     doc.text(normalizeTurkish('Termin Puani / Delivery Score:'), margin + 2, yPos + 2.8, { align: 'left' });
                     doc.setFont('helvetica', 'normal');
-                    doc.text(normalizeTurkish('G<=0->%100 | G=1->%80 | G=2->%60 | G=3->%40 | G=4->%30 | G=5->%20 | G>=6->%0 (G=Gecikme Gunu)'), margin + 36, yPos + 2.8, { align: 'left' });
+                    doc.text(normalizeTurkish('G<=0->%100 | G=1->%80 | G=2->%60 | G=3->%40 | G=4->%30 | G=5->%20 | G>=6->%0 (G=Gecikme Gunu / Delay Days)'), margin + 36, yPos + 2.8, { align: 'left' });
                     yPos += lineHeight;
                     
                     // 4) Tamamlanma
@@ -20426,7 +20424,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                     doc.setFont('helvetica', 'bold');
                     doc.text(normalizeTurkish('Kalite Belgesi / Quality Cert:'), margin + 2, yPos + 2.8, { align: 'left' });
                     doc.setFont('helvetica', 'normal');
-                    doc.text('ISO 9001:30p, IATF 16949:60p, ISO 14001:10p, ISO 45001:10p (Maks:70p)', margin + 36, yPos + 2.8, { align: 'left' });
+                    doc.text('ISO 9001:30p, IATF 16949:60p, ISO 14001:10p, ISO 45001:10p (Maks/Max:70p)', margin + 36, yPos + 2.8, { align: 'left' });
                     yPos += lineHeight + 1;
                 }
                 
