@@ -20927,21 +20927,11 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 if (supplierForFormulas) {
                     let formulaRow = 18;
                     
-                    // Tedarikçi puanını al (zaten hesaplanmış)
-                    const tedarikcipuaniDecimal = supplierForFormulas.tedarikcipuani || 0; // 0-1 arası
-                    const tedarikcipuaniPercent = (tedarikcipuaniDecimal * 100).toFixed(1); // %82 gibi
-                    const vdaPuan = supplierForFormulas.vdaPuan || 0;
-                    
-                    let formulaTextTr = '';
-                    let formulaTextEn = '';
-                    
-                    if (vdaPuan > 0) {
-                        formulaTextTr = 'VDA>0: (VDA × 0.20) + (Kalite × 0.05) + (PPM × 0.30) + (8D × 0.05) + (Termin × 0.20) + (Tamamlanma × 0.10) + (Hata × 0.10)';
-                        formulaTextEn = 'VDA>0: (VDA × 0.20) + (Quality × 0.05) + (PPM × 0.30) + (8D × 0.05) + (Delivery × 0.20) + (Completion × 0.10) + (Defect × 0.10)';
-                    } else {
-                        formulaTextTr = 'VDA=0: (Kalite × 0.05) + (PPM × 0.40) + (8D × 0.10) + (Termin × 0.20) + (Tamamlanma × 0.10) + (Hata × 0.15)';
-                        formulaTextEn = 'VDA=0: (Quality × 0.05) + (PPM × 0.40) + (8D × 0.10) + (Delivery × 0.20) + (Completion × 0.10) + (Defect × 0.15)';
-                    }
+                    // Her iki formülü de göster
+                    const formulaVDA1Tr = 'VDA>0: (VDA × 0.20) + (Kalite × 0.05) + (PPM × 0.30) + (8D × 0.05) + (Termin × 0.20) + (Tamamlanma × 0.10) + (Hata × 0.10)';
+                    const formulaVDA1En = 'VDA>0: (VDA × 0.20) + (Quality × 0.05) + (PPM × 0.30) + (8D × 0.05) + (Delivery × 0.20) + (Completion × 0.10) + (Defect × 0.10)';
+                    const formulaVDA0Tr = 'VDA=0: (Kalite × 0.05) + (PPM × 0.40) + (8D × 0.10) + (Termin × 0.20) + (Tamamlanma × 0.10) + (Hata × 0.15)';
+                    const formulaVDA0En = 'VDA=0: (Quality × 0.05) + (PPM × 0.40) + (8D × 0.10) + (Delivery × 0.20) + (Completion × 0.10) + (Defect × 0.15)';
                     
                     // Başlık - Formüller
                     ws.mergeCells(`A${formulaRow}:L${formulaRow}`);
@@ -20954,25 +20944,55 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                     ws.getRow(formulaRow).height = 22;
                     formulaRow++;
                     
-                    // Tedarikçi Puanı
+                    // Tedarikçi Puanı (puan değeri yok, sadece formüller)
                     ws.mergeCells(`A${formulaRow}:L${formulaRow}`);
                     const scoreCell = ws.getCell(`A${formulaRow}`);
-                    scoreCell.value = `TEDARİKÇİ PUANI / SUPPLIER SCORE: %${tedarikcipuaniPercent}\n${formulaTextTr}\n${formulaTextEn}`;
+                    scoreCell.value = `TEDARİKÇİ PUANI / SUPPLIER SCORE\n${formulaVDA1Tr}\n${formulaVDA1En}\n${formulaVDA0Tr}\n${formulaVDA0En}`;
                     scoreCell.alignment = centerWrap;
                     scoreCell.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
                     scoreCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2196f3' } };
                     scoreCell.border = borderThin;
-                    ws.getRow(formulaRow).height = 36;
+                    ws.getRow(formulaRow).height = 50;
                     formulaRow++;
                     
                     // Formül detayları tablosu - okunaklr
                     const formulas = [
-                        { labelTr: 'Hata Puanı', labelEn: 'Defect Score', formula: 'Hedef=0: Hata=0→1, Hata>0→0  |  Hedef>0: Hata=0→1, Hedef/Hata>1→1, Aksi Halde→Hedef/Hata' },
-                        { labelTr: 'PPM Puanı', labelEn: 'PPM Score', formula: 'PPM=0→1  |  PPM≤0.2×Hedef→0.95  |  PPM≤0.4×Hedef→0.90  |  PPM≤0.6×Hedef→0.85  |  PPM≤0.8×Hedef→0.80  |  PPM<1.2×Hedef→0.60  |  PPM≥1.2×Hedef→0' },
-                        { labelTr: 'Termin Puanı', labelEn: 'Delivery Score', formula: 'G≤0→%100  |  G=1→%80  |  G=2→%60  |  G=3→%40  |  G=4→%30  |  G=5→%20  |  G≥6→%0  (G=Gecikme Günü / Delay Days)' },
-                        { labelTr: 'Tamamlanma', labelEn: 'Completion', formula: '(Gelen Miktar / Sipariş Miktarı) × 100  |  (Received Qty / Order Qty) × 100' },
-                        { labelTr: 'Sınıflandırma', labelEn: 'Classification', formula: 'Skor≥%90→A  |  Skor≥%80→B  |  Skor≥%60→C  |  Skor<%60→D' },
-                        { labelTr: 'Kalite Belgesi', labelEn: 'Quality Cert', formula: 'ISO 9001: 30p,  IATF 16949: 60p,  ISO 14001: 10p,  ISO 45001: 10p  (Maksimum / Max: 70p)' }
+                        { 
+                            labelTr: 'Hata Puanı', 
+                            labelEn: 'Defect Score', 
+                            formulaTr: 'Hedef=0: Hata=0→1, Hata>0→0  |  Hedef>0: Hata=0→1, Hedef/Hata>1→1, Aksi Halde→Hedef/Hata',
+                            formulaEn: 'Target=0: Defect=0→1, Defect>0→0  |  Target>0: Defect=0→1, Target/Defect>1→1, Otherwise→Target/Defect'
+                        },
+                        { 
+                            labelTr: 'PPM Puanı', 
+                            labelEn: 'PPM Score', 
+                            formulaTr: 'PPM=0→1  |  PPM≤0.2×Hedef→0.95  |  PPM≤0.4×Hedef→0.90  |  PPM≤0.6×Hedef→0.85  |  PPM≤0.8×Hedef→0.80  |  PPM<1.2×Hedef→0.60  |  PPM≥1.2×Hedef→0',
+                            formulaEn: 'PPM=0→1  |  PPM≤0.2×Target→0.95  |  PPM≤0.4×Target→0.90  |  PPM≤0.6×Target→0.85  |  PPM≤0.8×Target→0.80  |  PPM<1.2×Target→0.60  |  PPM≥1.2×Target→0'
+                        },
+                        { 
+                            labelTr: 'Termin Puanı', 
+                            labelEn: 'Delivery Score', 
+                            formulaTr: 'G≤0→100%  |  G=1→80%  |  G=2→60%  |  G=3→40%  |  G=4→30%  |  G=5→20%  |  G≥6→0%  (G=Gecikme Günü)',
+                            formulaEn: 'G≤0→100%  |  G=1→80%  |  G=2→60%  |  G=3→40%  |  G=4→30%  |  G=5→20%  |  G≥6→0%  (G=Delay Days)'
+                        },
+                        { 
+                            labelTr: 'Tamamlanma', 
+                            labelEn: 'Completion', 
+                            formulaTr: '(Gelen Miktar / Sipariş Miktarı) × 100',
+                            formulaEn: '(Received Qty / Order Qty) × 100'
+                        },
+                        { 
+                            labelTr: 'Sınıflandırma', 
+                            labelEn: 'Classification', 
+                            formulaTr: 'Skor≥90%→A  |  Skor≥80%→B  |  Skor≥60%→C  |  Skor<60%→D',
+                            formulaEn: 'Score≥90%→A  |  Score≥80%→B  |  Score≥60%→C  |  Score<60%→D'
+                        },
+                        { 
+                            labelTr: 'Kalite Belgesi', 
+                            labelEn: 'Quality Cert', 
+                            formulaTr: 'ISO 9001: 30p,  IATF 16949: 60p,  ISO 14001: 10p,  ISO 45001: 10p  (Maksimum: 70p)',
+                            formulaEn: 'ISO 9001: 30p,  IATF 16949: 60p,  ISO 14001: 10p,  ISO 45001: 10p  (Max: 70p)'
+                        }
                     ];
                     
                     formulas.forEach((item, idx) => {
@@ -20985,16 +21005,16 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                         labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? 'FFf5f5f5' : 'FFffffff' } };
                         labelCell.border = borderThin;
                         
-                        // Formula
+                        // Formula (TR + EN alt alta)
                         ws.mergeCells(`D${formulaRow}:L${formulaRow}`);
                         const formulaCell = ws.getCell(`D${formulaRow}`);
-                        formulaCell.value = item.formula;
+                        formulaCell.value = `${item.formulaTr}\n${item.formulaEn}`;
                         formulaCell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
                         formulaCell.font = { size: 9 };
                         formulaCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? 'FFf5f5f5' : 'FFffffff' } };
                         formulaCell.border = borderThin;
                         
-                        ws.getRow(formulaRow).height = 24;
+                        ws.getRow(formulaRow).height = 32;
                         formulaRow++;
                     });
                     
