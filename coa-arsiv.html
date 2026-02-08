@@ -10927,10 +10927,18 @@
                     { bg: 'rgba(0, 188, 212, 0.7)', border: 'rgba(0, 188, 212, 1)' }
                 ];
                 
-                // DEBUG: Tüm coaValue değerlerini logla
+                // DEBUG: Tüm coaValue değerlerini detaylı logla
                 console.log(`🔍 ${property} için gelen CoA değerleri (${propData.length} adet):`, propData.map(r => r.coaValue));
+                console.log(`   📋 Detay:`, propData.map((r, idx) => ({
+                    index: idx,
+                    value: r.coaValue,
+                    type: typeof r.coaValue,
+                    deliveryNo: r.deliveryNo,
+                    date: r.date
+                })));
                 
-                propData.forEach(r => {
+                propData.forEach((r, rIndex) => {
+                    console.log(`   [${rIndex}] İşleniyor: ${r.coaValue}`);
                     // COA değerini temizle ve parse et
                     let cleanValue = String(r.coaValue || '').trim();
                     
