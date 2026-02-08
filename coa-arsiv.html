@@ -10931,10 +10931,20 @@
                     // COA değerini temizle ve parse et
                     let cleanValue = String(r.coaValue || '').trim();
                     
-                    // Tarih formatlarını ve yıl değerlerini filtrele
-                    // DD.MM.YYYY, DD/MM/YYYY, YYYY gibi formatlar
+                    // ISO tarih formatlarını filtrele (2026-05-04T21:00:00.000Z gibi)
+                    if (/^\d{4}-\d{2}-\d{2}T/.test(cleanValue) || /^\d{4}-\d{2}-\d{2}/.test(cleanValue)) {
+                        console.warn('⚠️ ISO tarih değeri tespit edildi, atlanıyor:', cleanValue, 'Property:', property);
+                        values.push(null);
+                        backgroundColors.push(colors[propIndex % colors.length].bg);
+                        borderColors.push(colors[propIndex % colors.length].border);
+                        pointBackgroundColors.push(colors[propIndex % colors.length].border);
+                        pointBorderColors.push(colors[propIndex % colors.length].border);
+                        return;
+                    }
+                    
+                    // Tarih formatlarını filtrele (DD.MM.YYYY, DD/MM/YYYY gibi)
                     if (/^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4}$/.test(cleanValue)) {
-                        console.warn('⚠️ Tarih değeri tespit edildi (format 1), atlanıyor:', cleanValue, 'Property:', property);
+                        console.warn('⚠️ Tarih değeri tespit edildi (DD.MM.YYYY), atlanıyor:', cleanValue, 'Property:', property);
                         values.push(null);
                         backgroundColors.push(colors[propIndex % colors.length].bg);
                         borderColors.push(colors[propIndex % colors.length].border);
