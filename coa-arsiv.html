@@ -11212,20 +11212,24 @@
                 // Bu grafik için istatistikleri hesapla ve göster
                 const validValues = values.filter(v => v !== null && !isNaN(v) && isFinite(v));
                 
-                // İkili değerleri göz önünde bulundur
+                // İkili değerleri göz önünde bulundur - zaten parse edilmiş değerleri kullan
                 let actualMinValues = [];
                 let actualMaxValues = [];
                 
-                propData.forEach(r => {
+                propData.forEach((r, index) => {
+                    // Grafikte null olan değerleri atla
+                    if (values[index] === null || isNaN(values[index])) {
+                        return;
+                    }
+                    
                     if (r._isRangeValue) {
                         // İkili değer - parse edilmiş min ve max'ı kullan
                         if (r._parsedMinValue !== undefined) actualMinValues.push(r._parsedMinValue);
                         if (r._parsedMaxValue !== undefined) actualMaxValues.push(r._parsedMaxValue);
                     } else {
-                        // Tekli değer - aynı değeri hem min hem max olarak kullan
-                        let cleanValue = String(r.coaValue || '').trim().replace(',', '.');
-                        const val = parseFloat(cleanValue);
-                        if (!isNaN(val) && isFinite(val)) {
+                        // Tekli değer - grafik için zaten parse edilmiş değeri kullan
+                        const val = values[index];
+                        if (val !== null && !isNaN(val) && isFinite(val)) {
                             actualMinValues.push(val);
                             actualMaxValues.push(val);
                         }
@@ -11245,19 +11249,12 @@
                 
                 // Tolerans dışı sayısı
                 let outOfSpec = 0;
-                propData.forEach(r => {
-                    // İkili değer kontrolü
-                    let val;
-                    if (r._isRangeValue && r._parsedMinValue !== undefined && r._parsedMaxValue !== undefined) {
-                        // İkili değer - ortalama üzerinden kontrol et
-                        val = (r._parsedMinValue + r._parsedMaxValue) / 2;
-                    } else {
-                        // Tekli değer
-                        let cleanValue = String(r.coaValue || '').trim().replace(',', '.');
-                        val = parseFloat(cleanValue);
-                    }
+                propData.forEach((r, index) => {
+                    // Zaten grafik için parse edilmiş değeri kullan
+                    const val = values[index];
                     
-                    if (isNaN(val)) return;
+                    // Grafikte null veya geçersiz değerleri atla
+                    if (val === null || isNaN(val) || !isFinite(val)) return;
                     
                     const operator = r.operator || 'range';
                     const stdValue = parseFloat(r.standardValue);
