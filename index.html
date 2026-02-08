@@ -20329,18 +20329,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 let yPos = rowY + 15;
                 const pageHeight = doc.internal.pageSize.height;
                 
-                // Formül Açıklamaları ve Tedarikçi Puanı - Düzeltilmiş
-                const normalizeTurkish = (str) => {
-                    if (!str) return '';
-                    return String(str)
-                        .replace(/İ/g, 'I').replace(/ı/g, 'i')
-                        .replace(/Ş/g, 'S').replace(/ş/g, 's')
-                        .replace(/Ğ/g, 'G').replace(/ğ/g, 'g')
-                        .replace(/Ü/g, 'U').replace(/ü/g, 'u')
-                        .replace(/Ö/g, 'O').replace(/ö/g, 'o')
-                        .replace(/Ç/g, 'C').replace(/ç/g, 'c');
-                };
-                
+                // Formül Açıklamaları ve Tedarikçi Puanı - normalizeTurkish fonksiyonu zaten tanımlı (satır 20113)
                 const supplier = allResults.find(r => r.name === supplierName);
                 if (supplier) {
                     // Formüller başlığı
