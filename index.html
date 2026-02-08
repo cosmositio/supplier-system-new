@@ -20329,6 +20329,81 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 let yPos = rowY + 15;
                 const pageHeight = doc.internal.pageSize.height;
                 
+                // Formül Açıklamaları ve Tedarikçi Puanı - Yeni bölüm
+                const supplier = allResults.find(r => r.name === supplierName);
+                if (supplier) {
+                    // Formüller başlığı
+                    doc.setFillColor(42, 63, 95);
+                    doc.rect(margin, yPos, usableWidth, 7, 'FD');
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(8);
+                    doc.setTextColor(255, 255, 255);
+                    doc.text('HESAPLAMA FORMULLERI / CALCULATION FORMULAS', pageWidth/2, yPos + 4.5, { align: 'center' });
+                    yPos += 8;
+                    
+                    // Tedarikçi Puanı hesapla
+                    const vdaPuan = supplier.vdaPuan || 0;
+                    const kalitePuan = supplier.kalitePuan || 0;
+                    const ppmPuan = supplier.ppmPuan || 0;
+                    const donusOrani8D = supplier.donusOrani8D || 100;
+                    const terminPuan = supplier.terminPuan || 100;
+                    const tamamlanmaPuan = supplier.tamamlanmaPuan || 100;
+                    const hataPuan = supplier.hataPuan || 100;
+                    
+                    let tedarikcipuani = 0;
+                    let formulaText = '';
+                    
+                    if (vdaPuan > 0) {
+                        tedarikcipuani = (vdaPuan * 0.20) + (kalitePuan * 0.05) + (ppmPuan * 0.30) + (donusOrani8D * 0.05) + (terminPuan * 0.20) + (tamamlanmaPuan * 0.10) + (hataPuan * 0.10);
+                        formulaText = 'VDA Denetimi Olan: VDA*0.20 + Kalite*0.05 + PPM*0.30 + 8D*0.05 + Termin*0.20 + Tamamlanma*0.10 + Hata*0.10';
+                    } else {
+                        tedarikcipuani = (kalitePuan * 0.05) + (ppmPuan * 0.40) + (donusOrani8D * 0.10) + (terminPuan * 0.20) + (tamamlanmaPuan * 0.10) + (hataPuan * 0.15);
+                        formulaText = 'VDA Denetimi Olmayan: Kalite*0.05 + PPM*0.40 + 8D*0.10 + Termin*0.20 + Tamamlanma*0.10 + Hata*0.15';
+                    }
+                    
+                    // Tedarikçi Puanı kutusu
+                    doc.setFillColor(33, 150, 243);
+                    doc.rect(margin, yPos, usableWidth, 8, 'FD');
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(7.5);
+                    doc.setTextColor(255, 255, 255);
+                    doc.text(`TEDARIKCI PUANI / SUPPLIER SCORE: ${tedarikcipuani.toFixed(1)}`, margin + 2, yPos + 3, { align: 'left' });
+                    doc.setFontSize(6);
+                    doc.text(formulaText, margin + 2, yPos + 6.5, { align: 'left' });
+                    yPos += 9;
+                    
+                    // Formül detayları - kompakt tablo
+                    const formulas = [
+                        { label: 'PPM Puani', formula: 'PPM=0:100p | PPM<=Hedef/4:100p | PPM<=Hedef/2:90p | PPM<=Hedef:70p | PPM<=Hedef*1.5:50p | PPM<=Hedef*2:30p | Diger:0p' },
+                        { label: 'Termin Puani', formula: 'Zamaninda Teslim Orani: (Zamaninda Siparis / Toplam Siparis) * 100' },
+                        { label: 'Tamamlanma', formula: '(Gelen Miktar / Siparis Miktari) * 100' },
+                        { label: 'Hata Puani', formula: 'Hata=0:100p | Hata<=Hedef:(Hedef/Hata)*100 | Diger:Min((Hedef/Hata)*100, 100)' },
+                        { label: 'Kalite Belge', formula: 'ISO 9001:30p, IATF 16949:60p, ISO 14001:10p (Toplam maks:70p)' }
+                    ];
+                    
+                    doc.setFontSize(5.5);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(0, 0, 0);
+                    
+                    formulas.forEach((item, idx) => {
+                        // Zemin rengi
+                        doc.setFillColor(idx % 2 === 0 ? 245 : 255, idx % 2 === 0 ? 245 : 255, idx % 2 === 0 ? 245 : 255);
+                        doc.rect(margin, yPos, usableWidth, 6, 'FD');
+                        
+                        // Label (kalın)
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(item.label + ':', margin + 2, yPos + 3, { align: 'left' });
+                        
+                        // Formula (normal)
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(item.formula, margin + 25, yPos + 3, { align: 'left' });
+                        
+                        yPos += 6;
+                    });
+                    
+                    yPos += 3; // Boşluk
+                }
+                
                 // Grafik verilerini ekle (eğer seçilmişse)
                 const includeChartData = (options.includeChartData !== undefined)
                     ? options.includeChartData
@@ -20816,6 +20891,86 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 });
                 // İmza kutuları çerçevesi
                 ['A13','E13'].forEach(addr => { ws.getCell(addr).border = borderMedium; });
+
+                // Formül Açıklamaları ve Tedarikçi Puanı Bölümü - Yeni
+                const supplierForFormulas = allResults.find(r => r.name === supplierName);
+                if (supplierForFormulas) {
+                    let formulaRow = 18;
+                    
+                    // Tedarikçi Puanı hesapla
+                    const vdaPuan = supplierForFormulas.vdaPuan || 0;
+                    const kalitePuan = supplierForFormulas.kalitePuan || 0;
+                    const ppmPuan = supplierForFormulas.ppmPuan || 0;
+                    const donusOrani8D = supplierForFormulas.donusOrani8D || 100;
+                    const terminPuan = supplierForFormulas.terminPuan || 100;
+                    const tamamlanmaPuan = supplierForFormulas.tamamlanmaPuan || 100;
+                    const hataPuan = supplierForFormulas.hataPuan || 100;
+                    
+                    let tedarikcipuani = 0;
+                    let formulaText = '';
+                    
+                    if (vdaPuan > 0) {
+                        tedarikcipuani = (vdaPuan * 0.20) + (kalitePuan * 0.05) + (ppmPuan * 0.30) + (donusOrani8D * 0.05) + (terminPuan * 0.20) + (tamamlanmaPuan * 0.10) + (hataPuan * 0.10);
+                        formulaText = 'VDA Denetimi Olan: VDA*0.20 + Kalite*0.05 + PPM*0.30 + 8D*0.05 + Termin*0.20 + Tamamlanma*0.10 + Hata*0.10';
+                    } else {
+                        tedarikcipuani = (kalitePuan * 0.05) + (ppmPuan * 0.40) + (donusOrani8D * 0.10) + (terminPuan * 0.20) + (tamamlanmaPuan * 0.10) + (hataPuan * 0.15);
+                        formulaText = 'VDA Denetimi Olmayan: Kalite*0.05 + PPM*0.40 + 8D*0.10 + Termin*0.20 + Tamamlanma*0.10 + Hata*0.15';
+                    }
+                    
+                    // Başlık - Formüller
+                    ws.mergeCells(`A${formulaRow}:L${formulaRow}`);
+                    const formulaHeaderCell = ws.getCell(`A${formulaRow}`);
+                    formulaHeaderCell.value = 'HESAPLAMA FORMÜLLERI / CALCULATION FORMULAS';
+                    formulaHeaderCell.alignment = centerWrap;
+                    formulaHeaderCell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+                    formulaHeaderCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2a3f5f' } };
+                    formulaHeaderCell.border = borderThin;
+                    ws.getRow(formulaRow).height = 26;
+                    formulaRow++;
+                    
+                    // Tedarikçi Puanı
+                    ws.mergeCells(`A${formulaRow}:L${formulaRow}`);
+                    const scoreCell = ws.getCell(`A${formulaRow}`);
+                    scoreCell.value = `TEDARİKÇİ PUANI / SUPPLIER SCORE: ${tedarikcipuani.toFixed(1)}\n${formulaText}`;
+                    scoreCell.alignment = centerWrap;
+                    scoreCell.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+                    scoreCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2196f3' } };
+                    scoreCell.border = borderThin;
+                    ws.getRow(formulaRow).height = 38;
+                    formulaRow++;
+                    
+                    // Formül detayları tablosu
+                    const formulas = [
+                        { label: 'PPM Puanı', formula: 'PPM=0:100p | PPM<=Hedef/4:100p | PPM<=Hedef/2:90p | PPM<=Hedef:70p | PPM<=Hedef*1.5:50p | PPM<=Hedef*2:30p | Diğer:0p' },
+                        { label: 'Termin Puanı', formula: 'Zamanında Teslim Oranı: (Zamanında Sipariş / Toplam Sipariş) * 100' },
+                        { label: 'Tamamlanma Puanı', formula: '(Gelen Miktar / Sipariş Miktarı) * 100' },
+                        { label: 'Hata Puanı', formula: 'Hata=0:100p | Hata<=Hedef:(Hedef/Hata)*100 | Diğer:Min((Hedef/Hata)*100, 100)' },
+                        { label: 'Kalite Belgesi Puanı', formula: 'ISO 9001:30p, IATF 16949:60p, ISO 14001:10p, ISO 45001 vb. (Toplam maks:70p)' }
+                    ];
+                    
+                    formulas.forEach((item, idx) => {
+                        // Label
+                        ws.mergeCells(`A${formulaRow}:C${formulaRow}`);
+                        const labelCell = ws.getCell(`A${formulaRow}`);
+                        labelCell.value = item.label;
+                        labelCell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+                        labelCell.font = { bold: true, size: 9 };
+                        labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? 'FFf5f5f5' : 'FFffffff' } };
+                        labelCell.border = borderThin;
+                        
+                        // Formula
+                        ws.mergeCells(`D${formulaRow}:L${formulaRow}`);
+                        const formulaCell = ws.getCell(`D${formulaRow}`);
+                        formulaCell.value = item.formula;
+                        formulaCell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+                        formulaCell.font = { size: 9 };
+                        formulaCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? 'FFf5f5f5' : 'FFffffff' } };
+                        formulaCell.border = borderThin;
+                        
+                        ws.getRow(formulaRow).height = 26;
+                        formulaRow++;
+                    });
+                }
 
                 // Grafik verilerini ekle (eğer seçilmişse)
                 const includeChartData = (options.includeChartData !== undefined)
