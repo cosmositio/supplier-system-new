@@ -10927,6 +10927,9 @@
                     { bg: 'rgba(0, 188, 212, 0.7)', border: 'rgba(0, 188, 212, 1)' }
                 ];
                 
+                // DEBUG: Tüm coaValue değerlerini logla
+                console.log(`🔍 ${property} için gelen CoA değerleri (${propData.length} adet):`, propData.map(r => r.coaValue));
+                
                 propData.forEach(r => {
                     // COA değerini temizle ve parse et
                     let cleanValue = String(r.coaValue || '').trim();
