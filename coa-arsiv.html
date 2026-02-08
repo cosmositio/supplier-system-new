@@ -10943,8 +10943,8 @@
                         return;
                     }
                     
-                    // Virgülü noktaya çevir (Türkçe ondalık)
-                    cleanValue = cleanValue.replace(',', '.');
+                    // Virgülü noktaya çevir (Türkçe ondalık) - TÜM virgülleri değiştir
+                    cleanValue = cleanValue.replace(/,/g, '.');
                     
                     // Yıl gibi büyük sayıları filtrele (>999)
                     const tempVal = parseFloat(cleanValue);
@@ -10958,14 +10958,20 @@
                         return;
                     }
                     
-                    // İkili değer kontrolü (örn: "29.8-30.3")
+                    // İkili değer kontrolü (örn: "5.5-6.5" veya "29.8-30.3")
+                    // Not: Virgüller zaten noktaya çevrildi
                     let val, minVal, maxVal;
-                    if (cleanValue.includes('-') && cleanValue.split('-').length === 2) {
-                        const parts = cleanValue.split('-').map(p => parseFloat(p.trim()));
-                        if (parts.every(p => !isNaN(p) && isFinite(p))) {
+                    const rangeMatch = cleanValue.match(/^(\d+\.?\d*)\s*-\s*(\d+\.?\d*)$/);
+                    
+                    if (rangeMatch) {
+                        // İkili değer tespit edildi
+                        const val1 = parseFloat(rangeMatch[1]);
+                        const val2 = parseFloat(rangeMatch[2]);
+                        
+                        if (!isNaN(val1) && !isNaN(val2) && isFinite(val1) && isFinite(val2)) {
                             // İkili değer: min ve max'ı sakla, grafiğe ortalama ekle
-                            minVal = Math.min(...parts);
-                            maxVal = Math.max(...parts);
+                            minVal = Math.min(val1, val2);
+                            maxVal = Math.max(val1, val2);
                             val = (minVal + maxVal) / 2; // Ortalama grafiğe gidiyor
                             
                             // Min ve max değerlerini kayıt nesnesine ekle
@@ -10973,9 +10979,10 @@
                             r._parsedMaxValue = maxVal;
                             r._isRangeValue = true;
                             
-                            console.log(`📊 İkili değer tespit edildi: ${cleanValue} -> Min: ${minVal}, Max: ${maxVal}, Ortalama (grafiğe): ${val}`);
+                            console.log(`📊 İkili değer tespit edildi: "${r.coaValue}" -> Min: ${minVal}, Max: ${maxVal}, Ortalama (grafiğe): ${val}`);
                         } else {
                             // Parse edilemedi
+                            console.warn('⚠️ İkili değer parse edilemedi:', cleanValue);
                             values.push(null);
                             backgroundColors.push(colors[propIndex % colors.length].bg);
                             borderColors.push(colors[propIndex % colors.length].border);
