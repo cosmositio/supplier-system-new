@@ -10945,14 +10945,43 @@
                     // Virgülü noktaya çevir (Türkçe ondalık)
                     cleanValue = cleanValue.replace(',', '.');
                     
-                    const val = parseFloat(cleanValue);
-                    if (isNaN(val) || !isFinite(val)) {
-                        values.push(null);
-                        backgroundColors.push(colors[propIndex % colors.length].bg);
-                        borderColors.push(colors[propIndex % colors.length].border);
-                        pointBackgroundColors.push(colors[propIndex % colors.length].border);
-                        pointBorderColors.push(colors[propIndex % colors.length].border);
-                        return;
+                    // İkili değer kontrolü (örn: "29.8-30.3")
+                    let val, minVal, maxVal;
+                    if (cleanValue.includes('-') && cleanValue.split('-').length === 2) {
+                        const parts = cleanValue.split('-').map(p => parseFloat(p.trim()));
+                        if (parts.every(p => !isNaN(p) && isFinite(p))) {
+                            // İkili değer: min ve max'ı sakla, grafiğe ortalama ekle
+                            minVal = Math.min(...parts);
+                            maxVal = Math.max(...parts);
+                            val = (minVal + maxVal) / 2; // Ortalama grafiğe gidiyor
+                            
+                            // Min ve max değerlerini kayıt nesnesine ekle
+                            r._parsedMinValue = minVal;
+                            r._parsedMaxValue = maxVal;
+                            r._isRangeValue = true;
+                            
+                            console.log(`📊 İkili değer tespit edildi: ${cleanValue} -> Min: ${minVal}, Max: ${maxVal}, Ortalama (grafiğe): ${val}`);
+                        } else {
+                            // Parse edilemedi
+                            values.push(null);
+                            backgroundColors.push(colors[propIndex % colors.length].bg);
+                            borderColors.push(colors[propIndex % colors.length].border);
+                            pointBackgroundColors.push(colors[propIndex % colors.length].border);
+                            pointBorderColors.push(colors[propIndex % colors.length].border);
+                            return;
+                        }
+                    } else {
+                        // Tekli değer
+                        val = parseFloat(cleanValue);
+                        if (isNaN(val) || !isFinite(val)) {
+                            values.push(null);
+                            backgroundColors.push(colors[propIndex % colors.length].bg);
+                            borderColors.push(colors[propIndex % colors.length].border);
+                            pointBackgroundColors.push(colors[propIndex % colors.length].border);
+                            pointBorderColors.push(colors[propIndex % colors.length].border);
+                            return;
+                        }
+                        r._isRangeValue = false;
                     }
                     
                     values.push(val);
@@ -11182,10 +11211,31 @@
                 
                 // Bu grafik için istatistikleri hesapla ve göster
                 const validValues = values.filter(v => v !== null && !isNaN(v) && isFinite(v));
+                
+                // İkili değerleri göz önünde bulundur
+                let actualMinValues = [];
+                let actualMaxValues = [];
+                
+                propData.forEach(r => {
+                    if (r._isRangeValue) {
+                        // İkili değer - parse edilmiş min ve max'ı kullan
+                        if (r._parsedMinValue !== undefined) actualMinValues.push(r._parsedMinValue);
+                        if (r._parsedMaxValue !== undefined) actualMaxValues.push(r._parsedMaxValue);
+                    } else {
+                        // Tekli değer - aynı değeri hem min hem max olarak kullan
+                        let cleanValue = String(r.coaValue || '').trim().replace(',', '.');
+                        const val = parseFloat(cleanValue);
+                        if (!isNaN(val) && isFinite(val)) {
+                            actualMinValues.push(val);
+                            actualMaxValues.push(val);
+                        }
+                    }
+                });
+                
                 const propStats = {
                     count: validValues.length,
-                    min: validValues.length > 0 ? Math.min(...validValues) : 0,
-                    max: validValues.length > 0 ? Math.max(...validValues) : 0,
+                    min: actualMinValues.length > 0 ? Math.min(...actualMinValues) : 0,
+                    max: actualMaxValues.length > 0 ? Math.max(...actualMaxValues) : 0,
                     avg: validValues.length > 0 ? validValues.reduce((a, b) => a + b, 0) / validValues.length : 0,
                     target: propData[0]?.standardValue || '-',
                     minLimit: propData[0]?.minLimit || '-',
@@ -11196,7 +11246,17 @@
                 // Tolerans dışı sayısı
                 let outOfSpec = 0;
                 propData.forEach(r => {
-                    const val = parseFloat(r.coaValue);
+                    // İkili değer kontrolü
+                    let val;
+                    if (r._isRangeValue && r._parsedMinValue !== undefined && r._parsedMaxValue !== undefined) {
+                        // İkili değer - ortalama üzerinden kontrol et
+                        val = (r._parsedMinValue + r._parsedMaxValue) / 2;
+                    } else {
+                        // Tekli değer
+                        let cleanValue = String(r.coaValue || '').trim().replace(',', '.');
+                        val = parseFloat(cleanValue);
+                    }
+                    
                     if (isNaN(val)) return;
                     
                     const operator = r.operator || 'range';
