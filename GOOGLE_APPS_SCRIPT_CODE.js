@@ -1594,6 +1594,29 @@ function saveCOARecord(data) {
     
     // Her özellik için ayrı satır oluştur
     data.properties.forEach(prop => {
+      // COA değerini kontrol et - tarih formatlarını atla
+      const coaValueStr = String(prop.coaValue || '').trim();
+      
+      // ISO tarih formatı kontrolü (2026-05-04T21:00:00.000Z)
+      if (/^\d{4}-\d{2}-\d{2}T/.test(coaValueStr) || /^\d{4}-\d{2}-\d{2}$/.test(coaValueStr)) {
+        Logger.log(`⚠️ ${prop.name}: Tarih formatında değer atlanıyor: "${coaValueStr}"`);
+        return; // Bu property'yi kaydetme
+      }
+      
+      // DD.MM.YYYY veya DD/MM/YYYY formatı
+      if (/^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4}$/.test(coaValueStr)) {
+        Logger.log(`⚠️ ${prop.name}: Tarih formatında değer atlanıyor: "${coaValueStr}"`);
+        return; // Bu property'yi kaydetme
+      }
+      
+      // Çok büyük sayılar (>999) - muhtemelen yıl
+      const testNum = parseFloat(coaValueStr.replace(/,/g, '.'));
+      if (!isNaN(testNum) && Math.abs(testNum) > 999) {
+        Logger.log(`⚠️ ${prop.name}: Yıl gibi büyük değer atlanıyor: "${coaValueStr}"`);
+        return; // Bu property'yi kaydetme
+      }
+      
+      // Geçerli değer, satır oluştur
       rows.push([
         data.date || '',
         data.deliveryNo || '',

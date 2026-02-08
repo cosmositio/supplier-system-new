@@ -8459,7 +8459,33 @@
                 
                 // Properties array oluştur (sadece COA değeri olanlar)
                 const properties = tdsProperties
-                    .filter(prop => prop.coaValue) // Sadece değer girilenleri al
+                    .filter(prop => {
+                        if (!prop.coaValue) return false;
+                        
+                        // Tarih formatlarını filtrele
+                        const valueStr = String(prop.coaValue).trim();
+                        
+                        // ISO tarih formatı kontrolü (2026-05-04T21:00:00.000Z)
+                        if (/^\d{4}-\d{2}-\d{2}T/.test(valueStr) || /^\d{4}-\d{2}-\d{2}$/.test(valueStr)) {
+                            console.warn(`⚠️ ${prop.name}: Tarih formatında değer atlanıyor: "${valueStr}"`);
+                            return false;
+                        }
+                        
+                        // DD.MM.YYYY veya DD/MM/YYYY formatı
+                        if (/^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4}$/.test(valueStr)) {
+                            console.warn(`⚠️ ${prop.name}: Tarih formatında değer atlanıyor: "${valueStr}"`);
+                            return false;
+                        }
+                        
+                        // Çok büyük sayılar (>999) - muhtemelen yıl
+                        const testNum = parseFloat(valueStr.replace(/,/g, '.'));
+                        if (!isNaN(testNum) && Math.abs(testNum) > 999) {
+                            console.warn(`⚠️ ${prop.name}: Yıl gibi büyük değer atlanıyor: "${valueStr}"`);
+                            return false;
+                        }
+                        
+                        return true;
+                    })
                     .map(prop => {
                         // COA değerini al
                         let coaValue = String(prop.coaValue || '').trim();
