@@ -10931,9 +10931,10 @@
                     // COA değerini temizle ve parse et
                     let cleanValue = String(r.coaValue || '').trim();
                     
-                    // Tarih formatlarını filtrele (DD.MM.YYYY veya DD/MM/YYYY gibi)
+                    // Tarih formatlarını ve yıl değerlerini filtrele
+                    // DD.MM.YYYY, DD/MM/YYYY, YYYY gibi formatlar
                     if (/^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4}$/.test(cleanValue)) {
-                        console.warn('⚠️ Tarih değeri tespit edildi, atlanıyor:', cleanValue, 'Property:', property);
+                        console.warn('⚠️ Tarih değeri tespit edildi (format 1), atlanıyor:', cleanValue, 'Property:', property);
                         values.push(null);
                         backgroundColors.push(colors[propIndex % colors.length].bg);
                         borderColors.push(colors[propIndex % colors.length].border);
@@ -10944,6 +10945,18 @@
                     
                     // Virgülü noktaya çevir (Türkçe ondalık)
                     cleanValue = cleanValue.replace(',', '.');
+                    
+                    // Yıl gibi büyük sayıları filtrele (>999)
+                    const tempVal = parseFloat(cleanValue);
+                    if (!isNaN(tempVal) && Math.abs(tempVal) > 999) {
+                        console.warn('⚠️ Yıl/tarih değeri tespit edildi (>999), atlanıyor:', cleanValue, 'Property:', property);
+                        values.push(null);
+                        backgroundColors.push(colors[propIndex % colors.length].bg);
+                        borderColors.push(colors[propIndex % colors.length].border);
+                        pointBackgroundColors.push(colors[propIndex % colors.length].border);
+                        pointBorderColors.push(colors[propIndex % colors.length].border);
+                        return;
+                    }
                     
                     // İkili değer kontrolü (örn: "29.8-30.3")
                     let val, minVal, maxVal;
