@@ -3949,8 +3949,13 @@
                     let irsaliyeSeriIndex = -1;
                     let irsaliyeNoIndex = -1;
                     
+                    console.log('📋 Excel başlıkları:', headers);
+                    
                     headers.forEach((header, index) => {
                         const h = String(header).trim().toLowerCase();
+                        // Türkçe karakterleri normalize et
+                        const normalized = h.replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c');
+                        
                         if (h === 'cari adı' || h === 'cari adi' || h === 'cariadı' || h === 'cariadi') {
                             cariAdiIndex = index;
                         }
@@ -3960,7 +3965,9 @@
                         if (h === 'stok adı' || h === 'stok adi' || h === 'stokadı' || h === 'stokadi') {
                             stokAdiIndex = index;
                         }
-                        if (h === 'irsaliye tarihi') {
+                        // İrsaliye Tarihi - sadece bu sütun (İrsaliye Kayıt Tarihi DEĞİL)
+                        if (h.includes('irsaliye') && h.includes('tarihi') && !h.includes('kayit') && !h.includes('kayıt')) {
+                            console.log('✅ İrsaliye Tarihi bulundu:', header, 'Index:', index);
                             irsaliyeTarihiIndex = index;
                         }
                         if (h === 'irsaliye evrak seri' || h === 'irsaliye evrak seri no') {
@@ -4458,6 +4465,9 @@
             // Checkbox'lar işaretli değilse devam etme
             if (!autoFillDateCheckbox?.checked && !autoFillNoCheckbox?.checked) {
                 console.log('⚠️ Checkbox\'lar işaretli değil, dropdown oluşturulmayacak');
+                // Mevcut dropdown'ları temizle
+                document.getElementById('deliveryDateDropdown')?.remove();
+                document.getElementById('deliveryNoDropdown')?.remove();
                 return;
             }
             
@@ -4486,10 +4496,14 @@
             if (filteredDeliveries.length === 0) {
                 showToast(`ℹ️ ${selectedSupplier} için irsaliye bilgisi bulunamadı`, 'info', 2000);
                 console.log('⚠️ Filtrelenmiş delivery yok');
+                // Mevcut dropdown'ları temizle
+                document.getElementById('deliveryDateDropdown')?.remove();
+                document.getElementById('deliveryNoDropdown')?.remove();
                 return;
             }
             
             console.log('✅ Dropdown\'lar oluşturulacak:', filteredDeliveries.length, 'kayıt');
+            console.log('📦 İlk 3 delivery:', filteredDeliveries.slice(0, 3));
             
             // İrsaliye tarihi dropdown'ını oluştur
             if (autoFillDateCheckbox?.checked) {
