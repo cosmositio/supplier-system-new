@@ -13986,6 +13986,16 @@
                 }));
 
                 console.log(`✅ ${allResults.length} tedarikçi geri yüklendi!`);
+                
+                // Kalite belgesi tarihi olan tedarikçileri say ve logla
+                const suppliersWithCertDates = allResults.filter(s => s.certExpiryDates && Object.keys(s.certExpiryDates).length > 0).length;
+                console.log(`📅 ${suppliersWithCertDates} tedarikçide kalite belgesi tarihi var (geri yükleme)`);
+                if (suppliersWithCertDates > 0) {
+                    const sample = allResults.find(s => s.certExpiryDates && Object.keys(s.certExpiryDates).length > 0);
+                    if (sample) {
+                        console.log(`📝 Örnek (geri yükleme): ${sample.name} -> `, sample.certExpiryDates);
+                    }
+                }
 
                 // PPM hedefi ve Hata hedefini localStorage'a da kaydet
                 allResults.forEach(supplier => {
@@ -23955,6 +23965,35 @@ Devam etmek istiyor musunuz?`;
                         await load8DCountsFromDB();
                     }
                     
+                    // ÖNEMLİ: Storj'dan yüklenen güncel veriyi IndexedDB'ye otomatik kaydet
+                    // Böylece filtre geri yükleme işlemi certExpiryDates'leri silmez
+                    console.log('💾 Güncel veri IndexedDB\'ye kaydediliyor (certExpiryDates dahil)...');
+                    try {
+                        const editsSnapshot = {
+                            name: `📥 Storj Yüklemesi - ${new Date().toLocaleDateString('tr-TR')}`,
+                            timestamp: new Date().toISOString(),
+                            data: allResults.map(supplier => ({
+                                ...supplier,
+                                certExpiryDates: supplier.certExpiryDates || {} // Kesinlikle kaydet
+                            })),
+                            selectedSuppliers: Array.from(selectedSuppliers),
+                            manualMonthlyEdits: manualMonthlyEdits || {}
+                        };
+                        
+                        const tx = db.transaction(['editsHistory'], 'readwrite');
+                        const store = tx.objectStore('editsHistory');
+                        store.add(editsSnapshot);
+                        
+                        await new Promise((resolve, reject) => {
+                            tx.oncomplete = resolve;
+                            tx.onerror = () => reject(tx.error);
+                        });
+                        
+                        console.log('✅ Güncel veri IndexedDB\'ye kaydedildi (certExpiryDates korundu)');
+                    } catch (dbError) {
+                        console.warn('⚠️ IndexedDB kayıt hatası (veri tabloda halen mevcut):', dbError);
+                    }
+                    
                     showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n📦 ${Object.keys(importData.stores).length} store güncellendi\n📊 ${allResults.length} tedarikçi tabloda görüntüleniyor\n📅 Export tarihi: ${new Date(importData.exportedAt).toLocaleString('tr-TR')}`, 'success');
                 } else {
                     showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n📦 ${Object.keys(importData.stores).length} store güncellendi\n📅 Export tarihi: ${new Date(importData.exportedAt).toLocaleString('tr-TR')}\n\n🔄 Sayfa yenileniyor...`, 'success');
@@ -24289,6 +24328,35 @@ Devam etmek istiyor musunuz?`;
                     // 8D sayılarını güncelle
                     if (typeof load8DCountsFromDB === 'function') {
                         await load8DCountsFromDB();
+                    }
+                    
+                    // ÖNEMLİ: Storj'dan yüklenen güncel veriyi IndexedDB'ye otomatik kaydet
+                    // Böylece filtre geri yükleme işlemi certExpiryDates'leri silmez
+                    console.log('💾 Güncel veri IndexedDB\'ye kaydediliyor (certExpiryDates dahil)...');
+                    try {
+                        const editsSnapshot = {
+                            name: `📥 Storj Yüklemesi - ${new Date().toLocaleDateString('tr-TR')}`,
+                            timestamp: new Date().toISOString(),
+                            data: allResults.map(supplier => ({
+                                ...supplier,
+                                certExpiryDates: supplier.certExpiryDates || {} // Kesinlikle kaydet
+                            })),
+                            selectedSuppliers: Array.from(selectedSuppliers),
+                            manualMonthlyEdits: manualMonthlyEdits || {}
+                        };
+                        
+                        const tx = db.transaction(['editsHistory'], 'readwrite');
+                        const store = tx.objectStore('editsHistory');
+                        store.add(editsSnapshot);
+                        
+                        await new Promise((resolve, reject) => {
+                            tx.oncomplete = resolve;
+                            tx.onerror = () => reject(tx.error);
+                        });
+                        
+                        console.log('✅ Güncel veri IndexedDB\'ye kaydedildi (certExpiryDates korundu)');
+                    } catch (dbError) {
+                        console.warn('⚠️ IndexedDB kayıt hatası (veri tabloda halen mevcut):', dbError);
                     }
                     
                     showAlert(`✅ Veritabanı başarıyla yüklendi!\n\n📊 ${allResults.length} tedarikçi tabloda görüntüleniyor`, 'success');
