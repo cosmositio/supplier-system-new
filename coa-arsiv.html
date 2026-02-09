@@ -11303,14 +11303,21 @@
                     }
                 });
                 
+                // standardValue ve limitleri sayısal olarak parse et
+                const parseValue = (val) => {
+                    if (val === null || val === undefined || val === '') return '-';
+                    const parsed = parseFloat(String(val).replace(/,/g, '.'));
+                    return isNaN(parsed) ? '-' : parsed;
+                };
+                
                 const propStats = {
                     count: validValues.length,
                     min: actualMinValues.length > 0 ? Math.min(...actualMinValues) : 0,
                     max: actualMaxValues.length > 0 ? Math.max(...actualMaxValues) : 0,
                     avg: validValues.length > 0 ? validValues.reduce((a, b) => a + b, 0) / validValues.length : 0,
-                    target: propData[0]?.standardValue || '-',
-                    minLimit: propData[0]?.minLimit || '-',
-                    maxLimit: propData[0]?.maxLimit || '-',
+                    target: parseValue(propData[0]?.standardValue),
+                    minLimit: parseValue(propData[0]?.minLimit),
+                    maxLimit: parseValue(propData[0]?.maxLimit),
                     operator: propData[0]?.operator || 'range'
                 };
                 
@@ -11350,6 +11357,10 @@
                 
                 // İstatistikleri statsDiv'e ekle
                 const statsContainer = document.getElementById(`stats_${propIndex}`);
+                const formatValue = (val) => {
+                    return typeof val === 'number' && !isNaN(val) ? val.toFixed(2) : val;
+                };
+                
                 statsContainer.innerHTML = `
                     <div style="text-align: center; font-weight: bold; color: #2d5a3d; border-bottom: 2px solid #2d5a3d; padding-bottom: 8px; margin-bottom: 8px;">
                         📊 İstatistikler
@@ -11357,20 +11368,20 @@
                     ${propStats.operator === 'range' ? `
                     <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
                         <span style="color: #666; font-size: 0.9em;">🎯 Hedef:</span>
-                        <span style="font-weight: 600;">${typeof propStats.target === 'number' ? propStats.target.toFixed(2) : propStats.target}</span>
+                        <span style="font-weight: 600;">${formatValue(propStats.target)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
                         <span style="color: #666; font-size: 0.9em;">📉 Alt Limit:</span>
-                        <span style="font-weight: 600; color: #ff9800;">${typeof propStats.minLimit === 'number' ? propStats.minLimit.toFixed(2) : propStats.minLimit}</span>
+                        <span style="font-weight: 600; color: #ff9800;">${formatValue(propStats.minLimit)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
                         <span style="color: #666; font-size: 0.9em;">📈 Üst Limit:</span>
-                        <span style="font-weight: 600; color: #f44336;">${typeof propStats.maxLimit === 'number' ? propStats.maxLimit.toFixed(2) : propStats.maxLimit}</span>
+                        <span style="font-weight: 600; color: #f44336;">${formatValue(propStats.maxLimit)}</span>
                     </div>
                     ` : `
                     <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
                         <span style="color: #666; font-size: 0.9em;">🎯 ${propStats.operator === '>' || propStats.operator === '>=' ? 'Min' : propStats.operator === '<' || propStats.operator === '<=' ? 'Max' : 'Hedef'}:</span>
-                        <span style="font-weight: 600;">${typeof propStats.target === 'number' ? propStats.target.toFixed(2) : propStats.target}</span>
+                        <span style="font-weight: 600;">${formatValue(propStats.target)}</span>
                     </div>
                     `}
                     <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dee2e6;">
