@@ -23631,10 +23631,31 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 
                 // 1. ÖNCE allResults'tan suppliers al (aktif veriler - Excel'den yüklenmiş olabilir)
                 if (allResults && allResults.length > 0) {
+                    // Tedarikçi verilerini normalize et ve tüm alanları dahil et
+                    const normalizedSuppliers = allResults.map(r => ({
+                        name: r.name,
+                        normalizedName: r.normalizedName || normalizeName(r.name),
+                        status: r.status || getSupplierStatus(r.name),
+                        iatf: r.iatf || false,
+                        iso9001: r.iso9001 || false,
+                        iso14001: r.iso14001 || false,
+                        iso45001: r.iso45001 || false,
+                        certExpiryDates: r.certExpiryDates || {},
+                        talepEdilen8D: r.talepEdilen8D || 0,
+                        cevaplanan8D: r.cevaplanan8D || 0,
+                        vdaPuan: r.vdaPuan || 0,
+                        terminPuan: r.terminPuan || 100,
+                        tamamlanmaPuan: r.tamamlanmaPuan || 100,
+                        lokasyon: r.lokasyon || [],
+                        ppmTarget: r.ppmTarget || null,
+                        hataHedefi: r.hataHedefi || null,
+                        kalitePuan: r.kalitePuan || 0
+                    }));
+                    
                     // allResults'ı localStorage'a da kaydet (güvenlik için)
-                    localStorage.setItem('selectedSuppliers', JSON.stringify(allResults));
-                    exportData.stores['suppliers'] = allResults;
-                    console.log(`✅ suppliers (allResults): ${allResults.length} kayıt`);
+                    localStorage.setItem('selectedSuppliers', JSON.stringify(normalizedSuppliers));
+                    exportData.stores['suppliers'] = normalizedSuppliers;
+                    console.log(`✅ suppliers (allResults): ${normalizedSuppliers.length} kayıt`);
                 } else {
                     // 2. allResults yoksa localStorage'dan al
                     const suppliersData = localStorage.getItem('selectedSuppliers');
