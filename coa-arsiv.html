@@ -8587,7 +8587,12 @@
                         }
                         
                         // Operatör ve Standart Değer kontrolü - virgül/nokta dönüşümü ile
-                        const operator = prop.operator || prop.operatör || 'range';
+                        // Eğer requirement dolu ise otomatik olarak compliance mode'a geç
+                        let operator = prop.operator || prop.operatör || 'range';
+                        if (prop.requirement && prop.requirement.trim() !== '') {
+                            operator = 'compliance';
+                            console.log(`  🔄 ${prop.name}: Requirement dolu, compliance mode'a geçildi`);
+                        }
                         let standardValue = prop.standardValue || prop.standardDeger || '';
                         if (standardValue) standardValue = String(standardValue).replace(/,/g, '.');
                         
@@ -8709,21 +8714,28 @@
         function calculatePropertyStatus(coaValue, min, max, operator = 'range', prop = null) {
             if (!coaValue) return '-';
             
-            // Compliance mode: coaCompliance değerini kullan
-            if (operator === 'compliance' && prop) {
+            // Compliance mode: coaCompliance değerini kullan VEYA requirement ile karşılaştır
+            if ((operator === 'compliance' || (prop && prop.requirement)) && prop) {
                 if (prop.coaCompliance) {
                     return prop.coaCompliance;
                 }
                 // Eğer coaCompliance yoksa ama requirement var ise karşılaştır
                 if (prop.requirement) {
-                    // Normalize ederek karşılaştır
-                    const normalizeStr = (str) => String(str).replace(/\s+/g, '').toLowerCase();
+                    // Normalize ederek karşılaştır - boşluk, büyük/küçük harf, özel karakterler
+                    const normalizeStr = (str) => String(str)
+                        .replace(/\s+/g, '')
+                        .replace(/[≤≥<>=]/g, '')
+                        .toLowerCase()
+                        .trim();
                     const coaNorm = normalizeStr(coaValue);
                     const reqNorm = normalizeStr(prop.requirement);
+                    
+                    console.log(`  🔍 Compliance karşılaştırma: COA="${coaNorm}" vs REQ="${reqNorm}"`);
                     
                     if (coaNorm === reqNorm || coaNorm.includes(reqNorm) || reqNorm.includes(coaNorm)) {
                         return 'Uygun';
                     }
+                    return 'Uygun Değil';
                 }
                 return '-';
             }
