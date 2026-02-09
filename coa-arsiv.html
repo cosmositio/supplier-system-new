@@ -1241,6 +1241,14 @@
                 
                 <div class="form-group">
                     <label>Sertifika Dosyası *</label>
+                    
+                    <!-- Drag & Drop Alan -->
+                    <div id="dragDropArea" style="border: 2px dashed #2196F3; border-radius: 8px; padding: 15px; margin-bottom: 10px; text-align: center; background: linear-gradient(135deg, #e3f2fd 0%, #f5f5f5 100%); cursor: pointer; transition: all 0.3s;" onclick="document.getElementById('fileInput').click()">
+                        <div style="font-size: 1.5em; margin-bottom: 5px;">📁</div>
+                        <div style="font-size: 0.9em; color: #1976D2; font-weight: 500;">Dosya sürükleyip bırakın veya tıklayın</div>
+                        <div style="font-size: 0.75em; color: #666; margin-top: 3px;">PDF, Resim, Excel, Word</div>
+                    </div>
+                    
                     <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                         <button type="button" class="btn btn-secondary" onclick="openDocumentScanner()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
                             📷 Belge Tara
@@ -2589,6 +2597,54 @@
             }
         }
         
+        // Drag & Drop işlevselliği
+        function initDragDrop() {
+            const dragDropArea = document.getElementById('dragDropArea');
+            const fileInput = document.getElementById('fileInput');
+            
+            if (!dragDropArea || !fileInput) return;
+            
+            // Drag events
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dragDropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            // Highlight on drag
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dragDropArea.addEventListener(eventName, () => {
+                    dragDropArea.style.borderColor = '#4CAF50';
+                    dragDropArea.style.background = 'linear-gradient(135deg, #c8e6c9 0%, #e8f5e9 100%)';
+                    dragDropArea.style.transform = 'scale(1.02)';
+                }, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dragDropArea.addEventListener(eventName, () => {
+                    dragDropArea.style.borderColor = '#2196F3';
+                    dragDropArea.style.background = 'linear-gradient(135deg, #e3f2fd 0%, #f5f5f5 100%)';
+                    dragDropArea.style.transform = 'scale(1)';
+                }, false);
+            });
+            
+            // Handle drop
+            dragDropArea.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                
+                if (files.length > 0) {
+                    // FileInput'a dosyayı ata ve change event'ini tetikle
+                    fileInput.files = files;
+                    const event = new Event('change', { bubbles: true });
+                    fileInput.dispatchEvent(event);
+                }
+            }, false);
+        }
+        
         // ==================== Initialization ====================
         document.addEventListener('DOMContentLoaded', function() {
             // PDF.js worker ayarla (global)
@@ -2631,6 +2687,9 @@
             
             // Init upload area
             initUploadArea();
+            
+            // Init drag & drop
+            initDragDrop();
             
             // Init filters
             document.getElementById('searchInput').addEventListener('input', filterList);
