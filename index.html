@@ -13628,6 +13628,7 @@
                     iso9001: r.iso9001 ? 1 : 0,
                     iso14001: r.iso14001 ? 1 : 0,
                     iso45001: r.iso45001 ? 1 : 0,
+                    certExpiryDates: r.certExpiryDates || {},  // ✅ Kalite belgesi tarihleri eklendi
                     td8D: r.talepEdilen8D || 0,
                     cv8D: r.cevaplanan8D || 0,
                     vda: r.vdaPuan || 0,
@@ -13693,12 +13694,16 @@
                 // Kaydedilmiş filtreleri de ekle
                 const savedFilters = JSON.parse(localStorage.getItem('supplierFilters') || '[]');
                 
+                // Özel kalite belge türlerini de kaydet
+                const customQualityCertTypes = localStorage.getItem('customQualityCertTypes');
+                
                 const editsSnapshot = {
                     timestamp: new Date().toISOString(),
                     name: saveName.trim(),
                     data: allSuppliersData,
                     documents: documentsData,
-                    savedFilters: savedFilters
+                    savedFilters: savedFilters,
+                    customQualityCertTypes: customQualityCertTypes ? JSON.parse(customQualityCertTypes) : null
                 };
 
                 try {
@@ -13730,8 +13735,18 @@
                             const totalDocs = Object.values(documentsData).reduce((sum, docs) => sum + docs.length, 0);
                             console.log(`📄 ${docCount} tedarikçi için ${totalDocs} doküman kaydedildi`);
                             
+                            // Kalite belgesi tarihi olan tedarikçileri say
+                            const withCertDates = allSuppliersData.filter(s => s.certExpiryDates && Object.keys(s.certExpiryDates).length > 0).length;
+                            console.log(`📅 ${withCertDates} tedarikçide kalite belgesi tarihi kaydedildi`);
+                            if (withCertDates > 0) {
+                                const sample = allSuppliersData.find(s => s.certExpiryDates && Object.keys(s.certExpiryDates).length > 0);
+                                if (sample) {
+                                    console.log(`📝 Örnek (kaydedilen): ${sample.name} -> `, sample.certExpiryDates);
+                                }
+                            }
+                            
                             updateEditsVersionButton();
-                            showAlert(`✅ "${saveName}" IndexedDB'ye kaydedildi! (${allSuppliersData.length} tedarikçi, ${totalDocs} doküman)`, 'success');
+                            showAlert(`✅ "${saveName}" IndexedDB'ye kaydedildi! (${allSuppliersData.length} tedarikçi, ${totalDocs} doküman, ${withCertDates} kalite belgesi)`, 'success');
                             closeEditsDialog();
                         };
                         
@@ -13915,6 +13930,13 @@
                     console.log('🔄 Manuel düzenleme işaretleri geri yüklendi:', Object.keys(manualMonthlyEdits).length, 'tedarikçi');
                 } else {
                     manualMonthlyEdits = {}; // Boş başlat
+                }
+                
+                // ÖZEL KALİTE BELGE TÜRLERİNİ GERİ YÜKLE
+                if (editsSnapshot.customQualityCertTypes) {
+                    localStorage.setItem('customQualityCertTypes', JSON.stringify(editsSnapshot.customQualityCertTypes));
+                    loadCustomQualityCertTypes(); // Belge türlerini yeniden yükle
+                    console.log('📜 Özel kalite belge türleri geri yüklendi:', editsSnapshot.customQualityCertTypes.length);
                 }
                 
                 // KAYDEDİLEN TÜM TEDARİKÇİLERİ YENİDEN YÜKLE
