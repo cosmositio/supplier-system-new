@@ -4534,7 +4534,15 @@
                 date: d.date && d.date.includes('.') ? d.date : formatExcelDateToDisplay(d.date)
             }));
             
-            const uniqueDates = [...new Set(formattedDeliveries.map(d => d.date))].sort().reverse();
+            // Undefined/null tarihleri filtrele
+            const validDates = formattedDeliveries.filter(d => d.date && d.date !== 'undefined').map(d => d.date);
+            const uniqueDates = [...new Set(validDates)].sort().reverse();
+            
+            console.log('📅 Bulunan irsaliye tarihleri:', uniqueDates.length, 'benzersiz tarih');
+            uniqueDates.forEach((date, index) => {
+                const count = validDates.filter(d => d === date).length;
+                console.log(`   ${index + 1}. ${date} (${count} kayıt)`);
+            });
             
             uniqueDates.forEach(date => {
                 const option = document.createElement('option');
