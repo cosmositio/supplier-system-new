@@ -23824,6 +23824,17 @@ Devam etmek istiyor musunuz?`;
                         allResults = data; // Direkt allResults'a da yaz
                         suppliersLoaded = true;
                         console.log(`✅ suppliers: ${data.length} kayıt yüklendi (localStorage + allResults)`);
+                        
+                        // Kalite belgesi tarihi olan tedarikçileri say
+                        const suppliersWithCertDates = data.filter(s => s.certExpiryDates && Object.keys(s.certExpiryDates).length > 0).length;
+                        console.log(`📅 ${suppliersWithCertDates} tedarikçide kalite belgesi tarihi var`);
+                        if (suppliersWithCertDates > 0) {
+                            const sample = data.find(s => s.certExpiryDates && Object.keys(s.certExpiryDates).length > 0);
+                            if (sample) {
+                                console.log(`📝 Örnek: ${sample.name} -> `, sample.certExpiryDates);
+                            }
+                        }
+                        
                         continue;
                     }
                     
@@ -24126,6 +24137,17 @@ Devam etmek istiyor musunuz?`;
                         allResults = data; // Direkt allResults'a da yaz
                         suppliersLoaded = true;
                         console.log(`✅ suppliers: ${data.length} kayıt yüklendi (localStorage + allResults)`);
+                        
+                        // Kalite belgesi tarihi olan tedarikçileri say
+                        const suppliersWithCertDates = data.filter(s => s.certExpiryDates && Object.keys(s.certExpiryDates).length > 0).length;
+                        console.log(`📅 ${suppliersWithCertDates} tedarikçide kalite belgesi tarihi var`);
+                        if (suppliersWithCertDates > 0) {
+                            const sample = data.find(s => s.certExpiryDates && Object.keys(s.certExpiryDates).length > 0);
+                            if (sample) {
+                                console.log(`📝 Örnek: ${sample.name} -> `, sample.certExpiryDates);
+                            }
+                        }
+                        
                         continue;
                     }
                     
@@ -24206,6 +24228,7 @@ Devam etmek istiyor musunuz?`;
                         supplier.tedarikcisınıfı = supplier.tedarikcisınıfı || 'D';
                         supplier.status = supplier.status || 'ONAYLI';
                         supplier.lokasyon = supplier.lokasyon || [];
+                        supplier.certExpiryDates = supplier.certExpiryDates || {};
                         
                         if (supplier.ppmTarget) {
                             savePPMTargetToStorage(supplier.name, supplier.ppmTarget);
