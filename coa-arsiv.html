@@ -8633,9 +8633,26 @@
                             sheetRequirement = '';  // Sheets'e boş gönder
                         }
                         
+                        // COA değerini hazırla - sayısal değerleri Number olarak gönder
+                        // (Google Sheets'in "5.5" gibi değerleri tarih olarak yorumlamasını önle)
+                        let finalCoaValue = coaValue || '';
+                        if (finalCoaValue && typeof finalCoaValue === 'string') {
+                            // Range değer kontrolü (örn: "100 - 110")
+                            const isRangeValue = /^[\d.]+\s*-\s*[\d.]+$/.test(finalCoaValue);
+                            
+                            if (!isRangeValue) {
+                                // Tek sayısal değer - Number'a çevir
+                                const numValue = parseFloat(finalCoaValue);
+                                if (!isNaN(numValue) && isFinite(numValue)) {
+                                    finalCoaValue = numValue;  // Number olarak gönder
+                                    console.log(`  🔢 COA değeri Number'a çevrildi: "${coaValue}" → ${finalCoaValue}`);
+                                }
+                            }
+                        }
+                        
                         return {
                             name: prop.name,
-                            coaValue: coaValue || '',  // Boş olsa bile string olarak gönder
+                            coaValue: finalCoaValue,
                             unit: unit,
                             standard: prop.standard || '',
                             operator: operator,
