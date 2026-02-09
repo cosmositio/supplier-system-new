@@ -1609,10 +1609,10 @@ function saveCOARecord(data) {
         return; // Bu property'yi kaydetme
       }
       
-      // Çok büyük sayılar (>999) - muhtemelen yıl
+      // Yıl kontrolü (1900-2099 arası gerçek yıllar)
       const testNum = parseFloat(coaValueStr.replace(/,/g, '.'));
-      if (!isNaN(testNum) && Math.abs(testNum) > 999) {
-        Logger.log(`⚠️ ${prop.name}: Yıl gibi büyük değer atlanıyor: "${coaValueStr}"`);
+      if (!isNaN(testNum) && testNum >= 1900 && testNum <= 2099) {
+        Logger.log(`⚠️ ${prop.name}: Yıl değeri atlanıyor: "${coaValueStr}"`);
         return; // Bu property'yi kaydetme
       }
       
