@@ -9169,7 +9169,7 @@
                         }
                     }
                     
-                    if (!isNaN(tdsLowerLimit) && !isNaN(tdsUpperLimit)) {
+                    if (!isNaN(tdsLowerLimit) && !isNaN(tdsUpperLimit) && (tdsLowerLimit !== 0 || tdsUpperLimit !== 0)) {
                         // Her iki değer de TDS limitleri içinde mi?
                         const isLowerInRange = lowerValue >= tdsLowerLimit;
                         const isUpperInRange = upperValue <= tdsUpperLimit;
@@ -9192,13 +9192,44 @@
                             comparisonResults.failed++;
                         }
                     } else {
-                        // TDS limitleri tanımlı değil
-                        console.log(`⚠️ ${propertyName}: TDS limitleri tanımlı değil`);
-                        comparisonResults.properties[propertyName] = {
-                            value: cleanedCoaValue,
-                            status: 'unknown',
-                            reason: 'TDS limits not defined'
-                        };
+                        // TDS limitleri tanımlı değil veya 0-0 - requirement ile karşılaştır
+                        if (tdsProp.requirement && tdsProp.requirement.trim() !== '') {
+                            const normalizeStr = (str) => String(str)
+                                .replace(/\s+/g, '')
+                                .replace(/[≤≥<>=]/g, '')
+                                .toLowerCase()
+                                .trim();
+                            
+                            const coaNorm = normalizeStr(cleanedCoaValue);
+                            const reqNorm = normalizeStr(tdsProp.requirement);
+                            
+                            console.log(`  🔍 Compliance karşılaştırma (range): COA="${coaNorm}" vs REQ="${reqNorm}"`);
+                            
+                            if (coaNorm === reqNorm || coaNorm.includes(reqNorm) || reqNorm.includes(coaNorm)) {
+                                console.log(`✅ ${propertyName}: "${cleanedCoaValue}" requirement ile eşleşti -> UYGUN`);
+                                comparisonResults.properties[propertyName] = {
+                                    value: cleanedCoaValue,
+                                    status: 'Uygun',
+                                    reason: `Range matches requirement: ${tdsProp.requirement}`
+                                };
+                                comparisonResults.passed++;
+                            } else {
+                                console.log(`❌ ${propertyName}: "${cleanedCoaValue}" requirement ile eşleşmedi -> UYGUN DEĞİL`);
+                                comparisonResults.properties[propertyName] = {
+                                    value: cleanedCoaValue,
+                                    status: 'Uygun Değil',
+                                    reason: `Range doesn't match requirement: ${tdsProp.requirement}`
+                                };
+                                comparisonResults.failed++;
+                            }
+                        } else {
+                            console.log(`⚠️ ${propertyName}: TDS limitleri tanımlı değil ve requirement yok`);
+                            comparisonResults.properties[propertyName] = {
+                                value: cleanedCoaValue,
+                                status: 'unknown',
+                                reason: 'TDS limits not defined and no requirement'
+                            };
+                        }
                     }
                 } else {
                     // Tek sayısal değer kontrolü
@@ -9226,7 +9257,7 @@
                             }
                         }
                         
-                        if (!isNaN(tdsLowerLimit) && !isNaN(tdsUpperLimit)) {
+                        if (!isNaN(tdsLowerLimit) && !isNaN(tdsUpperLimit) && (tdsLowerLimit !== 0 || tdsUpperLimit !== 0)) {
                             const isInRange = numValue >= tdsLowerLimit && numValue <= tdsUpperLimit;
                             
                             if (isInRange) {
@@ -9247,22 +9278,87 @@
                                 comparisonResults.failed++;
                             }
                         } else {
-                            // TDS limitleri tanımlı değil
-                            console.log(`⚠️ ${propertyName}: TDS limitleri tanımlı değil`);
+                            // TDS limitleri tanımlı değil veya 0-0 - requirement ile karşılaştır
+                            if (tdsProp.requirement && tdsProp.requirement.trim() !== '') {
+                                const normalizeStr = (str) => String(str)
+                                    .replace(/\s+/g, '')
+                                    .replace(/[≤≥<>=]/g, '')
+                                    .toLowerCase()
+                                    .trim();
+                                
+                                const coaNorm = normalizeStr(cleanedCoaValue);
+                                const reqNorm = normalizeStr(tdsProp.requirement);
+                                
+                                console.log(`  🔍 Compliance karşılaştırma (single): COA="${coaNorm}" vs REQ="${reqNorm}"`);
+                                
+                                if (coaNorm === reqNorm || coaNorm.includes(reqNorm) || reqNorm.includes(coaNorm)) {
+                                    console.log(`✅ ${propertyName}: "${cleanedCoaValue}" requirement ile eşleşti -> UYGUN`);
+                                    comparisonResults.properties[propertyName] = {
+                                        value: cleanedCoaValue,
+                                        status: 'Uygun',
+                                        reason: `Value matches requirement: ${tdsProp.requirement}`
+                                    };
+                                    comparisonResults.passed++;
+                                } else {
+                                    console.log(`❌ ${propertyName}: "${cleanedCoaValue}" requirement ile eşleşmedi -> UYGUN DEĞİL`);
+                                    comparisonResults.properties[propertyName] = {
+                                        value: cleanedCoaValue,
+                                        status: 'Uygun Değil',
+                                        reason: `Value doesn't match requirement: ${tdsProp.requirement}`
+                                    };
+                                    comparisonResults.failed++;
+                                }
+                            } else {
+                                console.log(`⚠️ ${propertyName}: TDS limitleri tanımlı değil ve requirement yok`);
+                                comparisonResults.properties[propertyName] = {
+                                    value: cleanedCoaValue,
+                                    status: 'unknown',
+                                    reason: 'TDS limits not defined and no requirement'
+                                };
+                            }
+                        }
+                    } else {
+                        // Sayısal değer değil, metin - requirement ile karşılaştır
+                        console.log(`📝 ${propertyName}: Metin değer: ${cleanedCoaValue}`);
+                        
+                        // Eğer requirement tanımlıysa text karşılaştırması yap
+                        if (tdsProp.requirement && tdsProp.requirement.trim() !== '') {
+                            const normalizeStr = (str) => String(str)
+                                .replace(/\s+/g, '')
+                                .replace(/[≤≥<>=]/g, '')
+                                .toLowerCase()
+                                .trim();
+                            
+                            const coaNorm = normalizeStr(cleanedCoaValue);
+                            const reqNorm = normalizeStr(tdsProp.requirement);
+                            
+                            console.log(`  🔍 Compliance karşılaştırma: COA="${coaNorm}" vs REQ="${reqNorm}"`);
+                            
+                            if (coaNorm === reqNorm || coaNorm.includes(reqNorm) || reqNorm.includes(coaNorm)) {
+                                console.log(`✅ ${propertyName}: "${cleanedCoaValue}" requirement ile eşleşti -> UYGUN`);
+                                comparisonResults.properties[propertyName] = {
+                                    value: cleanedCoaValue,
+                                    status: 'Uygun',
+                                    reason: `Text matches requirement: ${tdsProp.requirement}`
+                                };
+                                comparisonResults.passed++;
+                            } else {
+                                console.log(`❌ ${propertyName}: "${cleanedCoaValue}" requirement ile eşleşmedi -> UYGUN DEĞİL`);
+                                comparisonResults.properties[propertyName] = {
+                                    value: cleanedCoaValue,
+                                    status: 'Uygun Değil',
+                                    reason: `Text doesn't match requirement: ${tdsProp.requirement}`
+                                };
+                                comparisonResults.failed++;
+                            }
+                        } else {
+                            // Requirement yok, unknown bırak
                             comparisonResults.properties[propertyName] = {
                                 value: cleanedCoaValue,
                                 status: 'unknown',
-                                reason: 'TDS limits not defined'
+                                reason: 'Text value, no requirement defined'
                             };
                         }
-                    } else {
-                        // Sayısal değer değil, metin
-                        console.log(`📝 ${propertyName}: Metin değer: ${cleanedCoaValue}`);
-                        comparisonResults.properties[propertyName] = {
-                            value: cleanedCoaValue,
-                            status: 'unknown',
-                            reason: 'Text value, no comparison logic'
-                        };
                     }
                 }
             }
