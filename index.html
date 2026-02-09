@@ -23643,31 +23643,38 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 
                 // 1. ÖNCE allResults'tan suppliers al (aktif veriler - Excel'den yüklenmiş olabilir)
                 if (allResults && allResults.length > 0) {
-                    // Tedarikçi verilerini normalize et ve tüm alanları dahil et
-                    const normalizedSuppliers = allResults.map(r => ({
-                        name: r.name,
+                    // TÜM tedarikçi verilerini olduğu gibi kaydet (tüm alanlar dahil)
+                    exportData.stores['suppliers'] = allResults.map(r => ({
+                        ...r, // Tüm alanları kopyala
+                        // Sadece normalize edilmesi gereken alanları kontrol et
                         normalizedName: r.normalizedName || normalizeName(r.name),
-                        status: r.status || getSupplierStatus(r.name),
-                        iatf: r.iatf || false,
-                        iso9001: r.iso9001 || false,
-                        iso14001: r.iso14001 || false,
-                        iso45001: r.iso45001 || false,
                         certExpiryDates: r.certExpiryDates || {},
-                        talepEdilen8D: r.talepEdilen8D || 0,
-                        cevaplanan8D: r.cevaplanan8D || 0,
-                        vdaPuan: r.vdaPuan || 0,
-                        terminPuan: r.terminPuan || 100,
-                        tamamlanmaPuan: r.tamamlanmaPuan || 100,
                         lokasyon: r.lokasyon || [],
-                        ppmTarget: r.ppmTarget || null,
-                        hataHedefi: r.hataHedefi || null,
-                        kalitePuan: r.kalitePuan || 0
+                        monthlySevk: r.monthlySevk || [],
+                        monthlyIade: r.monthlyIade || [],
+                        monthlyPPM: r.monthlyPPM || [],
+                        monthlyHata: r.monthlyHata || [],
+                        monthlyTermin: r.monthlyTermin || [],
+                        monthlyCompletion: r.monthlyCompletion || [],
+                        monthlyTerminPuan: r.monthlyTerminPuan || [],
+                        monthlyTamamlanmaPuan: r.monthlyTamamlanmaPuan || [],
+                        monthlyKalitePuan: r.monthlyKalitePuan || [],
+                        monthlyVdaPuan: r.monthlyVdaPuan || [],
+                        monthlyPpmPuan: r.monthlyPpmPuan || [],
+                        monthlyTerminGecikmeGun: r.monthlyTerminGecikmeGun || []
                     }));
                     
                     // allResults'ı localStorage'a da kaydet (güvenlik için)
-                    localStorage.setItem('selectedSuppliers', JSON.stringify(normalizedSuppliers));
-                    exportData.stores['suppliers'] = normalizedSuppliers;
-                    console.log(`✅ suppliers (allResults): ${normalizedSuppliers.length} kayıt`);
+                    localStorage.setItem('selectedSuppliers', JSON.stringify(exportData.stores['suppliers']));
+                    console.log(`✅ suppliers (allResults): ${exportData.stores['suppliers'].length} kayıt`);
+                    
+                    // Kalite belgesi tarihi kontrolü
+                    const withCertDates = exportData.stores['suppliers'].filter(s => s.certExpiryDates && Object.keys(s.certExpiryDates).length > 0).length;
+                    console.log(`📅 ${withCertDates} tedarikçide kalite belgesi tarihi kaydedilecek`);
+                    if (withCertDates > 0) {
+                        const sample = exportData.stores['suppliers'].find(s => s.certExpiryDates && Object.keys(s.certExpiryDates).length > 0);
+                        console.log(`📝 Örnek (yüklenecek): ${sample.name} -> `, sample.certExpiryDates);
+                    }
                 } else {
                     // 2. allResults yoksa localStorage'dan al
                     const suppliersData = localStorage.getItem('selectedSuppliers');
