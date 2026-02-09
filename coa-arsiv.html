@@ -3994,10 +3994,6 @@
                     const supplierSet = new Set();
                     const materialMap = new Map(); // stokKodu -> {code, name, suppliers: [], deliveries: []}
                     
-                    // Checkbox durumlarını kontrol et
-                    const autoFillDate = document.getElementById('autoFillDeliveryDate')?.checked || false;
-                    const autoFillNo = document.getElementById('autoFillDeliveryNo')?.checked || false;
-                    
                     for (let i = 1; i < jsonData.length; i++) {
                         const row = jsonData[i];
                         
@@ -4025,11 +4021,12 @@
                                 materialMap.get(code).suppliers.push(supplier);
                             }
                             
-                            // İrsaliye bilgilerini ekle (eğer checkbox işaretliyse ve veriler varsa)
-                            if ((autoFillDate || autoFillNo) && (irsaliyeTarihiIndex >= 0 || irsaliyeSeriIndex >= 0 || irsaliyeNoIndex >= 0)) {
+                            // İrsaliye bilgilerini HER ZAMAN ekle (checkbox checkbox'lar sadece dropdown göstermek için)
+                            if (irsaliyeTarihiIndex >= 0 || irsaliyeSeriIndex >= 0 || irsaliyeNoIndex >= 0) {
                                 const delivery = {};
                                 
-                                if (autoFillDate && irsaliyeTarihiIndex >= 0 && row[irsaliyeTarihiIndex]) {
+                                // Tarihi kaydet (varsa)
+                                if (irsaliyeTarihiIndex >= 0 && row[irsaliyeTarihiIndex]) {
                                     // Tarihi gg.aa.yyyy formatına çevir
                                     const excelDate = row[irsaliyeTarihiIndex];
                                     const formattedDate = formatExcelDateToDisplay(excelDate);
@@ -4041,19 +4038,17 @@
                                     }
                                 }
                                 
-                                if (autoFillNo) {
-                                    // Seri ve numarayı ayrı ayrı kaydet
-                                    if (irsaliyeSeriIndex >= 0 && row[irsaliyeSeriIndex]) {
-                                        delivery.serie = String(row[irsaliyeSeriIndex]).trim();
-                                    }
-                                    if (irsaliyeNoIndex >= 0 && row[irsaliyeNoIndex]) {
-                                        delivery.no = String(row[irsaliyeNoIndex]).trim();
-                                    }
-                                    
-                                    // Debug: İlk 3 irsaliye için konsola yazdır
-                                    if (materialMap.size <= 3) {
-                                        console.log('📝 İrsaliye:', 'Seri:', delivery.serie, 'No:', delivery.no, '→ Format:', delivery.serie && delivery.no ? `${delivery.serie} | ${delivery.no}` : (delivery.no || delivery.serie));
-                                    }
+                                // Seri ve numarayı kaydet (varsa)
+                                if (irsaliyeSeriIndex >= 0 && row[irsaliyeSeriIndex]) {
+                                    delivery.serie = String(row[irsaliyeSeriIndex]).trim();
+                                }
+                                if (irsaliyeNoIndex >= 0 && row[irsaliyeNoIndex]) {
+                                    delivery.no = String(row[irsaliyeNoIndex]).trim();
+                                }
+                                
+                                // Debug: İlk 3 irsaliye için konsola yazdır
+                                if (materialMap.size <= 3) {
+                                    console.log('📝 İrsaliye:', 'Seri:', delivery.serie, 'No:', delivery.no, '→ Format:', delivery.serie && delivery.no ? `${delivery.serie} | ${delivery.no}` : (delivery.no || delivery.serie));
                                 }
                                 
                                 // İrsaliye bilgisi varsa ekle
@@ -4096,12 +4091,10 @@
                     console.log('İlk 3 hammadde:', materialArray.slice(0, 3));
                     
                     // İrsaliye bilgilerini göster
-                    if (autoFillDate || autoFillNo) {
-                        const totalDeliveries = materialArray.reduce((sum, mat) => sum + (mat.deliveries?.length || 0), 0);
-                        console.log('- İrsaliye kayıtları:', totalDeliveries);
-                        if (materialArray.length > 0 && materialArray[0].deliveries?.length > 0) {
-                            console.log('İlk hammaddenin irsaliyeleri:', materialArray[0].deliveries.slice(0, 3));
-                        }
+                    const totalDeliveries = materialArray.reduce((sum, mat) => sum + (mat.deliveries?.length || 0), 0);
+                    console.log('- İrsaliye kayıtları:', totalDeliveries);
+                    if (totalDeliveries > 0 && materialArray.length > 0 && materialArray[0].deliveries?.length > 0) {
+                        console.log('İlk hammaddenin irsaliyeleri:', materialArray[0].deliveries.slice(0, 3));
                     }
                     
                 } catch (error) {
