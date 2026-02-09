@@ -8457,12 +8457,13 @@
                 const supplier = document.getElementById('supplierInput').value.trim() || '-';
                 const location = document.getElementById('location').value.trim() || '';
                 
-                // Properties array oluştur (sadece COA değeri olanlar)
+                // Properties array oluştur (COA değeri olan VE olmayan tüm özellikler)
                 const properties = tdsProperties
                     .filter(prop => {
-                        if (!prop.coaValue) return false;
+                        // COA değeri yoksa, özelliği dahil et ama tarih kontrolü yapma
+                        if (!prop.coaValue) return true;
                         
-                        // Tarih formatlarını filtrele
+                        // COA değeri varsa tarih formatlarını filtrele
                         const valueStr = String(prop.coaValue).trim();
                         
                         // ISO tarih formatı kontrolü (2026-05-04T21:00:00.000Z)
@@ -8626,7 +8627,7 @@
                         
                         return {
                             name: prop.name,
-                            coaValue: coaValue,
+                            coaValue: coaValue || '',  // Boş olsa bile string olarak gönder
                             unit: unit,
                             standard: prop.standard || '',
                             operator: operator,
@@ -8638,8 +8639,11 @@
                         };
                     });
                 
+                console.log(`📊 Gönderilecek özellik sayısı: ${properties.length} (${properties.filter(p => p.coaValue).length} COA değeri var)`);
+                
+                // En az 1 TDS özelliği varsa kaydet (COA değeri olsa da olmasa da)
                 if (properties.length === 0) {
-                    console.log('⚠️ Kaydedilecek COA değeri yok');
+                    console.log('⚠️ TDS\'de hiç özellik yok, kayıt yapılmadı');
                     return;
                 }
                 
