@@ -2080,6 +2080,9 @@
         
         // Template'i düzenlemek için yükle
         async function editExistingTemplate() {
+            // Mode'u işaretle
+            window.currentTemplateLoadMode = 'edit';
+            
             // Google Sheets'ten template'leri yükle
             await loadTemplatesFromGoogleSheets();
             
@@ -2101,16 +2104,24 @@
                 const regionCount = template.regions?.length || template.template?.regions?.length || 0;
                 
                 return `
-                    <div class="template-load-item" onclick="selectTemplateToEdit(${index})" style="padding: 15px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.3s; background: white;">
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                            <div style="font-weight: 600; color: #2c5f2d; font-size: 1.1em;">${template.supplier}</div>
-                            <div style="font-size: 0.85em; color: #666;">${date} ${time}</div>
+                    <div class="template-load-item" style="padding: 15px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; transition: all 0.3s; background: white; position: relative;">
+                        <div onclick="selectTemplateToEdit(${index})" style="cursor: pointer;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px; padding-right: 35px;">
+                                <div style="font-weight: 600; color: #2c5f2d; font-size: 1.1em;">${template.supplier}</div>
+                                <div style="font-size: 0.85em; color: #666;">${date} ${time}</div>
+                            </div>
+                            <div style="display: flex; gap: 15px; font-size: 0.9em; color: #555;">
+                                <span>${hasImage} Görsel</span>
+                                <span>📍 ${regionCount} Bölge</span>
+                                <span>📊 v${template.version || '1.0'}</span>
+                            </div>
                         </div>
-                        <div style="display: flex; gap: 15px; font-size: 0.9em; color: #555;">
-                            <span>${hasImage} Görsel</span>
-                            <span>📍 ${regionCount} Bölge</span>
-                            <span>📊 v${template.version || '1.0'}</span>
-                        </div>
+                        <button onclick="deleteTemplate('${template.supplier}', ${index}); event.stopPropagation();" 
+                                style="position: absolute; top: 10px; right: 10px; background: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em; font-weight: 600; transition: background 0.3s;"
+                                onmouseover="this.style.background='#c82333'" 
+                                onmouseout="this.style.background='#dc3545'">
+                            🗑️ Sil
+                        </button>
                     </div>
                 `;
             }).join('');
@@ -8884,6 +8895,58 @@
             }
         }
         
+        // Delete template from Google Sheets and localStorage
+        async function deleteTemplate(supplierName, index) {
+            if (!confirm(`"${supplierName}" template'ini silmek istediğinizden emin misiniz?\n\nBu işlem Google Sheets'ten ve yerel veritabanından kalıcı olarak silinecektir.`)) {
+                return;
+            }
+            
+            console.log('🗑️ Template siliniyor:', supplierName);
+            showToast('⏳ Template siliniyor...', 'info');
+            
+            try {
+                // Google Sheets'ten sil
+                if (googleScriptUrl) {
+                    const result = await jsonpRequest(googleScriptUrl, {
+                        action: 'deleteCOATemplate',
+                        supplier: supplierName
+                    }, 2);
+                    
+                    if (result && result.success) {
+                        console.log('✅ Template Google Sheets\'ten silindi');
+                    } else {
+                        console.warn('⚠️ Google Sheets\'ten silme hatası:', result?.error);
+                    }
+                }
+                
+                // localStorage'dan sil
+                const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
+                templates.splice(index, 1);
+                localStorage.setItem('coaTemplates', JSON.stringify(templates));
+                
+                // Template dropdown'unu güncelle
+                updateTemplateDropdown();
+                
+                // Modal açıksa listeyi yenile
+                const modal = document.getElementById('templateLoadModal');
+                if (modal && modal.style.display === 'flex') {
+                    // Hangi fonksiyondan açıldığına göre yeniden yükle
+                    if (window.currentTemplateLoadMode === 'edit') {
+                        await editExistingTemplate();
+                    } else {
+                        await loadTemplateWithImage();
+                    }
+                }
+                
+                showToast(`✅ "${supplierName}" template'i silindi!`, 'success');
+                console.log('✅ Template başarıyla silindi');
+                
+            } catch (error) {
+                console.error('❌ Template silme hatası:', error);
+                showToast('❌ Template silinirken hata oluştu: ' + error.message, 'error');
+            }
+        }
+        
         // Update template dropdown
         function updateTemplateDropdown() {
             const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
@@ -12700,6 +12763,9 @@
         async function loadTemplateWithImage() {
             console.log('📂 Template yükleme başlatıldı...');
             
+            // Mode'u işaretle
+            window.currentTemplateLoadMode = 'load';
+            
             // Google Sheets'ten template'leri yükle
             await loadTemplatesFromGoogleSheets();
             
@@ -12721,16 +12787,24 @@
                 const regionCount = template.regions?.length || template.template?.regions?.length || 0;
                 
                 return `
-                    <div class="template-load-item" onclick="selectTemplateToLoad(${index})" style="padding: 15px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.3s; background: white;">
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                            <div style="font-weight: 600; color: #2c5f2d; font-size: 1.1em;">${template.supplier}</div>
-                            <div style="font-size: 0.85em; color: #666;">${date} ${time}</div>
+                    <div class="template-load-item" style="padding: 15px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; transition: all 0.3s; background: white; position: relative;">
+                        <div onclick="selectTemplateToLoad(${index})" style="cursor: pointer;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px; padding-right: 35px;">
+                                <div style="font-weight: 600; color: #2c5f2d; font-size: 1.1em;">${template.supplier}</div>
+                                <div style="font-size: 0.85em; color: #666;">${date} ${time}</div>
+                            </div>
+                            <div style="display: flex; gap: 15px; font-size: 0.9em; color: #555;">
+                                <span>${hasImage} Görsel</span>
+                                <span>📍 ${regionCount} Bölge</span>
+                                <span>📊 v${template.version || '1.0'}</span>
+                            </div>
                         </div>
-                        <div style="display: flex; gap: 15px; font-size: 0.9em; color: #555;">
-                            <span>${hasImage} Görsel</span>
-                            <span>📍 ${regionCount} Bölge</span>
-                            <span>📊 v${template.version || '1.0'}</span>
-                        </div>
+                        <button onclick="deleteTemplate('${template.supplier}', ${index}); event.stopPropagation();" 
+                                style="position: absolute; top: 10px; right: 10px; background: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em; font-weight: 600; transition: background 0.3s;"
+                                onmouseover="this.style.background='#c82333'" 
+                                onmouseout="this.style.background='#dc3545'">
+                            🗑️ Sil
+                        </button>
                     </div>
                 `;
             }).join('');
