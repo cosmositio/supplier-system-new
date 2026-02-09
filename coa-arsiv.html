@@ -3966,7 +3966,8 @@
                             stokAdiIndex = index;
                         }
                         // İrsaliye Tarihi - sadece bu sütun (İrsaliye Kayıt Tarihi DEĞİL)
-                        if (h.includes('irsaliye') && h.includes('tarihi') && !h.includes('kayit') && !h.includes('kayıt')) {
+                        if ((h === 'irsaliye tarih' || h === 'irsaliye tarihi' || normalized === 'irsaliye tarih' || normalized === 'irsaliye tarihi') 
+                            && !h.includes('kayit') && !h.includes('kayıt')) {
                             console.log('✅ İrsaliye Tarihi bulundu:', header, 'Index:', index);
                             irsaliyeTarihiIndex = index;
                         }
