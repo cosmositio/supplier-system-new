@@ -8478,10 +8478,11 @@
                             return false;
                         }
                         
-                        // Çok büyük sayılar (>999) - muhtemelen yıl
+                        // Sadece 4 basamaklı yıl formatlarını filtrele (1900-2099 arası)
+                        // Ama 1000, 1280 gibi normal değerleri KORUYALIM
                         const testNum = parseFloat(valueStr.replace(/,/g, '.'));
-                        if (!isNaN(testNum) && Math.abs(testNum) > 999) {
-                            console.warn(`⚠️ ${prop.name}: Yıl gibi büyük değer atlanıyor: "${valueStr}"`);
+                        if (!isNaN(testNum) && testNum >= 1900 && testNum <= 2099) {
+                            console.warn(`⚠️ ${prop.name}: Yıl değeri tespit edildi, atlanıyor: "${valueStr}"`);
                             return false;
                         }
                         
@@ -8514,8 +8515,13 @@
                             console.log(`  🌡️ Thermal conductivity özel düzeltme: "${coaValue}"`);
                         }
                         
+                        // ÖNCE: Range değer kontrolü (örn: "100 - 110" veya "29.8-30.3")
+                        // Bu değerler unit olarak ALGILANMAMALI!
+                        const isRangeValue = /^[\d.]+\s*-\s*[\d.]+$/.test(coaValue);
+                        
                         // Eğer COA değeri içinde boşluk ve birim varsa ayır (örn: "14.38 kg/m3")
-                        if (coaValue && coaValue.includes(' ')) {
+                        // ANCAK range değer değilse!
+                        if (coaValue && coaValue.includes(' ') && !isRangeValue) {
                             const match = coaValue.match(/^([\d.,]+)\s+(.+)$/);
                             if (match) {
                                 const extractedValue = match[1].replace(/,/g, '.');
@@ -8526,6 +8532,8 @@
                                     unit = extractedUnit;
                                 }
                             }
+                        } else if (isRangeValue) {
+                            console.log(`  📊 Range değer tespit edildi, unit parse edilmeyecek: "${coaValue}"`);
                         }
                         
                         // SADECE COA değeri tamamen boşsa VE unit sayı ile başlıyorsa ayır
