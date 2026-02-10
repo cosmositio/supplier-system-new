@@ -921,8 +921,18 @@ function getAllCOA() {
       if (data[i][0]) { // id varsa
         const record = {};
         for (let j = 0; j < headers.length; j++) {
+          let value = data[i][j];
+          
+          // deliveryDate Date object'se YYYY-MM-DD string'e çevir
+          if (headers[j] === 'deliveryDate' && value instanceof Date) {
+            const year = value.getFullYear();
+            const month = String(value.getMonth() + 1).padStart(2, '0');
+            const day = String(value.getDate()).padStart(2, '0');
+            value = `${year}-${month}-${day}`;
+          }
+          
           // fileData dahil tüm alanları al
-          record[headers[j]] = data[i][j];
+          record[headers[j]] = value;
         }
         records.push(record);
       }
@@ -951,8 +961,18 @@ function getCOA(id) {
       if (data[i][0] == id) {
         const record = {};
         for (let j = 0; j < headers.length; j++) {
+          let value = data[i][j];
+          
+          // deliveryDate Date object'se YYYY-MM-DD string'e çevir
+          if (headers[j] === 'deliveryDate' && value instanceof Date) {
+            const year = value.getFullYear();
+            const month = String(value.getMonth() + 1).padStart(2, '0');
+            const day = String(value.getDate()).padStart(2, '0');
+            value = `${year}-${month}-${day}`;
+          }
+          
           // fileData dahil tüm alanları al
-          record[headers[j]] = data[i][j];
+          record[headers[j]] = value;
         }
         return { success: true, data: record };
       }
@@ -1002,7 +1022,17 @@ function searchCOA(query, field) {
         const record = {};
         for (let j = 0; j < headers.length; j++) {
           if (headers[j] !== 'fileData') {
-            record[headers[j]] = data[i][j];
+            let value = data[i][j];
+            
+            // deliveryDate Date object'se YYYY-MM-DD string'e çevir
+            if (headers[j] === 'deliveryDate' && value instanceof Date) {
+              const year = value.getFullYear();
+              const month = String(value.getMonth() + 1).padStart(2, '0');
+              const day = String(value.getDate()).padStart(2, '0');
+              value = `${year}-${month}-${day}`;
+            }
+            
+            record[headers[j]] = value;
           }
         }
         records.push(record);
