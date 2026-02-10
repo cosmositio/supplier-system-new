@@ -6307,7 +6307,20 @@
                     console.log('⚠️ İşlem kullanıcı tarafından iptal edildi');
                     progressTitle.textContent = '🛑 İptal Edildi';
                     showToast(`⚠️ İşlem iptal edildi. ${successCount} COA kaydedildi, ${bulkFiles.length - i} atlandı.`, 'warning', 5000);
-                    break;
+                    
+                    // localStorage'a kaydet
+                    if (successCount > 0) {
+                        saveToLocalStorage();
+                        renderTable();
+                    }
+                    
+                    // Progress bar'ı gizle ve temizle
+                    setTimeout(() => {
+                        progressContainer.style.display = 'none';
+                        clearBulkUpload();
+                    }, 3000);
+                    
+                    return; // Fonksiyondan tamamen çık
                 }
                 
                 const fileObj = bulkFiles[i];
@@ -6543,7 +6556,6 @@
                 
                 showToast(`✅ ${successCount} COA başarıyla kaydedildi!`, 'success', 5000);
                 renderTable();
-                updateCounters();
             }
             
             if (errorCount > 0) {
@@ -6557,7 +6569,6 @@
             setTimeout(() => {
                 progressContainer.style.display = 'none';
                 clearBulkUpload();
-                toggleBulkUploadSection();
             }, 3000);
         }
         
