@@ -6165,6 +6165,21 @@
             }
         }
         
+        // Kalan süreyi formatla (saniye -> "2dk 30sn" formatı)
+        function formatRemainingTime(seconds) {
+            if (seconds < 60) {
+                return Math.round(seconds) + 'sn';
+            } else if (seconds < 3600) {
+                const minutes = Math.floor(seconds / 60);
+                const secs = Math.round(seconds % 60);
+                return secs > 0 ? `${minutes}dk ${secs}sn` : `${minutes}dk`;
+            } else {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                return minutes > 0 ? `${hours}sa ${minutes}dk` : `${hours}sa`;
+            }
+        }
+        
         async function saveBulkCOAs() {
             // İptal flag'ini sıfırla
             bulkUploadCancelled = false;
@@ -6253,6 +6268,10 @@
             let successCount = 0;
             let errorCount = 0;
             
+            // Süre tahmini için değişkenler
+            const fileTimes = []; // Her dosyanın işlem süresi
+            let fileStartTime = null;
+            
             // Her dosyayı sırayla işle (manuel kayıt mantığı ile)
             for (let i = 0; i < bulkFiles.length; i++) {
                 // İptal kontrolü
@@ -6267,15 +6286,28 @@
                 const fileNumber = i + 1;
                 
                 try {
+                    // Dosya başlangıç zamanını kaydet
+                    fileStartTime = Date.now();
+                    
                     // Progress güncelle
                     const displayFileName = fileObj.isMultiple 
                         ? `${fileObj.file.name} [İrsaliye ${fileObj.multipleIndex}/${fileObj.multipleTotal}]`
                         : fileObj.file.name;
                     
-                    progressTitle.textContent = `Dosya ${fileNumber} / ${bulkFiles.length} işleniyor...`;
-                    currentFileSpan.textContent = displayFileName;
                     const progressPercent = Math.round((i / bulkFiles.length) * 100);
                     progressBar.style.width = progressPercent + '%';
+                    
+                    // Tahmini kalan süreyi hesapla
+                    let timeEstimate = '';
+                    if (fileTimes.length > 0) {
+                        const avgTime = fileTimes.reduce((a, b) => a + b, 0) / fileTimes.length;
+                        const remainingFiles = bulkFiles.length - i;
+                        const estimatedSeconds = (avgTime * remainingFiles) / 1000;
+                        timeEstimate = ` - ~${formatRemainingTime(estimatedSeconds)} kaldı`;
+                    }
+                    
+                    progressTitle.textContent = `Dosya ${fileNumber}/${bulkFiles.length} işleniyor... (${progressPercent}%${timeEstimate})`;
+                    currentFileSpan.textContent = displayFileName;
                     
                     console.log(`📄 [${fileNumber}/${bulkFiles.length}] İşleniyor: ${displayFileName}`);
                     
@@ -6454,6 +6486,12 @@
                     
                     // Memory'e ekle
                     coaData.unshift(record);
+                    
+                    // Dosya işlem süresini kaydet
+                    if (fileStartTime) {
+                        const duration = Date.now() - fileStartTime;
+                        fileTimes.push(duration);
+                    }
                     
                     successCount++;
                     successCountSpan.textContent = successCount;
