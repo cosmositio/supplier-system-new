@@ -1295,9 +1295,19 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
     
     // İlk satır header'dır, 2. satırdan itibaren kontrol et (TERSTEN - son satırdan başa doğru)
     for (let i = data.length - 1; i >= 1; i--) {
-      const rowDeliveryDate = String(data[i][0] || '').trim();   // Column 0: Delivery Date
+      let rowDeliveryDate = data[i][0];   // Column 0: Delivery Date
       const rowDeliveryNo = String(data[i][1] || '').trim();     // Column 1: Delivery No
       const rowMaterialCode = String(data[i][3] || '').trim();   // Column 3: Material Code
+      
+      // Tarih Date object ise DD.MM.YYYY string'e çevir
+      if (rowDeliveryDate instanceof Date) {
+        const day = String(rowDeliveryDate.getDate()).padStart(2, '0');
+        const month = String(rowDeliveryDate.getMonth() + 1).padStart(2, '0');
+        const year = rowDeliveryDate.getFullYear();
+        rowDeliveryDate = `${day}.${month}.${year}`;
+      } else {
+        rowDeliveryDate = String(rowDeliveryDate || '').trim();
+      }
       
       // İlk 3 satırı logla
       if (i <= 3) {
@@ -1356,9 +1366,21 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
       
       // İlk 3 data satırını ekle
       for (let i = 1; i <= Math.min(3, data.length - 1); i++) {
+        let dateValue = data[i][0];
+        
+        // Date object ise string'e çevir
+        if (dateValue instanceof Date) {
+          const day = String(dateValue.getDate()).padStart(2, '0');
+          const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+          const year = dateValue.getFullYear();
+          dateValue = `${day}.${month}.${year}`;
+        } else {
+          dateValue = String(dateValue || '');
+        }
+        
         debugInfo.sampleRows.push({
           row: i + 1,
-          col0_deliveryDate: String(data[i][0] || ''),
+          col0_deliveryDate: dateValue,
           col1_deliveryNo: String(data[i][1] || ''),
           col3_materialCode: String(data[i][3] || '')
         });
@@ -1728,6 +1750,39 @@ function getCOARecordsSheet() {
     sheet.setColumnWidth(17, 150); // Kayıt
     
     // Freeze başlık
+    sheet.setFrozenRows(1);
+  } else {
+    // Mevcut sheet varsa header'ı kontrol et ve düzelt
+    const currentHeader = sheet.getRange(1, 1).getValue();
+    if (currentHeader !== 'Tarih') {
+      // Header yanlış, düzelt!
+      const headers = [
+        'Tarih',
+        'İrsaliye No',
+        'Lot No',
+        'Malzeme Kodu',
+        'Tedarikçi',
+        'Lokasyon',
+        'Özellik Adı',
+        'Birim',
+        'Test Standardı',
+        'Operatör',
+        'Standart Değer',
+        'Alt Limit',
+        'Üst Limit',
+        'Requirement',
+        'COA Değeri',
+        'Durum',
+        'Kayıt Zamanı'
+      ];
+      
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      Logger.log('✅ COA_Records header\'ı düzeltildi: "' + currentHeader + '" → "Tarih"');
+    }
+  }
+  
+  return sheet;
+}
     sheet.setFrozenRows(1);
     
     Logger.log('COA_Records sekmesi oluşturuldu');
