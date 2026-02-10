@@ -12171,6 +12171,9 @@
                 const totalNotUploaded = materialArray.reduce((sum, m) => sum + m.notUploadedDeliveries, 0);
                 const uploadPercentage = Math.round((totalUploaded / totalDeliveries) * 100);
                 
+                // Benzersiz COA dosya sayısını hesapla (coaData'dan)
+                const uniqueCOAFiles = coaData.length;
+                
                 // Benzersiz tedarikçi listesi
                 const uniqueSuppliers = [...new Set(materialArray.map(m => m.supplier))];
                 
@@ -12236,30 +12239,35 @@
                         </div>
                     </div>
                     <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 180px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white; text-align: center;">
+                        <div style="flex: 1; min-width: 160px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white; text-align: center;">
                             <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${totalMaterials}</div>
                             <div style="font-size: 14px; opacity: 0.9;">Toplam Hammadde</div>
                         </div>
-                        <div style="flex: 1; min-width: 180px; padding: 20px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 8px; color: white; text-align: center;">
+                        <div style="flex: 1; min-width: 160px; padding: 20px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 8px; color: white; text-align: center;">
                             <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${totalDeliveries}</div>
                             <div style="font-size: 14px; opacity: 0.9;">Toplam İrsaliye</div>
                         </div>
-                        <div style="flex: 1; min-width: 180px; padding: 20px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-radius: 8px; color: white; text-align: center;">
+                        <div style="flex: 1; min-width: 160px; padding: 20px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-radius: 8px; color: white; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${uniqueCOAFiles}</div>
+                            <div style="font-size: 14px; opacity: 0.9;">📄 Benzersiz COA</div>
+                        </div>
+                        <div style="flex: 1; min-width: 160px; padding: 20px; background: linear-gradient(135deg, #06beb6 0%, #48b1bf 100%); border-radius: 8px; color: white; text-align: center;">
                             <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${totalUploaded}</div>
-                            <div style="font-size: 14px; opacity: 0.9;">✅ COA Yüklendi</div>
+                            <div style="font-size: 13px; opacity: 0.9;">✅ COA'lı İrsaliye</div>
                         </div>
-                        <div style="flex: 1; min-width: 180px; padding: 20px; background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); border-radius: 8px; color: white; text-align: center;">
+                        <div style="flex: 1; min-width: 160px; padding: 20px; background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); border-radius: 8px; color: white; text-align: center;">
                             <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${totalNotUploaded}</div>
-                            <div style="font-size: 14px; opacity: 0.9;">❌ COA Yüklenmedi</div>
+                            <div style="font-size: 13px; opacity: 0.9;">❌ COA Eksik İrsaliye</div>
                         </div>
-                        <div style="flex: 1; min-width: 180px; padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; color: white; text-align: center;">
+                        <div style="flex: 1; min-width: 160px; padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; color: white; text-align: center;">
                             <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">%${uploadPercentage}</div>
                             <div style="font-size: 14px; opacity: 0.9;">Tamamlanma</div>
                         </div>
                     </div>
                     
-                    <div style="margin-bottom: 15px; padding: 12px; background: #e3f2fd; border-left: 4px solid #2196F3; border-radius: 4px; font-size: 13px;">
-                        <strong>💡 İpucu:</strong> Hammadde satırına tıklayarak o hammaddenin tüm irsaliyelerini detaylı görebilirsiniz.
+                    <div style="margin-bottom: 15px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; font-size: 13px;">
+                        <strong>💡 Bilgi:</strong> ${uniqueCOAFiles} adet benzersiz COA dosyası, Excel'deki ${totalUploaded} farklı irsaliye ile eşleşmiştir.
+                        ${uniqueCOAFiles < totalUploaded ? ' Bazı COA dosyaları birden fazla irsaliye için kullanılmıştır.' : ''}
                     </div>
                     
                     <div style="overflow-x: auto;">
@@ -12574,8 +12582,9 @@
                     [],
                     ['Toplam Hammadde:', filteredData.length],
                     ['Toplam İrsaliye:', filteredData.reduce((sum, m) => sum + m.totalDeliveries, 0)],
-                    ['COA Yüklendi:', filteredData.reduce((sum, m) => sum + m.uploadedDeliveries, 0)],
-                    ['COA Yüklenmedi:', filteredData.reduce((sum, m) => sum + m.notUploadedDeliveries, 0)],
+                    ['Benzersiz COA Dosyası:', coaData.length],
+                    ['COA\'lı İrsaliye:', filteredData.reduce((sum, m) => sum + m.uploadedDeliveries, 0)],
+                    ['COA Eksik İrsaliye:', filteredData.reduce((sum, m) => sum + m.notUploadedDeliveries, 0)],
                     ['Tamamlanma Oranı:', Math.round((filteredData.reduce((sum, m) => sum + m.uploadedDeliveries, 0) / filteredData.reduce((sum, m) => sum + m.totalDeliveries, 0)) * 100) + '%'],
                 ];
                 const ws_summary = XLSX.utils.aoa_to_sheet(summaryData);
@@ -12687,9 +12696,10 @@
                 const totalUpload = filteredData.reduce((sum, m) => sum + m.uploadedDeliveries, 0);
                 const totalNotUpload = filteredData.reduce((sum, m) => sum + m.notUploadedDeliveries, 0);
                 const percentage = Math.round((totalUpload / totalDel) * 100);
+                const uniqueCOA = coaData.length;
                 
                 doc.setFontSize(9);
-                const stats = `Hammadde: ${filteredData.length} | Irsaliye: ${totalDel} | Yuklendi: ${totalUpload} | Yuklenmedi: ${totalNotUpload} | Tamamlanma: %${percentage}`;
+                const stats = `Hammadde: ${filteredData.length} | Irsaliye: ${totalDel} | Benzersiz COA: ${uniqueCOA} | COA'li Irsaliye: ${totalUpload} | Eksik: ${totalNotUpload} | %${percentage}`;
                 doc.text(stats, pageWidth / 2, yPos, { align: 'center' });
                 yPos += 10;
                 
