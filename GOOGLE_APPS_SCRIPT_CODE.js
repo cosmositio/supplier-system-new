@@ -181,6 +181,9 @@ function doGet(e) {
       case 'collectAllFiles':
         result = collectAllCOAFiles();
         break;
+      case 'getCentralArchive':
+        result = getCentralArchiveInfo();
+        break;
       default:
         result = { success: false, error: 'Geçersiz action: ' + action };
     }
@@ -401,6 +404,60 @@ function getDriveFolder() {
   return folder;
 }
 
+// Merkezi arşiv klasörünü al veya oluştur
+function getCentralArchiveFolder() {
+  let folder;
+  const folderName = 'COA_Merkezi_Arsiv';
+  
+  // Mevcut klasörü bul
+  const folders = DriveApp.getFoldersByName(folderName);
+  if (folders.hasNext()) {
+    folder = folders.next();
+  } else {
+    // Klasör yoksa oluştur
+    folder = DriveApp.createFolder(folderName);
+    Logger.log('✅ Merkezi arşiv klasörü oluşturuldu: ' + folderName);
+  }
+  
+  // Herkese açık yap (görüntüleme)
+  try {
+    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch(e) {
+    // Paylaşım ayarı zaten yapılmış olabilir
+  }
+  
+  return folder;
+}
+
+// Dosyayı merkezi arşive kopyala
+function copyToCentralArchive(file) {
+  try {
+    const centralFolder = getCentralArchiveFolder();
+    const fileName = file.getName();
+    
+    // Aynı isimde dosya varsa üzerine yazma
+    const existingFiles = centralFolder.getFilesByName(fileName);
+    if (existingFiles.hasNext()) {
+      Logger.log('ℹ️ Merkezi arşivde zaten var: ' + fileName);
+      return { success: true, alreadyExists: true };
+    }
+    
+    // Dosyayı kopyala
+    const copiedFile = file.makeCopy(fileName, centralFolder);
+    copiedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    Logger.log('✅ Merkezi arşive kopyalandı: ' + fileName);
+    return { 
+      success: true, 
+      copiedFileId: copiedFile.getId(),
+      copiedFileUrl: 'https://drive.google.com/file/d/' + copiedFile.getId() + '/view'
+    };
+  } catch(error) {
+    Logger.log('⚠️ Merkezi arşive kopyalama hatası: ' + error.toString());
+    return { success: false, error: error.toString() };
+  }
+}
+
 function uploadFileToDrive(base64Data, fileName, mimeType) {
   try {
     const folder = getDriveFolder();
@@ -424,6 +481,9 @@ function uploadFileToDrive(base64Data, fileName, mimeType) {
     } catch(e) {
       // Paylaşım ayarı hatası
     }
+    
+    // Merkezi arşive de kopyala
+    copyToCentralArchive(file);
     
     // URL'leri oluştur
     const fileId = file.getId();
@@ -2291,6 +2351,35 @@ function collectAllCOAFiles() {
     return {
       success: false,
       error: 'Dosya toplama hatası: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Merkezi arşiv klasörü bilgilerini getir
+ */
+function getCentralArchiveInfo() {
+  try {
+    const folder = getCentralArchiveFolder();
+    const files = folder.getFiles();
+    let fileCount = 0;
+    
+    while (files.hasNext()) {
+      files.next();
+      fileCount++;
+    }
+    
+    return {
+      success: true,
+      folderId: folder.getId(),
+      folderUrl: folder.getUrl(),
+      folderName: folder.getName(),
+      fileCount: fileCount
+    };
+  } catch(error) {
+    return {
+      success: false,
+      error: 'Merkezi arşiv klasörü bilgisi alınamadı: ' + error.toString()
     };
   }
 }

@@ -1140,8 +1140,8 @@
     <div class="header">
         <h1>📋 COA Arşiv Sistemi</h1>
         <div style="display: flex; gap: 10px; align-items: center;">
-            <button onclick="collectAllFiles()" class="collect-files-btn" title="Tüm COA ve template dosyalarını tek klasörde topla">
-                📁 Tüm Dosyaları Topla
+            <button onclick="collectAllFiles()" class="collect-files-btn" title="Eski kayıtları topla - Yeni dosyalar otomatik eklenir">
+                📁 Eski Dosyaları Topla
             </button>
             <a href="index.html" class="back-btn">← Ana Sayfa</a>
         </div>
@@ -1431,6 +1431,19 @@
                     <h3>⚙️ Google Sheets Bağlantısı</h3>
                     <input type="text" id="googleScriptUrl" value="https://script.google.com/macros/s/AKfycbz3KZblRoWV0uU7_LU24Wih4npAl2x8_vFWDjmc-F0bDeRHgmrSEi0XB-YsaaD0_i4u/exec" placeholder="Google Apps Script URL" style="width:100%; margin-bottom:10px;">
                     <button class="btn btn-secondary btn-sm" onclick="connectGoogleSheets()">🔗 Bağlan</button>
+                </div>
+                
+                <!-- Central Archive Folder -->
+                <div class="settings-section" style="margin-top: 20px; background: #f0f9f4; border-left: 3px solid #2c5f2d;">
+                    <h3>📁 Merkezi Arşiv Klasörü</h3>
+                    <p style="font-size: 0.85em; color: #666; margin-bottom: 10px;">
+                        ✨ <strong>YENİ!</strong> Tüm COA ve template dosyaları <strong>otomatik olarak</strong> <strong>COA_Merkezi_Arsiv</strong> klasörüne kopyalanır.
+                        <br><br>
+                        📌 Manuel toplama gerekmez - Her yükleme anında arşive eklenir!
+                    </p>
+                    <button class="btn btn-success btn-sm" onclick="openCentralArchive()" style="width: 100%; background: #2c5f2d; border-color: #2c5f2d;">
+                        📂 Merkezi Arşivi Aç
+                    </button>
                 </div>
                 
                 <!-- TDS Management -->
@@ -3132,7 +3145,10 @@
                     document.getElementById('statusDot').classList.add('connected');
                     document.getElementById('statusText').textContent = 'Google Sheets Bağlı ✓';
                     await loadFromGoogleSheets();
-                    if (!silent) showToast('✅ Bağlantı başarılı! ' + (data.message || ''), 'success');
+                    if (!silent) {
+                        showToast('✅ Bağlantı başarılı! ' + (data.message || ''), 'success');
+                        showToast('📁 Not: Tüm dosyalar otomatik olarak "COA_Merkezi_Arsiv" klasörüne kopyalanır', 'info', 5000);
+                    }
                     
                     // Bekleyen kayıtları senkronize et
                     setTimeout(() => syncPendingRecords(), 2000);
@@ -12045,6 +12061,38 @@
             }
             
             await loadAnalysisSuppliers();
+        }
+        
+        // Merkezi arşiv klasörünü aç
+        async function openCentralArchive() {
+            if (!googleScriptUrl) {
+                showToast('❌ Önce Google Sheets bağlantısı yapın!', 'error');
+                return;
+            }
+            
+            showToast('📁 Merkezi arşiv klasörü açılıyor...', 'info');
+            
+            try {
+                // API'den klasör bilgisini al
+                const result = await jsonpRequest(googleScriptUrl, { action: 'getCentralArchive' });
+                
+                if (result.success) {
+                    // Direkt Drive klasörünü aç
+                    window.open(result.folderUrl, '_blank');
+                    
+                    showToast(`✅ ${result.fileCount} dosya içeren merkezi arşiv açıldı`, 'success', 3000);
+                } else {
+                    throw new Error(result.error || 'Klasör bilgisi alınamadı');
+                }
+            } catch (error) {
+                console.error('Merkezi arşiv açma hatası:', error);
+                
+                // Hata durumunda arama yap
+                const searchUrl = 'https://drive.google.com/drive/search?q=COA_Merkezi_Arsiv';
+                window.open(searchUrl, '_blank');
+                
+                showToast('⚠️ Klasör araması açıldı. "COA_Merkezi_Arsiv" klasörünü manuel seçin', 'warning', 5000);
+            }
         }
         
         // Eksik COA Modal fonksiyonları
