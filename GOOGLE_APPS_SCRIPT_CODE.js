@@ -1783,13 +1783,6 @@ function getCOARecordsSheet() {
   
   return sheet;
 }
-    sheet.setFrozenRows(1);
-    
-    Logger.log('COA_Records sekmesi oluşturuldu');
-  }
-  
-  return sheet;
-}
 
 // COA kayıtlarını satır bazlı kaydet
 function saveCOARecord(data) {
