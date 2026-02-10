@@ -4607,6 +4607,8 @@
                                     status: file.status || 'pending',
                                     reviewComment: file.reviewComment || '',
                                     reviewedAt: file.reviewedAt || null,
+                                    supplierComment: file.supplierComment || '',
+                                    supplierCommentDate: file.supplierCommentDate || null,
                                     uploadedBySupplier: file.uploadedBySupplier || false
                                 };
                             }
@@ -4627,6 +4629,17 @@
                 console.log('📤 Güncel konfigürasyon Storj\'a yükleniyor...');
                 console.log('📊 Zorunlu değil türler:', shareData.exemptDocTypes);
                 console.log('📊 Özel türler:', shareData.customTypes);
+                
+                // Yorumları kontrol et ve logla
+                Object.keys(shareData.documents).forEach(docType => {
+                    shareData.documents[docType].forEach((file, idx) => {
+                        if (file.reviewComment || file.supplierComment) {
+                            console.log(`📝 ${file.name}:`);
+                            if (file.reviewComment) console.log(`  💬 Müşteri: "${file.reviewComment}"`);
+                            if (file.supplierComment) console.log(`  💭 Tedarikçi: "${file.supplierComment}"`);
+                        }
+                    });
+                });
 
                 // Storj'a güncelle (aynı key ile)
                 const result = await uploadToStorj(
@@ -4640,6 +4653,7 @@
                 await saveSupplierDocuments(supplierName, docRecord);
 
                 console.log('✅ Değişiklikler Storj\'a kaydedildi!');
+                console.log('✅ Yorumlar Storj\'a kaydedildi. Tedarikçi "Senkronize Et" butonuna bastığında görebilir.');
                 showAlert('✅ Değişiklikler Kaydedildi!\n\n📤 Konfigürasyon Storj\'a yüklendi.\n🔄 Tedarikçi artık senkronize butonuna basarak yeni ayarları görebilir.', 'success');
 
             } catch (error) {
@@ -4710,6 +4724,8 @@
                                     status: file.status || 'pending',
                                     reviewComment: file.reviewComment || '',
                                     reviewedAt: file.reviewedAt || null,
+                                    supplierComment: file.supplierComment || '',
+                                    supplierCommentDate: file.supplierCommentDate || null,
                                     uploadedBySupplier: file.uploadedBySupplier || false
                                 };
                             }
@@ -4739,6 +4755,7 @@
 
                 console.log('✅ Storj\'a yüklendi!');
                 console.log('🔗 URL:', result.url);
+                console.log('✅ Yorumlar Storj\'a kaydedildi. Karşı taraf "Senkronize Et" butonuna bastığında görebilir.');
 
                 // Storj key'i sakla
                 docRecord.sharedStorjKey = storjKey;
@@ -4863,6 +4880,8 @@
                                     
                                     console.log(`✅ Blob oluşturuldu: ${file.name} (${blob.size} bytes)`);
                                     console.log(`📝 Açıklama: "${file.description || '(yok)'}", uploadedBySupplier: ${file.uploadedBySupplier}`);
+                                    if (file.reviewComment) console.log(`  💬 Müşteri yorumu: "${file.reviewComment}"`);
+                                    if (file.supplierComment) console.log(`  💭 Tedarikçi yorumu: "${file.supplierComment}"`);
                                     
                                     return {
                                         id: fileId,
@@ -4875,6 +4894,8 @@
                                         status: file.status || 'pending',
                                         reviewComment: file.reviewComment || '',
                                         reviewedAt: file.reviewedAt || null,
+                                        supplierComment: file.supplierComment || '',
+                                        supplierCommentDate: file.supplierCommentDate || null,
                                         uploadedBySupplier: file.uploadedBySupplier || false
                                     };
                                 } catch (e) {
@@ -16159,6 +16180,8 @@
                 await saveSupplierDocuments(supplierName, currentDocs);
                 
                 console.log(`✅ Müşteri yorumu kaydedildi: "${comment}"`);
+                console.log(`💾 IndexedDB'ye kaydedildi. "Kaydet ve Paylaş" butonuna bastığınızda Storj'a gönderilecek.`);
+                console.log('📋 Güncel dosya objesi:', files[fileIndex]);
                 
             } catch (error) {
                 console.error('Yorum güncelleme hatası:', error);
@@ -25601,6 +25624,19 @@ Devam etmek istiyor musunuz?`;
         // Paylaşılan dokümanları görüntüle
         function showSharedDocumentsView(shareData) {
             // Ana sayfayı gizle
+            console.log('📋 Tedarikçi paneli açılıyor...');
+            console.log('📊 Toplam doküman türü:', Object.keys(shareData.documents || {}).length);
+            
+            // Yorumları kontrol et
+            Object.keys(shareData.documents || {}).forEach(docType => {
+                shareData.documents[docType].forEach((file, idx) => {
+                    if (file.reviewComment || file.supplierComment) {
+                        console.log(`📝 ${file.name}:`);
+                        if (file.reviewComment) console.log(`  💬 Müşteri: "${file.reviewComment}"`);
+                        if (file.supplierComment) console.log(`  💭 Tedarikçi: "${file.supplierComment}"`);
+                    }
+                });
+            });
             const mainContainer = document.querySelector('.container');
             const navbar = document.querySelector('.navbar');
             
@@ -25847,6 +25883,7 @@ Devam etmek istiyor musunuz?`;
                 docs[fileIndex].supplierCommentDate = new Date().toISOString();
                 console.log(`✅ "${docs[fileIndex].name}" tedarikçi yorumu güncellendi: "${comment}"`);
                 console.log('📋 Güncel doküman objesi:', docs[fileIndex]);
+                console.log('⚠️ NOT: Bu değişiklik "Dokümanları Gönder" butonuna bastığınızda Storj\'a kaydedilecek!');
             } else {
                 console.error(`❌ Dosya bulunamadı: docType=${docType}, index=${fileIndex}`);
             }
@@ -25951,6 +25988,17 @@ Devam etmek istiyor musunuz?`;
                 console.log('📊 Zorunlu değil türler:', updatedData.exemptDocTypes);
                 console.log('📊 Özel türler:', updatedData.customTypes);
                 console.log('📄 Dokümanlar:', Object.keys(updatedData.documents || {}).length, 'tür');
+                
+                // Yorumları logla
+                Object.keys(updatedData.documents || {}).forEach(docType => {
+                    updatedData.documents[docType].forEach((file, idx) => {
+                        if (file.reviewComment || file.supplierComment) {
+                            console.log(`📝 ${file.name}:`);
+                            if (file.reviewComment) console.log(`  💬 Müşteri: "${file.reviewComment}"`);
+                            if (file.supplierComment) console.log(`  💭 Tedarikçi: "${file.supplierComment}"`);
+                        }
+                    });
+                });
 
                 // Değişiklikleri karşılaştır
                 const oldExempt = JSON.stringify(window.sharedDocumentsData.exemptDocTypes || []);
@@ -26038,6 +26086,17 @@ Devam etmek istiyor musunuz?`;
                 
                 console.log('📊 Gönderilecek veri:', JSON.stringify(updatedData, null, 2).substring(0, 500) + '...');
                 
+                // Yorumları kontrol et ve logla
+                Object.keys(updatedData.documents).forEach(docType => {
+                    updatedData.documents[docType].forEach((file, idx) => {
+                        if (file.reviewComment || file.supplierComment) {
+                            console.log(`📝 ${file.name}:`);
+                            if (file.reviewComment) console.log(`  💬 Müşteri: "${file.reviewComment}"`);
+                            if (file.supplierComment) console.log(`  💭 Tedarikçi: "${file.supplierComment}"`);
+                        }
+                    });
+                });
+                
                 // Storj credentials'ı URL'den al
                 const urlParams = new URLSearchParams(window.location.search);
                 const storjEncoded = urlParams.get('storj');
@@ -26065,6 +26124,7 @@ Devam etmek istiyor musunuz?`;
                 await uploadToStorj(creds.key, JSON.stringify(updatedData, null, 2), settings);
                 
                 console.log('✅ Dokümanlar başarıyla gönderildi!');
+                console.log('✅ Yorumlar Storj\'a kaydedildi. Ana PC "Senkronize Et" butonuna bastığında görebilir.');
                 
                 // Başarılı gönderim modalı göster
                 const successModal = document.createElement('div');
