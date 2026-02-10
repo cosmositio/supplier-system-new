@@ -1326,9 +1326,9 @@
                     <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                         <h4 style="margin-bottom: 10px; color: #495057;">📝 Toplu yükleme için dosya adı formatı:</h4>
                         <code style="background: #e9ecef; padding: 8px 12px; border-radius: 4px; display: block; margin-bottom: 10px; font-size: 0.9em;">
-                            [Hammadde Kodu] - [İrsaliye Tarihi (YYYY-MM-DD)].pdf
+                            [Hammadde Kodu] - [GG.AA.YYYY].pdf
                         </code>
-                        <p style="font-size: 0.85em; color: #666; margin: 0;">Örnek: MDE - 2026-02-10.pdf, SAH - 2026-02-09.pdf</p>
+                        <p style="font-size: 0.85em; color: #666; margin: 0;">Örnek: 944.4.KFR30-20.4 - 20.09.2025.pdf, MDE - 10.02.2026.pdf</p>
                     </div>
                     
                     <div style="margin-bottom: 15px; padding: 12px; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 4px;">
@@ -5838,19 +5838,24 @@
             
             // Parse file names and add to bulk array
             files.forEach(file => {
-                // Expected format: [MaterialCode] - [YYYY-MM-DD].pdf
-                const match = file.name.match(/^(.+?)\s*-\s*(\d{4}-\d{2}-\d{2})/);
+                // Expected format: [MaterialCode] - [DD.MM.YYYY].pdf
+                const match = file.name.match(/^(.+?)\s*-\s*(\d{2})\.(\d{2})\.(\d{4})/);
                 
                 if (match) {
                     const materialCode = match[1].trim();
-                    const deliveryDate = match[2].trim();
+                    const day = match[2];
+                    const month = match[3];
+                    const year = match[4];
+                    
+                    // Convert to YYYY-MM-DD format for internal use
+                    const deliveryDate = `${year}-${month}-${day}`;
                     
                     const fileObj = {
                         id: Date.now() + Math.random(),
                         file: file,
                         materialCode: materialCode,
                         deliveryDate: deliveryDate,
-                        deliveryNo: `AUTO-${deliveryDate.replace(/-/g, '')}`,
+                        deliveryNo: `AUTO-${year}${month}${day}`,
                         supplier: supplier
                     };
                     
@@ -5880,13 +5885,18 @@
             summary.style.display = 'block';
             summaryText.textContent = `${bulkFiles.length} COA yüklenmeye hazır`;
             
-            container.innerHTML = bulkFiles.map(fileObj => `
+            container.innerHTML = bulkFiles.map(fileObj => {
+                // Convert YYYY-MM-DD to DD.MM.YYYY for display
+                const [year, month, day] = fileObj.deliveryDate.split('-');
+                const displayDate = `${day}.${month}.${year}`;
+                
+                return `
                 <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: start;">
                     <div style="flex: 1;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">📄 ${fileObj.file.name}</div>
                         <div style="font-size: 0.85em; color: #666; display: flex; gap: 15px; flex-wrap: wrap;">
                             <span><strong>Hammadde:</strong> ${fileObj.materialCode}</span>
-                            <span><strong>İrsaliye Tarihi:</strong> ${fileObj.deliveryDate}</span>
+                            <span><strong>İrsaliye Tarihi:</strong> ${displayDate}</span>
                             <span><strong>İrsaliye No:</strong> ${fileObj.deliveryNo}</span>
                         </div>
                     </div>
@@ -5894,7 +5904,8 @@
                         🗑️ Sil
                     </button>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
         
         function removeBulkFile(id) {
