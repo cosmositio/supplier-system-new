@@ -3821,7 +3821,10 @@
             }
             
             try {
-                console.log('🗑️ COA_Records\'dan siliniyor:', { materialCode, deliveryDate, deliveryNo });
+                console.log('🗑️ COA_Records\'dan siliniyor:');
+                console.log('  📦 Material Code:', materialCode);
+                console.log('  📅 Delivery Date:', deliveryDate, '(format:', typeof deliveryDate, ')');
+                console.log('  📋 Delivery No:', deliveryNo);
                 
                 const params = new URLSearchParams();
                 params.append('action', 'deleteCOARecord');
@@ -3829,10 +3832,14 @@
                 params.append('deliveryDate', deliveryDate);
                 params.append('deliveryNo', deliveryNo);
                 
+                console.log('🌐 Silme isteği URL parametreleri:', params.toString());
+                
                 const result = await jsonp(googleScriptUrl + '?' + params.toString());
                 
+                console.log('📦 Silme sonucu:', result);
+                
                 if (result && result.success) {
-                    console.log('✅ COA_Records\'dan silindi');
+                    console.log('✅ COA_Records\'dan silindi:', result.message || '');
                     return true;
                 } else {
                     console.warn('⚠️ COA_Records silme hatası:', result?.error);
