@@ -6235,10 +6235,14 @@
                         ? fileObj.materialCode.split('|')[0].trim() 
                         : fileObj.materialCode.trim();
                     
-                    // OCR properties'i TDS formatına çevir
+                    console.log('🔑 Clean Material Code for Records:', cleanMaterialCode);
+                    
+                    // TDS varsa COA_Records'a kaydet
                     let propertiesToSave = null;
+                    
+                    // OCR properties varsa TDS ile merge et
                     if (Object.keys(ocrProperties).length > 0 && tdsData[cleanMaterialCode]) {
-                        // OCR properties'i merge et
+                        console.log('📊 OCR verileri var, TDS ile merge ediliyor...');
                         propertiesToSave = tdsData[cleanMaterialCode].properties.map(prop => {
                             const ocrProp = ocrProperties[prop.name];
                             if (ocrProp) {
@@ -6250,8 +6254,15 @@
                             }
                             return prop;
                         });
-                        
-                        console.log('📊 COA_Records\'a kaydediliyor...');
+                    } 
+                    // OCR yoksa ama TDS varsa sadece TDS'i kullan (boş COA değerleriyle)
+                    else if (tdsData[cleanMaterialCode]) {
+                        console.log('📊 OCR yok, TDS verileri kullanılıyor');
+                        propertiesToSave = tdsData[cleanMaterialCode].properties;
+                    }
+                    
+                    if (propertiesToSave) {
+                        console.log('📊 COA_Records\'a kaydediliyor...', propertiesToSave.length, 'özellik');
                         
                         // Record data objesini oluştur
                         const recordDataForSheets = {
@@ -6264,6 +6275,8 @@
                         
                         await saveCOARecordToSheets(cleanMaterialCode, propertiesToSave, recordDataForSheets);
                         console.log('✅ COA_Records kayıt başarılı');
+                    } else {
+                        console.log('⚠️ TDS tanımlı değil:', cleanMaterialCode);
                     }
                     
                     // Memory'e ekle
