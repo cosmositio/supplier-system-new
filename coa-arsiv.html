@@ -11889,13 +11889,25 @@
             contentDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><p>📊 Rapor hazırlanıyor...</p></div>';
             
             try {
-                const allDeliveries = [];
+                // Hammadde bazında grupla
+                const materialStats = {};
                 
-                // Excel'deki TÜM irsaliyeleri listele
                 materials.forEach(material => {
                     const materialCode = material.materialCode || material.code;
                     const materialName = material.materialName || material.name || materialCode;
                     const supplierName = material.supplier || 'Tedarikçi Yok';
+                    
+                    if (!materialStats[materialCode]) {
+                        materialStats[materialCode] = {
+                            materialCode: materialCode,
+                            materialName: materialName,
+                            supplier: supplierName,
+                            totalDeliveries: 0,
+                            uploadedDeliveries: 0,
+                            notUploadedDeliveries: 0,
+                            deliveryDetails: []
+                        };
+                    }
                     
                     if (material.deliveries && Array.isArray(material.deliveries)) {
                         material.deliveries.forEach(delivery => {
@@ -11904,7 +11916,7 @@
                                 ? `${delivery.deliverySerial} | ${delivery.deliveryNo}` 
                                 : (delivery.deliverySerial || delivery.deliveryNo || '');
                             
-                            if (!deliveryStr) return; // İrsaliye numarası yoksa atla
+                            if (!deliveryStr) return;
                             
                             // Bu irsaliye için COA var mı kontrol et
                             const hasCOA = coaData.some(coa => {
@@ -11913,11 +11925,15 @@
                                        (coa.materialCode === materialCode || coa.material === materialCode);
                             });
                             
-                            // Tüm irsaliyeleri listeye ekle (COA var/yok fark etmez)
-                            allDeliveries.push({
-                                materialCode: materialCode,
-                                materialName: materialName,
-                                supplier: supplierName,
+                            materialStats[materialCode].totalDeliveries++;
+                            if (hasCOA) {
+                                materialStats[materialCode].uploadedDeliveries++;
+                            } else {
+                                materialStats[materialCode].notUploadedDeliveries++;
+                            }
+                            
+                            // Detay bilgisini kaydet
+                            materialStats[materialCode].deliveryDetails.push({
                                 deliveryNo: deliveryStr,
                                 deliveryDate: delivery.deliveryDate || 'Tarih yok',
                                 hasCOA: hasCOA
@@ -11926,7 +11942,10 @@
                     }
                 });
                 
-                if (allDeliveries.length === 0) {
+                // Array'e çevir ve sırala
+                const materialArray = Object.values(materialStats);
+                
+                if (materialArray.length === 0) {
                     contentDiv.innerHTML = `
                         <div style="text-align: center; padding: 60px; color: #999;">
                             <div style="font-size: 64px; margin-bottom: 20px;">📋</div>
@@ -11937,75 +11956,137 @@
                     return;
                 }
                 
-                // Tarihe göre sırala (en yeni en üstte)
-                allDeliveries.sort((a, b) => {
-                    const dateA = a.deliveryDate.split('.').reverse().join('');
-                    const dateB = b.deliveryDate.split('.').reverse().join('');
-                    return dateB.localeCompare(dateA);
-                });
-                
-                // İstatistikler
-                const uploadedCount = allDeliveries.filter(d => d.hasCOA).length;
-                const notUploadedCount = allDeliveries.filter(d => !d.hasCOA).length;
-                const totalCount = allDeliveries.length;
-                const uploadPercentage = Math.round((uploadedCount / totalCount) * 100);
+                // Genel istatistikler
+                const totalMaterials = materialArray.length;
+                const totalDeliveries = materialArray.reduce((sum, m) => sum + m.totalDeliveries, 0);
+                const totalUploaded = materialArray.reduce((sum, m) => sum + m.uploadedDeliveries, 0);
+                const totalNotUploaded = materialArray.reduce((sum, m) => sum + m.notUploadedDeliveries, 0);
+                const uploadPercentage = Math.round((totalUploaded / totalDeliveries) * 100);
                 
                 // Tablo oluştur
                 let tableHTML = `
                     <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 200px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white; text-align: center;">
-                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${totalCount}</div>
+                        <div style="flex: 1; min-width: 180px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${totalMaterials}</div>
+                            <div style="font-size: 14px; opacity: 0.9;">Toplam Hammadde</div>
+                        </div>
+                        <div style="flex: 1; min-width: 180px; padding: 20px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 8px; color: white; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${totalDeliveries}</div>
                             <div style="font-size: 14px; opacity: 0.9;">Toplam İrsaliye</div>
                         </div>
-                        <div style="flex: 1; min-width: 200px; padding: 20px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-radius: 8px; color: white; text-align: center;">
-                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${uploadedCount}</div>
+                        <div style="flex: 1; min-width: 180px; padding: 20px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-radius: 8px; color: white; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${totalUploaded}</div>
                             <div style="font-size: 14px; opacity: 0.9;">✅ COA Yüklendi</div>
                         </div>
-                        <div style="flex: 1; min-width: 200px; padding: 20px; background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); border-radius: 8px; color: white; text-align: center;">
-                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${notUploadedCount}</div>
+                        <div style="flex: 1; min-width: 180px; padding: 20px; background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); border-radius: 8px; color: white; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${totalNotUploaded}</div>
                             <div style="font-size: 14px; opacity: 0.9;">❌ COA Yüklenmedi</div>
                         </div>
-                        <div style="flex: 1; min-width: 200px; padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; color: white; text-align: center;">
+                        <div style="flex: 1; min-width: 180px; padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; color: white; text-align: center;">
                             <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">%${uploadPercentage}</div>
-                            <div style="font-size: 14px; opacity: 0.9;">Tamamlanma Oranı</div>
+                            <div style="font-size: 14px; opacity: 0.9;">Tamamlanma</div>
                         </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px; padding: 12px; background: #e3f2fd; border-left: 4px solid #2196F3; border-radius: 4px; font-size: 13px;">
+                        <strong>💡 İpucu:</strong> Hammadde satırına tıklayarak o hammaddenin tüm irsaliyelerini detaylı görebilirsiniz.
                     </div>
                     
                     <div style="overflow-x: auto;">
                         <table style="width: 100%; border-collapse: collapse; background: white; font-size: 13px;">
                             <thead>
                                 <tr style="background: #667eea; color: white;">
-                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">#</th>
-                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 100px;">COA Durumu</th>
-                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">İrsaliye Tarihi</th>
-                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">İrsaliye No</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 40px;">#</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Hammadde Kodu</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Hammadde Adı</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Tedarikçi</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 120px;">Toplam İrsaliye</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 120px;">✅ Yüklendi</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 120px;">❌ Yüklenmedi</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 100px;">Tamamlanma</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 60px;">Detay</th>
                                 </tr>
                             </thead>
                             <tbody>
                 `;
                 
-                allDeliveries.forEach((item, index) => {
-                    const statusIcon = item.hasCOA ? '✅' : '❌';
-                    const statusText = item.hasCOA ? 'Yüklendi' : 'Yüklenmedi';
-                    const statusColor = item.hasCOA ? '#4CAF50' : '#f44336';
-                    const rowBg = item.hasCOA ? '#f1f8f4' : '#fff3f3';
+                materialArray.forEach((material, index) => {
+                    const percentage = Math.round((material.uploadedDeliveries / material.totalDeliveries) * 100);
+                    const progressColor = percentage === 100 ? '#4CAF50' : percentage >= 50 ? '#ff9800' : '#f44336';
+                    const rowId = `material-row-${index}`;
+                    const detailId = `material-detail-${index}`;
                     
+                    // Ana satır (hammadde özeti)
                     tableHTML += `
-                        <tr style="background: ${index % 2 === 0 ? rowBg : 'white'};">
+                        <tr id="${rowId}" style="background: ${index % 2 === 0 ? '#f9f9f9' : 'white'}; cursor: pointer;" 
+                            onclick="toggleMaterialDetail('${detailId}', '${rowId}')">
                             <td style="padding: 10px; border: 1px solid #ddd;">${index + 1}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; font-family: monospace; font-weight: bold;">${material.materialCode}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">${material.materialName}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">${material.supplier}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${material.totalDeliveries}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center; color: #4CAF50; font-weight: bold;">${material.uploadedDeliveries}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center; color: #f44336; font-weight: bold;">${material.notUploadedDeliveries}</td>
                             <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-                                <div style="display: inline-block; padding: 5px 12px; background: ${statusColor}; color: white; border-radius: 20px; font-weight: bold; font-size: 11px;">
-                                    ${statusIcon} ${statusText}
+                                <div style="background: ${progressColor}; color: white; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 11px;">
+                                    %${percentage}
                                 </div>
                             </td>
-                            <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">${item.deliveryDate}</td>
-                            <td style="padding: 10px; border: 1px solid #ddd; font-family: monospace; font-weight: bold;">${item.deliveryNo}</td>
-                            <td style="padding: 10px; border: 1px solid #ddd; font-family: monospace;">${item.materialCode}</td>
-                            <td style="padding: 10px; border: 1px solid #ddd;">${item.materialName}</td>
-                            <td style="padding: 10px; border: 1px solid #ddd;">${item.supplier}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                                <span id="icon-${detailId}" style="font-size: 14px;">▶</span>
+                            </td>
+                        </tr>
+                    `;
+                    
+                    // Detay satırları (başlangıçta gizli)
+                    tableHTML += `
+                        <tr id="${detailId}" style="display: none;">
+                            <td colspan="9" style="padding: 0; border: 1px solid #ddd;">
+                                <div style="background: #f5f5f5; padding: 15px;">
+                                    <h4 style="margin: 0 0 10px 0; color: #667eea;">📋 ${material.materialCode} - İrsaliye Detayları</h4>
+                                    <table style="width: 100%; border-collapse: collapse; background: white; font-size: 12px;">
+                                        <thead>
+                                            <tr style="background: #e0e7ff;">
+                                                <th style="padding: 8px; border: 1px solid #ddd; text-align: left; width: 40px;">#</th>
+                                                <th style="padding: 8px; border: 1px solid #ddd; text-align: center; width: 100px;">COA Durumu</th>
+                                                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">İrsaliye Tarihi</th>
+                                                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">İrsaliye No</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                    `;
+                    
+                    // İrsaliye detaylarını tarihe göre sırala (en yeni üstte)
+                    const sortedDeliveries = [...material.deliveryDetails].sort((a, b) => {
+                        const dateA = a.deliveryDate.split('.').reverse().join('');
+                        const dateB = b.deliveryDate.split('.').reverse().join('');
+                        return dateB.localeCompare(dateA);
+                    });
+                    
+                    sortedDeliveries.forEach((delivery, dIndex) => {
+                        const statusIcon = delivery.hasCOA ? '✅' : '❌';
+                        const statusText = delivery.hasCOA ? 'Yüklendi' : 'Yüklenmedi';
+                        const statusColor = delivery.hasCOA ? '#4CAF50' : '#f44336';
+                        
+                        tableHTML += `
+                            <tr style="background: ${dIndex % 2 === 0 ? 'white' : '#fafafa'};">
+                                <td style="padding: 8px; border: 1px solid #ddd;">${dIndex + 1}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+                                    <div style="display: inline-block; padding: 4px 10px; background: ${statusColor}; color: white; border-radius: 15px; font-weight: bold; font-size: 10px;">
+                                        ${statusIcon} ${statusText}
+                                    </div>
+                                </td>
+                                <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${delivery.deliveryDate}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; font-family: monospace; font-weight: bold;">${delivery.deliveryNo}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    tableHTML += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </td>
                         </tr>
                     `;
                 });
@@ -12015,16 +12096,50 @@
                         </table>
                     </div>
                     
-                    <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-left: 4px solid #2196F3; border-radius: 4px;">
-                        <strong>💡 İpucu:</strong> Eksik COA'ları toplu yüklemek için "Toplu Yükleme" özelliğini kullanabilirsiniz.
+                    <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+                        <strong>📊 Özet:</strong> ${totalMaterials} hammadde için ${totalDeliveries} irsaliye kaydı bulunuyor. 
+                        ${totalUploaded} irsaliye için COA yüklenmiş (%${uploadPercentage} tamamlanma).
                     </div>
                 `;
                 
                 contentDiv.innerHTML = tableHTML;
                 
                 // Console'a da yazdır
-                console.log('📋 COA DURUM RAPORU:');
-                console.table(allDeliveries);
+                console.log('📋 HAMMADDE BAZLI COA DURUM RAPORU:');
+                console.table(materialArray.map(m => ({
+                    'Hammadde': m.materialCode,
+                    'Tedarikçi': m.supplier,
+                    'Toplam': m.totalDeliveries,
+                    'Yüklendi': m.uploadedDeliveries,
+                    'Yüklenmedi': m.notUploadedDeliveries,
+                    'Oran %': Math.round((m.uploadedDeliveries / m.totalDeliveries) * 100)
+                })));
+                
+            } catch (error) {
+                console.error('❌ Rapor oluşturma hatası:', error);
+                contentDiv.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #f44336;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+                        <h3>Hata Oluştu</h3>
+                        <p style="color: #666;">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Hammadde detayını aç/kapat
+        function toggleMaterialDetail(detailId, rowId) {
+            const detailRow = document.getElementById(detailId);
+            const iconSpan = document.getElementById('icon-' + detailId);
+            
+            if (detailRow.style.display === 'none') {
+                detailRow.style.display = 'table-row';
+                iconSpan.textContent = '▼';
+            } else {
+                detailRow.style.display = 'none';
+                iconSpan.textContent = '▶';
+            }
+        }
                 
             } catch (error) {
                 console.error('❌ Rapor oluşturma hatası:', error);
