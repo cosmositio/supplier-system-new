@@ -1240,19 +1240,42 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
     
     const data = sheet.getDataRange().getValues();
     
-    // İlk satır header'dır, 2. satırdan itibaren kontrol et
+    // Tarih formatını normalize et (YYYY-MM-DD → DD.MM.YYYY)
+    let searchDate = deliveryDate;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate)) {
+      // YYYY-MM-DD formatından DD.MM.YYYY formatına çevir
+      const [year, month, day] = deliveryDate.split('-');
+      searchDate = `${day}.${month}.${year}`;
+      Logger.log('Tarih formatı dönüştürüldü: ' + deliveryDate + ' → ' + searchDate);
+    }
+    
+    let deletedCount = 0;
+    
+    // İlk satır header'dır, 2. satırdan itibaren kontrol et (TERSTEN - son satırdan başa doğru)
     for (let i = data.length - 1; i >= 1; i--) {
-      // Sütun indexleri: 0=Material Code, 1=Delivery Date, 2=Delivery No
-      if (data[i][0] === materialCode && 
-          data[i][1] === deliveryDate && 
-          data[i][2] === deliveryNo) {
+      const rowMaterialCode = String(data[i][0] || '').trim();
+      const rowDeliveryDate = String(data[i][1] || '').trim();
+      const rowDeliveryNo = String(data[i][2] || '').trim();
+      
+      // Hem YYYY-MM-DD hem DD.MM.YYYY formatını kontrol et
+      const dateMatch = (rowDeliveryDate === deliveryDate || rowDeliveryDate === searchDate);
+      
+      if (rowMaterialCode === materialCode && 
+          dateMatch && 
+          rowDeliveryNo === deliveryNo) {
         sheet.deleteRow(i + 1);
-        Logger.log('COA_Records\'dan silindi: ' + materialCode + ' | ' + deliveryDate + ' | ' + deliveryNo);
-        return { success: true, message: 'COA_Records kaydı silindi' };
+        deletedCount++;
+        Logger.log('COA_Records satır silindi: ' + (i + 1) + ' | ' + materialCode + ' | ' + rowDeliveryDate + ' | ' + deliveryNo);
       }
     }
     
-    return { success: false, error: 'COA_Records\'da kayıt bulunamadı' };
+    if (deletedCount > 0) {
+      return { success: true, message: deletedCount + ' satır silindi', deletedCount: deletedCount };
+    } else {
+      Logger.log('❌ Kayıt bulunamadı: ' + materialCode + ' | ' + searchDate + ' (' + deliveryDate + ') | ' + deliveryNo);
+      Logger.log('Sheet\'teki ilk kayıt örneği: ' + JSON.stringify(data[1]));
+      return { success: false, error: 'COA_Records\'da kayıt bulunamadı' };
+    }
   } catch(error) {
     return { success: false, error: 'COA_Records silme hatası: ' + error.toString() };
   }
@@ -1623,10 +1646,19 @@ function saveCOARecord(data) {
   try {
     const sheet = getCOARecordsSheet();
     
-    // data: { date, deliveryNo, lotNumber, materialCode, supplier, location, properties: [{name, coaValue, unit, standard, operator, standardValue, min, max, status}] }
+    // data: { date OR deliveryDate, deliveryNo, lotNumber, materialCode, supplier, location, properties: [{name, coaValue, unit, standard, operator, standardValue, min, max, status}] }
     
     const now = new Date().toLocaleString('tr-TR');
     const rows = [];
+    
+    // Tarih formatını normalize et (YYYY-MM-DD → DD.MM.YYYY)
+    let deliveryDate = data.date || data.deliveryDate || '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate)) {
+      // YYYY-MM-DD formatından DD.MM.YYYY formatına çevir
+      const [year, month, day] = deliveryDate.split('-');
+      deliveryDate = `${day}.${month}.${year}`;
+      Logger.log('COA_Records - Tarih formatı dönüştürüldü: ' + (data.date || data.deliveryDate) + ' → ' + deliveryDate);
+    }
     
     // Her özellik için ayrı satır oluştur
     data.properties.forEach(prop => {
@@ -1654,7 +1686,7 @@ function saveCOARecord(data) {
       
       // Geçerli değer, satır oluştur
       rows.push([
-        data.date || '',
+        deliveryDate,
         data.deliveryNo || '',
         data.lotNumber || '',
         data.materialCode || '',
