@@ -178,6 +178,9 @@ function doGet(e) {
         }
         result = templateParam ? saveCOATemplate(templateParam) : { success: false, error: 'Template verisi eksik' };
         break;
+      case 'collectAllFiles':
+        result = collectAllCOAFiles();
+        break;
       default:
         result = { success: false, error: 'Geçersiz action: ' + action };
     }
@@ -2138,6 +2141,241 @@ function deleteCOATemplate(supplierName) {
     
   } catch(error) {
     return { success: false, error: error.toString() };
+  }
+}
+
+// ==================== TÜM DOSYALARI TOPLAMA ====================
+
+/**
+ * Tüm COA arşiv ve template dosyalarını tek klasörde topla
+ * PDF, Excel, Word ve resim dosyalarını filtreler ve kopyalar
+ */
+function collectAllCOAFiles() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Yeni klasör oluştur
+    const targetFolderName = 'COA_Tüm_Dosyalar_' + new Date().toISOString().split('T')[0];
+    let targetFolder;
+    
+    const existingFolders = DriveApp.getFoldersByName(targetFolderName);
+    if (existingFolders.hasNext()) {
+      targetFolder = existingFolders.next();
+    } else {
+      targetFolder = DriveApp.createFolder(targetFolderName);
+      targetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    }
+    
+    let copiedFiles = [];
+    let errorFiles = [];
+    let totalFiles = 0;
+    
+    // Desteklenen dosya türleri
+    const supportedTypes = [
+      'application/pdf',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/bmp',
+      'image/webp'
+    ];
+    
+    const supportedExtensions = ['.pdf', '.xls', '.xlsx', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+    
+    // 1. COA_Arsiv sheet'inden dosyaları topla
+    const coaSheet = getSheet();
+    if (coaSheet) {
+      const data = coaSheet.getDataRange().getValues();
+      const headers = data[0];
+      
+      // Dosya ID veya URL sütunlarını bul
+      const fileIdIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('fileid'));
+      const fileUrlIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('fileurl'));
+      const fileNameIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('filename'));
+      const attachmentIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('attachment'));
+      
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        
+        // Farklı sütunlardan file ID çıkar
+        let fileId = null;
+        
+        if (fileIdIdx >= 0 && row[fileIdIdx]) {
+          fileId = extractFileId(row[fileIdIdx].toString());
+        } else if (fileUrlIdx >= 0 && row[fileUrlIdx]) {
+          fileId = extractFileId(row[fileUrlIdx].toString());
+        } else if (attachmentIdx >= 0 && row[attachmentIdx]) {
+          fileId = extractFileId(row[attachmentIdx].toString());
+        }
+        
+        if (fileId) {
+          totalFiles++;
+          const result = copyFileSafely(fileId, targetFolder, supportedTypes, supportedExtensions);
+          if (result.success) {
+            copiedFiles.push({
+              source: 'COA_Arsiv',
+              row: i + 1,
+              fileName: result.fileName,
+              fileType: result.mimeType
+            });
+          } else {
+            errorFiles.push({
+              source: 'COA_Arsiv',
+              row: i + 1,
+              fileId: fileId,
+              error: result.error
+            });
+          }
+        }
+      }
+    }
+    
+    // 2. COA_Templates sheet'inden dosyaları topla
+    const templateSheet = ss.getSheetByName('COA_Templates');
+    if (templateSheet) {
+      const data = templateSheet.getDataRange().getValues();
+      const headers = data[0];
+      
+      // Template görsel URL sütununu bul
+      const imageUrlIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('image'));
+      
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        
+        if (imageUrlIdx >= 0 && row[imageUrlIdx]) {
+          totalFiles++;
+          const fileId = extractFileId(row[imageUrlIdx].toString());
+          
+          if (fileId) {
+            const result = copyFileSafely(fileId, targetFolder, supportedTypes, supportedExtensions);
+            if (result.success) {
+              copiedFiles.push({
+                source: 'COA_Templates',
+                supplier: row[0],
+                fileName: result.fileName,
+                fileType: result.mimeType
+              });
+            } else {
+              errorFiles.push({
+                source: 'COA_Templates',
+                supplier: row[0],
+                fileId: fileId,
+                error: result.error
+              });
+            }
+          }
+        }
+      }
+    }
+    
+    return {
+      success: true,
+      folderUrl: targetFolder.getUrl(),
+      folderId: targetFolder.getId(),
+      folderName: targetFolderName,
+      stats: {
+        totalFound: totalFiles,
+        copied: copiedFiles.length,
+        errors: errorFiles.length
+      },
+      copiedFiles: copiedFiles,
+      errorFiles: errorFiles
+    };
+    
+  } catch(error) {
+    return {
+      success: false,
+      error: 'Dosya toplama hatası: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Dosya ID'sini URL'den çıkar
+ */
+function extractFileId(urlOrId) {
+  if (!urlOrId) return null;
+  
+  const str = urlOrId.toString().trim();
+  
+  // Eğer zaten file ID ise (hiç / ve : içermiyor), direkt döndür
+  if (!str.includes('/') && !str.includes(':') && str.length > 20) {
+    return str;
+  }
+  
+  // https://drive.google.com/file/d/FILE_ID/view formatı
+  let match = str.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  
+  // https://drive.google.com/open?id=FILE_ID formatı
+  match = str.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  
+  // https://drive.google.com/uc?export=view&id=FILE_ID formatı
+  match = str.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  
+  return null;
+}
+
+/**
+ * Dosyayı güvenli şekilde kopyala
+ */
+function copyFileSafely(fileId, targetFolder, supportedTypes, supportedExtensions) {
+  try {
+    const file = DriveApp.getFileById(fileId);
+    const fileName = file.getName();
+    const mimeType = file.getMimeType();
+    
+    // Dosya türü kontrolü
+    const isSupported = supportedTypes.includes(mimeType) || 
+                        supportedExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
+    
+    if (!isSupported) {
+      return {
+        success: false,
+        error: 'Desteklenmeyen dosya türü: ' + mimeType
+      };
+    }
+    
+    // Dosya zaten varsa üzerine yazma
+    const existingFiles = targetFolder.getFilesByName(fileName);
+    if (existingFiles.hasNext()) {
+      return {
+        success: true,
+        fileName: fileName,
+        mimeType: mimeType,
+        alreadyExists: true
+      };
+    }
+    
+    // Dosyayı kopyala
+    const copiedFile = file.makeCopy(fileName, targetFolder);
+    copiedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    return {
+      success: true,
+      fileName: fileName,
+      mimeType: mimeType,
+      copiedFileId: copiedFile.getId()
+    };
+    
+  } catch(error) {
+    return {
+      success: false,
+      error: error.toString()
+    };
   }
 }
 
