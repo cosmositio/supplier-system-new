@@ -11889,6 +11889,18 @@
             contentDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><p>📊 Rapor hazırlanıyor...</p></div>';
             
             try {
+                // Excel yüklü mü kontrol et
+                if (!materials || materials.length === 0) {
+                    contentDiv.innerHTML = `
+                        <div style="text-align: center; padding: 60px; color: #999;">
+                            <div style="font-size: 64px; margin-bottom: 20px;">📋</div>
+                            <h3 style="margin-bottom: 10px;">Excel'de İrsaliye Kaydı Yok</h3>
+                            <p style="color: #666;">Lütfen önce Excel yükleyin.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
                 // Hammadde bazında grupla
                 const materialStats = {};
                 
@@ -12138,18 +12150,6 @@
             } else {
                 detailRow.style.display = 'none';
                 iconSpan.textContent = '▶';
-            }
-        }
-                
-            } catch (error) {
-                console.error('❌ Rapor oluşturma hatası:', error);
-                contentDiv.innerHTML = `
-                    <div style="text-align: center; padding: 40px; color: #f44336;">
-                        <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
-                        <h3>Hata Oluştu</h3>
-                        <p style="color: #666;">${error.message}</p>
-                    </div>
-                `;
             }
         }
         
