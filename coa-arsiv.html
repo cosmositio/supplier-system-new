@@ -6168,8 +6168,10 @@
                     
                     // Google Sheets'e kaydet
                     progressTitle.textContent = `Google Sheets'e kaydediliyor...`;
-                    if (isConnected) {
+                    try {
                         await saveToGoogleSheets(newCOA);
+                    } catch (sheetsError) {
+                        console.warn('⚠️ Google Sheets kayıt hatası (devam ediliyor):', sheetsError);
                     }
                     
                     successCount++;
