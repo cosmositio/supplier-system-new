@@ -4350,16 +4350,18 @@
                                                 ℹ️ Bu yorum "Kaydet ve Paylaş" veya "Senkronize Et" butonuna bastığınızda Storj üzerinden tedarikçiye iletilir.
                                             </div>
                                         </div>
-                                        ${file.supplierComment ? `
                                         <div style="margin-top: 8px; padding: 8px; background: #e8f5e9; border: 2px solid #4CAF50; border-radius: 6px;">
                                             <label style="display: block; font-size: 0.75em; color: #2e7d32; margin-bottom: 3px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
                                                 💭 Tedarikçi Yorumu
                                                 <span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.85em;">☁️ STORJ</span>
                                                 ${file.supplierCommentDate ? `<span style="font-size: 0.9em; color: #666;">📅 ${new Date(file.supplierCommentDate).toLocaleDateString('tr-TR')}</span>` : ''}
                                             </label>
-                                            <div style="padding: 6px 8px; background: white; border: 1px solid #4CAF50; border-radius: 4px; font-size: 0.8em; line-height: 1.4; color: #1b5e20; min-height: 40px;">${file.supplierComment}</div>
+                                            ${file.supplierComment ? `
+                                                <div style="padding: 6px 8px; background: white; border: 1px solid #4CAF50; border-radius: 4px; font-size: 0.8em; line-height: 1.4; color: #1b5e20; min-height: 40px;">${file.supplierComment}</div>
+                                            ` : `
+                                                <div style="padding: 6px 8px; background: white; border: 1px solid #4CAF50; border-radius: 4px; font-size: 0.8em; line-height: 1.4; color: #999; min-height: 40px; font-style: italic;">Henüz tedarikçi yorumu yok</div>
+                                            `}
                                         </div>
-                                        ` : ''}
                                     </div>
                                 `}).join('')}
                             </div>
@@ -25773,12 +25775,14 @@ Devam etmek istiyor musunuz?`;
                                         </div>
                                         ${file.reviewedAt ? `<div style="font-size: 0.75em; color: #666;">📅 ${new Date(file.reviewedAt).toLocaleDateString('tr-TR')}</div>` : ''}
                                     </div>
-                                    ${file.reviewComment ? `
                                     <div style="margin-top: 6px; padding: 8px; background: white; border-radius: 4px; border-left: 3px solid #ff9800;">
                                         <div style="font-size: 0.75em; color: #666; margin-bottom: 3px; font-weight: 600;">💬 Müşteri Yorumu:</div>
-                                        <div style="font-size: 0.85em; color: #333; line-height: 1.4;">${file.reviewComment}</div>
+                                        ${file.reviewComment ? `
+                                            <div style="font-size: 0.85em; color: #333; line-height: 1.4;">${file.reviewComment}</div>
+                                        ` : `
+                                            <div style="font-size: 0.85em; color: #999; line-height: 1.4; font-style: italic;">Henüz müşteri yorumu yok</div>
+                                        `}
                                     </div>
-                                    ` : `<div style="font-size: 0.75em; color: #999; font-style: italic; margin-top: 4px;">Henüz müşteri yorumu yok</div>`}
                                     <div style="margin-top: 8px; padding: 8px; background: #e8f5e9; border: 2px solid #4CAF50; border-radius: 6px;">
                                         <label style="display: block; font-size: 0.75em; color: #2e7d32; margin-bottom: 3px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
                                             💭 Tedarikçi Yorumu (Müşteriye iletilir):
@@ -25855,6 +25859,8 @@ Devam etmek istiyor musunuz?`;
                         status: 'pending',
                         reviewComment: '',
                         reviewedAt: null,
+                        supplierComment: '',
+                        supplierCommentDate: null,
                         uploadedBySupplier: true
                     };
                     
@@ -25961,7 +25967,14 @@ Devam etmek istiyor musunuz?`;
                         </div>
                         <div style="margin-top: 8px; padding: 8px; background: ${statusBg}; border-radius: 4px;">
                             <div style="font-size: 0.85em; font-weight: 600; color: #333; margin-bottom: 4px;">${statusText}</div>
-                            ${file.reviewComment ? `<div style="font-size: 0.8em; color: #666; padding: 6px 8px; background: white; border-radius: 3px; margin-top: 4px;">📝 Müşteri Yorumu: ${file.reviewComment}</div>` : ''}
+                            <div style="font-size: 0.8em; color: #666; padding: 6px 8px; background: white; border-radius: 3px; margin-top: 4px; border-left: 3px solid #ff9800;">
+                                <div style="font-weight: 600; margin-bottom: 2px;">💬 Müşteri Yorumu:</div>
+                                ${file.reviewComment ? `
+                                    <div>${file.reviewComment}</div>
+                                ` : `
+                                    <div style="color: #999; font-style: italic;">Henüz müşteri yorumu yok</div>
+                                `}
+                            </div>
                             ${file.reviewedAt ? `<div style="font-size: 0.75em; color: #999; margin-top: 4px;">Değerlendirme: ${new Date(file.reviewedAt).toLocaleString('tr-TR')}</div>` : ''}
                         </div>
                     </div>
