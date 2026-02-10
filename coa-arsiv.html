@@ -11904,10 +11904,13 @@
                 // Hammadde bazında grupla
                 const materialStats = {};
                 
+                // Tedarikçi bilgisini al (varsa formdan)
+                const currentSupplier = document.getElementById('supplierInput')?.value?.trim() || '';
+                
                 materials.forEach(material => {
                     const materialCode = material.materialCode || material.code;
                     const materialName = material.materialName || material.name || materialCode;
-                    const supplierName = material.supplier || 'Tedarikçi Yok';
+                    const supplierName = currentSupplier || material.supplier || material.supplierName || 'Belirtilmemiş';
                     
                     if (!materialStats[materialCode]) {
                         materialStats[materialCode] = {
@@ -11975,8 +11978,58 @@
                 const totalNotUploaded = materialArray.reduce((sum, m) => sum + m.notUploadedDeliveries, 0);
                 const uploadPercentage = Math.round((totalUploaded / totalDeliveries) * 100);
                 
+                // Benzersiz tedarikçi listesi
+                const uniqueSuppliers = [...new Set(materialArray.map(m => m.supplier))];
+                
                 // Tablo oluştur
                 let tableHTML = `
+                    <!-- Arama ve Filtreleme -->
+                    <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; border: 1px solid #ddd;">
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: end;">
+                            <!-- Arama -->
+                            <div style="flex: 1; min-width: 250px;">
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 13px; color: #666;">🔍 Ara</label>
+                                <input type="text" id="reportSearchInput" placeholder="Hammadde kodu, adı veya irsaliye no ile ara..." 
+                                       style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px;"
+                                       oninput="filterReportTable()">
+                            </div>
+                            
+                            <!-- Durum Filtresi -->
+                            <div style="min-width: 180px;">
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 13px; color: #666;">📊 Durum</label>
+                                <select id="reportStatusFilter" onchange="filterReportTable()" 
+                                        style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px;">
+                                    <option value="all">Tümü</option>
+                                    <option value="uploaded">✅ Yüklenmiş</option>
+                                    <option value="notUploaded">❌ Eksikler</option>
+                                    <option value="partial">⚠️ Kısmi Yüklenmiş</option>
+                                    <option value="complete">✅ Tam Tamamlanmış (%100)</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Tedarikçi Filtresi -->
+                            <div style="min-width: 180px;">
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 13px; color: #666;">🏢 Tedarikçi</label>
+                                <select id="reportSupplierFilter" onchange="filterReportTable()" 
+                                        style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px;">
+                                    <option value="all">Tümü</option>
+                                    ${uniqueSuppliers.map(s => `<option value="${s}">${s}</option>`).join('')}
+                                </select>
+                            </div>
+                            
+                            <!-- Temizle Butonu -->
+                            <div>
+                                <button onclick="clearReportFilters()" 
+                                        style="padding: 10px 20px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: 500;">
+                                    🔄 Temizle
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="reportFilterSummary" style="margin-top: 10px; padding: 8px 12px; background: #f0f8ff; border-left: 3px solid #2196F3; border-radius: 4px; font-size: 12px; display: none;">
+                            <strong>Filtreleme aktif:</strong> <span id="reportFilterText"></span>
+                        </div>
+                    </div>
                     <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
                         <div style="flex: 1; min-width: 180px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white; text-align: center;">
                             <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${totalMaterials}</div>
@@ -12005,7 +12058,7 @@
                     </div>
                     
                     <div style="overflow-x: auto;">
-                        <table style="width: 100%; border-collapse: collapse; background: white; font-size: 13px;">
+                        <table id="reportTable" style="width: 100%; border-collapse: collapse; background: white; font-size: 13px;">
                             <thead>
                                 <tr style="background: #667eea; color: white;">
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 40px;">#</th>
@@ -12019,7 +12072,7 @@
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 60px;">Detay</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="reportTableBody">
                 `;
                 
                 materialArray.forEach((material, index) => {
@@ -12114,6 +12167,16 @@
                     </div>
                 `;
                 
+                // Filtreleme için verileri sakla
+                window.reportMaterialData = materialArray;
+                window.reportOriginalSummary = {
+                    totalMaterials: totalMaterials,
+                    totalDeliveries: totalDeliveries,
+                    totalUploaded: totalUploaded,
+                    totalNotUploaded: totalNotUploaded,
+                    uploadPercentage: uploadPercentage
+                };
+                
                 contentDiv.innerHTML = tableHTML;
                 
                 // Console'a da yazdır
@@ -12151,6 +12214,118 @@
                 detailRow.style.display = 'none';
                 iconSpan.textContent = '▶';
             }
+        }
+        
+        // Rapor tablosunu filtrele
+        function filterReportTable() {
+            if (!window.reportMaterialData) return;
+            
+            const searchValue = document.getElementById('reportSearchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('reportStatusFilter').value;
+            const supplierFilter = document.getElementById('reportSupplierFilter').value;
+            
+            const tbody = document.getElementById('reportTableBody');
+            const rows = tbody.querySelectorAll('tr[id^="material-row-"]');
+            
+            let visibleCount = 0;
+            let filteredTotalDeliveries = 0;
+            let filteredUploadedDeliveries = 0;
+            
+            rows.forEach((row, index) => {
+                const material = window.reportMaterialData[index];
+                if (!material) return;
+                
+                // Arama filtresi
+                let matchesSearch = true;
+                if (searchValue) {
+                    const searchText = `${material.materialCode} ${material.materialName} ${material.supplier}`.toLowerCase();
+                    const deliveryNos = material.deliveryDetails.map(d => d.deliveryNo.toLowerCase()).join(' ');
+                    matchesSearch = searchText.includes(searchValue) || deliveryNos.includes(searchValue);
+                }
+                
+                // Durum filtresi
+                let matchesStatus = true;
+                if (statusFilter !== 'all') {
+                    const percentage = Math.round((material.uploadedDeliveries / material.totalDeliveries) * 100);
+                    if (statusFilter === 'uploaded') {
+                        matchesStatus = material.uploadedDeliveries > 0;
+                    } else if (statusFilter === 'notUploaded') {
+                        matchesStatus = material.notUploadedDeliveries > 0;
+                    } else if (statusFilter === 'partial') {
+                        matchesStatus = percentage > 0 && percentage < 100;
+                    } else if (statusFilter === 'complete') {
+                        matchesStatus = percentage === 100;
+                    }
+                }
+                
+                // Tedarikçi filtresi
+                let matchesSupplier = true;
+                if (supplierFilter !== 'all') {
+                    matchesSupplier = material.supplier === supplierFilter;
+                }
+                
+                // Sonuç göster/gizle
+                const detailRow = document.getElementById(`material-detail-${index}`);
+                if (matchesSearch && matchesStatus && matchesSupplier) {
+                    row.style.display = '';
+                    visibleCount++;
+                    filteredTotalDeliveries += material.totalDeliveries;
+                    filteredUploadedDeliveries += material.uploadedDeliveries;
+                } else {
+                    row.style.display = 'none';
+                    if (detailRow) detailRow.style.display = 'none';
+                }
+            });
+            
+            // Filtre özetini güncelle
+            updateFilterSummary(searchValue, statusFilter, supplierFilter, visibleCount, filteredTotalDeliveries, filteredUploadedDeliveries);
+        }
+        
+        // Filtre özetini güncelle
+        function updateFilterSummary(search, status, supplier, count, totalDel, uploadedDel) {
+            const summaryDiv = document.getElementById('reportFilterSummary');
+            const summaryTextSpan = document.getElementById('reportFilterText');
+            const reportSummaryText = document.getElementById('reportSummaryText');
+            
+            const hasFilters = search || status !== 'all' || supplier !== 'all';
+            
+            if (hasFilters) {
+                summaryDiv.style.display = 'block';
+                
+                let filters = [];
+                if (search) filters.push(`Arama: "${search}"`);
+                if (status !== 'all') {
+                    const statusTexts = {
+                        'uploaded': '✅ Yüklenmiş',
+                        'notUploaded': '❌ Eksikler',
+                        'partial': '⚠️ Kısmi',
+                        'complete': '✅ Tam'
+                    };
+                    filters.push(`Durum: ${statusTexts[status]}`);
+                }
+                if (supplier !== 'all') filters.push(`Tedarikçi: ${supplier}`);
+                
+                summaryTextSpan.textContent = filters.join(' | ');
+                
+                // Özet istatistiğini güncelle
+                const percentage = totalDel > 0 ? Math.round((uploadedDel / totalDel) * 100) : 0;
+                reportSummaryText.textContent = `${count} hammadde için ${totalDel} irsaliye kayıdı bulunuyor. ${uploadedDel} irsaliye için COA yüklenmiş (%${percentage} tamamlanma).`;
+            } else {
+                summaryDiv.style.display = 'none';
+                // Orijinal özeti geri yükle
+                if (window.reportOriginalSummary) {
+                    const orig = window.reportOriginalSummary;
+                    reportSummaryText.textContent = `${orig.totalMaterials} hammadde için ${orig.totalDeliveries} irsaliye kayıdı bulunuyor. ${orig.totalUploaded} irsaliye için COA yüklenmiş (%${orig.uploadPercentage} tamamlanma).`;
+                }
+            }
+        }
+        
+        // Filtreleri temizle
+        function clearReportFilters() {
+            document.getElementById('reportSearchInput').value = '';
+            document.getElementById('reportStatusFilter').value = 'all';
+            document.getElementById('reportSupplierFilter').value = 'all';
+            filterReportTable();
         }
         
         function closeCOAAnalysisModal() {
