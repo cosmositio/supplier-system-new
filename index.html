@@ -21949,6 +21949,13 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
         
         // Storj DCS ile manuel sync
         async function manualSync8DStorj() {
+            if (!current8DData || !current8DData.sharedStorjKey) {
+                showAlert('⚠️ Rapor yüklenmemiş veya Storj key bulunamadı!', 'warning');
+                console.error('❌ Sync başarısız: current8DData veya sharedStorjKey yok');
+                console.log('current8DData:', current8DData);
+                return;
+            }
+            
             try {
                 console.log('🔄 Storj\'dan veri çekiliyor...');
                 updateSyncStatus('syncing', 'Senkronize ediliyor...');
@@ -22014,6 +22021,13 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
         
         // Pantry ile manuel sync
         async function manualSync8DPantry() {
+            if (!current8DData || !current8DData.sharedPantryId || !current8DData.sharedBasketName) {
+                showAlert('⚠️ Rapor yüklenmemiş veya Pantry bilgileri bulunamadı!', 'warning');
+                console.error('❌ Sync başarısız: current8DData veya Pantry bilgileri yok');
+                console.log('current8DData:', current8DData);
+                return;
+            }
+            
             try {
                 console.log('🔄 Pantry\'den veri çekiliyor...');
                 updateSyncStatus('syncing', 'Senkronize ediliyor...');
@@ -22064,6 +22078,13 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
         
         // GitHub Gist ile manuel sync
         async function manualSync8DGist() {
+            if (!current8DData || !current8DData.sharedGistId) {
+                showAlert('⚠️ Rapor yüklenmemiş veya Gist ID bulunamadı!', 'warning');
+                console.error('❌ Sync başarısız: current8DData veya sharedGistId yok');
+                console.log('current8DData:', current8DData);
+                return;
+            }
+            
             try {
                 console.log('🔄 Gist\'ten veri çekiliyor...');
                 updateSyncStatus('syncing', 'Senkronize ediliyor...');
@@ -24739,11 +24760,21 @@ Devam etmek istiyor musunuz?`;
         async function share8DReportWithStorj() {
             console.log('🚀 Storj DCS ile paylaşım başlıyor...');
             
+            if (!current8DData || !current8DData.id) {
+                showAlert('⚠️ Önce raporu kaydedin!', 'error');
+                console.error('❌ Paylaşım başarısız: current8DData yok veya ID yok');
+                console.log('current8DData:', current8DData);
+                return;
+            }
+            
             const settings = getStorjSettings();
             if (!settings) {
                 showAlert('⚠️ Storj ayarları yapılmamış!\n\nAyarlar menüsünden Storj DCS ayarlarını yapın.\n\n📝 Kurulum:\n1. storj.io\'dan ücretsiz hesap açın\n2. Bucket oluşturun\n3. S3 credentials alın\n4. Ayarları kaydedin', 'error');
                 return;
             }
+            
+            console.log('🆔 Report ID:', current8DData.id);
+            console.log('📦 Supplier:', current8DSupplier);
             
             try {
                 const shareData = {
