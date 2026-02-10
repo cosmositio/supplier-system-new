@@ -3814,6 +3814,36 @@
             }
         }
         
+        async function deleteCOARecordFromSheets(materialCode, deliveryDate, deliveryNo) {
+            if (!googleScriptUrl) {
+                console.log('⚠️ Google Script URL tanımlı değil');
+                return false;
+            }
+            
+            try {
+                console.log('🗑️ COA_Records\'dan siliniyor:', { materialCode, deliveryDate, deliveryNo });
+                
+                const params = new URLSearchParams();
+                params.append('action', 'deleteCOARecord');
+                params.append('materialCode', materialCode);
+                params.append('deliveryDate', deliveryDate);
+                params.append('deliveryNo', deliveryNo);
+                
+                const result = await jsonp(googleScriptUrl + '?' + params.toString());
+                
+                if (result && result.success) {
+                    console.log('✅ COA_Records\'dan silindi');
+                    return true;
+                } else {
+                    console.warn('⚠️ COA_Records silme hatası:', result?.error);
+                    return false;
+                }
+            } catch (error) {
+                console.error('❌ COA_Records silme hatası:', error);
+                return false;
+            }
+        }
+        
         async function updateToGoogleSheets(record) {
             try {
                 // fileData çok büyükse gönderme (zaten Drive'da var)
@@ -6347,6 +6377,9 @@
             
             // Update UI
             if (successCount > 0) {
+                // localStorage'a kaydet
+                saveToLocalStorage();
+                
                 showToast(`✅ ${successCount} COA başarıyla kaydedildi!`, 'success', 5000);
                 renderTable();
                 updateCounters();
@@ -6456,8 +6489,24 @@
             let successCount = 0;
             
             for (const id of idsToDelete) {
+                const record = coaData.find(c => c.id === id);
+                
                 if (googleScriptUrl) {
+                    // COA Arşiv'den sil
                     await deleteFromGoogleSheets(id);
+                    
+                    // COA_Records'dan da sil (materyal kodu, tarih ve irsaliye no ile)
+                    if (record) {
+                        const cleanMaterialCode = record.materialCode.includes('|') 
+                            ? record.materialCode.split('|')[0].trim() 
+                            : record.materialCode.trim();
+                        
+                        await deleteCOARecordFromSheets(
+                            cleanMaterialCode,
+                            record.deliveryDate,
+                            record.deliveryNo
+                        );
+                    }
                 }
                 
                 coaData = coaData.filter(c => c.id !== id);
@@ -6473,8 +6522,24 @@
         async function deleteCOA(id) {
             if (!confirm('Bu sertifikayı silmek istediğinizden emin misiniz?')) return;
             
+            const record = coaData.find(c => c.id === id);
+            
             if (googleScriptUrl) {
+                // COA Arşiv'den sil
                 await deleteFromGoogleSheets(id);
+                
+                // COA_Records'dan da sil (materyal kodu, tarih ve irsaliye no ile)
+                if (record) {
+                    const cleanMaterialCode = record.materialCode.includes('|') 
+                        ? record.materialCode.split('|')[0].trim() 
+                        : record.materialCode.trim();
+                    
+                    await deleteCOARecordFromSheets(
+                        cleanMaterialCode,
+                        record.deliveryDate,
+                        record.deliveryNo
+                    );
+                }
             }
             
             coaData = coaData.filter(c => c.id !== id);
