@@ -2220,19 +2220,18 @@ function deleteCOATemplate(supplierName) {
     
     for (let i = 1; i < data.length; i++) {
       if (data[i][0].toLowerCase() === supplierName.toLowerCase()) {
-        // Template görselini Drive'dan sil
+        // Template görselini Drive'dan sil (hem orijinal hem merkezi arşiv)
         if (imageUrlIdx >= 0 && data[i][imageUrlIdx]) {
           const imageUrl = data[i][imageUrlIdx].toString();
           const fileId = extractFileId(imageUrl);
           
           if (fileId) {
-            try {
-              const file = DriveApp.getFileById(fileId);
-              file.setTrashed(true);
-              Logger.log('🗑️ Template görseli silindi: ' + file.getName());
-            } catch(driveError) {
-              Logger.log('⚠️ Template görseli silinemedi: ' + driveError.toString());
-              // Devam et, sheet'ten silmeyi engelleme
+            // deleteDriveFile kullan - hem orijinal hem arşiv kopyasını siler
+            const deleteResult = deleteDriveFile(fileId);
+            if (deleteResult.success) {
+              Logger.log('✅ Template görseli silindi: ' + deleteResult.message);
+            } else {
+              Logger.log('⚠️ Template görseli silinemedi: ' + deleteResult.error);
             }
           }
         }
@@ -2586,6 +2585,7 @@ function syncExistingFilesToArchive() {
 
 /**
  * Drive dosyasını sil (trash'e taşı)
+ * Hem orijinal dosyayı hem merkezi arşivdeki kopyasını siler
  */
 function deleteDriveFile(fileId) {
   try {
@@ -2593,17 +2593,70 @@ function deleteDriveFile(fileId) {
       return { success: false, error: 'File ID eksik' };
     }
     
-    const file = DriveApp.getFileById(fileId);
-    const fileName = file.getName();
-    file.setTrashed(true);
+    let deletedFiles = [];
+    let errors = [];
     
-    Logger.log('🗑️ Dosya silindi: ' + fileName);
+    // 1. Orijinal dosyayı sil
+    try {
+      const file = DriveApp.getFileById(fileId);
+      const fileName = file.getName();
+      file.setTrashed(true);
+      
+      Logger.log('🗑️ Orijinal dosya silindi: ' + fileName);
+      deletedFiles.push({
+        location: 'Orijinal',
+        fileName: fileName,
+        fileId: fileId
+      });
+      
+      // 2. Merkezi arşivde aynı isimdeki dosyayı bul ve sil
+      try {
+        const centralFolder = getCentralArchiveFolder();
+        const filesInArchive = centralFolder.getFilesByName(fileName);
+        
+        let archiveDeleteCount = 0;
+        while (filesInArchive.hasNext()) {
+          const archiveFile = filesInArchive.next();
+          archiveFile.setTrashed(true);
+          archiveDeleteCount++;
+          
+          Logger.log('🗑️ Merkezi arşivden silindi: ' + fileName);
+          deletedFiles.push({
+            location: 'Merkezi Arşiv',
+            fileName: fileName,
+            fileId: archiveFile.getId()
+          });
+        }
+        
+        if (archiveDeleteCount === 0) {
+          Logger.log('ℹ️ Merkezi arşivde dosya bulunamadı: ' + fileName);
+        }
+        
+      } catch(archiveError) {
+        Logger.log('⚠️ Merkezi arşiv silme hatası: ' + archiveError.toString());
+        errors.push('Merkezi arşiv: ' + archiveError.toString());
+      }
+      
+    } catch(originalError) {
+      Logger.log('❌ Orijinal dosya silme hatası: ' + originalError.toString());
+      errors.push('Orijinal dosya: ' + originalError.toString());
+    }
     
-    return {
-      success: true,
-      message: 'Dosya silindi: ' + fileName,
-      fileName: fileName
-    };
+    // Sonuç
+    if (deletedFiles.length > 0) {
+      return {
+        success: true,
+        message: deletedFiles.length + ' dosya silindi',
+        deletedFiles: deletedFiles,
+        errors: errors.length > 0 ? errors : undefined,
+        fileName: deletedFiles[0].fileName
+      };
+    } else {
+      return {
+        success: false,
+        error: 'Hiçbir dosya silinemedi: ' + errors.join(', ')
+      };
+    }
     
   } catch(error) {
     Logger.log('❌ Dosya silme hatası: ' + error.toString());
