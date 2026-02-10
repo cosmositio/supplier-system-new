@@ -1325,9 +1325,12 @@ function deleteCOA(id) {
 }
 
 function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
-  if (!materialCode || !deliveryDate || !deliveryNo) {
-    return { success: false, error: 'Material code, delivery date ve delivery no gerekli' };
+  if (!materialCode || !deliveryDate) {
+    return { success: false, error: 'Material code ve delivery date gerekli' };
   }
+  
+  // deliveryNo opsiyonel - boş veya undefined olabilir
+  deliveryNo = deliveryNo || '';
   
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1342,7 +1345,7 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
     Logger.log('🔍 SILME İSTEĞİ:');
     Logger.log('  Material Code: "' + materialCode + '" (length: ' + materialCode.length + ')');
     Logger.log('  Delivery Date: "' + deliveryDate + '"');
-    Logger.log('  Delivery No: "' + deliveryNo + '" (length: ' + deliveryNo.length + ')');
+    Logger.log('  Delivery No: "' + deliveryNo + '" (length: ' + deliveryNo.length + ', boş mu: ' + (!deliveryNo) + ')');
     Logger.log('  Toplam satır: ' + data.length);
     Logger.log('📋 HEADER SATIRLARI:');
     Logger.log('  Column 0: "' + data[0][0] + '"');
@@ -1389,7 +1392,7 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
       // Eşleşme kontrolü yap
       const materialMatch = (rowMaterialCode === materialCode);
       const dateMatch = (rowDeliveryDate === deliveryDate || rowDeliveryDate === searchDate);
-      const noMatch = (rowDeliveryNo === deliveryNo);
+      const noMatch = deliveryNo ? (rowDeliveryNo === deliveryNo) : true; // deliveryNo boşsa her zaman true
       
       if (materialMatch || dateMatch || noMatch) {
         matchLog.push('Satır ' + (i+1) + ': M=' + materialMatch + ' D=' + dateMatch + ' N=' + noMatch + 
@@ -1400,7 +1403,7 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
       if (materialMatch && dateMatch && noMatch) {
         sheet.deleteRow(i + 1);
         deletedCount++;
-        Logger.log('✅ COA_Records satır silindi: ' + (i + 1) + ' | ' + materialCode + ' | ' + rowDeliveryDate + ' | ' + deliveryNo);
+        Logger.log('✅ COA_Records satır silindi: ' + (i + 1) + ' | ' + materialCode + ' | ' + rowDeliveryDate + ' | ' + (deliveryNo || '(boş)'));
       }
     }
     

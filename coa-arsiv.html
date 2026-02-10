@@ -3979,6 +3979,9 @@
                 return false;
             }
             
+            // deliveryNo opsiyonel, boş string olabilir
+            deliveryNo = deliveryNo || '';
+            
             try {
                 // Date object varsa YYYY-MM-DD formatına çevir
                 let formattedDate = deliveryDate;
@@ -3993,7 +3996,7 @@
                 console.log('🗑️ COA_Records\'dan siliniyor:');
                 console.log('  📦 Material Code:', materialCode);
                 console.log('  📅 Delivery Date:', formattedDate, '(orijinal:', deliveryDate, ')');
-                console.log('  📋 Delivery No:', deliveryNo);
+                console.log('  📋 Delivery No:', deliveryNo || '(boş)');
                 
                 const params = new URLSearchParams();
                 params.append('action', 'deleteCOARecord');
@@ -6865,9 +6868,17 @@
             
             const record = coaData.find(c => c.id === id);
             
+            if (!record) {
+                showToast('❌ Kayıt bulunamadı', 'error');
+                return;
+            }
+            
+            let driveFileDeleted = false;
+            
             if (googleScriptUrl) {
-                // Drive'daki dosyayı sil
-                if (record && record.driveFileId) {
+                // Drive'daki dosyayı sil (driveFileId varsa)
+                if (record.driveFileId) {
+                    console.log('🗑️ Drive dosyası siliniyor:', record.driveFileId);
                     try {
                         const deleteResult = await jsonpRequest(googleScriptUrl, { 
                             action: 'deleteDriveFile',
@@ -6875,7 +6886,8 @@
                         });
                         
                         if (deleteResult.success) {
-                            console.log('🗑️ Drive dosyası silindi:', deleteResult.fileName);
+                            console.log('✅ Drive dosyası silindi:', deleteResult.fileName);
+                            driveFileDeleted = true;
                         } else {
                             console.warn('⚠️ Drive dosyası silinemedi:', deleteResult.error);
                         }
@@ -6883,29 +6895,33 @@
                         console.error('❌ Drive silme hatası:', driveError);
                         // Devam et, sheet silme işlemini engelleme
                     }
+                } else {
+                    console.log('ℹ️ Drive File ID bulunamadı, dosya silme atlandı');
                 }
                 
                 // COA Arşiv'den sil
                 await deleteFromGoogleSheets(id);
                 
                 // COA_Records'dan da sil (materyal kodu, tarih ve irsaliye no ile)
-                if (record) {
-                    const cleanMaterialCode = record.materialCode.includes('|') 
-                        ? record.materialCode.split('|')[0].trim() 
-                        : record.materialCode.trim();
-                    
-                    await deleteCOARecordFromSheets(
-                        cleanMaterialCode,
-                        record.deliveryDate,
-                        record.deliveryNo
-                    );
-                }
+                const cleanMaterialCode = record.materialCode.includes('|') 
+                    ? record.materialCode.split('|')[0].trim() 
+                    : record.materialCode.trim();
+                
+                await deleteCOARecordFromSheets(
+                    cleanMaterialCode,
+                    record.deliveryDate,
+                    record.deliveryNo || ''
+                );
             }
             
             coaData = coaData.filter(c => c.id !== id);
             saveToLocalStorage();
             updateUI();
-            showToast('✅ COA ve dosyası silindi!', 'success');
+            
+            const message = driveFileDeleted 
+                ? '✅ COA, kayıtlar ve Drive dosyası silindi!' 
+                : '✅ COA ve kayıtlar silindi!';
+            showToast(message, 'success');
         }
         
         function viewFile(id) {
