@@ -1326,9 +1326,14 @@
                     <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                         <h4 style="margin-bottom: 10px; color: #495057;">📝 Toplu yükleme için dosya adı formatı:</h4>
                         <code style="background: #e9ecef; padding: 8px 12px; border-radius: 4px; display: block; margin-bottom: 10px; font-size: 0.9em;">
-                            [Hammadde Kodu] - [GG.AA.YYYY].pdf
+                            [Hammadde Kodu] - [GG.AA.YYYY].[uzantı]
                         </code>
-                        <p style="font-size: 0.85em; color: #666; margin: 0;">Örnek: 944.4.KFR30-20.4 - 20.09.2025.pdf, MDE - 10.02.2026.pdf</p>
+                        <p style="font-size: 0.85em; color: #666; margin: 0;">
+                            <strong>Örnekler:</strong><br>
+                            • 944.4.KFR30-20.4 - 20.09.2025.pdf<br>
+                            • MDE - 10.02.2026.xlsx<br>
+                            • SAH - 15.01.2026.docx
+                        </p>
                     </div>
                     
                     <div style="margin-bottom: 15px; padding: 12px; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 4px;">
@@ -1346,9 +1351,9 @@
                         <div style="border: 3px dashed #667eea; border-radius: 8px; padding: 30px; text-align: center; background: linear-gradient(135deg, #f5f7fa 0%, #e3f2fd 100%); cursor: pointer; transition: all 0.3s;" onclick="document.getElementById('bulkFileInput').click()" onmouseover="this.style.borderColor='#764ba2'; this.style.background='linear-gradient(135deg, #e3f2fd 0%, #f5f7fa 100%)'" onmouseout="this.style.borderColor='#667eea'; this.style.background='linear-gradient(135deg, #f5f7fa 0%, #e3f2fd 100%)'">
                             <div style="font-size: 2.5em; margin-bottom: 10px;">📁</div>
                             <div style="font-size: 1.1em; color: #667eea; font-weight: 600; margin-bottom: 5px;">Dosyaları sürükleyin veya tıklayın</div>
-                            <div style="font-size: 0.85em; color: #666;">Birden fazla dosya seçebilirsiniz (PDF, Resim)</div>
+                            <div style="font-size: 0.85em; color: #666;">Birden fazla dosya seçebilirsiniz (PDF, Resim, Excel, Word)</div>
                         </div>
-                        <input type="file" id="bulkFileInput" accept="image/*,.pdf" multiple style="display: none;" onchange="handleBulkFileSelect(event)">
+                        <input type="file" id="bulkFileInput" accept="image/*,.pdf,.xlsx,.xls,.docx,.doc" multiple style="display: none;" onchange="handleBulkFileSelect(event)">
                     </div>
                     
                     <div id="bulkFilesList" style="display: none; margin-bottom: 15px;">
@@ -5878,6 +5883,23 @@
             }
         }
         
+        // Dosya tipine göre ikon döndür
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const icons = {
+                'pdf': '📝',
+                'jpg': '🖼️',
+                'jpeg': '🖼️',
+                'png': '🖼️',
+                'gif': '🖼️',
+                'xlsx': '📃',
+                'xls': '📃',
+                'docx': '📄',
+                'doc': '📄'
+            };
+            return icons[ext] || '📄';
+        }
+        
         function handleBulkFileSelect(e) {
             const files = Array.from(e.target.files);
             if (files.length === 0) return;
@@ -5892,7 +5914,16 @@
             
             // Parse file names and add to bulk array
             files.forEach(file => {
-                // Expected format: [MaterialCode] - [DD.MM.YYYY].pdf
+                // Dosya tipi kontrolü
+                const ext = file.name.split('.').pop().toLowerCase();
+                const allowedTypes = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'xlsx', 'xls', 'docx', 'doc'];
+                
+                if (!allowedTypes.includes(ext)) {
+                    showToast(`⚠️ Desteklenmeyen dosya tipi: ${file.name}`, 'warning');
+                    return;
+                }
+                
+                // Expected format: [MaterialCode] - [DD.MM.YYYY].extension
                 const match = file.name.match(/^(.+?)\s*-\s*(\d{2})\.(\d{2})\.(\d{4})/);
                 
                 if (match) {
@@ -5917,7 +5948,8 @@
                         materialCode: materialCode,
                         deliveryDate: deliveryDate,
                         deliveryNo: deliveryNo || 'BULUNAMADI',
-                        supplier: supplier
+                        supplier: supplier,
+                        fileType: ext
                     };
                     
                     bulkFiles.push(fileObj);
@@ -5965,10 +5997,13 @@
                 const bgColor = isMissing ? '#fff5f5' : 'white';
                 const deliveryStyle = isMissing ? 'color: #dc3545; font-weight: 600;' : '';
                 
+                // Dosya tipine göre ikon
+                const fileIcon = getFileIcon(fileObj.file.name);
+                
                 return `
                 <div style="background: ${bgColor}; border: 2px solid ${borderColor}; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: start;">
                     <div style="flex: 1;">
-                        <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">📄 ${fileObj.file.name}</div>
+                        <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">${fileIcon} ${fileObj.file.name}</div>
                         <div style="font-size: 0.85em; color: #666; display: flex; gap: 15px; flex-wrap: wrap;">
                             <span><strong>Hammadde:</strong> ${fileObj.materialCode}</span>
                             <span><strong>İrsaliye Tarihi:</strong> ${displayDate}</span>
