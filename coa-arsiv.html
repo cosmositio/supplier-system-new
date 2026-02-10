@@ -82,32 +82,6 @@
             background: rgba(255,255,255,0.3);
         }
         
-        .collect-files-btn {
-            background: linear-gradient(135deg, #4a8f5c 0%, #5fa873 100%);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s;
-            font-size: 0.95em;
-            font-weight: 600;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .collect-files-btn:hover {
-            background: linear-gradient(135deg, #5fa873 0%, #4a8f5c 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        
-        .collect-files-btn:active {
-            transform: translateY(0);
-        }
-        
         .container {
             max-width: 1400px;
             margin: 20px auto;
@@ -1139,12 +1113,7 @@
 <body>
     <div class="header">
         <h1>📋 COA Arşiv Sistemi</h1>
-        <div style="display: flex; gap: 10px; align-items: center;">
-            <button onclick="collectAllFiles()" class="collect-files-btn" title="Eski kayıtları topla - Yeni dosyalar otomatik eklenir">
-                📁 Eski Dosyaları Topla
-            </button>
-            <a href="index.html" class="back-btn">← Ana Sayfa</a>
-        </div>
+        <a href="index.html" class="back-btn">← Ana Sayfa</a>
     </div>
     
     <div class="container">
@@ -1434,19 +1403,25 @@
                 </div>
                 
                 <!-- Central Archive Folder -->
-                <div class="settings-section" style="margin-top: 20px; background: #f0f9f4; border-left: 3px solid #2c5f2d;">
-                    <h3>📁 Merkezi Arşiv Klasörü</h3>
-                    <p style="font-size: 0.85em; color: #666; margin-bottom: 10px;">
-                        ✨ <strong>YENİ!</strong> Tüm COA ve template dosyaları <strong>otomatik olarak</strong> <strong>COA_Merkezi_Arsiv</strong> klasörüne kopyalanır.
+                <div class="settings-section" style="margin-top: 20px; background: linear-gradient(135deg, #f0f9f4 0%, #e8f5e9 100%); border: 2px solid #2c5f2d; box-shadow: 0 2px 8px rgba(44,95,45,0.15);">
+                    <h3 style="color: #2c5f2d;">📁 Merkezi Arşiv</h3>
+                    <p style="font-size: 0.85em; color: #1b5e20; margin-bottom: 10px; line-height: 1.5;">
+                        ✨ <strong>Otomatik Arşivleme Aktif!</strong>
                         <br><br>
-                        📌 Manuel toplama gerekmez - Her yükleme anında arşive eklenir!
+                        Tüm yüklenen COA ve template dosyaları anında <strong>COA_Merkezi_Arsiv</strong> klasörüne kopyalanır.
+                        <br><br>
+                        🎯 Manuel işlem gerektirmez - Sistem otomatik çalışır!
                     </p>
-                    <button class="btn btn-success btn-sm" onclick="openCentralArchive()" style="width: 100%; background: #2c5f2d; border-color: #2c5f2d;">
-                        📂 Merkezi Arşivi Aç
-                    </button>
+                    <div style="display: flex; gap: 8px; flex-direction: column;">
+                        <button class="btn btn-success btn-sm" onclick="openCentralArchive()" style="width: 100%; background: #2c5f2d; border-color: #2c5f2d; font-weight: 600; box-shadow: 0 2px 6px rgba(44,95,45,0.3);">
+                            📂 Merkezi Arşivi Aç
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="syncExistingFiles()" style="width: 100%; background: #546e7a; border-color: #546e7a; font-weight: 600;">
+                            🔄 Mevcut Dosyaları Senkronize Et
+                        </button>
+                    </div>
                 </div>
                 
-                <!-- TDS Management -->
                 <div class="settings-section" style="margin-top: 20px;">
                     <h3>📊 TDS Yönetimi</h3>
                     <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">Hammadde özellikleri ve toleransları tanımlayın</p>
@@ -12092,6 +12067,51 @@
                 window.open(searchUrl, '_blank');
                 
                 showToast('⚠️ Klasör araması açıldı. "COA_Merkezi_Arsiv" klasörünü manuel seçin', 'warning', 5000);
+            }
+        }
+        
+        async function syncExistingFiles() {
+            if (!googleScriptUrl) {
+                showToast('❌ Önce Google Sheets bağlantısı yapın!', 'error');
+                return;
+            }
+            
+            // Onay iste
+            if (!confirm('🔄 Mevcut tüm COA dosyalarını ve template görsellerini merkezi arşive kopyalamak istiyor musunuz?\n\n(Zaten var olan dosyalar atlanacak)')) {
+                return;
+            }
+            
+            showToast('🔄 Dosyalar senkronize ediliyor... Lütfen bekleyin', 'info', 0);
+            
+            try {
+                const result = await jsonpRequest(googleScriptUrl, { action: 'syncExistingFiles' });
+                
+                if (result.success) {
+                    const stats = result.stats;
+                    
+                    let message = `✅ Senkronizasyon tamamlandı!\n\n`;
+                    message += `📊 ${stats.totalProcessed} dosya işlendi\n`;
+                    message += `✅ ${stats.synced} dosya kopyalandı\n`;
+                    message += `⏭️ ${stats.skipped} dosya atlandı (zaten vardı)\n`;
+                    
+                    if (stats.errors > 0) {
+                        message += `❌ ${stats.errors} hata oluştu\n`;
+                    }
+                    
+                    alert(message);
+                    
+                    showToast(`✅ ${stats.synced} dosya merkezi arşive kopyalandı`, 'success', 5000);
+                    
+                    // Klasörü aç
+                    if (result.folderUrl) {
+                        window.open(result.folderUrl, '_blank');
+                    }
+                } else {
+                    throw new Error(result.error || 'Senkronizasyon hatası');
+                }
+            } catch (error) {
+                console.error('Senkronizasyon hatası:', error);
+                showToast('❌ Senkronizasyon hatası: ' + error.message, 'error', 5000);
             }
         }
         

@@ -184,6 +184,9 @@ function doGet(e) {
       case 'getCentralArchive':
         result = getCentralArchiveInfo();
         break;
+      case 'syncExistingFiles':
+        result = syncExistingFilesToArchive();
+        break;
       default:
         result = { success: false, error: 'Geçersiz action: ' + action };
     }
@@ -2380,6 +2383,161 @@ function getCentralArchiveInfo() {
     return {
       success: false,
       error: 'Merkezi arşiv klasörü bilgisi alınamadı: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Mevcut tüm dosyaları merkezi arşive senkronize et
+ */
+function syncExistingFilesToArchive() {
+  try {
+    const centralFolder = getCentralArchiveFolder();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    let syncedFiles = [];
+    let skippedFiles = [];
+    let errorFiles = [];
+    let totalProcessed = 0;
+    
+    Logger.log('🔄 Mevcut dosyalar merkezi arşive senkronize ediliyor...');
+    
+    // 1. COA_Arsiv sheet'indeki dosyaları sync et
+    const coaSheet = getSheet();
+    if (coaSheet) {
+      const data = coaSheet.getDataRange().getValues();
+      const headers = data[0];
+      
+      // Drive File ID sütununu bul
+      const fileIdIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('drivefile'));
+      
+      if (fileIdIdx >= 0) {
+        for (let i = 1; i < data.length; i++) {
+          const row = data[i];
+          const fileId = row[fileIdIdx];
+          
+          if (fileId) {
+            totalProcessed++;
+            try {
+              const file = DriveApp.getFileById(fileId);
+              const fileName = file.getName();
+              
+              // Merkezi arşivde var mı kontrol et
+              const existingFiles = centralFolder.getFilesByName(fileName);
+              if (existingFiles.hasNext()) {
+                skippedFiles.push({
+                  source: 'COA_Arsiv',
+                  fileName: fileName,
+                  reason: 'Zaten var'
+                });
+                Logger.log('⏭️ Atlandı (zaten var): ' + fileName);
+              } else {
+                // Kopyala
+                const copiedFile = file.makeCopy(fileName, centralFolder);
+                copiedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+                syncedFiles.push({
+                  source: 'COA_Arsiv',
+                  fileName: fileName,
+                  fileId: copiedFile.getId()
+                });
+                Logger.log('✅ Kopyalandı: ' + fileName);
+              }
+            } catch(error) {
+              errorFiles.push({
+                source: 'COA_Arsiv',
+                fileId: fileId,
+                error: error.toString()
+              });
+              Logger.log('❌ Hata: ' + error.toString());
+            }
+          }
+        }
+      }
+    }
+    
+    // 2. COA_Templates sheet'indeki görselleri sync et
+    const templateSheet = ss.getSheetByName('COA_Templates');
+    if (templateSheet) {
+      const data = templateSheet.getDataRange().getValues();
+      const headers = data[0];
+      
+      // Template Image URL sütununu bul
+      const imageUrlIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('image'));
+      
+      if (imageUrlIdx >= 0) {
+        for (let i = 1; i < data.length; i++) {
+          const row = data[i];
+          const imageUrl = row[imageUrlIdx];
+          
+          if (imageUrl) {
+            totalProcessed++;
+            const fileId = extractFileId(imageUrl.toString());
+            
+            if (fileId) {
+              try {
+                const file = DriveApp.getFileById(fileId);
+                const fileName = file.getName();
+                
+                // Merkezi arşivde var mı kontrol et
+                const existingFiles = centralFolder.getFilesByName(fileName);
+                if (existingFiles.hasNext()) {
+                  skippedFiles.push({
+                    source: 'COA_Templates',
+                    supplier: row[0],
+                    fileName: fileName,
+                    reason: 'Zaten var'
+                  });
+                  Logger.log('⏭️ Atlandı (zaten var): ' + fileName);
+                } else {
+                  // Kopyala
+                  const copiedFile = file.makeCopy(fileName, centralFolder);
+                  copiedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+                  syncedFiles.push({
+                    source: 'COA_Templates',
+                    supplier: row[0],
+                    fileName: fileName,
+                    fileId: copiedFile.getId()
+                  });
+                  Logger.log('✅ Kopyalandı: ' + fileName);
+                }
+              } catch(error) {
+                errorFiles.push({
+                  source: 'COA_Templates',
+                  supplier: row[0],
+                  fileId: fileId,
+                  error: error.toString()
+                });
+                Logger.log('❌ Hata: ' + error.toString());
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    Logger.log('✅ Senkronizasyon tamamlandı!');
+    Logger.log(`📊 İstatistik: ${totalProcessed} işlendi, ${syncedFiles.length} kopyalandı, ${skippedFiles.length} atlandı, ${errorFiles.length} hata`);
+    
+    return {
+      success: true,
+      folderUrl: centralFolder.getUrl(),
+      folderId: centralFolder.getId(),
+      stats: {
+        totalProcessed: totalProcessed,
+        synced: syncedFiles.length,
+        skipped: skippedFiles.length,
+        errors: errorFiles.length
+      },
+      syncedFiles: syncedFiles,
+      skippedFiles: skippedFiles,
+      errorFiles: errorFiles
+    };
+    
+  } catch(error) {
+    Logger.log('❌ Senkronizasyon hatası: ' + error.toString());
+    return {
+      success: false,
+      error: 'Senkronizasyon hatası: ' + error.toString()
     };
   }
 }
