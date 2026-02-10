@@ -1415,6 +1415,13 @@
                     <button class="btn btn-primary btn-sm" onclick="openCOAAnalysisModal()" style="width: 100%; background: #ff9800; border-color: #ff9800;">📊 Analiz Aç</button>
                 </div>
                 
+                <!-- Missing COA Reports -->
+                <div class="settings-section" style="margin-top: 20px;">
+                    <h3>📄 Raporlar</h3>
+                    <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">Excel'de kayıtlı ama COA'sı yüklenmemiş irsaliyeleri görün</p>
+                    <button class="btn btn-primary btn-sm" onclick="openMissingCOAModal()" style="width: 100%; background: #f44336; border-color: #f44336;">⚠️ Eksik COA'lar</button>
+                </div>
+                
                 <!-- JSON Backup -->
                 <div class="settings-section" style="margin-top: 20px;">
                     <h3>💾 Yedekleme & Geri Yükleme</h3>
@@ -6180,7 +6187,7 @@
             }
         }
         
-        // Excel'de kayıtlı ama COA'sı olmayan irsaliyeleri kontrol et
+        // Excel'de kayıtlı ama COA'sı olmayan irsaliyeleri kontrol et (Bulk upload sonrası)
         function checkMissingCOAs() {
             try {
                 const missingCOAs = [];
@@ -6220,33 +6227,18 @@
                     }
                 });
                 
-                // Eksik COA raporu göster
+                // Eksik COA varsa modal'ı otomatik aç
                 if (missingCOAs.length > 0) {
-                    // İlk 20 kayıt + toplam sayı
-                    const displayLimit = 20;
-                    const displayItems = missingCOAs.slice(0, displayLimit);
-                    const remaining = missingCOAs.length - displayLimit;
-                    
-                    let reportMessage = `⚠️ Excel'de Kayıtlı Ama COA'sı OLMAYAN İrsaliyeler (${missingCOAs.length} adet):\n\n`;
-                    
-                    displayItems.forEach(item => {
-                        reportMessage += `  • ${item.deliveryNo} (${item.deliveryDate})\n     Hammadde: ${item.materialName}\n\n`;
-                    });
-                    
-                    if (remaining > 0) {
-                        reportMessage += `  ... ve ${remaining} tane daha\n\n`;
-                    }
-                    
-                    reportMessage += `Bu irsaliyeler için COA yüklemeniz gerekiyor!`;
-                    
-                    // Console'a yazdır (kullanıcı detaylı listeyi görebilsin)
-                    console.log('📋 EKSİK COA RAPORU:');
+                    console.log(`⚠️ ${missingCOAs.length} eksik COA tespit edildi!`);
                     console.table(missingCOAs);
                     
-                    // Alert göster
+                    // 2 saniye sonra modal'ı aç
                     setTimeout(() => {
-                        alert(reportMessage);
-                    }, 1000);
+                        showToast(`⚠️ ${missingCOAs.length} irsaliye için COA eksik! Rapor açılıyor...`, 'warning', 3000);
+                        setTimeout(() => {
+                            openMissingCOAModal();
+                        }, 500);
+                    }, 2000);
                 } else {
                     console.log('✅ Tüm Excel irsaliyeleri için COA mevcut!');
                 }
@@ -11869,6 +11861,134 @@
             await loadAnalysisSuppliers();
         }
         
+        // Eksik COA Modal fonksiyonları
+        function openMissingCOAModal() {
+            document.getElementById('missingCOAModal').classList.add('active');
+            generateMissingCOAReport();
+        }
+        
+        function closeMissingCOAModal() {
+            document.getElementById('missingCOAModal').classList.remove('active');
+        }
+        
+        function generateMissingCOAReport() {
+            const contentDiv = document.getElementById('missingCOAContent');
+            contentDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><p>📊 Kontrol ediliyor...</p></div>';
+            
+            try {
+                const missingCOAs = [];
+                
+                // Excel'deki tüm hammaddelerin tüm irsaliyelerini kontrol et
+                materials.forEach(material => {
+                    const materialCode = material.materialCode || material.code;
+                    const materialName = material.materialName || material.name || materialCode;
+                    const supplierName = material.supplier || 'Tedarikçi Yok';
+                    
+                    if (material.deliveries && Array.isArray(material.deliveries)) {
+                        material.deliveries.forEach(delivery => {
+                            // İrsaliye numarasını oluştur
+                            const deliveryStr = delivery.deliverySerial && delivery.deliveryNo 
+                                ? `${delivery.deliverySerial} | ${delivery.deliveryNo}` 
+                                : (delivery.deliverySerial || delivery.deliveryNo || '');
+                            
+                            if (!deliveryStr) return; // İrsaliye numarası yoksa atla
+                            
+                            // Bu irsaliye için COA var mı kontrol et (coaData'da)
+                            const hasCOA = coaData.some(coa => {
+                                // COA'nın irsaliye numarasını al (string veya array olabilir)
+                                const coaDeliveries = Array.isArray(coa.deliveryNo) ? coa.deliveryNo : [coa.deliveryNo];
+                                return coaDeliveries.includes(deliveryStr) && 
+                                       (coa.materialCode === materialCode || coa.material === materialCode);
+                            });
+                            
+                            // COA yoksa listeye ekle
+                            if (!hasCOA) {
+                                missingCOAs.push({
+                                    materialCode: materialCode,
+                                    materialName: materialName,
+                                    supplier: supplierName,
+                                    deliveryNo: deliveryStr,
+                                    deliveryDate: delivery.deliveryDate || 'Tarih yok'
+                                });
+                            }
+                        });
+                    }
+                });
+                
+                // Raporu göster
+                if (missingCOAs.length === 0) {
+                    contentDiv.innerHTML = `
+                        <div style="text-align: center; padding: 60px; color: #4CAF50;">
+                            <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
+                            <h3 style="margin-bottom: 10px;">Harika! Tüm irsaliyeler için COA mevcut</h3>
+                            <p style="color: #666;">Excel'deki tüm irsaliye kayıtları için COA yüklenmiş.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Tablo oluştur
+                let tableHTML = `
+                    <div style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+                        <strong>⚠️ Uyarı:</strong> Toplam <strong>${missingCOAs.length}</strong> irsaliye için COA yüklenmemiş!
+                    </div>
+                    
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; background: white; font-size: 13px;">
+                            <thead>
+                                <tr style="background: #f44336; color: white;">
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">#</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">İrsaliye No</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">İrsaliye Tarihi</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Hammadde Kodu</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Hammadde Adı</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Tedarikçi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                missingCOAs.forEach((item, index) => {
+                    tableHTML += `
+                        <tr style="${index % 2 === 0 ? 'background: #f9f9f9;' : ''}">
+                            <td style="padding: 10px; border: 1px solid #ddd;">${index + 1}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; font-family: monospace; font-weight: bold;">${item.deliveryNo}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">${item.deliveryDate}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; font-family: monospace;">${item.materialCode}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">${item.materialName}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">${item.supplier}</td>
+                        </tr>
+                    `;
+                });
+                
+                tableHTML += `
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-left: 4px solid #2196F3; border-radius: 4px;">
+                        <strong>💡 İpucu:</strong> Eksik COA'ları topluca yüklemek için "Toplu Yükleme" özelliğini kullanabilirsiniz.
+                    </div>
+                `;
+                
+                contentDiv.innerHTML = tableHTML;
+                
+                // Console'a da yazdır
+                console.log('📋 EKSİK COA RAPORU:');
+                console.table(missingCOAs);
+                
+            } catch (error) {
+                console.error('❌ Eksik COA rapor oluşturma hatası:', error);
+                contentDiv.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #f44336;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+                        <h3>Hata Oluştu</h3>
+                        <p style="color: #666;">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
         function closeCOAAnalysisModal() {
             document.getElementById('coaAnalysisModal').classList.remove('active');
             // Tüm grafikleri temizle
@@ -13950,5 +14070,20 @@
             }
         }
     </script>
+    
+    <!-- Missing COA Report Modal -->
+    <div class="modal" id="missingCOAModal">
+        <span class="modal-close" onclick="closeMissingCOAModal()">&times;</span>
+        <div class="modal-content" style="max-width: 95%; width: 1400px; max-height: 90vh; overflow-y: auto;">
+            <h2 style="margin-bottom: 20px;">⚠️ Eksik COA Raporu</h2>
+            
+            <div id="missingCOAContent">
+                <div style="text-align: center; padding: 40px; color: #999;">
+                    <p>📊 Kontrol ediliyor...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
 </body>
 </html>
