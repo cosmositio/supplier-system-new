@@ -1332,9 +1332,13 @@
                     </div>
                     
                     <div style="margin-bottom: 15px; padding: 12px; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 4px;">
-                        <div style="font-size: 0.9em; color: #1976D2;">
-                            <strong>ℹ️ Not:</strong> Tedarikçi bilgisi yukarıdaki formdan otomatik alınacak
+                        <div style="font-size: 0.9em; color: #1976D2; margin-bottom: 6px;">
+                            <strong>ℹ️ Otomatik Bilgiler:</strong>
                         </div>
+                        <ul style="margin: 0; padding-left: 20px; font-size: 0.85em; color: #1976D2;">
+                            <li><strong>Tedarikçi:</strong> Yukarıdaki formdan otomatik alınır</li>
+                            <li><strong>İrsaliye No:</strong> Excel'den yüklenen verilerden tarihe göre otomatik çekilir</li>
+                        </ul>
                     </div>
                     
                     <div style="margin-bottom: 15px;">
@@ -5807,6 +5811,42 @@
         // ==================== Bulk Upload Operations ====================
         let bulkFiles = [];
         
+        // Excel'den yüklenen verilerden irsaliye numarasını bul
+        function getDeliveryNoFromExcel(materialCode, deliveryDate) {
+            // materialCode ve deliveryDate'e göre Excel verilerinde arama yap
+            const material = materials.find(m => m.code === materialCode);
+            
+            if (!material || !material.deliveries || material.deliveries.length === 0) {
+                console.warn(`⚠️ ${materialCode} için Excel'de irsaliye verisi bulunamadı`);
+                return null;
+            }
+            
+            // Tarihi DD.MM.YYYY formatına çevir (Excel'deki format)
+            const [year, month, day] = deliveryDate.split('-');
+            const searchDate = `${day}.${month}.${year}`;
+            
+            // Aynı tarihe sahip delivery'yi bul
+            const delivery = material.deliveries.find(d => d.date === searchDate);
+            
+            if (delivery) {
+                // İrsaliye numarasını oluştur (Seri | No formatında)
+                let deliveryNo = '';
+                if (delivery.serie && delivery.no) {
+                    deliveryNo = `${delivery.serie} | ${delivery.no}`;
+                } else if (delivery.no) {
+                    deliveryNo = delivery.no;
+                } else if (delivery.serie) {
+                    deliveryNo = delivery.serie;
+                }
+                
+                console.log(`✅ ${materialCode} - ${searchDate} için irsaliye bulundu: ${deliveryNo}`);
+                return deliveryNo;
+            }
+            
+            console.warn(`⚠️ ${materialCode} için ${searchDate} tarihinde irsaliye bulunamadı`);
+            return null;
+        }
+        
         function toggleBulkUploadSection() {
             const section = document.getElementById('bulkUploadSection');
             const supplier = document.getElementById('supplierInput').value.trim();
@@ -5817,6 +5857,20 @@
                     showToast('❌ Önce yukarıdaki formda tedarikçi seçin!', 'error');
                     return;
                 }
+                
+                // Excel yüklü mü kontrolü
+                if (!materials || materials.length === 0) {
+                    showToast('⚠️ Önce Excel dosyası yükleyin! (Tedarikçi ve hammadde bilgileri için)', 'warning');
+                    return;
+                }
+                
+                // Excel'de irsaliye bilgileri var mı kontrolü
+                const hasDeliveries = materials.some(m => m.deliveries && m.deliveries.length > 0);
+                if (!hasDeliveries) {
+                    showToast('⚠️ Excel\'de irsaliye bilgileri bulunamadı! Lütfen irsaliye tarihi ve numarası içeren bir Excel yükleyin.', 'warning');
+                    return;
+                }
+                
                 section.style.display = 'block';
             } else {
                 section.style.display = 'none';
@@ -5850,12 +5904,19 @@
                     // Convert to YYYY-MM-DD format for internal use
                     const deliveryDate = `${year}-${month}-${day}`;
                     
+                    // Excel'den irsaliye numarasını bul
+                    const deliveryNo = getDeliveryNoFromExcel(materialCode, deliveryDate);
+                    
+                    if (!deliveryNo) {
+                        showToast(`⚠️ ${file.name}: Excel'de ${day}.${month}.${year} tarihi için irsaliye bulunamadı!`, 'warning');
+                    }
+                    
                     const fileObj = {
                         id: Date.now() + Math.random(),
                         file: file,
                         materialCode: materialCode,
                         deliveryDate: deliveryDate,
-                        deliveryNo: `AUTO-${year}${month}${day}`,
+                        deliveryNo: deliveryNo || 'BULUNAMADI',
                         supplier: supplier
                     };
                     
@@ -5883,22 +5944,37 @@
             
             listSection.style.display = 'block';
             summary.style.display = 'block';
-            summaryText.textContent = `${bulkFiles.length} COA yüklenmeye hazır`;
+            
+            // İrsaliye bulunamayan dosya sayısını kontrol et
+            const missingDeliveryCount = bulkFiles.filter(f => f.deliveryNo === 'BULUNAMADI').length;
+            
+            if (missingDeliveryCount > 0) {
+                summaryText.innerHTML = `${bulkFiles.length} COA yüklenmeye hazır <span style="color: #dc3545; font-weight: 600;">(⚠️ ${missingDeliveryCount} adet için irsaliye no bulunamadı)</span>`;
+            } else {
+                summaryText.textContent = `${bulkFiles.length} COA yüklenmeye hazır ✅`;
+            }
             
             container.innerHTML = bulkFiles.map(fileObj => {
                 // Convert YYYY-MM-DD to DD.MM.YYYY for display
                 const [year, month, day] = fileObj.deliveryDate.split('-');
                 const displayDate = `${day}.${month}.${year}`;
                 
+                // İrsaliye bulunamadıysa farklı stil
+                const isMissing = fileObj.deliveryNo === 'BULUNAMADI';
+                const borderColor = isMissing ? '#dc3545' : '#dee2e6';
+                const bgColor = isMissing ? '#fff5f5' : 'white';
+                const deliveryStyle = isMissing ? 'color: #dc3545; font-weight: 600;' : '';
+                
                 return `
-                <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: start;">
+                <div style="background: ${bgColor}; border: 2px solid ${borderColor}; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: start;">
                     <div style="flex: 1;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">📄 ${fileObj.file.name}</div>
                         <div style="font-size: 0.85em; color: #666; display: flex; gap: 15px; flex-wrap: wrap;">
                             <span><strong>Hammadde:</strong> ${fileObj.materialCode}</span>
                             <span><strong>İrsaliye Tarihi:</strong> ${displayDate}</span>
-                            <span><strong>İrsaliye No:</strong> ${fileObj.deliveryNo}</span>
+                            <span style="${deliveryStyle}"><strong>İrsaliye No:</strong> ${isMissing ? '⚠️ ' : ''}${fileObj.deliveryNo}</span>
                         </div>
+                        ${isMissing ? '<div style="font-size: 0.75em; color: #dc3545; margin-top: 4px;">⚠️ Excel\'de bu tarih için irsaliye kaydı bulunamadı!</div>' : ''}
                     </div>
                     <button onclick="removeBulkFile('${fileObj.id}')" style="background: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.85em;">
                         🗑️ Sil
@@ -5931,6 +6007,15 @@
             if (bulkFiles.length === 0) {
                 showToast('❌ Dosya yükleyin!', 'error');
                 return;
+            }
+            
+            // İrsaliye numarası bulunamayan dosyaları kontrol et
+            const missingDeliveries = bulkFiles.filter(f => f.deliveryNo === 'BULUNAMADI');
+            if (missingDeliveries.length > 0) {
+                const fileNames = missingDeliveries.map(f => f.file.name).join('\\n- ');
+                if (!confirm(`⚠️ ${missingDeliveries.length} dosya için irsaliye numarası bulunamadı:\\n\\n- ${fileNames}\\n\\nYine de devam etmek istiyor musunuz?`)) {
+                    return;
+                }
             }
             
             showToast('💾 COA\'lar kaydediliyor...', 'info');
