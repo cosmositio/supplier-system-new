@@ -1290,9 +1290,9 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
     
     // İlk satır header'dır, 2. satırdan itibaren kontrol et (TERSTEN - son satırdan başa doğru)
     for (let i = data.length - 1; i >= 1; i--) {
-      const rowMaterialCode = String(data[i][0] || '').trim();
-      const rowDeliveryDate = String(data[i][1] || '').trim();
-      const rowDeliveryNo = String(data[i][2] || '').trim();
+      const rowDeliveryDate = String(data[i][0] || '').trim();   // Column 0: Delivery Date
+      const rowDeliveryNo = String(data[i][1] || '').trim();     // Column 1: Delivery No
+      const rowMaterialCode = String(data[i][3] || '').trim();   // Column 3: Material Code
       
       // İlk 3 satırı logla
       if (i <= 3) {
