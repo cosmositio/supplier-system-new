@@ -5938,8 +5938,13 @@
                         propertiesToSave = window.pendingOCRData.properties;
                         console.log('📊 COA_Records için OCR verileri kullanılıyor:', propertiesToSave.length, 'özellik');
                     } else if (tdsData[cleanMaterialCode]) {
-                        propertiesToSave = tdsData[cleanMaterialCode].properties;
-                        console.log('📊 COA_Records için TDS verileri kullanılıyor');
+                        // OCR yoksa TDS'i kullan ama boş COA değerleri ve "Bekliyor" durumu ile
+                        propertiesToSave = tdsData[cleanMaterialCode].properties.map(prop => ({
+                            ...prop,
+                            coaValue: '',
+                            status: 'Bekliyor'
+                        }));
+                        console.log('📊 COA_Records için TDS verileri kullanılıyor (COA değerleri boş)');
                     }
                     
                     if (propertiesToSave) {
@@ -6652,19 +6657,29 @@
                         propertiesToSave = tdsData[cleanMaterialCode].properties.map(prop => {
                             const ocrProp = ocrProperties[prop.name];
                             if (ocrProp) {
+                                // OCR'dan değer bulundu
                                 return {
                                     ...prop,
                                     coaValue: ocrProp.value || ocrProp,
-                                    coaCompliance: ocrProp.status || 'Uygun'
+                                    status: ocrProp.status || 'Uygun'
                                 };
                             }
-                            return prop;
+                            // OCR'da bu özellik bulunamadı - boş değer ile kaydet
+                            return {
+                                ...prop,
+                                coaValue: '',
+                                status: 'Bekliyor'
+                            };
                         });
                     } 
-                    // OCR yoksa ama TDS varsa sadece TDS'i kullan (boş COA değerleriyle)
+                    // OCR yoksa ama TDS varsa sadece TDS'i kullan (boş COA değerleriyle ama durum ile)
                     else if (tdsData[cleanMaterialCode]) {
                         console.log('📊 OCR yok, TDS verileri kullanılıyor');
-                        propertiesToSave = tdsData[cleanMaterialCode].properties;
+                        propertiesToSave = tdsData[cleanMaterialCode].properties.map(prop => ({
+                            ...prop,
+                            coaValue: '',
+                            status: 'Bekliyor'
+                        }));
                     }
                     
                     if (propertiesToSave) {
