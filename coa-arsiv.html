@@ -1418,8 +1418,8 @@
                 <!-- Missing COA Reports -->
                 <div class="settings-section" style="margin-top: 20px;">
                     <h3>📄 Raporlar</h3>
-                    <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">Excel'de kayıtlı ama COA'sı yüklenmemiş irsaliyeleri görün</p>
-                    <button class="btn btn-primary btn-sm" onclick="openMissingCOAModal()" style="width: 100%; background: #f44336; border-color: #f44336;">⚠️ Eksik COA'lar</button>
+                    <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">İrsaliye bazında COA yüklenme durumunu görün</p>
+                    <button class="btn btn-primary btn-sm" onclick="openMissingCOAModal()" style="width: 100%; background: #667eea; border-color: #667eea;">📊 COA Durum Raporu</button>
                 </div>
                 
                 <!-- JSON Backup -->
@@ -6188,17 +6188,20 @@
         }
         
         // Excel'de kayıtlı ama COA'sı olmayan irsaliyeleri kontrol et (Bulk upload sonrası)
+        // Excel'de kayıtlı ama COA'sı olmayan irsaliyeleri kontrol et (Bulk upload sonrası)
         function checkMissingCOAs() {
             try {
                 const missingCOAs = [];
+                let totalDeliveries = 0;
                 
                 // Excel'deki tüm hammaddelerin tüm irsaliyelerini kontrol et
                 materials.forEach(material => {
                     const materialCode = material.materialCode || material.code;
-                    const materialName = material.materialName || material.name || materialCode;
                     
                     if (material.deliveries && Array.isArray(material.deliveries)) {
                         material.deliveries.forEach(delivery => {
+                            totalDeliveries++;
+                            
                             // İrsaliye numarasını oluştur
                             const deliveryStr = delivery.deliverySerial && delivery.deliveryNo 
                                 ? `${delivery.deliverySerial} | ${delivery.deliveryNo}` 
@@ -6216,34 +6219,33 @@
                             
                             // COA yoksa listeye ekle
                             if (!hasCOA) {
-                                missingCOAs.push({
-                                    materialCode: materialCode,
-                                    materialName: materialName,
-                                    deliveryNo: deliveryStr,
-                                    deliveryDate: delivery.deliveryDate || 'Tarih yok'
-                                });
+                                missingCOAs.push(deliveryStr);
                             }
                         });
                     }
                 });
                 
-                // Eksik COA varsa modal'ı otomatik aç
+                const uploadedCount = totalDeliveries - missingCOAs.length;
+                
+                // Durum raporunu göster
                 if (missingCOAs.length > 0) {
-                    console.log(`⚠️ ${missingCOAs.length} eksik COA tespit edildi!`);
-                    console.table(missingCOAs);
+                    console.log(`📊 COA Durumu: ${uploadedCount}/${totalDeliveries} yüklü, ${missingCOAs.length} eksik`);
                     
                     // 2 saniye sonra modal'ı aç
                     setTimeout(() => {
-                        showToast(`⚠️ ${missingCOAs.length} irsaliye için COA eksik! Rapor açılıyor...`, 'warning', 3000);
+                        showToast(`📊 ${uploadedCount}/${totalDeliveries} COA yüklü. Detaylı rapor açılıyor...`, 'info', 3000);
                         setTimeout(() => {
                             openMissingCOAModal();
                         }, 500);
                     }, 2000);
                 } else {
                     console.log('✅ Tüm Excel irsaliyeleri için COA mevcut!');
+                    setTimeout(() => {
+                        showToast(`✅ Harika! Tüm ${totalDeliveries} irsaliye için COA yüklü!`, 'success', 3000);
+                    }, 1000);
                 }
             } catch (error) {
-                console.error('❌ Eksik COA kontrolü hatası:', error);
+                console.error('❌ COA durum kontrolü hatası:', error);
             }
         }
         
@@ -11884,12 +11886,12 @@
         
         function generateMissingCOAReport() {
             const contentDiv = document.getElementById('missingCOAContent');
-            contentDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><p>📊 Kontrol ediliyor...</p></div>';
+            contentDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><p>📊 Rapor hazırlanıyor...</p></div>';
             
             try {
-                const missingCOAs = [];
+                const allDeliveries = [];
                 
-                // Excel'deki tüm hammaddelerin tüm irsaliyelerini kontrol et
+                // Excel'deki TÜM irsaliyeleri listele
                 materials.forEach(material => {
                     const materialCode = material.materialCode || material.code;
                     const materialName = material.materialName || material.name || materialCode;
@@ -11904,53 +11906,79 @@
                             
                             if (!deliveryStr) return; // İrsaliye numarası yoksa atla
                             
-                            // Bu irsaliye için COA var mı kontrol et (coaData'da)
+                            // Bu irsaliye için COA var mı kontrol et
                             const hasCOA = coaData.some(coa => {
-                                // COA'nın irsaliye numarasını al (string veya array olabilir)
                                 const coaDeliveries = Array.isArray(coa.deliveryNo) ? coa.deliveryNo : [coa.deliveryNo];
                                 return coaDeliveries.includes(deliveryStr) && 
                                        (coa.materialCode === materialCode || coa.material === materialCode);
                             });
                             
-                            // COA yoksa listeye ekle
-                            if (!hasCOA) {
-                                missingCOAs.push({
-                                    materialCode: materialCode,
-                                    materialName: materialName,
-                                    supplier: supplierName,
-                                    deliveryNo: deliveryStr,
-                                    deliveryDate: delivery.deliveryDate || 'Tarih yok'
-                                });
-                            }
+                            // Tüm irsaliyeleri listeye ekle (COA var/yok fark etmez)
+                            allDeliveries.push({
+                                materialCode: materialCode,
+                                materialName: materialName,
+                                supplier: supplierName,
+                                deliveryNo: deliveryStr,
+                                deliveryDate: delivery.deliveryDate || 'Tarih yok',
+                                hasCOA: hasCOA
+                            });
                         });
                     }
                 });
                 
-                // Raporu göster
-                if (missingCOAs.length === 0) {
+                if (allDeliveries.length === 0) {
                     contentDiv.innerHTML = `
-                        <div style="text-align: center; padding: 60px; color: #4CAF50;">
-                            <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
-                            <h3 style="margin-bottom: 10px;">Harika! Tüm irsaliyeler için COA mevcut</h3>
-                            <p style="color: #666;">Excel'deki tüm irsaliye kayıtları için COA yüklenmiş.</p>
+                        <div style="text-align: center; padding: 60px; color: #999;">
+                            <div style="font-size: 64px; margin-bottom: 20px;">📋</div>
+                            <h3 style="margin-bottom: 10px;">Excel'de İrsaliye Kaydı Yok</h3>
+                            <p style="color: #666;">Lütfen önce Excel yükleyin.</p>
                         </div>
                     `;
                     return;
                 }
                 
+                // Tarihe göre sırala (en yeni en üstte)
+                allDeliveries.sort((a, b) => {
+                    const dateA = a.deliveryDate.split('.').reverse().join('');
+                    const dateB = b.deliveryDate.split('.').reverse().join('');
+                    return dateB.localeCompare(dateA);
+                });
+                
+                // İstatistikler
+                const uploadedCount = allDeliveries.filter(d => d.hasCOA).length;
+                const notUploadedCount = allDeliveries.filter(d => !d.hasCOA).length;
+                const totalCount = allDeliveries.length;
+                const uploadPercentage = Math.round((uploadedCount / totalCount) * 100);
+                
                 // Tablo oluştur
                 let tableHTML = `
-                    <div style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
-                        <strong>⚠️ Uyarı:</strong> Toplam <strong>${missingCOAs.length}</strong> irsaliye için COA yüklenmemiş!
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${totalCount}</div>
+                            <div style="font-size: 14px; opacity: 0.9;">Toplam İrsaliye</div>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; padding: 20px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-radius: 8px; color: white; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${uploadedCount}</div>
+                            <div style="font-size: 14px; opacity: 0.9;">✅ COA Yüklendi</div>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; padding: 20px; background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); border-radius: 8px; color: white; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${notUploadedCount}</div>
+                            <div style="font-size: 14px; opacity: 0.9;">❌ COA Yüklenmedi</div>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; color: white; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">%${uploadPercentage}</div>
+                            <div style="font-size: 14px; opacity: 0.9;">Tamamlanma Oranı</div>
+                        </div>
                     </div>
                     
                     <div style="overflow-x: auto;">
                         <table style="width: 100%; border-collapse: collapse; background: white; font-size: 13px;">
                             <thead>
-                                <tr style="background: #f44336; color: white;">
+                                <tr style="background: #667eea; color: white;">
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">#</th>
-                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">İrsaliye No</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 100px;">COA Durumu</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">İrsaliye Tarihi</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">İrsaliye No</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Hammadde Kodu</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Hammadde Adı</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Tedarikçi</th>
@@ -11959,12 +11987,22 @@
                             <tbody>
                 `;
                 
-                missingCOAs.forEach((item, index) => {
+                allDeliveries.forEach((item, index) => {
+                    const statusIcon = item.hasCOA ? '✅' : '❌';
+                    const statusText = item.hasCOA ? 'Yüklendi' : 'Yüklenmedi';
+                    const statusColor = item.hasCOA ? '#4CAF50' : '#f44336';
+                    const rowBg = item.hasCOA ? '#f1f8f4' : '#fff3f3';
+                    
                     tableHTML += `
-                        <tr style="${index % 2 === 0 ? 'background: #f9f9f9;' : ''}">
+                        <tr style="background: ${index % 2 === 0 ? rowBg : 'white'};">
                             <td style="padding: 10px; border: 1px solid #ddd;">${index + 1}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                                <div style="display: inline-block; padding: 5px 12px; background: ${statusColor}; color: white; border-radius: 20px; font-weight: bold; font-size: 11px;">
+                                    ${statusIcon} ${statusText}
+                                </div>
+                            </td>
+                            <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">${item.deliveryDate}</td>
                             <td style="padding: 10px; border: 1px solid #ddd; font-family: monospace; font-weight: bold;">${item.deliveryNo}</td>
-                            <td style="padding: 10px; border: 1px solid #ddd;">${item.deliveryDate}</td>
                             <td style="padding: 10px; border: 1px solid #ddd; font-family: monospace;">${item.materialCode}</td>
                             <td style="padding: 10px; border: 1px solid #ddd;">${item.materialName}</td>
                             <td style="padding: 10px; border: 1px solid #ddd;">${item.supplier}</td>
@@ -11978,18 +12016,18 @@
                     </div>
                     
                     <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-left: 4px solid #2196F3; border-radius: 4px;">
-                        <strong>💡 İpucu:</strong> Eksik COA'ları topluca yüklemek için "Toplu Yükleme" özelliğini kullanabilirsiniz.
+                        <strong>💡 İpucu:</strong> Eksik COA'ları toplu yüklemek için "Toplu Yükleme" özelliğini kullanabilirsiniz.
                     </div>
                 `;
                 
                 contentDiv.innerHTML = tableHTML;
                 
                 // Console'a da yazdır
-                console.log('📋 EKSİK COA RAPORU:');
-                console.table(missingCOAs);
+                console.log('📋 COA DURUM RAPORU:');
+                console.table(allDeliveries);
                 
             } catch (error) {
-                console.error('❌ Eksik COA rapor oluşturma hatası:', error);
+                console.error('❌ Rapor oluşturma hatası:', error);
                 contentDiv.innerHTML = `
                     <div style="text-align: center; padding: 40px; color: #f44336;">
                         <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
@@ -14086,7 +14124,7 @@
     <div class="modal" id="missingCOAModal">
         <span class="modal-close" onclick="closeMissingCOAModal()">&times;</span>
         <div class="modal-content" style="max-width: 95%; width: 1400px; max-height: 90vh; overflow-y: auto;">
-            <h2 style="margin-bottom: 20px;">⚠️ Eksik COA Raporu</h2>
+            <h2 style="margin-bottom: 20px;">📊 COA Durum Raporu - İrsaliye Bazında</h2>
             
             <div id="missingCOAContent">
                 <div style="text-align: center; padding: 40px; color: #999;">
