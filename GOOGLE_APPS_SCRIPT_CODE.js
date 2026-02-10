@@ -187,6 +187,9 @@ function doGet(e) {
       case 'syncExistingFiles':
         result = syncExistingFilesToArchive();
         break;
+      case 'deleteDriveFile':
+        result = deleteDriveFile(e.parameter.fileId);
+        break;
       default:
         result = { success: false, error: 'Geçersiz action: ' + action };
     }
@@ -2192,11 +2195,30 @@ function deleteCOATemplate(supplierName) {
     }
     
     const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const imageUrlIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('image'));
     
     for (let i = 1; i < data.length; i++) {
       if (data[i][0].toLowerCase() === supplierName.toLowerCase()) {
+        // Template görselini Drive'dan sil
+        if (imageUrlIdx >= 0 && data[i][imageUrlIdx]) {
+          const imageUrl = data[i][imageUrlIdx].toString();
+          const fileId = extractFileId(imageUrl);
+          
+          if (fileId) {
+            try {
+              const file = DriveApp.getFileById(fileId);
+              file.setTrashed(true);
+              Logger.log('🗑️ Template görseli silindi: ' + file.getName());
+            } catch(driveError) {
+              Logger.log('⚠️ Template görseli silinemedi: ' + driveError.toString());
+              // Devam et, sheet'ten silmeyi engelleme
+            }
+          }
+        }
+        
         sheet.deleteRow(i + 1);
-        return { success: true, message: 'Template deleted successfully' };
+        return { success: true, message: 'Template ve görseli silindi' };
       }
     }
     
@@ -2538,6 +2560,36 @@ function syncExistingFilesToArchive() {
     return {
       success: false,
       error: 'Senkronizasyon hatası: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Drive dosyasını sil (trash'e taşı)
+ */
+function deleteDriveFile(fileId) {
+  try {
+    if (!fileId) {
+      return { success: false, error: 'File ID eksik' };
+    }
+    
+    const file = DriveApp.getFileById(fileId);
+    const fileName = file.getName();
+    file.setTrashed(true);
+    
+    Logger.log('🗑️ Dosya silindi: ' + fileName);
+    
+    return {
+      success: true,
+      message: 'Dosya silindi: ' + fileName,
+      fileName: fileName
+    };
+    
+  } catch(error) {
+    Logger.log('❌ Dosya silme hatası: ' + error.toString());
+    return {
+      success: false,
+      error: 'Dosya silinemedi: ' + error.toString()
     };
   }
 }

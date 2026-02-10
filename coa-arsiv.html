@@ -6861,11 +6861,30 @@
         }
         
         async function deleteCOA(id) {
-            if (!confirm('Bu sertifikayı silmek istediğinizden emin misiniz?')) return;
+            if (!confirm('Bu sertifikayı silmek istediğinizden emin misiniz?\n\nSheet kayıtları VE Drive\'daki dosya silinecek!')) return;
             
             const record = coaData.find(c => c.id === id);
             
             if (googleScriptUrl) {
+                // Drive'daki dosyayı sil
+                if (record && record.driveFileId) {
+                    try {
+                        const deleteResult = await jsonpRequest(googleScriptUrl, { 
+                            action: 'deleteDriveFile',
+                            fileId: record.driveFileId
+                        });
+                        
+                        if (deleteResult.success) {
+                            console.log('🗑️ Drive dosyası silindi:', deleteResult.fileName);
+                        } else {
+                            console.warn('⚠️ Drive dosyası silinemedi:', deleteResult.error);
+                        }
+                    } catch(driveError) {
+                        console.error('❌ Drive silme hatası:', driveError);
+                        // Devam et, sheet silme işlemini engelleme
+                    }
+                }
+                
                 // COA Arşiv'den sil
                 await deleteFromGoogleSheets(id);
                 
@@ -6886,7 +6905,7 @@
             coaData = coaData.filter(c => c.id !== id);
             saveToLocalStorage();
             updateUI();
-            showToast('✅ Silindi!', 'success');
+            showToast('✅ COA ve dosyası silindi!', 'success');
         }
         
         function viewFile(id) {
