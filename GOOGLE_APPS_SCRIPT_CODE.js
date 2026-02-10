@@ -1270,6 +1270,12 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
     
     const data = sheet.getDataRange().getValues();
     
+    Logger.log('🔍 SILME İSTEĞİ:');
+    Logger.log('  Material Code: ' + materialCode);
+    Logger.log('  Delivery Date: ' + deliveryDate);
+    Logger.log('  Delivery No: ' + deliveryNo);
+    Logger.log('  Toplam satır: ' + data.length);
+    
     // Tarih formatını normalize et (YYYY-MM-DD → DD.MM.YYYY)
     let searchDate = deliveryDate;
     if (/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate)) {
@@ -1280,6 +1286,7 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
     }
     
     let deletedCount = 0;
+    let matchLog = [];
     
     // İlk satır header'dır, 2. satırdan itibaren kontrol et (TERSTEN - son satırdan başa doğru)
     for (let i = data.length - 1; i >= 1; i--) {
@@ -1287,23 +1294,43 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
       const rowDeliveryDate = String(data[i][1] || '').trim();
       const rowDeliveryNo = String(data[i][2] || '').trim();
       
-      // Hem YYYY-MM-DD hem DD.MM.YYYY formatını kontrol et
-      const dateMatch = (rowDeliveryDate === deliveryDate || rowDeliveryDate === searchDate);
+      // İlk 3 satırı logla
+      if (i <= 3) {
+        Logger.log('  Satır ' + (i+1) + ': [' + rowMaterialCode + '] [' + rowDeliveryDate + '] [' + rowDeliveryNo + ']');
+      }
       
-      if (rowMaterialCode === materialCode && 
-          dateMatch && 
-          rowDeliveryNo === deliveryNo) {
+      // Eşleşme kontrolü yap
+      const materialMatch = (rowMaterialCode === materialCode);
+      const dateMatch = (rowDeliveryDate === deliveryDate || rowDeliveryDate === searchDate);
+      const noMatch = (rowDeliveryNo === deliveryNo);
+      
+      if (materialMatch || dateMatch || noMatch) {
+        matchLog.push('Satır ' + (i+1) + ': M=' + materialMatch + ' D=' + dateMatch + ' N=' + noMatch + 
+                      ' [' + rowMaterialCode + '] [' + rowDeliveryDate + '] [' + rowDeliveryNo + ']');
+      }
+      if (materialMatch || dateMatch || noMatch) {
+        matchLog.push('Satır ' + (i+1) + ': M=' + materialMatch + ' D=' + dateMatch + ' N=' + noMatch + 
+                      ' [' + rowMaterialCode + '] [' + rowDeliveryDate + '] [' + rowDeliveryNo + ']');
+      }
+      
+      // Hem YYYY-MM-DD hem DD.MM.YYYY formatını kontrol et
+      if (materialMatch && dateMatch && noMatch) {
         sheet.deleteRow(i + 1);
         deletedCount++;
-        Logger.log('COA_Records satır silindi: ' + (i + 1) + ' | ' + materialCode + ' | ' + rowDeliveryDate + ' | ' + deliveryNo);
+        Logger.log('✅ COA_Records satır silindi: ' + (i + 1) + ' | ' + materialCode + ' | ' + rowDeliveryDate + ' | ' + deliveryNo);
       }
+    }
+    
+    // Match log'u yazdır
+    if (matchLog.length > 0) {
+      Logger.log('🔍 Kısmi eşleşmeler:');
+      matchLog.forEach(function(log) { Logger.log('  ' + log); });
     }
     
     if (deletedCount > 0) {
       return { success: true, message: deletedCount + ' satır silindi', deletedCount: deletedCount };
     } else {
       Logger.log('❌ Kayıt bulunamadı: ' + materialCode + ' | ' + searchDate + ' (' + deliveryDate + ') | ' + deliveryNo);
-      Logger.log('Sheet\'teki ilk kayıt örneği: ' + JSON.stringify(data[1]));
       return { success: false, error: 'COA_Records\'da kayıt bulunamadı' };
     }
   } catch(error) {
