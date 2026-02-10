@@ -20,6 +20,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <!-- jsPDF and html2canvas for PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         * {
@@ -12041,6 +12042,18 @@
                                     🔄 Temizle
                                 </button>
                             </div>
+                            
+                            <!-- Export Butonları -->
+                            <div style="display: flex; gap: 10px;">
+                                <button onclick="exportReportToExcel()" 
+                                        style="padding: 10px 20px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: 500; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                                    📊 Excel
+                                </button>
+                                <button onclick="exportReportToPDF()" 
+                                        style="padding: 10px 20px; background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: 500; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                                    📄 PDF
+                                </button>
+                            </div>
                         </div>
                         
                         <div id="reportFilterSummary" style="margin-top: 10px; padding: 8px 12px; background: #f0f8ff; border-left: 3px solid #2196F3; border-radius: 4px; font-size: 12px; display: none;">
@@ -12343,6 +12356,228 @@
             document.getElementById('reportStatusFilter').value = 'all';
             document.getElementById('reportSupplierFilter').value = 'all';
             filterReportTable();
+        }
+        
+        // Excel Export
+        function exportReportToExcel() {
+            if (!window.reportMaterialData || window.reportMaterialData.length === 0) {
+                showToast('⚠️ Rapor verisi bulunamadı!', 'warning');
+                return;
+            }
+            
+            try {
+                // Filtrelenmiş verileri al
+                const visibleRows = document.querySelectorAll('#reportTableBody tr[id^="material-row-"]:not([style*="display: none"])');
+                const filteredData = [];
+                visibleRows.forEach(row => {
+                    const index = parseInt(row.id.replace('material-row-', ''));
+                    if (window.reportMaterialData[index]) {
+                        filteredData.push(window.reportMaterialData[index]);
+                    }
+                });
+                
+                if (filteredData.length === 0) {
+                    showToast('⚠️ Export edilecek veri yok!', 'warning');
+                    return;
+                }
+                
+                const wb = XLSX.utils.book_new();
+                
+                // 1. Özet sayfa
+                const summaryData = [
+                    ['COA DURUM RAPORU - ÖZET'],
+                    [],
+                    ['Rapor Tarihi:', new Date().toLocaleString('tr-TR')],
+                    [],
+                    ['Toplam Hammadde:', filteredData.length],
+                    ['Toplam İrsaliye:', filteredData.reduce((sum, m) => sum + m.totalDeliveries, 0)],
+                    ['COA Yüklendi:', filteredData.reduce((sum, m) => sum + m.uploadedDeliveries, 0)],
+                    ['COA Yüklenmedi:', filteredData.reduce((sum, m) => sum + m.notUploadedDeliveries, 0)],
+                    ['Tamamlanma Oranı:', Math.round((filteredData.reduce((sum, m) => sum + m.uploadedDeliveries, 0) / filteredData.reduce((sum, m) => sum + m.totalDeliveries, 0)) * 100) + '%'],
+                ];
+                const ws_summary = XLSX.utils.aoa_to_sheet(summaryData);
+                ws_summary['!cols'] = [{ wch: 25 }, { wch: 20 }];
+                XLSX.utils.book_append_sheet(wb, ws_summary, 'Özet');
+                
+                // 2. Hammadde özet sayfası
+                const materialHeaders = [['#', 'Hammadde Kodu', 'Hammadde Adı', 'Tedarikçi', 'Toplam İrsaliye', 'Yüklendi', 'Yüklenmedi', 'Tamamlanma %']];
+                const materialRows = filteredData.map((m, idx) => [
+                    idx + 1,
+                    m.materialCode,
+                    m.materialName,
+                    m.supplier,
+                    m.totalDeliveries,
+                    m.uploadedDeliveries,
+                    m.notUploadedDeliveries,
+                    Math.round((m.uploadedDeliveries / m.totalDeliveries) * 100)
+                ]);
+                const ws_materials = XLSX.utils.aoa_to_sheet([...materialHeaders, ...materialRows]);
+                ws_materials['!cols'] = [
+                    { wch: 5 }, { wch: 20 }, { wch: 40 }, { wch: 30 }, 
+                    { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 15 }
+                ];
+                XLSX.utils.book_append_sheet(wb, ws_materials, 'Hammaddeler');
+                
+                // 3. Detaylı irsaliye sayfası
+                const detailHeaders = [['Hammadde Kodu', 'Hammadde Adı', 'Tedarikçi', 'İrsaliye No', 'İrsaliye Tarihi', 'COA Durumu']];
+                const detailRows = [];
+                filteredData.forEach(m => {
+                    m.deliveryDetails.forEach(d => {
+                        detailRows.push([
+                            m.materialCode,
+                            m.materialName,
+                            m.supplier,
+                            d.deliveryNo,
+                            d.deliveryDate,
+                            d.hasCOA ? 'Yüklendi' : 'Yüklenmedi'
+                        ]);
+                    });
+                });
+                const ws_details = XLSX.utils.aoa_to_sheet([...detailHeaders, ...detailRows]);
+                ws_details['!cols'] = [
+                    { wch: 20 }, { wch: 40 }, { wch: 30 }, 
+                    { wch: 25 }, { wch: 15 }, { wch: 15 }
+                ];
+                XLSX.utils.book_append_sheet(wb, ws_details, 'Detaylı İrsaliye');
+                
+                // Excel dosyasını indir
+                const fileName = `COA_Durum_Raporu_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                
+                showToast('✅ Excel raporu indirildi!', 'success');
+            } catch (error) {
+                console.error('Excel export hatası:', error);
+                showToast('❌ Excel export hatası: ' + error.message, 'error');
+            }
+        }
+        
+        // PDF Export
+        function exportReportToPDF() {
+            if (!window.reportMaterialData || window.reportMaterialData.length === 0) {
+                showToast('⚠️ Rapor verisi bulunamadı!', 'warning');
+                return;
+            }
+            
+            try {
+                // Filtrelenmiş verileri al
+                const visibleRows = document.querySelectorAll('#reportTableBody tr[id^="material-row-"]:not([style*="display: none"])');
+                const filteredData = [];
+                visibleRows.forEach(row => {
+                    const index = parseInt(row.id.replace('material-row-', ''));
+                    if (window.reportMaterialData[index]) {
+                        filteredData.push(window.reportMaterialData[index]);
+                    }
+                });
+                
+                if (filteredData.length === 0) {
+                    showToast('⚠️ Export edilecek veri yok!', 'warning');
+                    return;
+                }
+                
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('l', 'mm', 'a4'); // Landscape mode
+                
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                let yPos = 20;
+                
+                // Başlık
+                doc.setFontSize(16);
+                doc.setFont(undefined, 'bold');
+                doc.text('COA DURUM RAPORU', pageWidth / 2, yPos, { align: 'center' });
+                yPos += 10;
+                
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Rapor Tarihi: ${new Date().toLocaleString('tr-TR')}`, pageWidth / 2, yPos, { align: 'center' });
+                yPos += 15;
+                
+                // İstatistikler
+                const totalDel = filteredData.reduce((sum, m) => sum + m.totalDeliveries, 0);
+                const totalUpload = filteredData.reduce((sum, m) => sum + m.uploadedDeliveries, 0);
+                const totalNotUpload = filteredData.reduce((sum, m) => sum + m.notUploadedDeliveries, 0);
+                const percentage = Math.round((totalUpload / totalDel) * 100);
+                
+                doc.setFontSize(9);
+                const stats = `Hammadde: ${filteredData.length} | Irsaliye: ${totalDel} | Yuklendi: ${totalUpload} | Yuklenmedi: ${totalNotUpload} | Tamamlanma: %${percentage}`;
+                doc.text(stats, pageWidth / 2, yPos, { align: 'center' });
+                yPos += 10;
+                
+                // Tablo başlıkları
+                const headers = [['#', 'Kod', 'Hammadde Adi', 'Tedarikci', 'Toplam', 'Yuklendi', 'Yuklenmedi', '%']];
+                const rows = filteredData.map((m, idx) => [
+                    idx + 1,
+                    m.materialCode,
+                    m.materialName.substring(0, 40), // Kısalt
+                    m.supplier.substring(0, 25), // Kısalt
+                    m.totalDeliveries,
+                    m.uploadedDeliveries,
+                    m.notUploadedDeliveries,
+                    Math.round((m.uploadedDeliveries / m.totalDeliveries) * 100)
+                ]);
+                
+                // AutoTable plugin kontrolü
+                if (typeof doc.autoTable === 'function') {
+                    doc.autoTable({
+                        head: headers,
+                        body: rows,
+                        startY: yPos,
+                        theme: 'striped',
+                        styles: { fontSize: 7, cellPadding: 2 },
+                        headStyles: { fillColor: [102, 126, 234], textColor: 255 },
+                        columnStyles: {
+                            0: { cellWidth: 10 },
+                            1: { cellWidth: 25 },
+                            2: { cellWidth: 60 },
+                            3: { cellWidth: 50 },
+                            4: { cellWidth: 18 },
+                            5: { cellWidth: 20 },
+                            6: { cellWidth: 20 },
+                            7: { cellWidth: 15 }
+                        }
+                    });
+                } else {
+                    // AutoTable yoksa basit tablo
+                    doc.setFontSize(8);
+                    const colWidths = [10, 25, 60, 50, 18, 20, 20, 15];
+                    let xPos = 14;
+                    
+                    // Başlıkları çiz
+                    headers[0].forEach((h, i) => {
+                        doc.text(h, xPos, yPos);
+                        xPos += colWidths[i];
+                    });
+                    yPos += 6;
+                    
+                    // Satırları çiz (max 30 satır)
+                    rows.slice(0, 30).forEach(row => {
+                        if (yPos > pageHeight - 20) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        xPos = 14;
+                        row.forEach((cell, i) => {
+                            doc.text(String(cell), xPos, yPos);
+                            xPos += colWidths[i];
+                        });
+                        yPos += 5;
+                    });
+                    
+                    if (rows.length > 30) {
+                        yPos += 5;
+                        doc.text(`... ve ${rows.length - 30} hammadde daha`, 14, yPos);
+                    }
+                }
+                
+                // PDF'i indir
+                const fileName = `COA_Durum_Raporu_${new Date().toISOString().split('T')[0]}.pdf`;
+                doc.save(fileName);
+                
+                showToast('✅ PDF raporu indirildi!', 'success');
+            } catch (error) {
+                console.error('PDF export hatası:', error);
+                showToast('❌ PDF export hatası: ' + error.message, 'error');
+            }
         }
         
         function closeCOAAnalysisModal() {
