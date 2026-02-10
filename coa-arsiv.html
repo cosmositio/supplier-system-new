@@ -1308,6 +1308,62 @@
                     <button class="btn btn-secondary" id="cancelEditBtn" onclick="cancelEdit()" style="display: none;">❌ İptal</button>
                 </div>
                 
+                <!-- Bulk Upload Toggle -->
+                <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+                    <button class="btn" onclick="toggleBulkUploadSection()" style="background: white; color: #667eea; font-weight: 600; padding: 12px 24px; border-radius: 8px; border: none; cursor: pointer; font-size: 1em; box-shadow: 0 4px 12px rgba(0,0,0,0.2); width: 100%; transition: all 0.3s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        📦 Toplu COA Yükleme Açhttps://github.com/cosmositio/supplier-system-new
+                    </button>
+                </div>
+                
+                <!-- Bulk Upload Section (Hidden by default) -->
+                <div id="bulkUploadSection" style="display: none; margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 12px; border: 2px solid #667eea;">
+                    <h3 style="color: #667eea; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                        <span>📦</span>
+                        <span>Toplu COA Yükleme</span>
+                        <button onclick="toggleBulkUploadSection()" style="margin-left: auto; background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9em;">✖ Kapat</button>
+                    </h3>
+                    
+                    <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h4 style="margin-bottom: 10px; color: #495057;">📝 Toplu yükleme için dosya adı formatı:</h4>
+                        <code style="background: #e9ecef; padding: 8px 12px; border-radius: 4px; display: block; margin-bottom: 10px; font-size: 0.9em;">
+                            [Hammadde Kodu] - [İrsaliye Tarihi (YYYY-MM-DD)].pdf
+                        </code>
+                        <p style="font-size: 0.85em; color: #666; margin: 0;">Örnek: MDE - 2026-02-10.pdf, SAH - 2026-02-09.pdf</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #495057;">1️⃣ Tedarikçi Seçin *</label>
+                        <select id="bulkSupplier" style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.95em;">
+                            <option value="">-- Tedarikçi Seçin --</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #495057;">2️⃣ COA Dosyalarını Yükleyin (Çoklu) *</label>
+                        <div style="border: 3px dashed #667eea; border-radius: 8px; padding: 30px; text-align: center; background: linear-gradient(135deg, #f5f7fa 0%, #e3f2fd 100%); cursor: pointer; transition: all 0.3s;" onclick="document.getElementById('bulkFileInput').click()" onmouseover="this.style.borderColor='#764ba2'; this.style.background='linear-gradient(135deg, #e3f2fd 0%, #f5f7fa 100%)'" onmouseout="this.style.borderColor='#667eea'; this.style.background='linear-gradient(135deg, #f5f7fa 0%, #e3f2fd 100%)'">
+                            <div style="font-size: 2.5em; margin-bottom: 10px;">📁</div>
+                            <div style="font-size: 1.1em; color: #667eea; font-weight: 600; margin-bottom: 5px;">Dosyaları sürükleyin veya tıklayın</div>
+                            <div style="font-size: 0.85em; color: #666;">Birden fazla dosya seçebilirsiniz (PDF, Resim)</div>
+                        </div>
+                        <input type="file" id="bulkFileInput" accept="image/*,.pdf" multiple style="display: none;" onchange="handleBulkFileSelect(event)">
+                    </div>
+                    
+                    <div id="bulkFilesList" style="display: none; margin-bottom: 15px;">
+                        <h4 style="margin-bottom: 10px; color: #495057;">3️⃣ Yüklenecek Dosyalar:</h4>
+                        <div id="bulkFilesContainer"></div>
+                    </div>
+                    
+                    <div id="bulkSummary" style="display: none; padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; margin-bottom: 15px;">
+                        <h4 style="margin-bottom: 8px; color: #155724;">✅ Özet</h4>
+                        <p id="bulkSummaryText" style="margin: 0; color: #155724; font-size: 0.95em;"></p>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-primary" onclick="saveBulkCOAs()" style="flex: 1; padding: 12px; font-size: 1em; font-weight: 600;">💾 Tümünü Kaydet</button>
+                        <button class="btn btn-secondary" onclick="clearBulkUpload()">🗑️ Temizle</button>
+                    </div>
+                </div>
+                
                 <!-- Settings -->
                 <div class="settings-section">
                     <h3>⚙️ Google Sheets Bağlantısı</h3>
@@ -5747,6 +5803,186 @@
         function cancelEdit() {
             clearForm();
             showToast('❌ Düzenleme iptal edildi', 'info');
+        }
+        
+        // ==================== Bulk Upload Operations ====================
+        let bulkFiles = [];
+        
+        function toggleBulkUploadSection() {
+            const section = document.getElementById('bulkUploadSection');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                loadBulkSuppliers();
+            } else {
+                section.style.display = 'none';
+                clearBulkUpload();
+            }
+        }
+        
+        function loadBulkSuppliers() {
+            const select = document.getElementById('bulkSupplier');
+            if (!select) return;
+            
+            // Mevcut COA'lardan tedarikçileri al
+            const suppliers = [...new Set(data.map(c => c.supplier).filter(Boolean))];
+            
+            select.innerHTML = '<option value="">-- Tedarikçi Seçin --</option>' +
+                suppliers.map(s => `<option value="${s}">${s}</option>`).join('');
+        }
+        
+        function handleBulkFileSelect(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            const supplier = document.getElementById('bulkSupplier').value;
+            if (!supplier) {
+                showToast('❌ Önce tedarikçi seçin!', 'error');
+                e.target.value = '';
+                return;
+            }
+            
+            // Parse file names and add to bulk array
+            files.forEach(file => {
+                // Expected format: [MaterialCode] - [YYYY-MM-DD].pdf
+                const match = file.name.match(/^(.+?)\s*-\s*(\d{4}-\d{2}-\d{2})/);
+                
+                if (match) {
+                    const materialCode = match[1].trim();
+                    const deliveryDate = match[2].trim();
+                    
+                    const fileObj = {
+                        id: Date.now() + Math.random(),
+                        file: file,
+                        materialCode: materialCode,
+                        deliveryDate: deliveryDate,
+                        deliveryNo: `AUTO-${deliveryDate.replace(/-/g, '')}`,
+                        supplier: supplier
+                    };
+                    
+                    bulkFiles.push(fileObj);
+                } else {
+                    showToast(`⚠️ Hatalı dosya adı formatı: ${file.name}`, 'warning');
+                }
+            });
+            
+            renderBulkFiles();
+            e.target.value = '';
+        }
+        
+        function renderBulkFiles() {
+            const container = document.getElementById('bulkFilesContainer');
+            const listSection = document.getElementById('bulkFilesList');
+            const summary = document.getElementById('bulkSummary');
+            const summaryText = document.getElementById('bulkSummaryText');
+            
+            if (bulkFiles.length === 0) {
+                listSection.style.display = 'none';
+                summary.style.display = 'none';
+                return;
+            }
+            
+            listSection.style.display = 'block';
+            summary.style.display = 'block';
+            summaryText.textContent = `${bulkFiles.length} COA yüklenmeye hazır`;
+            
+            container.innerHTML = bulkFiles.map(fileObj => `
+                <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: start;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">📄 ${fileObj.file.name}</div>
+                        <div style="font-size: 0.85em; color: #666; display: flex; gap: 15px; flex-wrap: wrap;">
+                            <span><strong>Hammadde:</strong> ${fileObj.materialCode}</span>
+                            <span><strong>İrsaliye Tarihi:</strong> ${fileObj.deliveryDate}</span>
+                            <span><strong>İrsaliye No:</strong> ${fileObj.deliveryNo}</span>
+                        </div>
+                    </div>
+                    <button onclick="removeBulkFile('${fileObj.id}')" style="background: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.85em;">
+                        🗑️ Sil
+                    </button>
+                </div>
+            `).join('');
+        }
+        
+        function removeBulkFile(id) {
+            bulkFiles = bulkFiles.filter(f => f.id != id);
+            renderBulkFiles();
+        }
+        
+        function clearBulkUpload() {
+            bulkFiles = [];
+            document.getElementById('bulkSupplier').value = '';
+            document.getElementById('bulkFileInput').value = '';
+            renderBulkFiles();
+        }
+        
+        async function saveBulkCOAs() {
+            const supplier = document.getElementById('bulkSupplier').value;
+            
+            if (!supplier) {
+                showToast('❌ Tedarikçi seçin!', 'error');
+                return;
+            }
+            
+            if (bulkFiles.length === 0) {
+                showToast('❌ Dosya yükleyin!', 'error');
+                return;
+            }
+            
+            showToast('💾 COA\'lar kaydediliyor...', 'info');
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (const fileObj of bulkFiles) {
+                try {
+                    // Convert file to base64
+                    const fileData = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(fileObj.file);
+                    });
+                    
+                    const newCOA = {
+                        id: Date.now() + Math.random(),
+                        supplier: fileObj.supplier,
+                        materialCode: fileObj.materialCode,
+                        deliveryDate: fileObj.deliveryDate,
+                        deliveryNo: fileObj.deliveryNo,
+                        lotNumber: `BULK-${Date.now()}`,
+                        location: document.getElementById('location').value || '',
+                        filename: fileObj.file.name,
+                        fileData: fileData,
+                        notes: `Toplu yükleme - ${new Date().toLocaleString('tr-TR')}`,
+                        uploadDate: new Date().toISOString()
+                    };
+                    
+                    // Add to data array
+                    data.unshift(newCOA);
+                    
+                    // Save to Google Sheets
+                    if (isConnected) {
+                        await saveToGoogleSheets(newCOA);
+                    }
+                    
+                    successCount++;
+                } catch (error) {
+                    console.error('Bulk save error:', error);
+                    errorCount++;
+                }
+            }
+            
+            // Update UI
+            if (successCount > 0) {
+                showToast(`✅ ${successCount} COA başarıyla kaydedildi!`, 'success');
+                renderTable();
+                updateCounters();
+                clearBulkUpload();
+                toggleBulkUploadSection();
+            }
+            
+            if (errorCount > 0) {
+                showToast(`⚠️ ${errorCount} COA kaydedilemedi!`, 'warning');
+            }
         }
         
         function toggleRowSelection(id) {
