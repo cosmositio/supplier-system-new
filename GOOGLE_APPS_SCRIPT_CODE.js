@@ -78,6 +78,9 @@ function doGet(e) {
       case 'deleteCOA':
         result = deleteCOA(e.parameter.id);
         break;
+      case 'deleteCOARecord':
+        result = deleteCOARecord(e.parameter.materialCode, e.parameter.deliveryDate, e.parameter.deliveryNo);
+        break;
       case 'getStats':
         result = getStats();
         break;
@@ -1219,6 +1222,39 @@ function deleteCOA(id) {
     return { success: false, error: 'Kayıt bulunamadı: ' + id };
   } catch(error) {
     return { success: false, error: 'Silme hatası: ' + error.toString() };
+  }
+}
+
+function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
+  if (!materialCode || !deliveryDate || !deliveryNo) {
+    return { success: false, error: 'Material code, delivery date ve delivery no gerekli' };
+  }
+  
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('COA_Records');
+    
+    if (!sheet) {
+      return { success: false, error: 'COA_Records sheet bulunamadı' };
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    
+    // İlk satır header'dır, 2. satırdan itibaren kontrol et
+    for (let i = data.length - 1; i >= 1; i--) {
+      // Sütun indexleri: 0=Material Code, 1=Delivery Date, 2=Delivery No
+      if (data[i][0] === materialCode && 
+          data[i][1] === deliveryDate && 
+          data[i][2] === deliveryNo) {
+        sheet.deleteRow(i + 1);
+        Logger.log('COA_Records\'dan silindi: ' + materialCode + ' | ' + deliveryDate + ' | ' + deliveryNo);
+        return { success: true, message: 'COA_Records kaydı silindi' };
+      }
+    }
+    
+    return { success: false, error: 'COA_Records\'da kayıt bulunamadı' };
+  } catch(error) {
+    return { success: false, error: 'COA_Records silme hatası: ' + error.toString() };
   }
 }
 
