@@ -11910,7 +11910,17 @@
                 materials.forEach(material => {
                     const materialCode = material.materialCode || material.code;
                     const materialName = material.materialName || material.name || materialCode;
-                    const supplierName = currentSupplier || material.supplier || material.supplierName || 'Belirtilmemiş';
+                    
+                    // Tedarikçi bilgisini COA kayıtlarından al
+                    let supplierName = '';
+                    const coaForThisMaterial = coaData.find(coa => 
+                        coa.materialCode === materialCode || coa.material === materialCode
+                    );
+                    if (coaForThisMaterial && coaForThisMaterial.supplier) {
+                        supplierName = coaForThisMaterial.supplier;
+                    } else {
+                        supplierName = currentSupplier || material.supplier || material.supplierName || 'Belirtilmemiş';
+                    }
                     
                     if (!materialStats[materialCode]) {
                         materialStats[materialCode] = {
@@ -11926,19 +11936,26 @@
                     
                     if (material.deliveries && Array.isArray(material.deliveries)) {
                         material.deliveries.forEach(delivery => {
-                            // İrsaliye numarasını oluştur
-                            const deliveryStr = delivery.deliverySerial && delivery.deliveryNo 
-                                ? `${delivery.deliverySerial} | ${delivery.deliveryNo}` 
-                                : (delivery.deliverySerial || delivery.deliveryNo || '');
+                            // İrsaliye numarasını oluştur (Excel'den gelen fieldlar: serie, no, date)
+                            const deliveryStr = delivery.serie && delivery.no 
+                                ? `${delivery.serie} | ${delivery.no}` 
+                                : (delivery.serie || delivery.no || '');
                             
                             if (!deliveryStr) return;
                             
-                            // Bu irsaliye için COA var mı kontrol et
-                            const hasCOA = coaData.some(coa => {
+                            // Bu irsaliye için COA var mı kontrol et + Tedarikçi bilgisini güncelle
+                            const coaRecord = coaData.find(coa => {
                                 const coaDeliveries = Array.isArray(coa.deliveryNo) ? coa.deliveryNo : [coa.deliveryNo];
                                 return coaDeliveries.includes(deliveryStr) && 
                                        (coa.materialCode === materialCode || coa.material === materialCode);
                             });
+                            
+                            const hasCOA = !!coaRecord;
+                            
+                            // Eğer COA varsa ve tedarikçi bilgisi henüz alınmamışsa, şimdi al
+                            if (coaRecord && coaRecord.supplier && materialStats[materialCode].supplier === 'Belirtilmemiş') {
+                                materialStats[materialCode].supplier = coaRecord.supplier;
+                            }
                             
                             materialStats[materialCode].totalDeliveries++;
                             if (hasCOA) {
@@ -11947,10 +11964,10 @@
                                 materialStats[materialCode].notUploadedDeliveries++;
                             }
                             
-                            // Detay bilgisini kaydet
+                            // Detay bilgisini kaydet (Excel'den gelen field: date)
                             materialStats[materialCode].deliveryDetails.push({
                                 deliveryNo: deliveryStr,
-                                deliveryDate: delivery.deliveryDate || 'Tarih yok',
+                                deliveryDate: delivery.date || 'Tarih yok',
                                 hasCOA: hasCOA
                             });
                         });
