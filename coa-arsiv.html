@@ -11969,7 +11969,10 @@
                             materialStats[materialCode].deliveryDetails.push({
                                 deliveryNo: deliveryStr,
                                 deliveryDate: delivery.date || 'Tarih yok',
-                                hasCOA: hasCOA
+                                hasCOA: hasCOA,
+                                fileName: coaRecord?.fileName || '',
+                                fileType: coaRecord?.fileType || '',
+                                coaId: coaRecord?.id || ''
                             });
                         });
                     }
@@ -12144,6 +12147,7 @@
                                             <tr style="background: #e0e7ff;">
                                                 <th style="padding: 8px; border: 1px solid #ddd; text-align: left; width: 40px;">#</th>
                                                 <th style="padding: 8px; border: 1px solid #ddd; text-align: center; width: 100px;">COA Durumu</th>
+                                                <th style="padding: 8px; border: 1px solid #ddd; text-align: center; width: 60px;">Dosya</th>
                                                 <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">İrsaliye Tarihi</th>
                                                 <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">İrsaliye No</th>
                                             </tr>
@@ -12163,6 +12167,12 @@
                         const statusText = delivery.hasCOA ? 'Yüklendi' : 'Yüklenmedi';
                         const statusColor = delivery.hasCOA ? '#4CAF50' : '#f44336';
                         
+                        // Dosya ikonu oluştur
+                        let fileIconHtml = '-';
+                        if (delivery.hasCOA && delivery.fileName) {
+                            fileIconHtml = getFileIcon(delivery.fileName, delivery.fileType, delivery.coaId);
+                        }
+                        
                         tableHTML += `
                             <tr style="background: ${dIndex % 2 === 0 ? 'white' : '#fafafa'};">
                                 <td style="padding: 8px; border: 1px solid #ddd;">${dIndex + 1}</td>
@@ -12171,6 +12181,7 @@
                                         ${statusIcon} ${statusText}
                                     </div>
                                 </td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${fileIconHtml}</td>
                                 <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${delivery.deliveryDate}</td>
                                 <td style="padding: 8px; border: 1px solid #ddd; font-family: monospace; font-weight: bold;">${delivery.deliveryNo}</td>
                             </tr>
@@ -12419,24 +12430,31 @@
                 XLSX.utils.book_append_sheet(wb, ws_materials, 'Hammaddeler');
                 
                 // 3. Detaylı irsaliye sayfası
-                const detailHeaders = [['Hammadde Kodu', 'Hammadde Adı', 'Tedarikçi', 'İrsaliye No', 'İrsaliye Tarihi', 'COA Durumu']];
+                const detailHeaders = [['Hammadde Kodu', 'Hammadde Adı', 'Tedarikçi', 'İrsaliye No', 'İrsaliye Tarihi', 'COA Durumu', 'Dosya Tipi']];
                 const detailRows = [];
                 filteredData.forEach(m => {
                     m.deliveryDetails.forEach(d => {
+                        // Dosya uzantısını al
+                        let fileExt = '-';
+                        if (d.hasCOA && d.fileName) {
+                            fileExt = d.fileName.split('.').pop().toUpperCase();
+                        }
+                        
                         detailRows.push([
                             m.materialCode,
                             m.materialName,
                             m.supplier,
                             d.deliveryNo,
                             d.deliveryDate,
-                            d.hasCOA ? 'Yüklendi' : 'Yüklenmedi'
+                            d.hasCOA ? 'Yüklendi' : 'Yüklenmedi',
+                            fileExt
                         ]);
                     });
                 });
                 const ws_details = XLSX.utils.aoa_to_sheet([...detailHeaders, ...detailRows]);
                 ws_details['!cols'] = [
                     { wch: 20 }, { wch: 40 }, { wch: 30 }, 
-                    { wch: 25 }, { wch: 15 }, { wch: 15 }
+                    { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 12 }
                 ];
                 XLSX.utils.book_append_sheet(wb, ws_details, 'Detaylı İrsaliye');
                 
