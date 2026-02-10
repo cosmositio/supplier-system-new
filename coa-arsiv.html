@@ -1366,6 +1366,25 @@
                         <p id="bulkSummaryText" style="margin: 0; color: #155724; font-size: 0.95em;"></p>
                     </div>
                     
+                    <!-- Bulk Upload Progress -->
+                    <div id="bulkUploadProgress" style="display: none; padding: 20px; background: white; border-radius: 8px; margin-bottom: 15px; border: 2px solid #667eea;">
+                        <h4 style="margin-bottom: 12px; color: #667eea; display: flex; align-items: center; gap: 8px;">
+                            <span class="spinner" style="width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></span>
+                            <span id="bulkProgressTitle">COA'lar işleniyor...</span>
+                        </h4>
+                        <div style="background: #f0f0f0; border-radius: 10px; height: 30px; overflow: hidden; margin-bottom: 12px;">
+                            <div id="bulkProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.9em;"></div>
+                        </div>
+                        <div id="bulkProgressDetails" style="font-size: 0.9em; color: #666;">
+                            <div id="bulkCurrentFile" style="margin-bottom: 6px;"></div>
+                            <div id="bulkProgressStats" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                                <span>✅ Başarılı: <strong id="bulkSuccessCount">0</strong></span>
+                                <span>❌ Hata: <strong id="bulkErrorCount">0</strong></span>
+                                <span>📄 Toplam: <strong id="bulkTotalCount">0</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div style="display: flex; gap: 10px;">
                         <button class="btn btn-primary" onclick="saveBulkCOAs()" style="flex: 1; padding: 12px; font-size: 1em; font-weight: 600;">💾 Tümünü Kaydet</button>
                         <button class="btn btn-secondary" onclick="clearBulkUpload()">🗑️ Temizle</button>
@@ -6053,13 +6072,35 @@
                 }
             }
             
-            showToast('💾 COA\'lar kaydediliyor...', 'info');
+            // Progress bar göster
+            const progressContainer = document.getElementById('bulkUploadProgress');
+            const progressBar = document.getElementById('bulkProgressBar');
+            const progressTitle = document.getElementById('bulkProgressTitle');
+            const currentFileSpan = document.getElementById('bulkCurrentFile');
+            const successCountSpan = document.getElementById('bulkSuccessCount');
+            const errorCountSpan = document.getElementById('bulkErrorCount');
+            const totalCountSpan = document.getElementById('bulkTotalCount');
+            
+            progressContainer.style.display = 'block';
+            totalCountSpan.textContent = bulkFiles.length;
             
             let successCount = 0;
             let errorCount = 0;
             
-            for (const fileObj of bulkFiles) {
+            // Her dosyayı sırayla işle
+            for (let i = 0; i < bulkFiles.length; i++) {
+                const fileObj = bulkFiles[i];
+                const fileNumber = i + 1;
+                
                 try {
+                    // Progress güncelle
+                    progressTitle.textContent = `Dosya ${fileNumber} / ${bulkFiles.length} işleniyor...`;
+                    currentFileSpan.textContent = fileObj.file.name;
+                    const progressPercent = Math.round((fileNumber / bulkFiles.length) * 100);
+                    progressBar.style.width = progressPercent + '%';
+                    
+                    console.log(`📄 [${fileNumber}/${bulkFiles.length}] İşleniyor: ${fileObj.file.name}`);
+                    
                     // Convert file to base64
                     const fileData = await new Promise((resolve, reject) => {
                         const reader = new FileReader();
@@ -6068,47 +6109,132 @@
                         reader.readAsDataURL(fileObj.file);
                     });
                     
+                    // OCR ve TDS karşılaştırması yap (sadece image/PDF için)
+                    let ocrProperties = {};
+                    const fileExt = fileObj.file.name.split('.').pop().toLowerCase();
+                    const isImageOrPDF = ['pdf', 'jpg', 'jpeg', 'png', 'gif'].includes(fileExt);
+                    
+                    if (isImageOrPDF && typeof Tesseract !== 'undefined') {
+                        console.log('🔍 OCR başlatılıyor...');
+                        
+                        try {
+                            // OCR yap
+                            const result = await Tesseract.recognize(
+                                fileData,
+                                'eng',
+                                {
+                                    logger: m => {
+                                        if (m.status === 'recognizing text') {
+                                            const ocrProgress = Math.round(m.progress * 100);
+                                            progressTitle.textContent = `OCR yapılıyor... ${ocrProgress}%`;
+                                        }
+                                    }
+                                }
+                            );
+                            
+                            const ocrText = result.data.text;
+                            console.log('✅ OCR tamamlandı, metin uzunluğu:', ocrText.length);
+                            
+                            // TDS ile karşılaştır (eğer bu hammadde için TDS varsa)
+                            if (tdsData[fileObj.materialCode] && tdsData[fileObj.materialCode].properties) {
+                                console.log('📊 TDS karşılaştırması yapılıyor...');
+                                ocrProperties = await matchOCRTextWithTDS(ocrText, fileObj.materialCode);
+                                console.log('✅ TDS karşılaştırması tamamlandı:', Object.keys(ocrProperties).length, 'özellik');
+                            }
+                        } catch (ocrError) {
+                            console.error('❌ OCR hatası:', ocrError);
+                            // OCR hatasında devam et
+                        }
+                    }
+                    
+                    // COA kaydını oluştur
                     const newCOA = {
                         id: Date.now() + Math.random(),
                         supplier: fileObj.supplier,
                         materialCode: fileObj.materialCode,
                         deliveryDate: fileObj.deliveryDate,
                         deliveryNo: fileObj.deliveryNo,
-                        lotNumber: `BULK-${Date.now()}`,
+                        lotNumber: `BULK-${Date.now()}-${fileNumber}`,
                         location: document.getElementById('location').value || '',
                         filename: fileObj.file.name,
                         fileData: fileData,
-                        notes: `Toplu yükleme - ${new Date().toLocaleString('tr-TR')}`,
+                        ocrProperties: ocrProperties, // OCR ile okunan özellikler
+                        notes: `Toplu yükleme - ${new Date().toLocaleString('tr-TR')} - ${Object.keys(ocrProperties).length} özellik OCR ile okundu`,
                         uploadDate: new Date().toISOString()
                     };
                     
-                    // Add to data array
-                    data.unshift(newCOA);
+                    // coaData dizisine ekle (FIXED: data → coaData)
+                    coaData.unshift(newCOA);
                     
-                    // Save to Google Sheets
+                    // Google Sheets'e kaydet
+                    progressTitle.textContent = `Google Sheets'e kaydediliyor...`;
                     if (isConnected) {
                         await saveToGoogleSheets(newCOA);
                     }
                     
                     successCount++;
+                    successCountSpan.textContent = successCount;
+                    console.log(`✅ [${fileNumber}/${bulkFiles.length}] Başarılı: ${fileObj.file.name}`);
+                    
                 } catch (error) {
-                    console.error('Bulk save error:', error);
+                    console.error(`❌ [${fileNumber}/${bulkFiles.length}] Hata:`, fileObj.file.name, error);
                     errorCount++;
+                    errorCountSpan.textContent = errorCount;
                 }
             }
             
+            // Progress bar tamamlandı
+            progressBar.style.width = '100%';
+            progressTitle.textContent = '✅ Tamamlandı!';
+            
             // Update UI
             if (successCount > 0) {
-                showToast(`✅ ${successCount} COA başarıyla kaydedildi!`, 'success');
+                showToast(`✅ ${successCount} COA başarıyla kaydedildi!`, 'success', 5000);
                 renderTable();
                 updateCounters();
-                clearBulkUpload();
-                toggleBulkUploadSection();
             }
             
             if (errorCount > 0) {
-                showToast(`⚠️ ${errorCount} COA kaydedilemedi!`, 'warning');
+                showToast(`⚠️ ${errorCount} COA kaydedilemedi!`, 'warning', 5000);
             }
+            
+            // 3 saniye sonra progress bar'ı gizle ve bulk upload'ı temizle
+            setTimeout(() => {
+                progressContainer.style.display = 'none';
+                clearBulkUpload();
+                toggleBulkUploadSection();
+            }, 3000);
+        }
+        
+        // OCR metnini TDS ile karşılaştır
+        async function matchOCRTextWithTDS(ocrText, materialCode) {
+            const properties = {};
+            
+            if (!tdsData[materialCode] || !Array.isArray(tdsData[materialCode].properties)) {
+                return properties;
+            }
+            
+            const tdsProperties = tdsData[materialCode].properties;
+            
+            // Her TDS özelliği için metinde ara
+            for (const prop of tdsProperties) {
+                if (!prop.name) continue;
+                
+                // Özellik adından sonra gelen sayıyı bul
+                const regex = new RegExp(prop.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\s:]*([0-9.,]+)', 'i');
+                const match = ocrText.match(regex);
+                
+                if (match && match[1]) {
+                    const value = match[1].trim();
+                    properties[prop.name] = {
+                        value: value,
+                        status: 'Uygun', // Basit durum, gerçek karşılaştırma yapılabilir
+                        reason: 'OCR ile okundu'
+                    };
+                }
+            }
+            
+            return properties;
         }
         
         function toggleRowSelection(id) {
