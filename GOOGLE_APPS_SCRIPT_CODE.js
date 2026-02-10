@@ -1271,10 +1271,15 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
     const data = sheet.getDataRange().getValues();
     
     Logger.log('🔍 SILME İSTEĞİ:');
-    Logger.log('  Material Code: ' + materialCode);
-    Logger.log('  Delivery Date: ' + deliveryDate);
-    Logger.log('  Delivery No: ' + deliveryNo);
+    Logger.log('  Material Code: "' + materialCode + '" (length: ' + materialCode.length + ')');
+    Logger.log('  Delivery Date: "' + deliveryDate + '"');
+    Logger.log('  Delivery No: "' + deliveryNo + '" (length: ' + deliveryNo.length + ')');
     Logger.log('  Toplam satır: ' + data.length);
+    Logger.log('📋 HEADER SATIRLARI:');
+    Logger.log('  Column 0: "' + data[0][0] + '"');
+    Logger.log('  Column 1: "' + data[0][1] + '"');
+    Logger.log('  Column 2: "' + data[0][2] + '"');
+    Logger.log('  Column 3: "' + data[0][3] + '"');
     
     // Tarih formatını normalize et (YYYY-MM-DD → DD.MM.YYYY)
     let searchDate = deliveryDate;
@@ -1296,7 +1301,10 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
       
       // İlk 3 satırı logla
       if (i <= 3) {
-        Logger.log('  Satır ' + (i+1) + ': [' + rowMaterialCode + '] [' + rowDeliveryDate + '] [' + rowDeliveryNo + ']');
+        Logger.log('📝 DATA Satır ' + (i+1) + ':');
+        Logger.log('    Column 0 (Tarih): "' + rowDeliveryDate + '"');
+        Logger.log('    Column 1 (İrsaliye): "' + rowDeliveryNo + '" (length: ' + rowDeliveryNo.length + ')');
+        Logger.log('    Column 3 (Material): "' + rowMaterialCode + '" (length: ' + rowMaterialCode.length + ')');
       }
       
       // Eşleşme kontrolü yap
