@@ -1123,7 +1123,24 @@ function addCOA(record) {
   
   try {
     const sheet = getSheet();
-    const headers = getHeaders(sheet);
+    let headers = getHeaders(sheet);
+    
+    // Eksik header'ları otomatik ekle (driveFileId gibi)
+    const recordKeys = Object.keys(record);
+    const missingHeaders = recordKeys.filter(key => !headers.includes(key));
+    
+    if (missingHeaders.length > 0) {
+      Logger.log('🔧 Eksik kolonlar ekleniyor: ' + missingHeaders.join(', '));
+      
+      // Header satırını güncelle
+      const lastCol = headers.length;
+      missingHeaders.forEach((header, idx) => {
+        sheet.getRange(1, lastCol + idx + 1).setValue(header);
+        headers.push(header);
+      });
+      
+      Logger.log('✅ ' + missingHeaders.length + ' yeni kolon eklendi');
+    }
     
     // ID oluştur
     if (!record.id) {

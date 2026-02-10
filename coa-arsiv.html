@@ -3442,6 +3442,8 @@
                 
                 // XMLHttpRequest POST ile metadata gönder
                 console.log('Metadata kaydediliyor...');
+                console.log('📁 Drive File ID:', driveFileId);
+                console.log('📦 SaveData:', JSON.stringify(saveData, null, 2));
                 
                 const result = await new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
@@ -6872,6 +6874,13 @@
                 showToast('❌ Kayıt bulunamadı', 'error');
                 return;
             }
+            
+            console.log('🗑️ Silme işlemi başlatılıyor:', {
+                id: record.id,
+                fileName: record.fileName,
+                driveFileId: record.driveFileId,
+                hasDriveFileId: !!record.driveFileId
+            });
             
             let driveFileDeleted = false;
             
