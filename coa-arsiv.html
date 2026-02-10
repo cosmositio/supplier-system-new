@@ -1368,9 +1368,12 @@
                     
                     <!-- Bulk Upload Progress -->
                     <div id="bulkUploadProgress" style="display: none; padding: 20px; background: white; border-radius: 8px; margin-bottom: 15px; border: 2px solid #667eea;">
-                        <h4 style="margin-bottom: 12px; color: #667eea; display: flex; align-items: center; gap: 8px;">
-                            <span class="spinner" style="width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></span>
-                            <span id="bulkProgressTitle">COA'lar işleniyor...</span>
+                        <h4 style="margin-bottom: 12px; color: #667eea; display: flex; align-items: center; gap: 8px; justify-content: space-between;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="spinner" style="width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></span>
+                                <span id="bulkProgressTitle">COA'lar işleniyor...</span>
+                            </div>
+                            <button onclick="cancelBulkUpload()" class="btn btn-sm" style="background: #dc3545; color: white; padding: 5px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9em;" title="İşlemi iptal et">🛑 İptal</button>
                         </h4>
                         <div style="background: #f0f0f0; border-radius: 10px; height: 30px; overflow: hidden; margin-bottom: 12px;">
                             <div id="bulkProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.9em;"></div>
@@ -5894,6 +5897,7 @@
         
         // ==================== Bulk Upload Operations ====================
         let bulkFiles = [];
+        let bulkUploadCancelled = false;
         
         // Excel'den yüklenen verilerden irsaliye numarasını bul
         function getDeliveryNoFromExcel(materialCode, deliveryDate) {
@@ -6149,11 +6153,22 @@
         
         function clearBulkUpload() {
             bulkFiles = [];
+            bulkUploadCancelled = false; // İptal durumunu sıfırla
             document.getElementById('bulkFileInput').value = '';
             renderBulkFiles();
         }
         
+        function cancelBulkUpload() {
+            if (confirm('⚠️ Yükleme işlemini iptal etmek istediğinizden emin misiniz?')) {
+                bulkUploadCancelled = true;
+                showToast('⚠️ İşlem iptal ediliyor...', 'warning');
+            }
+        }
+        
         async function saveBulkCOAs() {
+            // İptal flag'ini sıfırla
+            bulkUploadCancelled = false;
+            
             // Ana formdan tedarikçi bilgisini al
             const supplier = document.getElementById('supplierInput').value.trim();
             
@@ -6174,9 +6189,51 @@
             
             // İrsaliye numarası bulunamayan dosyaları kontrol et
             const missingDeliveries = bulkFiles.filter(f => f.deliveryNo === 'BULUNAMADI');
+            
+            // Excel'de olmayan (sistemde kayıtlı olmayan) irsaliye numaralarını kontrol et
+            const notInSystem = [];
+            for (const fileObj of bulkFiles) {
+                if (fileObj.deliveryNo !== 'BULUNAMADI') {
+                    // materials.json'da bu irsaliye var mı kontrol et
+                    const materialInSystem = materials.find(m => {
+                        if (m.deliveries && Array.isArray(m.deliveries)) {
+                            return m.deliveries.some(d => {
+                                const deliveryStr = d.deliverySerial && d.deliveryNo 
+                                    ? `${d.deliverySerial} | ${d.deliveryNo}` 
+                                    : (d.deliverySerial || d.deliveryNo || '');
+                                return deliveryStr === fileObj.deliveryNo;
+                            });
+                        }
+                        return false;
+                    });
+                    
+                    if (!materialInSystem) {
+                        notInSystem.push({
+                            fileName: fileObj.file.name,
+                            deliveryNo: fileObj.deliveryNo,
+                            materialCode: fileObj.materialCode
+                        });
+                    }
+                }
+            }
+            
+            // Raporları göster
+            let warningMessage = '';
+            
             if (missingDeliveries.length > 0) {
-                const fileNames = missingDeliveries.map(f => f.file.name).join('\\n- ');
-                if (!confirm(`⚠️ ${missingDeliveries.length} dosya için irsaliye numarası bulunamadı:\\n\\n- ${fileNames}\\n\\nYine de devam etmek istiyor musunuz?`)) {
+                const fileNames = missingDeliveries.map(f => f.file.name).join('\\n  - ');
+                warningMessage += `📋 İrsaliye Numarası Bulunamadı (${missingDeliveries.length} dosya):\\n  - ${fileNames}\\n\\n`;
+            }
+            
+            if (notInSystem.length > 0) {
+                const systemInfo = notInSystem.map(item => 
+                    `${item.fileName} [${item.deliveryNo}]`
+                ).join('\\n  - ');
+                warningMessage += `⚠️ Excel'de Kayıtlı OLMAYAN İrsaliyeler (${notInSystem.length} adet):\\n  - ${systemInfo}\\n\\nBu dosyalar yüklenecek ama Excel kayıtlarınızda bu irsaliye numaraları bulunmuyor.\\n\\n`;
+            }
+            
+            if (warningMessage) {
+                if (!confirm(`${warningMessage}Yine de devam etmek istiyor musunuz?`)) {
                     return;
                 }
             }
@@ -6198,6 +6255,14 @@
             
             // Her dosyayı sırayla işle (manuel kayıt mantığı ile)
             for (let i = 0; i < bulkFiles.length; i++) {
+                // İptal kontrolü
+                if (bulkUploadCancelled) {
+                    console.log('⚠️ İşlem kullanıcı tarafından iptal edildi');
+                    progressTitle.textContent = '🛑 İptal Edildi';
+                    showToast(`⚠️ İşlem iptal edildi. ${successCount} COA kaydedildi, ${bulkFiles.length - i} atlandı.`, 'warning', 5000);
+                    break;
+                }
+                
                 const fileObj = bulkFiles[i];
                 const fileNumber = i + 1;
                 
