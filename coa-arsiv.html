@@ -3821,15 +3821,25 @@
             }
             
             try {
+                // Date object varsa YYYY-MM-DD formatına çevir
+                let formattedDate = deliveryDate;
+                if (deliveryDate instanceof Date) {
+                    formattedDate = deliveryDate.toISOString().split('T')[0];
+                    console.log('📅 Date object YYYY-MM-DD formatına dönüştürüldü:', formattedDate);
+                } else if (typeof deliveryDate === 'string' && deliveryDate.includes('T')) {
+                    formattedDate = deliveryDate.split('T')[0];
+                    console.log('📅 ISO string YYYY-MM-DD formatına dönüştürüldü:', formattedDate);
+                }
+                
                 console.log('🗑️ COA_Records\'dan siliniyor:');
                 console.log('  📦 Material Code:', materialCode);
-                console.log('  📅 Delivery Date:', deliveryDate, '(format:', typeof deliveryDate, ')');
+                console.log('  📅 Delivery Date:', formattedDate, '(orijinal:', deliveryDate, ')');
                 console.log('  📋 Delivery No:', deliveryNo);
                 
                 const params = new URLSearchParams();
                 params.append('action', 'deleteCOARecord');
                 params.append('materialCode', materialCode);
-                params.append('deliveryDate', deliveryDate);
+                params.append('deliveryDate', formattedDate);
                 params.append('deliveryNo', deliveryNo);
                 
                 console.log('🌐 Silme isteği URL parametreleri:', params.toString());
