@@ -6063,6 +6063,11 @@
                 return;
             }
             
+            if (!googleScriptUrl) {
+                showToast('❌ Google Sheets bağlantısı yapılmamış!', 'error');
+                return;
+            }
+            
             // İrsaliye numarası bulunamayan dosyaları kontrol et
             const missingDeliveries = bulkFiles.filter(f => f.deliveryNo === 'BULUNAMADI');
             if (missingDeliveries.length > 0) {
@@ -6087,7 +6092,7 @@
             let successCount = 0;
             let errorCount = 0;
             
-            // Her dosyayı sırayla işle
+            // Her dosyayı sırayla işle (manuel kayıt mantığı ile)
             for (let i = 0; i < bulkFiles.length; i++) {
                 const fileObj = bulkFiles[i];
                 const fileNumber = i + 1;
@@ -6096,7 +6101,7 @@
                     // Progress güncelle
                     progressTitle.textContent = `Dosya ${fileNumber} / ${bulkFiles.length} işleniyor...`;
                     currentFileSpan.textContent = fileObj.file.name;
-                    const progressPercent = Math.round((fileNumber / bulkFiles.length) * 100);
+                    const progressPercent = Math.round((i / bulkFiles.length) * 100);
                     progressBar.style.width = progressPercent + '%';
                     
                     console.log(`📄 [${fileNumber}/${bulkFiles.length}] İşleniyor: ${fileObj.file.name}`);
@@ -6109,16 +6114,60 @@
                         reader.readAsDataURL(fileObj.file);
                     });
                     
-                    // OCR ve TDS karşılaştırması yap (sadece image/PDF için)
+                    // 1. ADIM: Drive'a dosyayı yükle (manuel kayıt mantığı)
+                    progressTitle.textContent = `☁️ Drive'a yükleniyor... (${fileNumber}/${bulkFiles.length})`;
+                    console.log('☁️ Drive yükleme başlatılıyor...');
+                    
+                    const compressedData = await compressForSheets(fileData, 200);
+                    console.log('📦 Sıkıştırılmış boyut:', Math.round(compressedData.length / 1024), 'KB');
+                    
+                    const uploadResult = await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.timeout = 120000; // 120 saniye
+                        
+                        xhr.onload = function() {
+                            if (xhr.status === 200) {
+                                try {
+                                    resolve(JSON.parse(xhr.responseText));
+                                } catch(e) {
+                                    reject(new Error('JSON parse hatası'));
+                                }
+                            } else {
+                                reject(new Error('HTTP ' + xhr.status));
+                            }
+                        };
+                        
+                        xhr.onerror = () => reject(new Error('Bağlantı hatası'));
+                        xhr.ontimeout = () => reject(new Error('Zaman aşımı'));
+                        
+                        xhr.open('POST', googleScriptUrl, true);
+                        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                        
+                        const formData = new URLSearchParams();
+                        formData.append('action', 'uploadFile');
+                        formData.append('fileData', compressedData);
+                        formData.append('fileName', fileObj.file.name);
+                        formData.append('mimeType', fileObj.file.type || 'application/octet-stream');
+                        
+                        xhr.send(formData.toString());
+                    });
+                    
+                    if (!uploadResult || !uploadResult.success) {
+                        throw new Error('Drive yükleme başarısız: ' + (uploadResult?.error || 'Bilinmeyen hata'));
+                    }
+                    
+                    console.log('✅ Drive yükleme başarılı:', uploadResult);
+                    
+                    // 2. ADIM: OCR ve TDS karşılaştırması (sadece image/PDF için)
                     let ocrProperties = {};
                     const fileExt = fileObj.file.name.split('.').pop().toLowerCase();
                     const isImageOrPDF = ['pdf', 'jpg', 'jpeg', 'png', 'gif'].includes(fileExt);
                     
                     if (isImageOrPDF && typeof Tesseract !== 'undefined') {
+                        progressTitle.textContent = `🔍 OCR yapılıyor... (${fileNumber}/${bulkFiles.length})`;
                         console.log('🔍 OCR başlatılıyor...');
                         
                         try {
-                            // OCR yap
                             const result = await Tesseract.recognize(
                                 fileData,
                                 'eng',
@@ -6126,7 +6175,7 @@
                                     logger: m => {
                                         if (m.status === 'recognizing text') {
                                             const ocrProgress = Math.round(m.progress * 100);
-                                            progressTitle.textContent = `OCR yapılıyor... ${ocrProgress}%`;
+                                            progressTitle.textContent = `🔍 OCR ${ocrProgress}% (${fileNumber}/${bulkFiles.length})`;
                                         }
                                     }
                                 }
@@ -6135,48 +6184,94 @@
                             const ocrText = result.data.text;
                             console.log('✅ OCR tamamlandı, metin uzunluğu:', ocrText.length);
                             
-                            // TDS ile karşılaştır (eğer bu hammadde için TDS varsa)
+                            // TDS ile karşılaştır
                             if (tdsData[fileObj.materialCode] && tdsData[fileObj.materialCode].properties) {
                                 console.log('📊 TDS karşılaştırması yapılıyor...');
                                 ocrProperties = await matchOCRTextWithTDS(ocrText, fileObj.materialCode);
-                                console.log('✅ TDS karşılaştırması tamamlandı:', Object.keys(ocrProperties).length, 'özellik');
+                                console.log('✅ TDS eşleşme:', Object.keys(ocrProperties).length, 'özellik');
                             }
                         } catch (ocrError) {
                             console.error('❌ OCR hatası:', ocrError);
-                            // OCR hatasında devam et
                         }
                     }
                     
-                    // COA kaydını oluştur
-                    const newCOA = {
-                        id: Date.now() + Math.random(),
+                    // 3. ADIM: COA kaydını oluştur (manuel kayıt yapısı)
+                    const record = {
+                        id: 'coa_bulk_' + Date.now() + '_' + fileNumber,
                         supplier: fileObj.supplier,
                         materialCode: fileObj.materialCode,
                         deliveryDate: fileObj.deliveryDate,
                         deliveryNo: fileObj.deliveryNo,
                         lotNumber: `BULK-${Date.now()}-${fileNumber}`,
                         location: document.getElementById('location').value || '',
-                        filename: fileObj.file.name,
+                        fileName: uploadResult.fileName,
+                        fileType: fileObj.file.type,
                         fileData: fileData,
-                        ocrProperties: ocrProperties, // OCR ile okunan özellikler
+                        fileUrl: uploadResult.viewUrl,
+                        driveFileId: uploadResult.fileId,
+                        fileSize: uploadResult.fileSize,
                         notes: `Toplu yükleme - ${new Date().toLocaleString('tr-TR')} - ${Object.keys(ocrProperties).length} özellik OCR ile okundu`,
-                        uploadDate: new Date().toISOString()
+                        createdAt: new Date().toISOString()
                     };
                     
-                    // coaData dizisine ekle (FIXED: data → coaData)
-                    coaData.unshift(newCOA);
-                    
-                    // Google Sheets'e kaydet
-                    progressTitle.textContent = `Google Sheets'e kaydediliyor...`;
-                    try {
-                        await saveToGoogleSheets(newCOA);
-                    } catch (sheetsError) {
-                        console.warn('⚠️ Google Sheets kayıt hatası (devam ediliyor):', sheetsError);
+                    // OCR properties'i ekle (varsa)
+                    if (Object.keys(ocrProperties).length > 0) {
+                        record.ocrProperties = ocrProperties;
                     }
+                    
+                    // 4. ADIM: Google Sheets'e COA kaydını kaydet
+                    progressTitle.textContent = `💾 Sheets'e kaydediliyor... (${fileNumber}/${bulkFiles.length})`;
+                    console.log('💾 Sheets\'e COA kaydediliyor...');
+                    
+                    const saveSuccess = await saveToGoogleSheets(record);
+                    if (!saveSuccess) {
+                        throw new Error('Sheets kayıt başarısız');
+                    }
+                    
+                    console.log('✅ Sheets kayıt başarılı');
+                    
+                    // 5. ADIM: COA_Records'a kaydet (TDS varsa)
+                    const cleanMaterialCode = fileObj.materialCode.includes('|') 
+                        ? fileObj.materialCode.split('|')[0].trim() 
+                        : fileObj.materialCode.trim();
+                    
+                    // OCR properties'i TDS formatına çevir
+                    let propertiesToSave = null;
+                    if (Object.keys(ocrProperties).length > 0 && tdsData[cleanMaterialCode]) {
+                        // OCR properties'i merge et
+                        propertiesToSave = tdsData[cleanMaterialCode].properties.map(prop => {
+                            const ocrProp = ocrProperties[prop.name];
+                            if (ocrProp) {
+                                return {
+                                    ...prop,
+                                    coaValue: ocrProp.value || ocrProp,
+                                    coaCompliance: ocrProp.status || 'Uygun'
+                                };
+                            }
+                            return prop;
+                        });
+                        
+                        console.log('📊 COA_Records\'a kaydediliyor...');
+                        
+                        // Record data objesini oluştur
+                        const recordDataForSheets = {
+                            deliveryDate: fileObj.deliveryDate,
+                            deliveryNo: fileObj.deliveryNo,
+                            lotNumber: record.lotNumber,
+                            supplier: fileObj.supplier,
+                            location: record.location
+                        };
+                        
+                        await saveCOARecordToSheets(cleanMaterialCode, propertiesToSave, recordDataForSheets);
+                        console.log('✅ COA_Records kayıt başarılı');
+                    }
+                    
+                    // Memory'e ekle
+                    coaData.unshift(record);
                     
                     successCount++;
                     successCountSpan.textContent = successCount;
-                    console.log(`✅ [${fileNumber}/${bulkFiles.length}] Başarılı: ${fileObj.file.name}`);
+                    console.log(`✅ [${fileNumber}/${bulkFiles.length}] Tamamlandı: ${fileObj.file.name}`);
                     
                 } catch (error) {
                     console.error(`❌ [${fileNumber}/${bulkFiles.length}] Hata:`, fileObj.file.name, error);
@@ -9006,7 +9101,7 @@
         }
         
         // COA kayıtlarını satır bazlı Google Sheets'e kaydet
-        async function saveCOARecordToSheets(materialCode, tdsProperties) {
+        async function saveCOARecordToSheets(materialCode, tdsProperties, recordData = null) {
             console.log('');
             console.log('═══════════════════════════════════════════════════════');
             console.log('📊📊📊 SHEETS\'E KAYIT BAŞLIYOR! 📊📊📊');
@@ -9026,12 +9121,12 @@
                 // TDS property'lerde eksik alanları doldur
                 tdsProperties = ensureTDSPropertyFields(tdsProperties);
                 
-                // Mevcut COA form verilerini al
-                const deliveryDate = document.getElementById('deliveryDate').value || new Date().toISOString().split('T')[0];
-                const deliveryNo = document.getElementById('deliveryNo').value.trim() || '-';
-                const lotNumber = document.getElementById('lotNumber').value.trim() || '-';
-                const supplier = document.getElementById('supplierInput').value.trim() || '-';
-                const location = document.getElementById('location').value.trim() || '';
+                // COA form verilerini al (recordData varsa ondan, yoksa form elemanlarından)
+                const deliveryDate = recordData?.deliveryDate || document.getElementById('deliveryDate').value || new Date().toISOString().split('T')[0];
+                const deliveryNo = recordData?.deliveryNo || document.getElementById('deliveryNo').value.trim() || '-';
+                const lotNumber = recordData?.lotNumber || document.getElementById('lotNumber').value.trim() || '-';
+                const supplier = recordData?.supplier || document.getElementById('supplierInput').value.trim() || '-';
+                const location = recordData?.location || document.getElementById('location').value.trim() || '';
                 
                 // Properties array oluştur (COA değeri olan VE olmayan tüm özellikler)
                 const properties = tdsProperties
