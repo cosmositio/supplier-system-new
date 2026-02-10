@@ -1308,10 +1308,6 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
         matchLog.push('Satır ' + (i+1) + ': M=' + materialMatch + ' D=' + dateMatch + ' N=' + noMatch + 
                       ' [' + rowMaterialCode + '] [' + rowDeliveryDate + '] [' + rowDeliveryNo + ']');
       }
-      if (materialMatch || dateMatch || noMatch) {
-        matchLog.push('Satır ' + (i+1) + ': M=' + materialMatch + ' D=' + dateMatch + ' N=' + noMatch + 
-                      ' [' + rowMaterialCode + '] [' + rowDeliveryDate + '] [' + rowDeliveryNo + ']');
-      }
       
       // Hem YYYY-MM-DD hem DD.MM.YYYY formatını kontrol et
       if (materialMatch && dateMatch && noMatch) {
