@@ -6180,6 +6180,81 @@
             }
         }
         
+        // Excel'de kayıtlı ama COA'sı olmayan irsaliyeleri kontrol et
+        function checkMissingCOAs() {
+            try {
+                const missingCOAs = [];
+                
+                // Excel'deki tüm hammaddelerin tüm irsaliyelerini kontrol et
+                materials.forEach(material => {
+                    const materialCode = material.materialCode || material.code;
+                    const materialName = material.materialName || material.name || materialCode;
+                    
+                    if (material.deliveries && Array.isArray(material.deliveries)) {
+                        material.deliveries.forEach(delivery => {
+                            // İrsaliye numarasını oluştur
+                            const deliveryStr = delivery.deliverySerial && delivery.deliveryNo 
+                                ? `${delivery.deliverySerial} | ${delivery.deliveryNo}` 
+                                : (delivery.deliverySerial || delivery.deliveryNo || '');
+                            
+                            if (!deliveryStr) return; // İrsaliye numarası yoksa atla
+                            
+                            // Bu irsaliye için COA var mı kontrol et (coaData'da)
+                            const hasCOA = coaData.some(coa => {
+                                // COA'nın irsaliye numarasını al (string veya array olabilir)
+                                const coaDeliveries = Array.isArray(coa.deliveryNo) ? coa.deliveryNo : [coa.deliveryNo];
+                                return coaDeliveries.includes(deliveryStr) && 
+                                       (coa.materialCode === materialCode || coa.material === materialCode);
+                            });
+                            
+                            // COA yoksa listeye ekle
+                            if (!hasCOA) {
+                                missingCOAs.push({
+                                    materialCode: materialCode,
+                                    materialName: materialName,
+                                    deliveryNo: deliveryStr,
+                                    deliveryDate: delivery.deliveryDate || 'Tarih yok'
+                                });
+                            }
+                        });
+                    }
+                });
+                
+                // Eksik COA raporu göster
+                if (missingCOAs.length > 0) {
+                    // İlk 20 kayıt + toplam sayı
+                    const displayLimit = 20;
+                    const displayItems = missingCOAs.slice(0, displayLimit);
+                    const remaining = missingCOAs.length - displayLimit;
+                    
+                    let reportMessage = `⚠️ Excel'de Kayıtlı Ama COA'sı OLMAYAN İrsaliyeler (${missingCOAs.length} adet):\n\n`;
+                    
+                    displayItems.forEach(item => {
+                        reportMessage += `  • ${item.deliveryNo} (${item.deliveryDate})\n     Hammadde: ${item.materialName}\n\n`;
+                    });
+                    
+                    if (remaining > 0) {
+                        reportMessage += `  ... ve ${remaining} tane daha\n\n`;
+                    }
+                    
+                    reportMessage += `Bu irsaliyeler için COA yüklemeniz gerekiyor!`;
+                    
+                    // Console'a yazdır (kullanıcı detaylı listeyi görebilsin)
+                    console.log('📋 EKSİK COA RAPORU:');
+                    console.table(missingCOAs);
+                    
+                    // Alert göster
+                    setTimeout(() => {
+                        alert(reportMessage);
+                    }, 1000);
+                } else {
+                    console.log('✅ Tüm Excel irsaliyeleri için COA mevcut!');
+                }
+            } catch (error) {
+                console.error('❌ Eksik COA kontrolü hatası:', error);
+            }
+        }
+        
         async function saveBulkCOAs() {
             // İptal flag'ini sıfırla
             bulkUploadCancelled = false;
@@ -6205,50 +6280,11 @@
             // İrsaliye numarası bulunamayan dosyaları kontrol et
             const missingDeliveries = bulkFiles.filter(f => f.deliveryNo === 'BULUNAMADI');
             
-            // Excel'de olmayan (sistemde kayıtlı olmayan) irsaliye numaralarını kontrol et
-            const notInSystem = [];
-            for (const fileObj of bulkFiles) {
-                if (fileObj.deliveryNo !== 'BULUNAMADI') {
-                    // materials.json'da bu irsaliye var mı kontrol et
-                    const materialInSystem = materials.find(m => {
-                        if (m.deliveries && Array.isArray(m.deliveries)) {
-                            return m.deliveries.some(d => {
-                                const deliveryStr = d.deliverySerial && d.deliveryNo 
-                                    ? `${d.deliverySerial} | ${d.deliveryNo}` 
-                                    : (d.deliverySerial || d.deliveryNo || '');
-                                return deliveryStr === fileObj.deliveryNo;
-                            });
-                        }
-                        return false;
-                    });
-                    
-                    if (!materialInSystem) {
-                        notInSystem.push({
-                            fileName: fileObj.file.name,
-                            deliveryNo: fileObj.deliveryNo,
-                            materialCode: fileObj.materialCode
-                        });
-                    }
-                }
-            }
-            
-            // Raporları göster
-            let warningMessage = '';
-            
+            // Sadece dosya adından irsaliye alınamayanları uyar
             if (missingDeliveries.length > 0) {
                 const fileNames = missingDeliveries.map(f => f.file.name).join('\\n  - ');
-                warningMessage += `📋 İrsaliye Numarası Bulunamadı (${missingDeliveries.length} dosya):\\n  - ${fileNames}\\n\\n`;
-            }
-            
-            if (notInSystem.length > 0) {
-                const systemInfo = notInSystem.map(item => 
-                    `${item.fileName} [${item.deliveryNo}]`
-                ).join('\\n  - ');
-                warningMessage += `⚠️ Excel'de Kayıtlı OLMAYAN İrsaliyeler (${notInSystem.length} adet):\\n  - ${systemInfo}\\n\\nBu dosyalar yüklenecek ama Excel kayıtlarınızda bu irsaliye numaraları bulunmuyor.\\n\\n`;
-            }
-            
-            if (warningMessage) {
-                if (!confirm(`${warningMessage}Yine de devam etmek istiyor musunuz?`)) {
+                const warningMsg = `📋 İrsaliye Numarası Bulunamadı (${missingDeliveries.length} dosya):\\n  - ${fileNames}\\n\\nYine de devam etmek istiyor musunuz?`;
+                if (!confirm(warningMsg)) {
                     return;
                 }
             }
@@ -6521,6 +6557,9 @@
             if (errorCount > 0) {
                 showToast(`⚠️ ${errorCount} COA kaydedilemedi!`, 'warning', 5000);
             }
+            
+            // Eksik COA kontrolü yap ve rapor göster
+            checkMissingCOAs();
             
             // 3 saniye sonra progress bar'ı gizle ve bulk upload'ı temizle
             setTimeout(() => {
