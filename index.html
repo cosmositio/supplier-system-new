@@ -12455,7 +12455,7 @@
                     r.vdaPuan.toFixed(0) + '%',                   // VDA/Denetim Puani
                     r.talepEdilen8D || 0,                          // Talep Edilen 8D
                     r.cevaplanan8D || 0,                           // Cevaplanan 8D
-                    r.donusOrani8D.toFixed(0) + '%',              // 8D Donus Orani
+                    (r.talepEdilen8D === 0 ? 100 : r.donusOrani8D).toFixed(0) + '%',              // 8D Donus Orani
                     r.terminPuan.toFixed(0) + '%',                // Termin Puani
                     r.tamamlanmaPuan.toFixed(0) + '%',            // Tamamlanma Puani
                     (r.tedarikcipuani * 100).toFixed(0) + '%',    // Tedarikci Puani
@@ -12894,7 +12894,7 @@
                     r.vdaPuan.toFixed(0) + '%',
                     r.talepEdilen8D,
                     r.cevaplanan8D,
-                    r.donusOrani8D.toFixed(0) + '%',
+                    (r.talepEdilen8D === 0 ? 100 : r.donusOrani8D).toFixed(0) + '%',
                     r.terminPuan.toFixed(0) + '%',
                     r.tamamlanmaPuan.toFixed(0) + '%',
                     (r.tedarikcipuani * 100).toFixed(0) + '%',
