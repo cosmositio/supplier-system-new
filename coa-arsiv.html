@@ -3853,6 +3853,19 @@
                     return true;
                 } else {
                     console.warn('⚠️ COA_Records silme hatası:', result?.error);
+                    
+                    // Debug bilgilerini göster
+                    if (result && result.debug) {
+                        console.group('🔍 DEBUG BİLGİLERİ:');
+                        console.log('📤 Gönderilen:');
+                        console.table(result.debug.searchParams);
+                        console.log('📋 Sheet Headers:');
+                        console.table(result.debug.sheetInfo.headers);
+                        console.log('📝 Sheet İlk Satırlar:');
+                        console.table(result.debug.sampleRows);
+                        console.groupEnd();
+                    }
+                    
                     return false;
                 }
             } catch (error) {

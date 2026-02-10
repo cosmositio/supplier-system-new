@@ -1334,8 +1334,42 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
     if (deletedCount > 0) {
       return { success: true, message: deletedCount + ' satır silindi', deletedCount: deletedCount };
     } else {
+      // DEBUG: Tüm bilgileri döndür
+      const debugInfo = {
+        searchParams: {
+          materialCode: materialCode,
+          deliveryDate: deliveryDate,
+          searchDate: searchDate,
+          deliveryNo: deliveryNo
+        },
+        sheetInfo: {
+          totalRows: data.length,
+          headers: {
+            col0: String(data[0][0]),
+            col1: String(data[0][1]),
+            col2: String(data[0][2]),
+            col3: String(data[0][3])
+          }
+        },
+        sampleRows: []
+      };
+      
+      // İlk 3 data satırını ekle
+      for (let i = 1; i <= Math.min(3, data.length - 1); i++) {
+        debugInfo.sampleRows.push({
+          row: i + 1,
+          col0_deliveryDate: String(data[i][0] || ''),
+          col1_deliveryNo: String(data[i][1] || ''),
+          col3_materialCode: String(data[i][3] || '')
+        });
+      }
+      
       Logger.log('❌ Kayıt bulunamadı: ' + materialCode + ' | ' + searchDate + ' (' + deliveryDate + ') | ' + deliveryNo);
-      return { success: false, error: 'COA_Records\'da kayıt bulunamadı' };
+      return { 
+        success: false, 
+        error: 'COA_Records\'da kayıt bulunamadı',
+        debug: debugInfo
+      };
     }
   } catch(error) {
     return { success: false, error: 'COA_Records silme hatası: ' + error.toString() };
