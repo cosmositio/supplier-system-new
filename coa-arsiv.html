@@ -5842,33 +5842,36 @@
             
             if (!material || !material.deliveries || material.deliveries.length === 0) {
                 console.warn(`⚠️ ${materialCode} için Excel'de irsaliye verisi bulunamadı`);
-                return null;
+                return [];
             }
             
             // Tarihi DD.MM.YYYY formatına çevir (Excel'deki format)
             const [year, month, day] = deliveryDate.split('-');
             const searchDate = `${day}.${month}.${year}`;
             
-            // Aynı tarihe sahip delivery'yi bul
-            const delivery = material.deliveries.find(d => d.date === searchDate);
+            // Aynı tarihe sahip TÜM delivery'leri bul
+            const deliveries = material.deliveries.filter(d => d.date === searchDate);
             
-            if (delivery) {
-                // İrsaliye numarasını oluştur (Seri | No formatında)
-                let deliveryNo = '';
-                if (delivery.serie && delivery.no) {
-                    deliveryNo = `${delivery.serie} | ${delivery.no}`;
-                } else if (delivery.no) {
-                    deliveryNo = delivery.no;
-                } else if (delivery.serie) {
-                    deliveryNo = delivery.serie;
-                }
+            if (deliveries.length > 0) {
+                // Her irsaliye için numaralarını oluştur (Seri | No formatında)
+                const deliveryNumbers = deliveries.map(delivery => {
+                    let deliveryNo = '';
+                    if (delivery.serie && delivery.no) {
+                        deliveryNo = `${delivery.serie} | ${delivery.no}`;
+                    } else if (delivery.no) {
+                        deliveryNo = delivery.no;
+                    } else if (delivery.serie) {
+                        deliveryNo = delivery.serie;
+                    }
+                    return deliveryNo;
+                }).filter(no => no !== ''); // Boş olanları filtrele
                 
-                console.log(`✅ ${materialCode} - ${searchDate} için irsaliye bulundu: ${deliveryNo}`);
-                return deliveryNo;
+                console.log(`✅ ${materialCode} - ${searchDate} için ${deliveryNumbers.length} irsaliye bulundu:`, deliveryNumbers);
+                return deliveryNumbers;
             }
             
             console.warn(`⚠️ ${materialCode} için ${searchDate} tarihinde irsaliye bulunamadı`);
-            return null;
+            return [];
         }
         
         function toggleBulkUploadSection() {
@@ -5954,24 +5957,45 @@
                     // Convert to YYYY-MM-DD format for internal use
                     const deliveryDate = `${year}-${month}-${day}`;
                     
-                    // Excel'den irsaliye numarasını bul
-                    const deliveryNo = getDeliveryNoFromExcel(materialCode, deliveryDate);
+                    // Excel'den irsaliye numaralarını bul (array döner)
+                    const deliveryNumbers = getDeliveryNoFromExcel(materialCode, deliveryDate);
                     
-                    if (!deliveryNo) {
+                    if (deliveryNumbers.length === 0) {
                         showToast(`⚠️ ${file.name}: Excel'de ${day}.${month}.${year} tarihi için irsaliye bulunamadı!`, 'warning');
+                        
+                        // İrsaliye bulunamadıysa tek bir BULUNAMADI kaydı oluştur
+                        const fileObj = {
+                            id: Date.now() + Math.random(),
+                            file: file,
+                            materialCode: materialCode,
+                            deliveryDate: deliveryDate,
+                            deliveryNo: 'BULUNAMADI',
+                            supplier: supplier,
+                            fileType: ext
+                        };
+                        bulkFiles.push(fileObj);
+                    } else {
+                        // Her irsaliye numarası için ayrı bir kayıt oluştur
+                        deliveryNumbers.forEach((deliveryNo, index) => {
+                            const fileObj = {
+                                id: Date.now() + Math.random() + index,
+                                file: file,
+                                materialCode: materialCode,
+                                deliveryDate: deliveryDate,
+                                deliveryNo: deliveryNo,
+                                supplier: supplier,
+                                fileType: ext,
+                                isMultiple: deliveryNumbers.length > 1, // Birden fazla irsaliye var mı?
+                                multipleIndex: index + 1, // Kaçıncı irsaliye?
+                                multipleTotal: deliveryNumbers.length // Toplam kaç irsaliye?
+                            };
+                            bulkFiles.push(fileObj);
+                        });
+                        
+                        if (deliveryNumbers.length > 1) {
+                            console.log(`📦 ${file.name}: ${deliveryNumbers.length} adet irsaliye için ayrı kayıt oluşturuldu`);
+                        }
                     }
-                    
-                    const fileObj = {
-                        id: Date.now() + Math.random(),
-                        file: file,
-                        materialCode: materialCode,
-                        deliveryDate: deliveryDate,
-                        deliveryNo: deliveryNo || 'BULUNAMADI',
-                        supplier: supplier,
-                        fileType: ext
-                    };
-                    
-                    bulkFiles.push(fileObj);
                 } else {
                     showToast(`⚠️ Hatalı dosya adı formatı: ${file.name}`, 'warning');
                 }
@@ -5999,11 +6023,27 @@
             // İrsaliye bulunamayan dosya sayısını kontrol et
             const missingDeliveryCount = bulkFiles.filter(f => f.deliveryNo === 'BULUNAMADI').length;
             
-            if (missingDeliveryCount > 0) {
-                summaryText.innerHTML = `${bulkFiles.length} COA yüklenmeye hazır <span style="color: #dc3545; font-weight: 600;">(⚠️ ${missingDeliveryCount} adet için irsaliye no bulunamadı)</span>`;
-            } else {
-                summaryText.textContent = `${bulkFiles.length} COA yüklenmeye hazır ✅`;
+            // Benzersiz dosya sayısını hesapla (aynı dosyanın farklı irsaliyeleri için)
+            const uniqueFiles = new Set(bulkFiles.map(f => f.file.name));
+            const uniqueFileCount = uniqueFiles.size;
+            
+            // Birden fazla irsaliye olan dosya sayısı
+            const multipleDeliveryCount = bulkFiles.filter(f => f.isMultiple).length;
+            
+            let summaryHTML = `${bulkFiles.length} COA kaydı yüklenmeye hazır`;
+            
+            // Benzersiz dosya sayısı farklıysa göster
+            if (uniqueFileCount !== bulkFiles.length) {
+                summaryHTML += ` <span style="color: #28a745; font-weight: 600;">(${uniqueFileCount} benzersiz dosya)</span>`;
             }
+            
+            if (missingDeliveryCount > 0) {
+                summaryHTML += ` <span style="color: #dc3545; font-weight: 600;">(⚠️ ${missingDeliveryCount} adet için irsaliye no bulunamadı)</span>`;
+            } else {
+                summaryHTML += ` ✅`;
+            }
+            
+            summaryText.innerHTML = summaryHTML;
             
             container.innerHTML = bulkFiles.map(fileObj => {
                 // Convert YYYY-MM-DD to DD.MM.YYYY for display
@@ -6012,23 +6052,27 @@
                 
                 // İrsaliye bulunamadıysa farklı stil
                 const isMissing = fileObj.deliveryNo === 'BULUNAMADI';
-                const borderColor = isMissing ? '#dc3545' : '#dee2e6';
-                const bgColor = isMissing ? '#fff5f5' : 'white';
-                const deliveryStyle = isMissing ? 'color: #dc3545; font-weight: 600;' : '';
+                const borderColor = isMissing ? '#dc3545' : (fileObj.isMultiple ? '#28a745' : '#dee2e6');
+                const bgColor = isMissing ? '#fff5f5' : (fileObj.isMultiple ? '#f0fff4' : 'white');
+                const deliveryStyle = isMissing ? 'color: #dc3545; font-weight: 600;' : (fileObj.isMultiple ? 'color: #28a745; font-weight: 600;' : '');
                 
                 // Dosya tipine göre ikon
                 const fileIcon = getFileIcon(fileObj.file.name);
                 
+                // Birden fazla irsaliye varsa göster
+                const multipleIndicator = fileObj.isMultiple ? ` <span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75em;">(${fileObj.multipleIndex}/${fileObj.multipleTotal})</span>` : '';
+                
                 return `
                 <div style="background: ${bgColor}; border: 2px solid ${borderColor}; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: start;">
                     <div style="flex: 1;">
-                        <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">${fileIcon} ${fileObj.file.name}</div>
+                        <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">${fileIcon} ${fileObj.file.name}${fileObj.isMultiple ? ' <span style="color: #28a745;">📋 ×' + fileObj.multipleTotal + '</span>' : ''}</div>
                         <div style="font-size: 0.85em; color: #666; display: flex; gap: 15px; flex-wrap: wrap;">
                             <span><strong>Hammadde:</strong> ${fileObj.materialCode}</span>
                             <span><strong>İrsaliye Tarihi:</strong> ${displayDate}</span>
-                            <span style="${deliveryStyle}"><strong>İrsaliye No:</strong> ${isMissing ? '⚠️ ' : ''}${fileObj.deliveryNo}</span>
+                            <span style="${deliveryStyle}"><strong>İrsaliye No:</strong> ${isMissing ? '⚠️ ' : ''}${fileObj.deliveryNo}${multipleIndicator}</span>
                         </div>
                         ${isMissing ? '<div style="font-size: 0.75em; color: #dc3545; margin-top: 4px;">⚠️ Excel\'de bu tarih için irsaliye kaydı bulunamadı!</div>' : ''}
+                        ${fileObj.isMultiple ? '<div style="font-size: 0.75em; color: #28a745; margin-top: 4px;">✅ Aynı tarihte birden fazla irsaliye var - Her biri ayrı satır olarak kaydedilecek</div>' : ''}
                     </div>
                     <button onclick="removeBulkFile('${fileObj.id}')" style="background: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.85em;">
                         🗑️ Sil
@@ -6099,12 +6143,16 @@
                 
                 try {
                     // Progress güncelle
+                    const displayFileName = fileObj.isMultiple 
+                        ? `${fileObj.file.name} [İrsaliye ${fileObj.multipleIndex}/${fileObj.multipleTotal}]`
+                        : fileObj.file.name;
+                    
                     progressTitle.textContent = `Dosya ${fileNumber} / ${bulkFiles.length} işleniyor...`;
-                    currentFileSpan.textContent = fileObj.file.name;
+                    currentFileSpan.textContent = displayFileName;
                     const progressPercent = Math.round((i / bulkFiles.length) * 100);
                     progressBar.style.width = progressPercent + '%';
                     
-                    console.log(`📄 [${fileNumber}/${bulkFiles.length}] İşleniyor: ${fileObj.file.name}`);
+                    console.log(`📄 [${fileNumber}/${bulkFiles.length}] İşleniyor: ${displayFileName}`);
                     
                     // Convert file to base64
                     const fileData = await new Promise((resolve, reject) => {
