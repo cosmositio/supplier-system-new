@@ -14320,6 +14320,15 @@
         }
         
         async function showEditsHistory() {
+            // Tedarikçi paneli veya 8D rapor modalı aktifse modal gösterme
+            const sharedDocViewer = document.getElementById('sharedDocumentViewer');
+            const report8DModal = document.getElementById('report8DModal');
+            
+            if (sharedDocViewer || (report8DModal && report8DModal.style.display === 'flex')) {
+                console.log('📊 Tedarikçi paneli veya 8D rapor modalı aktif, kayıt modalı gösterilmiyor');
+                return;
+            }
+            
             if (!db) {
                 showAlert('⚠️ Veri tabanı hazır değil', 'error');
                 return;
@@ -17929,7 +17938,8 @@
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0,0,0,0.5);
+                background: rgba(0,0,0,0.85);
+                backdrop-filter: blur(4px);
                 display: flex;
                 align-items: center;
                 justify-content: center;
