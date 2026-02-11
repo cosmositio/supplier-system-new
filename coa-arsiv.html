@@ -12295,11 +12295,144 @@
                 // Benzersiz COA dosya sayısını hesapla (coaData'dan)
                 const uniqueCOAFiles = coaData.length;
                 
+                // Eşleşmeyen COA'ları bul
+                const unmatchedCOAs = coaData.filter(coa => {
+                    // Bu COA'nın irsaliye numaralarını al
+                    const coaDeliveries = Array.isArray(coa.deliveryNo) ? coa.deliveryNo : [coa.deliveryNo];
+                    
+                    // Excel'de bu irsaliye numaraları var mı kontrol et
+                    let foundInExcel = false;
+                    materials.forEach(material => {
+                        if (material.deliveries && Array.isArray(material.deliveries)) {
+                            material.deliveries.forEach(delivery => {
+                                const deliveryStr = delivery.serie && delivery.no 
+                                    ? `${delivery.serie} | ${delivery.no}` 
+                                    : (delivery.serie || delivery.no || '');
+                                if (coaDeliveries.includes(deliveryStr)) {
+                                    foundInExcel = true;
+                                }
+                            });
+                        }
+                    });
+                    
+                    return !foundInExcel; // Excel'de bulunmayan COA'lar
+                });
+                
                 // Benzersiz tedarikçi listesi
                 const uniqueSuppliers = [...new Set(materialArray.map(m => m.supplier))];
                 
                 // Tablo oluştur
                 let tableHTML = `
+                    ${unmatchedCOAs.length > 0 ? `
+                    <!-- Eşleşmeyen COA'lar Uyarısı -->
+                    <div style="margin-bottom: 20px; padding: 20px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 8px;">
+                        <h3 style="margin: 0 0 15px 0; color: #856404; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px;">⚠️</span>
+                            <span>Eşleşmeyen COA Dosyaları (${unmatchedCOAs.length})</span>
+                        </h3>
+                        <p style="color: #856404; margin-bottom: 15px;">
+                            <strong>📌 Dikkat:</strong> Aşağıdaki COA dosyaları sisteme yüklenmiş ancak Excel'deki irsaliye numaraları ile eşleşmemektedir.
+                            İrsaliye numaralarını kontrol edin veya Excel'i güncelleyin.
+                        </p>
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; background: white; font-size: 13px;">
+                                <thead>
+                                    <tr style="background: #f8d7da; color: #721c24;">
+                                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left; width: 40px;">#</th>
+                                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Dosya Adı</th>
+                                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Hammadde Kodu</th>
+                                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Tedarikçi</th>
+                                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">İrsaliye No (COA'da)</th>
+                                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center; width: 100px;">İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${unmatchedCOAs.map((coa, idx) => {
+                                        const deliveryNos = Array.isArray(coa.deliveryNo) ? coa.deliveryNo.join(', ') : (coa.deliveryNo || 'Yok');
+                                        return `
+                                        <tr style="background: ${idx % 2 === 0 ? 'white' : '#fafafa'};">
+                                            <td style="padding: 10px; border: 1px solid #ddd;">${idx + 1}</td>
+                                            <td style="padding: 10px; border: 1px solid #ddd;">
+                                                ${getFileIcon(coa.fileName, coa.fileType, coa.id)}
+                                                <span style="margin-left: 8px;">${coa.fileName || 'Bilinmiyor'}</span>
+                                            </td>
+                                            <td style="padding: 10px; border: 1px solid #ddd; font-family: monospace; font-weight: bold;">${coa.materialCode || coa.material || '-'}</td>
+                                            <td style="padding: 10px; border: 1px solid #ddd;">${coa.supplier || '-'}</td>
+                                            <td style="padding: 10px; border: 1px solid #ddd; font-family: monospace; color: #dc3545; font-weight: bold;">${deliveryNos}</td>
+                                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                                                <button onclick="viewCOAFromArchive('${coa.id}')" 
+                                                        style="padding: 5px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                                    👁️ Görüntüle
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${coaData.length > 0 ? `
+                    <!-- Yüklü Tüm COA Dosyaları -->
+                    <div style="margin-bottom: 20px; padding: 20px; background: #d1ecf1; border-left: 4px solid #0c5460; border-radius: 8px;">
+                        <h3 style="margin: 0 0 15px 0; color: #0c5460; display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="toggleAllCoaList()">
+                            <span style="font-size: 24px;">📄</span>
+                            <span>Tüm Yüklü COA Dosyaları (${coaData.length})</span>
+                            <span id="allCoaToggleIcon" style="margin-left: auto; font-size: 18px;">▼</span>
+                        </h3>
+                        <div id="allCoaListContainer" style="display: none;">
+                            <p style="color: #0c5460; margin-bottom: 15px;">
+                                <strong>📋 Bilgi:</strong> Sistemde kayıtlı tüm COA dosyaları aşağıda listelenmiştir.
+                            </p>
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; background: white; font-size: 13px;">
+                                    <thead>
+                                        <tr style="background: #17a2b8; color: white;">
+                                            <th style="padding: 10px; border: 1px solid #ddd; text-align: left; width: 40px;">#</th>
+                                            <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Dosya Adı</th>
+                                            <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Hammadde Kodu</th>
+                                            <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Tedarikçi</th>
+                                            <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">İrsaliye No</th>
+                                            <th style="padding: 10px; border: 1px solid #ddd; text-align: center; width: 80px;">Durum</th>
+                                            <th style="padding: 10px; border: 1px solid #ddd; text-align: center; width: 100px;">İşlem</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${coaData.map((coa, idx) => {
+                                            const deliveryNos = Array.isArray(coa.deliveryNo) ? coa.deliveryNo.join(', ') : (coa.deliveryNo || 'Yok');
+                                            const isMatched = !unmatchedCOAs.find(u => u.id === coa.id);
+                                            const statusBadge = isMatched 
+                                                ? '<span style="background: #28a745; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">✅ Eşleşti</span>'
+                                                : '<span style="background: #dc3545; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">❌ Eşleşmedi</span>';
+                                            return `
+                                            <tr style="background: ${idx % 2 === 0 ? 'white' : '#fafafa'};">
+                                                <td style="padding: 10px; border: 1px solid #ddd;">${idx + 1}</td>
+                                                <td style="padding: 10px; border: 1px solid #ddd;">
+                                                    ${getFileIcon(coa.fileName, coa.fileType, coa.id)}
+                                                    <span style="margin-left: 8px;">${coa.fileName || 'Bilinmiyor'}</span>
+                                                </td>
+                                                <td style="padding: 10px; border: 1px solid #ddd; font-family: monospace; font-weight: bold;">${coa.materialCode || coa.material || '-'}</td>
+                                                <td style="padding: 10px; border: 1px solid #ddd;">${coa.supplier || '-'}</td>
+                                                <td style="padding: 10px; border: 1px solid #ddd; font-family: monospace;">${deliveryNos}</td>
+                                                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${statusBadge}</td>
+                                                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                                                    <button onclick="viewCOAFromArchive('${coa.id}')" 
+                                                            style="padding: 5px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                                        👁️ Görüntüle
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
                     <!-- Arama ve Filtreleme -->
                     <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; border: 1px solid #ddd;">
                         <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: end;">
@@ -12555,6 +12688,36 @@
             } else {
                 detailRow.style.display = 'none';
                 iconSpan.textContent = '▶';
+            }
+        }
+        
+        // Tüm COA listesini aç/kapat
+        function toggleAllCoaList() {
+            const container = document.getElementById('allCoaListContainer');
+            const icon = document.getElementById('allCoaToggleIcon');
+            
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                icon.textContent = '▲';
+            } else {
+                container.style.display = 'none';
+                icon.textContent = '▼';
+            }
+        }
+        
+        // COA'yı arşivden görüntüle
+        function viewCOAFromArchive(coaId) {
+            const coa = coaData.find(c => c.id === coaId);
+            if (!coa) {
+                showToast('❌ COA bulunamadı!', 'error');
+                return;
+            }
+            
+            // viewFile fonksiyonunu çağır
+            if (typeof viewFile === 'function') {
+                viewFile(coaId);
+            } else {
+                showToast('ℹ️ COA: ' + (coa.fileName || 'Bilinmiyor'), 'info');
             }
         }
         
