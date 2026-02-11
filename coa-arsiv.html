@@ -1507,6 +1507,7 @@
                                 <th>Lot No</th>
                                 <th>Boyut</th>
                                 <th>Lokasyon</th>
+                                <th style="min-width: 120px;">COA Değerleri</th>
                                 <th>İşlem</th>
                             </tr>
                         </thead>
@@ -2090,7 +2091,7 @@
                 try {
                     templatePropertyNames = JSON.parse(saved);
                     console.log('📋 Template özellik adları yüklendi:', templatePropertyNames.length);
-                    console.log('🆔 DOSYA VERSIYONU: 2026-02-11-03:15 (DRIVE DELETION FIXED + REPORT FILTER FIXED)');
+                    console.log('🆔 DOSYA VERSIYONU: 2026-02-11-03:30 (COA VALUES & STATUS DISPLAY)');
                 } catch (e) {
                     console.error('❌ Template property names parse hatası:', e);
                 }
@@ -7310,6 +7311,27 @@
                     fileSizeDisplay = sizeInMB + ' MB';
                 }
                 
+                // COA Değerleri ve Durum
+                let coaValuesDisplay = '-';
+                if (c.ocrProperties && Object.keys(c.ocrProperties).length > 0) {
+                    const propCount = Object.keys(c.ocrProperties).length;
+                    const passCount = Object.values(c.ocrProperties).filter(p => p.status === 'pass' || p.status === 'uygun').length;
+                    const failCount = Object.values(c.ocrProperties).filter(p => p.status === 'fail' || p.status === 'uygun değil').length;
+                    
+                    let statusBadge = '';
+                    if (failCount > 0) {
+                        statusBadge = '<span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; font-weight: bold; margin-left: 5px;">❌ ' + failCount + '</span>';
+                    } else if (passCount > 0) {
+                        statusBadge = '<span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; font-weight: bold; margin-left: 5px;">✅ ' + passCount + '</span>';
+                    }
+                    
+                    coaValuesDisplay = `<button onclick="showCOAProperties('${c.id}')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        📊 ${propCount} Özellik${statusBadge}
+                    </button>`;
+                } else {
+                    coaValuesDisplay = '<span style="color: #999; font-size: 0.85em;">Veri yok</span>';
+                }
+                
                 return '<tr>' +
                     '<td><input type="checkbox" class="row-checkbox" data-id="' + c.id + '" onchange="toggleRowSelection(\'' + c.id + '\')" ' + isChecked + ' style="cursor: pointer;"></td>' +
                     '<td>' + filePreview + '</td>' +
@@ -7320,6 +7342,7 @@
                     '<td>' + (c.lotNumber || '-') + '</td>' +
                     '<td style="font-size: 0.85em; color: #666;">' + fileSizeDisplay + '</td>' +
                     '<td>' + (c.location || '-') + '</td>' +
+                    '<td>' + coaValuesDisplay + '</td>' +
                     '<td class="actions">' +
                         '<button class="btn btn-secondary btn-sm" onclick="viewFile(\'' + c.id + '\')" title="Görüntüle">👁</button>' +
                         '<button class="btn btn-secondary btn-sm" onclick="downloadFile(\'' + c.id + '\')" title="İndir">📥</button>' +
@@ -12236,6 +12259,139 @@
             document.getElementById('missingCOAModal').classList.remove('active');
         }
         
+        // COA Properties Modal fonksiyonları
+        function showCOAProperties(coaId) {
+            const coa = coaData.find(c => c.id === coaId);
+            if (!coa) {
+                showToast('❌ COA bulunamadı!', 'error');
+                return;
+            }
+            
+            const modal = document.getElementById('coaPropertiesModal');
+            const content = document.getElementById('coaPropertiesContent');
+            
+            if (!coa.ocrProperties || Object.keys(coa.ocrProperties).length === 0) {
+                content.innerHTML = `
+                    <div style="text-align: center; padding: 60px; color: #999;">
+                        <div style="font-size: 64px; margin-bottom: 20px;">📊</div>
+                        <h3 style="margin-bottom: 10px;">COA Değerleri Bulunamadı</h3>
+                        <p style="color: #666;">Bu COA için OCR ile okunmuş özellik bulunmamaktadır.</p>
+                    </div>
+                `;
+            } else {
+                // Header bilgileri
+                let headerHTML = `
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <div>
+                                <div style="font-size: 0.85em; opacity: 0.9;">Tedarikçi</div>
+                                <div style="font-weight: bold; font-size: 1.1em;">${coa.supplier}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.85em; opacity: 0.9;">Hammadde Kodu</div>
+                                <div style="font-weight: bold; font-size: 1.1em;">${coa.materialCode}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.85em; opacity: 0.9;">İrsaliye Tarihi</div>
+                                <div style="font-weight: bold; font-size: 1.1em;">${formatDate(coa.deliveryDate)}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.85em; opacity: 0.9;">İrsaliye No</div>
+                                <div style="font-weight: bold; font-size: 1.1em;">${coa.deliveryNo || '-'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Özellikleri tablo olarak göster
+                const properties = Object.entries(coa.ocrProperties);
+                const passCount = properties.filter(([_, p]) => p.status === 'pass' || p.status === 'uygun').length;
+                const failCount = properties.filter(([_, p]) => p.status === 'fail' || p.status === 'uygun değil').length;
+                const unknownCount = properties.length - passCount - failCount;
+                
+                let statsHTML = `
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 150px; padding: 15px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2em; font-weight: bold;">${properties.length}</div>
+                            <div style="font-size: 0.9em; opacity: 0.9;">Toplam Özellik</div>
+                        </div>
+                        ${passCount > 0 ? `
+                        <div style="flex: 1; min-width: 150px; padding: 15px; background: #28a745; color: white; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2em; font-weight: bold;">${passCount}</div>
+                            <div style="font-size: 0.9em; opacity: 0.9;">✅ Uygun</div>
+                        </div>
+                        ` : ''}
+                        ${failCount > 0 ? `
+                        <div style="flex: 1; min-width: 150px; padding: 15px; background: #dc3545; color: white; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2em; font-weight: bold;">${failCount}</div>
+                            <div style="font-size: 0.9em; opacity: 0.9;">❌ Uygun Değil</div>
+                        </div>
+                        ` : ''}
+                        ${unknownCount > 0 ? `
+                        <div style="flex: 1; min-width: 150px; padding: 15px; background: #6c757d; color: white; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2em; font-weight: bold;">${unknownCount}</div>
+                            <div style="font-size: 0.9em; opacity: 0.9;">Durum Belirsiz</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                let tableHTML = `
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; background: white; font-size: 14px;">
+                            <thead>
+                                <tr style="background: #667eea; color: white;">
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 40px;">#</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Özellik Adı</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 120px;">TDS Değeri</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 120px;">COA Değeri</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 100px;">Birim</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 100px;">Durum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                properties.forEach(([propName, prop], index) => {
+                    let statusBadge = '-';
+                    let statusColor = '#6c757d';
+                    
+                    if (prop.status === 'pass' || prop.status === 'uygun') {
+                        statusBadge = '<span style="background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em;">✅ Uygun</span>';
+                    } else if (prop.status === 'fail' || prop.status === 'uygun değil') {
+                        statusBadge = '<span style="background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em;">❌ Uygun Değil</span>';
+                    } else {
+                        statusBadge = '<span style="background: #6c757d; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em;">-</span>';
+                    }
+                    
+                    tableHTML += `
+                        <tr style="background: ${index % 2 === 0 ? 'white' : '#f9f9f9'};">
+                            <td style="padding: 10px; border: 1px solid #ddd;">${index + 1}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; font-weight: 600;">${propName}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${prop.tdsValue || '-'}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold; color: #667eea;">${prop.coaValue || '-'}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${prop.unit || '-'}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${statusBadge}</td>
+                        </tr>
+                    `;
+                });
+                
+                tableHTML += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                content.innerHTML = headerHTML + statsHTML + tableHTML;
+            }
+            
+            modal.classList.add('active');
+        }
+        
+        function closeCoaPropertiesModal() {
+            document.getElementById('coaPropertiesModal').classList.remove('active');
+        }
+        
         function generateMissingCOAReport() {
             const contentDiv = document.getElementById('missingCOAContent');
             contentDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><p>📊 Rapor hazırlanıyor...</p></div>';
@@ -15219,6 +15375,20 @@
             <div id="missingCOAContent">
                 <div style="text-align: center; padding: 40px; color: #999;">
                     <p>📊 Kontrol ediliyor...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- COA Properties Modal -->
+    <div class="modal" id="coaPropertiesModal">
+        <span class="modal-close" onclick="closeCoaPropertiesModal()">&times;</span>
+        <div class="modal-content" style="max-width: 900px; width: 90%; max-height: 90vh; overflow-y: auto;">
+            <h2 style="margin-bottom: 20px;">📊 COA Analiz Değerleri</h2>
+            
+            <div id="coaPropertiesContent">
+                <div style="text-align: center; padding: 40px; color: #999;">
+                    <p>Yükleniyor...</p>
                 </div>
             </div>
         </div>
