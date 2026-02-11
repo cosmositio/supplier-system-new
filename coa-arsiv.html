@@ -7354,6 +7354,7 @@
                         supplier: allCOARecords[0].supplier,
                         materialCode: allCOARecords[0].materialCode,
                         date: allCOARecords[0].date,
+                        dateType: typeof allCOARecords[0].date,
                         propertyName: allCOARecords[0].propertyName
                     });
                 }
@@ -7361,7 +7362,8 @@
                     console.log('📋 İlk coaData örneği:', {
                         supplier: coaData[0].supplier,
                         materialCode: coaData[0].materialCode,
-                        deliveryDate: coaData[0].deliveryDate
+                        deliveryDate: coaData[0].deliveryDate,
+                        dateType: typeof coaData[0].deliveryDate
                     });
                 }
                 
@@ -7387,7 +7389,7 @@
                         let coaDate = coa.deliveryDate || '';
                         
                         // ISO datetime'ı basit tarihe çevir (YYYY-MM-DD)
-                        if (recordDate && recordDate.includes('T')) {
+                        if (typeof recordDate === 'string' && recordDate.includes('T')) {
                             recordDate = recordDate.split('T')[0];
                         }
                         // Date object ise string'e çevir
@@ -7401,6 +7403,18 @@
                         const supplierMatch = recordSupplier === coaSupplier;
                         const materialMatch = recordMaterial === coaMaterial;
                         const dateMatch = recordDate === coaDate;
+                        
+                        // İlk kayıt için detaylı debug
+                        if (enrichedCount === 0 && supplierMatch && materialMatch) {
+                            console.log('🔍 İlk eşleşme denemesi:', {
+                                coaMaterial: coa.materialCode,
+                                recordDate: recordDate,
+                                coaDate: coaDate,
+                                dateMatch: dateMatch,
+                                recordDateRaw: record.date,
+                                coaDateRaw: coa.deliveryDate
+                            });
+                        }
                         
                         return supplierMatch && materialMatch && dateMatch;
                     });
