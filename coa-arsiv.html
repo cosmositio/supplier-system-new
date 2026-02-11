@@ -2091,7 +2091,7 @@
                 try {
                     templatePropertyNames = JSON.parse(saved);
                     console.log('📋 Template özellik adları yüklendi:', templatePropertyNames.length);
-                    console.log('🆔 DOSYA VERSIYONU: 2026-02-11-03:45 (EXCEL TEMPLATE EXTRACTION IN BULK)');
+                    console.log('🆔 DOSYA VERSIYONU: 2026-02-11-03:58 (FUZZY TEMPLATE MATCHING IN BULK)');
                 } catch (e) {
                     console.error('❌ Template property names parse hatası:', e);
                 }
@@ -6589,15 +6589,44 @@
                         console.log('📊 Excel/Office dosyası tespit edildi, template ile değerler çıkarılıyor...');
                         
                         try {
-                            // Tedarikçiye göre template bul
+                            // Tedarikçiye göre template bul - Fuzzy matching ile
                             const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
-                            const matchedTemplate = templates.find(t => 
-                                (t.supplier && fileObj.supplier && t.supplier.toLowerCase() === fileObj.supplier.toLowerCase()) ||
-                                (t.template && t.template.supplier && fileObj.supplier && t.template.supplier.toLowerCase() === fileObj.supplier.toLowerCase())
-                            );
+                            console.log('🔍 Template arama:', fileObj.supplier, '| Mevcut template sayısı:', templates.length);
+                            
+                            const matchedTemplate = templates.find(t => {
+                                const templateSupplier = (t.supplier || t.template?.supplier || '').toLowerCase();
+                                const fileSupplier = (fileObj.supplier || '').toLowerCase();
+                                
+                                console.log('  🔎 Kontrol ediliyor:', templateSupplier, 'vs', fileSupplier);
+                                
+                                // 1. Tam eşleşme
+                                if (templateSupplier === fileSupplier) {
+                                    console.log('  ✅ Tam eşleşme bulundu!');
+                                    return true;
+                                }
+                                
+                                // 2. Supplier adının içinde template adı geçiyorsa (veya tersi)
+                                if (templateSupplier && fileSupplier) {
+                                    // "berkosan", "yal", "tecrit" gibi anlamlı kelimeler çıkar
+                                    const templateWords = templateSupplier.split(/[\s_.-]+/).filter(w => w.length > 3);
+                                    const fileWords = fileSupplier.split(/[\s_.-]+/).filter(w => w.length > 3);
+                                    
+                                    // En az 1 ortak kelime varsa match et
+                                    const commonWords = templateWords.filter(tw => 
+                                        fileWords.some(fw => fw.includes(tw) || tw.includes(fw))
+                                    );
+                                    
+                                    if (commonWords.length > 0) {
+                                        console.log('  ✅ Fuzzy match bulundu! Ortak kelimeler:', commonWords);
+                                        return true;
+                                    }
+                                }
+                                
+                                return false;
+                            });
                             
                             if (matchedTemplate) {
-                                console.log('🎨 Template bulundu:', matchedTemplate.supplier);
+                                console.log('🎨 Template bulundu:', matchedTemplate.supplier || matchedTemplate.template?.supplier);
                                 const actualTemplate = matchedTemplate.template || matchedTemplate;
                                 
                                 // Template ile değerleri çıkar
