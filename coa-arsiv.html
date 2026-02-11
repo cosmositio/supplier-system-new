@@ -2546,7 +2546,7 @@
                     
                     const result = await new Promise((resolve, reject) => {
                         const xhr = new XMLHttpRequest();
-                        xhr.timeout = 15000;
+                        xhr.timeout = 120000; // 120 saniye (büyük template dosyaları için)
                         
                         xhr.onload = function() {
                             if (xhr.status === 200) {
@@ -3152,7 +3152,7 @@
                 
                 const data = await new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
-                    xhr.timeout = 30000;
+                    xhr.timeout = 120000; // 120 saniye (büyük dosyalar için)
                     
                     xhr.onload = function() {
                         if (xhr.status === 200) {
@@ -3449,7 +3449,7 @@
                 
                 const result = await new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
-                    xhr.timeout = 30000;
+                    xhr.timeout = 120000; // 120 saniye (büyük dosyalar için)
                     
                     xhr.onload = function() {
                         if (xhr.status === 200) {
@@ -6805,6 +6805,12 @@
                     console.error(`❌ [${fileNumber}/${bulkFiles.length}] Hata:`, fileObj.file.name, error);
                     errorCount++;
                     errorCountSpan.textContent = errorCount;
+                }
+                
+                // Google Sheets'i rahatlatmak için her dosya arasında kısa bekleme
+                // (Son dosya değilse ve iptal edilmediyse)
+                if (i < bulkFiles.length - 1 && !bulkUploadCancelled) {
+                    await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 saniye bekle
                 }
             }
             
