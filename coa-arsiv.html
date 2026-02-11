@@ -7340,12 +7340,29 @@
                 }
                 
                 console.log('📊 COA_Records\'tan değerler yükleniyor...');
-                const allCOARecords = await SharedConfig.getCOAData();
+                const allCOARecords = await SharedConfig.getCOARecords();
                 console.log('📦 Toplam COA_Records kaydı:', allCOARecords.length);
                 
                 if (allCOARecords.length === 0) {
                     console.log('⚠️ COA_Records\'ta veri yok');
                     return;
+                }
+                
+                // İlk birkaç kayıt örneği göster
+                if (allCOARecords.length > 0) {
+                    console.log('📋 İlk COA_Records örneği:', {
+                        supplier: allCOARecords[0].supplier,
+                        materialCode: allCOARecords[0].materialCode,
+                        date: allCOARecords[0].date,
+                        propertyName: allCOARecords[0].propertyName
+                    });
+                }
+                if (coaData.length > 0) {
+                    console.log('📋 İlk coaData örneği:', {
+                        supplier: coaData[0].supplier,
+                        materialCode: coaData[0].materialCode,
+                        deliveryDate: coaData[0].deliveryDate
+                    });
                 }
                 
                 let enrichedCount = 0;
@@ -7359,13 +7376,13 @@
                     
                     // Bu COA'ya ait kayıtları bul (tedarikçi, hammadde kodu ve tarih eşleşmesi)
                     const matchingRecords = allCOARecords.filter(record => {
-                        const recordSupplier = (record.supplier || record.Supplier || '').trim().toLowerCase();
+                        const recordSupplier = (record.supplier || '').trim().toLowerCase();
                         const coaSupplier = (coa.supplier || '').trim().toLowerCase();
                         
-                        const recordMaterial = (record.materialCode || record['Hammadde Kodu'] || '').trim().toLowerCase();
+                        const recordMaterial = (record.materialCode || '').trim().toLowerCase();
                         const coaMaterial = (coa.materialCode || '').trim().toLowerCase();
                         
-                        const recordDate = record.deliveryDate || record['İrsaliye Tarihi'] || '';
+                        const recordDate = record.date || ''; // Google Script'te 'date' olarak dönüyor
                         const coaDate = coa.deliveryDate || '';
                         
                         return recordSupplier === coaSupplier && 
@@ -7378,15 +7395,25 @@
                         coa.ocrProperties = {};
                         
                         matchingRecords.forEach(record => {
-                            const propName = record.propertyName || record['Özellik Adı'] || 'Unknown';
+                            const propName = record.propertyName || 'Unknown';
+                            
+                            // TDS değeri: standardValue, minLimit-maxLimit formatında olabilir
+                            let tdsValue = record.standardValue || '';
+                            if (record.minLimit && record.maxLimit) {
+                                tdsValue = `${record.minLimit} - ${record.maxLimit}`;
+                            } else if (record.minLimit) {
+                                tdsValue = `≥ ${record.minLimit}`;
+                            } else if (record.maxLimit) {
+                                tdsValue = `≤ ${record.maxLimit}`;
+                            }
                             
                             coa.ocrProperties[propName] = {
-                                tdsValue: record.tdsValue || record['TDS Değeri'] || '',
-                                coaValue: record.coaValue || record['COA Değeri'] || '',
-                                unit: record.unit || record['Birim'] || '',
-                                status: record.status || record['Durum'] || '',
-                                compliance: record.compliance || record['Uygunluk'] || '',
-                                method: record.method || record['Metot'] || ''
+                                tdsValue: tdsValue,
+                                coaValue: record.coaValue || '',
+                                unit: record.unit || '',
+                                status: record.status || '',
+                                compliance: record.status || '', // status ve compliance aynı
+                                method: record.standard || '' // test metodu
                             };
                         });
                         

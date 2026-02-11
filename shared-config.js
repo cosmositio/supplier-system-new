@@ -70,6 +70,20 @@ const SharedConfig = {
         }
     },
     
+    // COA_Records verilerini al (yeni)
+    getCOARecords: async function() {
+        const url = this.getGoogleScriptUrl();
+        if (!url) return [];
+        
+        try {
+            const data = await this.jsonp(url + '?action=getCOARecords');
+            return data.success ? (data.data || []) : [];
+        } catch (error) {
+            console.error('COA_Records verileri alınamadı:', error);
+            return [];
+        }
+    },
+    
     // Belirli tedarikçinin COA'larını al
     getCOABySupplier: async function(supplierName) {
         const url = this.getGoogleScriptUrl();
