@@ -3965,13 +3965,23 @@
         
         async function deleteFromGoogleSheets(id) {
             try {
+                console.log('🗑️ Sheet\'ten COA Arşiv kaydı siliniyor:', id);
                 const params = new URLSearchParams();
                 params.append('action', 'deleteCOA');
                 params.append('id', id);
                 
                 const result = await jsonp(googleScriptUrl + '?' + params.toString());
+                console.log('📦 deleteCOA sonucu:', result);
+                
+                if (result.success) {
+                    console.log('✅ COA Arşiv sheet\'inden silindi');
+                } else {
+                    console.warn('⚠️ COA Arşiv sheet\'inden silinemedi:', result.error);
+                }
+                
                 return result.success;
             } catch (error) {
+                console.error('❌ deleteFromGoogleSheets hatası:', error);
                 return false;
             }
         }
@@ -6884,6 +6894,7 @@
             });
             
             let driveFileDeleted = false;
+            let driveError = null;
             
             if (googleScriptUrl) {
                 // Drive'daki dosyayı sil (driveFileId varsa)
@@ -6894,6 +6905,8 @@
                             action: 'deleteDriveFile',
                             fileId: record.driveFileId
                         });
+                        
+                        console.log('📦 deleteDriveFile sonucu:', deleteResult);
                         
                         if (deleteResult.success) {
                             console.log('✅ Drive silme başarılı:', deleteResult);
@@ -6907,14 +6920,17 @@
                             
                             driveFileDeleted = true;
                         } else {
-                            console.warn('⚠️ Drive dosyası silinemedi:', deleteResult.error);
+                            driveError = deleteResult.error || 'Drive silme başarısız';
+                            console.warn('⚠️ Drive dosyası silinemedi:', driveError);
                         }
-                    } catch(driveError) {
-                        console.error('❌ Drive silme hatası:', driveError);
+                    } catch(driveErr) {
+                        driveError = driveErr.message || 'Drive silme hatası';
+                        console.error('❌ Drive silme hatası:', driveErr);
                         // Devam et, sheet silme işlemini engelleme
                     }
                 } else {
                     console.log('ℹ️ Drive File ID bulunamadı, dosya silme atlandı');
+                    driveError = 'Drive File ID bulunamadı';
                 }
                 
                 // COA Arşiv'den sil
@@ -6936,10 +6952,18 @@
             saveToLocalStorage();
             updateUI();
             
-            const message = driveFileDeleted 
-                ? '✅ COA, kayıtlar ve Drive dosyaları silindi!' 
-                : '✅ COA ve kayıtlar silindi!';
-            showToast(message, 'success');
+            let message, toastType;
+            if (driveFileDeleted) {
+                message = '✅ COA, kayıtlar ve Drive dosyaları silindi!';
+                toastType = 'success';
+            } else if (driveError) {
+                message = `⚠️ COA ve kayıtlar silindi, ancak Drive dosyası silinemedi: ${driveError}`;
+                toastType = 'warning';
+            } else {
+                message = '✅ COA ve kayıtlar silindi!';
+                toastType = 'success';
+            }
+            showToast(message, toastType, 5000);
         }
         
         function viewFile(id) {
