@@ -6,6 +6,8 @@
     <title>COA Arşiv - Analiz Sertifikası Yönetimi v2.1</title>
     <link rel="icon" type="image/png" href="assets/favicon.png">
     <!-- Cache Buster: <?php echo time(); ?> -->
+    <!-- Shared Config for COA Integration -->
+    <script src="shared-config.js"></script>
     <!-- PDF.js for PDF compression -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <!-- SheetJS for Excel reading -->
@@ -2761,7 +2763,7 @@
         }
         
         // ==================== Initialization ====================
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             // PDF.js worker ayarla (global)
             if (typeof pdfjsLib !== 'undefined') {
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -2857,7 +2859,7 @@
             }
             
             // İlk yüklemede localStorage'dan yükle (hızlı başlangıç)
-            loadFromLocalStorage();
+            await loadFromLocalStorage();
             
             // Sayfa başına kayıt sayısını localStorage'dan yükle
             const savedRowsPerPage = localStorage.getItem('rowsPerPage');
@@ -3136,7 +3138,7 @@
                 console.error('Google Sheets bağlantı hatası:', error);
                 document.getElementById('statusDot').classList.remove('connected');
                 document.getElementById('statusText').textContent = 'Bağlantı başarısız';
-                loadFromLocalStorage();
+                await loadFromLocalStorage();
                 if (!silent) {
                     showToast('❌ Bağlantı hatası: ' + error.message, 'error');
                     showToast('💡 İpucu: Apps Script\'i yeniden deploy edin', 'info');
@@ -3224,6 +3226,9 @@
                     // Yerel yedek olarak da kaydet
                     saveToLocalStorage();
                     
+                    // COA_Records'tan değerleri yükle
+                    await loadCOARecordsForAll();
+                    
                     // Tabloyu güncelle
                     renderTable();
                     updateUI();
@@ -3234,14 +3239,14 @@
                     showToast('✅ ' + coaData.length + ' kayıt yüklendi (' + withFiles + ' dosyalı)', 'success');
                 } else {
                     console.error('Veri yükleme hatası:', data?.error);
-                    loadFromLocalStorage();
+                    await loadFromLocalStorage();
                     renderTable();
                     showToast('⚠️ Sheets hatası, yerel veriler kullanılıyor', 'warning');
                 }
             } catch (error) {
                 console.error('Yükleme hatası:', error);
                 // Yerel veriden yükle
-                loadFromLocalStorage();
+                await loadFromLocalStorage();
                 renderTable();
                 showToast('⚠️ Çevrimdışı mod - yerel veriler kullanılıyor', 'warning');
             }
@@ -4087,11 +4092,14 @@
         }
         
         // ==================== Local Storage ====================
-        function loadFromLocalStorage() {
+        async function loadFromLocalStorage() {
             const saved = localStorage.getItem('coa_arsiv_data');
             if (saved) {
                 coaData = JSON.parse(saved);
                 console.log('localStorage\'dan yüklendi:', coaData.length, 'kayıt');
+                
+                // COA_Records'tan değerleri yükle
+                await loadCOARecordsForAll();
             }
         }
         
@@ -7321,6 +7329,77 @@
             console.log('- fileSize kullanan:', fromFileSize);
             console.log('- fileData kullanan:', fromFileData);
             console.log('- Toplam:', totalMB, 'MB');
+        }
+        
+        // COA_Records'tan tüm COA kayıtları için değerleri yükle
+        async function loadCOARecordsForAll() {
+            try {
+                if (typeof SharedConfig === 'undefined' || !SharedConfig.isConnected()) {
+                    console.log('⚠️ SharedConfig bağlantısı yok, COA değerleri yüklenemedi');
+                    return;
+                }
+                
+                console.log('📊 COA_Records\'tan değerler yükleniyor...');
+                const allCOARecords = await SharedConfig.getCOAData();
+                console.log('📦 Toplam COA_Records kaydı:', allCOARecords.length);
+                
+                if (allCOARecords.length === 0) {
+                    console.log('⚠️ COA_Records\'ta veri yok');
+                    return;
+                }
+                
+                let enrichedCount = 0;
+                
+                // Her COA kaydı için ilgili COA_Records verilerini bul ve ekle
+                coaData.forEach(coa => {
+                    // Eğer zaten ocrProperties varsa atla
+                    if (coa.ocrProperties && Object.keys(coa.ocrProperties).length > 0) {
+                        return;
+                    }
+                    
+                    // Bu COA'ya ait kayıtları bul (tedarikçi, hammadde kodu ve tarih eşleşmesi)
+                    const matchingRecords = allCOARecords.filter(record => {
+                        const recordSupplier = (record.supplier || record.Supplier || '').trim().toLowerCase();
+                        const coaSupplier = (coa.supplier || '').trim().toLowerCase();
+                        
+                        const recordMaterial = (record.materialCode || record['Hammadde Kodu'] || '').trim().toLowerCase();
+                        const coaMaterial = (coa.materialCode || '').trim().toLowerCase();
+                        
+                        const recordDate = record.deliveryDate || record['İrsaliye Tarihi'] || '';
+                        const coaDate = coa.deliveryDate || '';
+                        
+                        return recordSupplier === coaSupplier && 
+                               recordMaterial === coaMaterial && 
+                               recordDate === coaDate;
+                    });
+                    
+                    if (matchingRecords.length > 0) {
+                        // OCR properties oluştur
+                        coa.ocrProperties = {};
+                        
+                        matchingRecords.forEach(record => {
+                            const propName = record.propertyName || record['Özellik Adı'] || 'Unknown';
+                            
+                            coa.ocrProperties[propName] = {
+                                tdsValue: record.tdsValue || record['TDS Değeri'] || '',
+                                coaValue: record.coaValue || record['COA Değeri'] || '',
+                                unit: record.unit || record['Birim'] || '',
+                                status: record.status || record['Durum'] || '',
+                                compliance: record.compliance || record['Uygunluk'] || '',
+                                method: record.method || record['Metot'] || ''
+                            };
+                        });
+                        
+                        enrichedCount++;
+                        console.log(`✅ ${coa.materialCode} (${coa.supplier}) için ${matchingRecords.length} özellik eklendi`);
+                    }
+                });
+                
+                console.log(`✅ Toplam ${enrichedCount} COA kaydına değerler eklendi`);
+                
+            } catch (error) {
+                console.error('❌ COA_Records yükleme hatası:', error);
+            }
         }
         
         function renderTable() {
