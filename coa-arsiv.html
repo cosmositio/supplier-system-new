@@ -2091,7 +2091,7 @@
                 try {
                     templatePropertyNames = JSON.parse(saved);
                     console.log('📋 Template özellik adları yüklendi:', templatePropertyNames.length);
-                    console.log('🆔 DOSYA VERSIYONU: 2026-02-11-03:58 (FUZZY TEMPLATE MATCHING IN BULK)');
+                    console.log('🆔 DOSYA VERSIYONU: 2026-02-11-04:02 (FUZZY TEMPLATE MATCHING + TDS SAVE IN BULK)');
                 } catch (e) {
                     console.error('❌ Template property names parse hatası:', e);
                 }
@@ -6638,6 +6638,10 @@
                                     console.log('📊 TDS karşılaştırması yapılıyor...');
                                     const comparisonResults = await compareCOAValuesWithTDS(fileObj.materialCode, extractedProperties);
                                     
+                                    console.log('💾 TDS\'e kaydediliyor (toplu yükleme)...');
+                                    // TDS'e kaydet (tekli yüklemedeki gibi)
+                                    await saveTDSPropertiesFromOCR(fileObj.materialCode, comparisonResults.properties);
+                                    
                                     // ocrProperties formatına çevir (property adı -> değer+durum)
                                     if (comparisonResults && comparisonResults.properties) {
                                         Object.entries(comparisonResults.properties).forEach(([propName, propData]) => {
@@ -6648,7 +6652,7 @@
                                         });
                                     }
                                     
-                                    console.log('✅ TDS karşılaştırma tamamlandı:', Object.keys(ocrProperties).length, 'özellik');
+                                    console.log('✅ TDS karşılaştırma ve kayıt tamamlandı:', Object.keys(ocrProperties).length, 'özellik');
                                 }
                             } else {
                                 console.log('⚠️ Bu tedarikçi için template bulunamadı:', fileObj.supplier);
