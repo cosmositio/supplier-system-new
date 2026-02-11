@@ -2090,7 +2090,7 @@
                 try {
                     templatePropertyNames = JSON.parse(saved);
                     console.log('📋 Template özellik adları yüklendi:', templatePropertyNames.length);
-                    console.log('🆔 DOSYA VERSIYONU: 2026-02-11-02:50 (DRIVE DELETION ENABLED)');
+                    console.log('🆔 DOSYA VERSIYONU: 2026-02-11-03:15 (DRIVE DELETION FIXED + REPORT FILTER FIXED)');
                 } catch (e) {
                     console.error('❌ Template property names parse hatası:', e);
                 }
@@ -6838,17 +6838,41 @@
                 return;
             }
             
-            if (!confirm(`${selectedItems.size} adet kaydı silmek istediğinizden emin misiniz?`)) {
+            if (!confirm(`${selectedItems.size} adet kaydı silmek istediğinizden emin misiniz?\n\nSheet kayıtları VE Drive dosyaları silinecek!`)) {
                 return;
             }
             
             const idsToDelete = Array.from(selectedItems);
             let successCount = 0;
+            let driveDeletedCount = 0;
+            let driveErrorCount = 0;
             
             for (const id of idsToDelete) {
                 const record = coaData.find(c => c.id === id);
                 
                 if (googleScriptUrl) {
+                    // Drive'daki dosyayı sil (driveFileId varsa)
+                    if (record && record.driveFileId) {
+                        console.log(`🗑️ [${successCount + 1}/${idsToDelete.length}] Drive dosyası siliniyor:`, record.driveFileId);
+                        try {
+                            const deleteResult = await jsonpRequest(googleScriptUrl, { 
+                                action: 'deleteDriveFile',
+                                fileId: record.driveFileId
+                            });
+                            
+                            if (deleteResult.success) {
+                                console.log('✅ Drive silme başarılı:', record.fileName);
+                                driveDeletedCount++;
+                            } else {
+                                console.warn('⚠️ Drive dosyası silinemedi:', deleteResult.error);
+                                driveErrorCount++;
+                            }
+                        } catch(driveError) {
+                            console.error('❌ Drive silme hatası:', driveError);
+                            driveErrorCount++;
+                        }
+                    }
+                    
                     // COA Arşiv'den sil
                     await deleteFromGoogleSheets(id);
                     
@@ -6873,7 +6897,17 @@
             
             saveToLocalStorage();
             updateUI();
-            showToast(`✅ ${successCount} kayıt silindi!`, 'success');
+            
+            // Detaylı sonuç mesajı
+            let message = `✅ ${successCount} kayıt silindi!`;
+            if (driveDeletedCount > 0) {
+                message += ` (${driveDeletedCount} Drive dosyası silindi)`;
+            }
+            if (driveErrorCount > 0) {
+                message = `⚠️ ${successCount} kayıt silindi, ancak ${driveErrorCount} Drive dosyası silinemedi`;
+            }
+            
+            showToast(message, driveErrorCount > 0 ? 'warning' : 'success', 5000);
         }
         
         async function deleteCOA(id) {
@@ -12661,8 +12695,8 @@
                     </div>
                     
                     <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
-                        <strong>📊 Özet:</strong> ${totalMaterials} hammadde için ${totalDeliveries} irsaliye kaydı bulunuyor. 
-                        ${totalUploaded} irsaliye için COA yüklenmiş (%${uploadPercentage} tamamlanma).
+                        <span id="reportSummaryText"><strong>📊 Özet:</strong> ${totalMaterials} hammadde için ${totalDeliveries} irsaliye kaydı bulunuyor. 
+                        ${totalUploaded} irsaliye için COA yüklenmiş (%${uploadPercentage} tamamlanma).</span>
                     </div>
                 `;
                 
@@ -12816,6 +12850,12 @@
             const summaryTextSpan = document.getElementById('reportFilterText');
             const reportSummaryText = document.getElementById('reportSummaryText');
             
+            // Elementler yoksa sessizce çık
+            if (!summaryDiv || !summaryTextSpan || !reportSummaryText) {
+                console.warn('⚠️ Rapor özet elementleri bulunamadı');
+                return;
+            }
+            
             const hasFilters = search || status !== 'all' || supplier !== 'all';
             
             if (hasFilters) {
@@ -12838,13 +12878,13 @@
                 
                 // Özet istatistiğini güncelle
                 const percentage = totalDel > 0 ? Math.round((uploadedDel / totalDel) * 100) : 0;
-                reportSummaryText.textContent = `${count} hammadde için ${totalDel} irsaliye kayıdı bulunuyor. ${uploadedDel} irsaliye için COA yüklenmiş (%${percentage} tamamlanma).`;
+                reportSummaryText.innerHTML = `<strong>📊 Özet:</strong> ${count} hammadde için ${totalDel} irsaliye kaydı bulunuyor. ${uploadedDel} irsaliye için COA yüklenmiş (%${percentage} tamamlanma).`;
             } else {
                 summaryDiv.style.display = 'none';
                 // Orijinal özeti geri yükle
                 if (window.reportOriginalSummary) {
                     const orig = window.reportOriginalSummary;
-                    reportSummaryText.textContent = `${orig.totalMaterials} hammadde için ${orig.totalDeliveries} irsaliye kayıdı bulunuyor. ${orig.totalUploaded} irsaliye için COA yüklenmiş (%${orig.uploadPercentage} tamamlanma).`;
+                    reportSummaryText.innerHTML = `<strong>📊 Özet:</strong> ${orig.totalMaterials} hammadde için ${orig.totalDeliveries} irsaliye kaydı bulunuyor. ${orig.totalUploaded} irsaliye için COA yüklenmiş (%${orig.uploadPercentage} tamamlanma).`;
                 }
             }
         }
