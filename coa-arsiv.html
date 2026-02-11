@@ -7382,12 +7382,27 @@
                         const recordMaterial = (record.materialCode || '').trim().toLowerCase();
                         const coaMaterial = (coa.materialCode || '').trim().toLowerCase();
                         
-                        const recordDate = record.date || ''; // Google Script'te 'date' olarak dönüyor
-                        const coaDate = coa.deliveryDate || '';
+                        // Tarihleri normalize et - sadece YYYY-MM-DD kısmını karşılaştır
+                        let recordDate = record.date || '';
+                        let coaDate = coa.deliveryDate || '';
                         
-                        return recordSupplier === coaSupplier && 
-                               recordMaterial === coaMaterial && 
-                               recordDate === coaDate;
+                        // ISO datetime'ı basit tarihe çevir (YYYY-MM-DD)
+                        if (recordDate && recordDate.includes('T')) {
+                            recordDate = recordDate.split('T')[0];
+                        }
+                        // Date object ise string'e çevir
+                        if (recordDate instanceof Date) {
+                            recordDate = recordDate.toISOString().split('T')[0];
+                        }
+                        if (coaDate instanceof Date) {
+                            coaDate = coaDate.toISOString().split('T')[0];
+                        }
+                        
+                        const supplierMatch = recordSupplier === coaSupplier;
+                        const materialMatch = recordMaterial === coaMaterial;
+                        const dateMatch = recordDate === coaDate;
+                        
+                        return supplierMatch && materialMatch && dateMatch;
                     });
                     
                     if (matchingRecords.length > 0) {
@@ -7418,7 +7433,10 @@
                         });
                         
                         enrichedCount++;
-                        console.log(`✅ ${coa.materialCode} (${coa.supplier}) için ${matchingRecords.length} özellik eklendi`);
+                        console.log(`✅ ${coa.materialCode} (${coa.supplier}) ${coa.deliveryDate} için ${matchingRecords.length} özellik eklendi`);
+                    } else {
+                        // Debug: Neden eşleşmedi?
+                        console.log(`❌ Eşleşme bulunamadı: ${coa.materialCode} (${coa.supplier}) ${coa.deliveryDate}`);
                     }
                 });
                 
