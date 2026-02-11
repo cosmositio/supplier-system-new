@@ -2091,7 +2091,7 @@
                 try {
                     templatePropertyNames = JSON.parse(saved);
                     console.log('📋 Template özellik adları yüklendi:', templatePropertyNames.length);
-                    console.log('🆔 DOSYA VERSIYONU: 2026-02-11-03:30 (COA VALUES & STATUS DISPLAY)');
+                    console.log('🆔 DOSYA VERSIYONU: 2026-02-11-03:45 (EXCEL TEMPLATE EXTRACTION IN BULK)');
                 } catch (e) {
                     console.error('❌ Template property names parse hatası:', e);
                 }
@@ -6577,12 +6577,59 @@
                     
                     console.log('✅ Drive yükleme başarılı:', uploadResult);
                     
-                    // 2. ADIM: OCR ve TDS karşılaştırması (sadece image/PDF için)
+                    // 2. ADIM: OCR ve TDS karşılaştırması
                     let ocrProperties = {};
                     const fileExt = fileObj.file.name.split('.').pop().toLowerCase();
                     const isImageOrPDF = ['pdf', 'jpg', 'jpeg', 'png', 'gif'].includes(fileExt);
+                    const isExcelOrOffice = ['xlsx', 'xls', 'docx', 'doc'].includes(fileExt);
                     
-                    if (isImageOrPDF && typeof Tesseract !== 'undefined') {
+                    // Excel/Office dosyaları için Template-based Extraction
+                    if (isExcelOrOffice) {
+                        progressTitle.textContent = `📊 Excel/Office COA okunuyor... (${fileNumber}/${bulkFiles.length})`;
+                        console.log('📊 Excel/Office dosyası tespit edildi, template ile değerler çıkarılıyor...');
+                        
+                        try {
+                            // Tedarikçiye göre template bul
+                            const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
+                            const matchedTemplate = templates.find(t => 
+                                (t.supplier && fileObj.supplier && t.supplier.toLowerCase() === fileObj.supplier.toLowerCase()) ||
+                                (t.template && t.template.supplier && fileObj.supplier && t.template.supplier.toLowerCase() === fileObj.supplier.toLowerCase())
+                            );
+                            
+                            if (matchedTemplate) {
+                                console.log('🎨 Template bulundu:', matchedTemplate.supplier);
+                                const actualTemplate = matchedTemplate.template || matchedTemplate;
+                                
+                                // Template ile değerleri çıkar
+                                const extractedProperties = await extractCOAPropertiesWithTemplate(fileData, actualTemplate);
+                                console.log('✅ Template extraction tamamlandı:', Object.keys(extractedProperties).length, 'özellik');
+                                
+                                // TDS ile karşılaştır
+                                if (tdsData[fileObj.materialCode] && tdsData[fileObj.materialCode].properties) {
+                                    console.log('📊 TDS karşılaştırması yapılıyor...');
+                                    const comparisonResults = await compareCOAValuesWithTDS(fileObj.materialCode, extractedProperties);
+                                    
+                                    // ocrProperties formatına çevir (property adı -> değer+durum)
+                                    if (comparisonResults && comparisonResults.properties) {
+                                        Object.entries(comparisonResults.properties).forEach(([propName, propData]) => {
+                                            ocrProperties[propName] = {
+                                                coaValue: propData.value || '',
+                                                status: propData.status || '-'
+                                            };
+                                        });
+                                    }
+                                    
+                                    console.log('✅ TDS karşılaştırma tamamlandı:', Object.keys(ocrProperties).length, 'özellik');
+                                }
+                            } else {
+                                console.log('⚠️ Bu tedarikçi için template bulunamadı:', fileObj.supplier);
+                            }
+                        } catch (extractError) {
+                            console.error('❌ Excel/Office extraction hatası:', extractError);
+                        }
+                    }
+                    // Image/PDF dosyaları için Tesseract OCR
+                    else if (isImageOrPDF && typeof Tesseract !== 'undefined') {
                         progressTitle.textContent = `🔍 OCR yapılıyor... (${fileNumber}/${bulkFiles.length})`;
                         console.log('🔍 OCR başlatılıyor...');
                         
@@ -6668,7 +6715,7 @@
                                 // OCR'dan değer bulundu
                                 return {
                                     ...prop,
-                                    coaValue: ocrProp.value || ocrProp,
+                                    coaValue: ocrProp.coaValue || ocrProp.value || ocrProp,
                                     status: ocrProp.status || 'Uygun'
                                 };
                             }
@@ -6676,17 +6723,17 @@
                             return {
                                 ...prop,
                                 coaValue: '',
-                                status: 'Bekliyor'
+                                status: '-'
                             };
                         });
                     } 
-                    // OCR yoksa ama TDS varsa sadece TDS'i kullan (boş COA değerleriyle ama durum ile)
+                    // OCR yoksa ama TDS varsa sadece TDS'i kullan (boş COA değerleriyle)
                     else if (tdsData[cleanMaterialCode]) {
                         console.log('📊 OCR yok, TDS verileri kullanılıyor');
                         propertiesToSave = tdsData[cleanMaterialCode].properties.map(prop => ({
                             ...prop,
                             coaValue: '',
-                            status: 'Bekliyor'
+                            status: '-'
                         }));
                     }
                     
