@@ -3223,8 +3223,10 @@
                     console.log('Yüklenen kayıt sayısı:', coaData.length);
                     const withFiles = coaData.filter(r => r.fileData).length;
                     const withFileSize = coaData.filter(r => r.fileSize).length;
+                    const withOcrProperties = coaData.filter(r => r.ocrProperties && Object.keys(r.ocrProperties).length > 0).length;
                     console.log('Dosyalı kayıt sayısı:', withFiles);
                     console.log('fileSize bilgisi olan:', withFileSize);
+                    console.log('📊 ocrProperties olan COA sayısı:', withOcrProperties);
                     
                     // İlk kayıttan örnek göster
                     if (coaData.length > 0) {
@@ -3232,7 +3234,9 @@
                             id: coaData[0].id,
                             fileName: coaData[0].fileName,
                             fileSize: coaData[0].fileSize,
-                            hasFileData: !!coaData[0].fileData
+                            hasFileData: !!coaData[0].fileData,
+                            hasOcrProperties: !!coaData[0].ocrProperties,
+                            ocrPropsCount: coaData[0].ocrProperties ? Object.keys(coaData[0].ocrProperties).length : 0
                         });
                     }
                     
@@ -7484,6 +7488,17 @@
                 const fromSheets = coaData.filter(c => c.ocrProperties && Object.keys(c.ocrProperties).length > 0).length - enrichedCount;
                 if (fromSheets > 0) {
                     console.log(`📊 ${fromSheets} COA, Sheets'ten ocrProperties ile geldi`);
+                }
+                
+                // Toplam COA değeri olan kayıt sayısını göster
+                const totalWithValues = coaData.filter(c => c.ocrProperties && Object.keys(c.ocrProperties).length > 0).length;
+                const totalCOAs = coaData.length;
+                
+                if (totalWithValues === 0 && totalCOAs > 0) {
+                    console.warn(`⚠️ Hiçbir COA'da değer yok! ${totalCOAs} COA var ama hepsinde ocrProperties boş`);
+                    console.warn(`💡 Çözüm: Yeni COA ekleyin veya mevcut bir COA'yı düzenleyip tekrar kaydedin`);
+                } else if (totalWithValues > 0) {
+                    console.log(`✅ ${totalWithValues}/${totalCOAs} COA'da değerler mevcut`);
                 }
                 
             } catch (error) {
