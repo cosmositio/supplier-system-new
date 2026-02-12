@@ -10027,6 +10027,25 @@
                         // TÜM virgülleri noktaya çevir (Türkçe ondalık ayırıcısı)
                         coaValue = coaValue.replace(/,/g, '.');
                         
+                        // ÖZEL DURUM: Boşluklu ondalık sayıları düzelt
+                        // Örn: "0 035" → "0.035", "0 35" → "0.35", "1 234" → "1.234"
+                        if (/^\d\s+\d+$/.test(coaValue)) {
+                            const parts = coaValue.split(/\s+/);
+                            const firstPart = parts[0];
+                            const secondPart = parts[1];
+                            
+                            // Eğer ilk rakam 0 ise ondalık sayı olabilir
+                            if (firstPart === '0') {
+                                coaValue = '0.' + secondPart;
+                                console.log(`  🔧 Boşluklu ondalık düzeltildi: "${coaValue.replace('.', ' ')}" → "${coaValue}"`);
+                            }
+                            // Diğer durumlarda da nokta ekle (örn: "1 234" → "1.234")
+                            else {
+                                coaValue = firstPart + '.' + secondPart;
+                                console.log(`  🔧 Boşluklu sayı düzeltildi: "${firstPart} ${secondPart}" → "${coaValue}"`);
+                            }
+                        }
+                        
                         // ÖZEL DURUM: Thermal conductivity için 0 ile başlayan ondalık sayıları koru
                         // Örn: "0.035" veya "0. 035" gibi değerler
                         if (prop.name && prop.name.toLowerCase().includes('thermal') || 
@@ -12666,9 +12685,10 @@
                                 <tr style="background: #667eea; color: white;">
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 40px;">#</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Özellik Adı</th>
-                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 120px;">TDS Değeri</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 140px;">TDS Limit</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 140px;">Requirement</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 120px;">COA Değeri</th>
-                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 100px;">Birim</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 80px;">Birim</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 100px;">Durum</th>
                                 </tr>
                             </thead>
@@ -12689,11 +12709,24 @@
                         statusBadge = '<span style="background: #6c757d; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em;">-</span>';
                     }
                     
+                    // TDS Limit formatla (Alt - Üst)
+                    let tdsLimitDisplay = '-';
+                    if (prop.lowerLimit && prop.upperLimit) {
+                        tdsLimitDisplay = `${prop.lowerLimit} - ${prop.upperLimit}`;
+                    } else if (prop.lowerLimit) {
+                        tdsLimitDisplay = `≥ ${prop.lowerLimit}`;
+                    } else if (prop.upperLimit) {
+                        tdsLimitDisplay = `≤ ${prop.upperLimit}`;
+                    } else if (prop.standardValue) {
+                        tdsLimitDisplay = prop.standardValue;
+                    }
+                    
                     tableHTML += `
                         <tr style="background: ${index % 2 === 0 ? 'white' : '#f9f9f9'};">
                             <td style="padding: 10px; border: 1px solid #ddd;">${index + 1}</td>
                             <td style="padding: 10px; border: 1px solid #ddd; font-weight: 600;">${propName}</td>
-                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${prop.tdsValue || '-'}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center; color: #0066cc;">${tdsLimitDisplay}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center; color: #ff6600;">${prop.requirement || '-'}</td>
                             <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold; color: #667eea;">${prop.coaValue || '-'}</td>
                             <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${prop.unit || '-'}</td>
                             <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${statusBadge}</td>
