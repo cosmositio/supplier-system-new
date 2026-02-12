@@ -6671,10 +6671,36 @@
                                     
                                     // ocrProperties formatına çevir (property adı -> değer+durum)
                                     if (comparisonResults && comparisonResults.properties) {
+                                        const tdsProperties = tdsData[fileObj.materialCode].properties;
+                                        
                                         Object.entries(comparisonResults.properties).forEach(([propName, propData]) => {
+                                            // TDS'ten property bilgilerini bul
+                                            const tdsProp = tdsProperties.find(p => 
+                                                p.name && p.name.toLowerCase() === propName.toLowerCase()
+                                            );
+                                            
+                                            // TDS değerini formatla
+                                            let tdsValue = '';
+                                            if (tdsProp) {
+                                                if (tdsProp.lowerLimit && tdsProp.upperLimit) {
+                                                    tdsValue = `${tdsProp.lowerLimit} - ${tdsProp.upperLimit}`;
+                                                } else if (tdsProp.lowerLimit) {
+                                                    tdsValue = `≥ ${tdsProp.lowerLimit}`;
+                                                } else if (tdsProp.upperLimit) {
+                                                    tdsValue = `≤ ${tdsProp.upperLimit}`;
+                                                } else if (tdsProp.standardValue) {
+                                                    tdsValue = tdsProp.standardValue;
+                                                } else if (tdsProp.requirement) {
+                                                    tdsValue = tdsProp.requirement;
+                                                }
+                                            }
+                                            
                                             ocrProperties[propName] = {
+                                                tdsValue: tdsValue,
                                                 coaValue: propData.value || '',
-                                                status: propData.status || '-'
+                                                unit: tdsProp?.unit || '',
+                                                status: propData.status || '-',
+                                                method: tdsProp?.standard || ''
                                             };
                                         });
                                     }
@@ -6683,10 +6709,30 @@
                                 } else {
                                     // TDS yoksa direkt extracted properties'i kullan
                                     console.log('⚠️ TDS yok, sadece extraction sonuçları kaydediliyor');
+                                    
+                                    // TDS olmadan da tick/pass kontrolü yap
                                     Object.entries(extractedProperties).forEach(([propName, propValue]) => {
+                                        const cleanedValue = (propValue || '').toString().trim();
+                                        
+                                        // Tick işareti veya pass/fail kontrolü
+                                        const hasTickMark = /[✓✔√]/u.test(cleanedValue) || 
+                                                           /\b(pass|ok|uygun|geçti|başarılı|conform)\b/i.test(cleanedValue);
+                                        const hasFailMark = /[✗✘×]/u.test(cleanedValue) || 
+                                                            /\b(fail|not ok|uygun değil|geçmedi|başarısız|non-conform)\b/i.test(cleanedValue);
+                                        
+                                        let status = '-';
+                                        if (hasTickMark) {
+                                            status = 'Uygun';
+                                        } else if (hasFailMark) {
+                                            status = 'Uygun Değil';
+                                        }
+                                        
                                         ocrProperties[propName] = {
-                                            coaValue: propValue || '',
-                                            status: '-' // TDS olmadığı için durum bilinmiyor
+                                            tdsValue: '',
+                                            coaValue: cleanedValue,
+                                            unit: '',
+                                            status: status,
+                                            method: ''
                                         };
                                     });
                                     console.log('✅ Extraction sonuçları kaydedildi:', Object.keys(ocrProperties).length, 'özellik');
@@ -12548,8 +12594,14 @@
                 
                 // Özellikleri tablo olarak göster
                 const properties = Object.entries(coa.ocrProperties);
-                const passCount = properties.filter(([_, p]) => p.status === 'pass' || p.status === 'uygun').length;
-                const failCount = properties.filter(([_, p]) => p.status === 'fail' || p.status === 'uygun değil').length;
+                const passCount = properties.filter(([_, p]) => {
+                    const statusLower = (p.status || '').toLowerCase();
+                    return statusLower === 'pass' || statusLower === 'uygun';
+                }).length;
+                const failCount = properties.filter(([_, p]) => {
+                    const statusLower = (p.status || '').toLowerCase();
+                    return statusLower === 'fail' || statusLower.includes('uygun değil');
+                }).length;
                 const unknownCount = properties.length - passCount - failCount;
                 
                 let statsHTML = `
@@ -12599,9 +12651,11 @@
                     let statusBadge = '-';
                     let statusColor = '#6c757d';
                     
-                    if (prop.status === 'pass' || prop.status === 'uygun') {
+                    const statusLower = (prop.status || '').toLowerCase();
+                    
+                    if (statusLower === 'pass' || statusLower === 'uygun') {
                         statusBadge = '<span style="background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em;">✅ Uygun</span>';
-                    } else if (prop.status === 'fail' || prop.status === 'uygun değil') {
+                    } else if (statusLower === 'fail' || statusLower === 'uygun değil' || statusLower.includes('uygun değil')) {
                         statusBadge = '<span style="background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em;">❌ Uygun Değil</span>';
                     } else {
                         statusBadge = '<span style="background: #6c757d; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em;">-</span>';
