@@ -6929,7 +6929,7 @@
                     const value = match[1].trim();
                     properties[prop.name] = {
                         value: value,
-                        status: 'Uygun', // Basit durum, gerçek karşılaştırma yapılabilir
+                        status: 'uygun', // Basit durum, gerçek karşılaştırma yapılabilir
                         reason: 'OCR ile okundu'
                     };
                 }
@@ -10873,7 +10873,7 @@
                     console.log(`✅ ${propertyName}: Tick işareti bulundu -> UYGUN`);
                     comparisonResults.properties[propertyName] = {
                         value: cleanedCoaValue,
-                        status: 'Uygun',
+                        status: 'uygun',
                         reason: 'Tick mark detected',
                         tdsValue: tdsValueDisplay,
                         ...tdsInfo
@@ -10887,7 +10887,7 @@
                     console.log(`❌ ${propertyName}: Fail işareti bulundu -> UYGUN DEĞİL`);
                     comparisonResults.properties[propertyName] = {
                         value: cleanedCoaValue,
-                        status: 'Uygun Değil',
+                        status: 'uygun değil',
                         reason: 'Fail mark detected',
                         tdsValue: tdsValueDisplay,
                         ...tdsInfo
@@ -10936,7 +10936,7 @@
                             console.log(`✅ ${propertyName}: ${lowerValue}-${upperValue} TDS limitleri içinde (${tdsLowerLimit}-${tdsUpperLimit}) -> UYGUN`);
                             comparisonResults.properties[propertyName] = {
                                 value: cleanedCoaValue,
-                                status: 'Uygun',
+                                status: 'uygun',
                                 reason: `Range ${lowerValue}-${upperValue} within TDS limits ${tdsLowerLimit}-${tdsUpperLimit}`,
                                 tdsValue: tdsValueDisplay,
                                 ...tdsInfo
@@ -10946,7 +10946,7 @@
                             console.log(`❌ ${propertyName}: ${lowerValue}-${upperValue} TDS limitleri dışında (${tdsLowerLimit}-${tdsUpperLimit}) -> UYGUN DEĞİL`);
                             comparisonResults.properties[propertyName] = {
                                 value: cleanedCoaValue,
-                                status: 'Uygun Değil',
+                                status: 'uygun değil',
                                 reason: `Range ${lowerValue}-${upperValue} outside TDS limits ${tdsLowerLimit}-${tdsUpperLimit}`,
                                 tdsValue: tdsValueDisplay,
                                 ...tdsInfo
@@ -10972,7 +10972,7 @@
                                 console.log(`✅ ${propertyName}: "${cleanedCoaValue}" requirement ile eşleşti -> UYGUN`);
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
-                                    status: 'Uygun',
+                                    status: 'uygun',
                                     reason: `Range matches requirement: ${tdsProp.requirement}`,
                                     tdsValue: tdsValueDisplay,
                                     ...tdsInfo
@@ -10982,7 +10982,7 @@
                                 console.log(`❌ ${propertyName}: "${cleanedCoaValue}" requirement ile eşleşmedi -> UYGUN DEĞİL`);
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
-                                    status: 'Uygun Değil',
+                                    status: 'uygun değil',
                                     reason: `Range doesn't match requirement: ${tdsProp.requirement}`,
                                     tdsValue: tdsValueDisplay,
                                     ...tdsInfo
@@ -11047,7 +11047,7 @@
                                 console.log(`✅ ${propertyName}: ${numValue} TDS limitleri içinde -> UYGUN`);
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
-                                    status: 'Uygun',
+                                    status: 'uygun',
                                     reason: `Value ${numValue} within TDS limits`,
                                     tdsValue: tdsValueDisplay,
                                     ...tdsInfo
@@ -11057,7 +11057,7 @@
                                 console.log(`❌ ${propertyName}: ${numValue} TDS limitleri dışında -> UYGUN DEĞİL`);
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
-                                    status: 'Uygun Değil',
+                                    status: 'uygun değil',
                                     reason: `Value ${numValue} outside TDS limits`,
                                     tdsValue: tdsValueDisplay,
                                     ...tdsInfo
@@ -11083,7 +11083,7 @@
                                     console.log(`✅ ${propertyName}: "${cleanedCoaValue}" requirement ile eşleşti -> UYGUN`);
                                     comparisonResults.properties[propertyName] = {
                                         value: cleanedCoaValue,
-                                        status: 'Uygun',
+                                        status: 'uygun',
                                         reason: `Value matches requirement: ${tdsProp.requirement}`,
                                         tdsValue: tdsValueDisplay,
                                         ...tdsInfo
@@ -11093,7 +11093,7 @@
                                     console.log(`❌ ${propertyName}: "${cleanedCoaValue}" requirement ile eşleşmedi -> UYGUN DEĞİL`);
                                     comparisonResults.properties[propertyName] = {
                                         value: cleanedCoaValue,
-                                        status: 'Uygun Değil',
+                                        status: 'uygun değil',
                                         reason: `Value doesn't match requirement: ${tdsProp.requirement}`,
                                         tdsValue: tdsValueDisplay,
                                         ...tdsInfo
@@ -11133,7 +11133,7 @@
                                 console.log(`✅ ${propertyName}: "${cleanedCoaValue}" requirement ile eşleşti -> UYGUN`);
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
-                                    status: 'Uygun',
+                                    status: 'uygun',
                                     reason: `Text matches requirement: ${tdsProp.requirement}`,
                                     tdsValue: tdsValueDisplay,
                                     ...tdsInfo
@@ -11143,7 +11143,7 @@
                                 console.log(`❌ ${propertyName}: "${cleanedCoaValue}" requirement ile eşleşmedi -> UYGUN DEĞİL`);
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
-                                    status: 'Uygun Değil',
+                                    status: 'uygun değil',
                                     reason: `Text doesn't match requirement: ${tdsProp.requirement}`,
                                     tdsValue: tdsValueDisplay,
                                     ...tdsInfo
