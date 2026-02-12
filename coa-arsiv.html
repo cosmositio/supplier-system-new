@@ -7394,7 +7394,7 @@
                         return;
                     }
                     
-                    // Bu COA'ya ait kayıtları bul (tedarikçi, hammadde kodu ve tarih eşleşmesi)
+                    // Bu COA'ya ait kayıtları bul (tedarikçi ve hammadde kodu - tarih OPSIYONEL)
                     const matchingRecords = allCOARecords.filter(record => {
                         const recordSupplier = (record.supplier || '').trim().toLowerCase();
                         const coaSupplier = (coa.supplier || '').trim().toLowerCase();
@@ -7402,27 +7402,11 @@
                         const recordMaterial = (record.materialCode || '').trim().toLowerCase();
                         const coaMaterial = (coa.materialCode || '').trim().toLowerCase();
                         
-                        // Tarihleri normalize et - sadece YYYY-MM-DD kısmını karşılaştır
-                        let recordDate = record.date || '';
-                        let coaDate = coa.deliveryDate || '';
-                        
-                        // ISO datetime'ı basit tarihe çevir (YYYY-MM-DD)
-                        if (typeof recordDate === 'string' && recordDate.includes('T')) {
-                            recordDate = recordDate.split('T')[0];
-                        }
-                        // Date object ise string'e çevir
-                        if (recordDate instanceof Date) {
-                            recordDate = recordDate.toISOString().split('T')[0];
-                        }
-                        if (coaDate instanceof Date) {
-                            coaDate = coaDate.toISOString().split('T')[0];
-                        }
-                        
                         const supplierMatch = recordSupplier === coaSupplier;
                         const materialMatch = recordMaterial === coaMaterial;
-                        const dateMatch = recordDate === coaDate;
                         
-                        return supplierMatch && materialMatch && dateMatch;
+                        // SADECE tedarikçi ve hammadde eşleşsin, tarih kontrolü kaldırıldı
+                        return supplierMatch && materialMatch;
                     });
                     
                     if (matchingRecords.length > 0) {
@@ -7442,45 +7426,28 @@
                                 tdsValue = `≤ ${record.maxLimit}`;
                             }
                             
+                            // Status kontrolü: pass/fail veya uygun/değil
+                            let displayStatus = 'pass';
+                            const statusLower = (record.status || '').toLowerCase();
+                            if (statusLower.includes('uygun değil') || statusLower.includes('fail')) {
+                                displayStatus = 'fail';
+                            }
+                            
                             coa.ocrProperties[propName] = {
                                 tdsValue: tdsValue,
                                 coaValue: record.coaValue || '',
                                 unit: record.unit || '',
-                                status: record.status || '',
-                                compliance: record.status || '', // status ve compliance aynı
-                                method: record.standard || '' // test metodu
+                                status: displayStatus,
+                                compliance: displayStatus,
+                                method: record.standard || ''
                             };
                         });
                         
                         enrichedCount++;
-                        console.log(`✅ ${coa.materialCode} (${coa.supplier}) ${coa.deliveryDate} için ${matchingRecords.length} özellik eklendi`);
-                    } else if (enrichedCount < 5) {
-                        // İlk 5 eşleşmeyen kayıt için debug göster
-                        const sampleRecord = allCOARecords.find(r => 
-                            (r.materialCode || '').trim().toLowerCase() === (coa.materialCode || '').trim().toLowerCase() &&
-                            (r.supplier || '').trim().toLowerCase() === (coa.supplier || '').trim().toLowerCase()
-                        );
-                        
-                        if (sampleRecord) {
-                            let recordDateDebug = sampleRecord.date || '';
-                            if (typeof recordDateDebug === 'string' && recordDateDebug.includes('T')) {
-                                recordDateDebug = recordDateDebug.split('T')[0];
-                            }
-                            if (recordDateDebug instanceof Date) {
-                                recordDateDebug = recordDateDebug.toISOString().split('T')[0];
-                            }
-                            
-                            let coaDateDebug = coa.deliveryDate || '';
-                            if (coaDateDebug instanceof Date) {
-                                coaDateDebug = coaDateDebug.toISOString().split('T')[0];
-                            }
-                            
-                            console.log(`❌ Eşleşme bulunamadı: ${coa.materialCode} (${coa.supplier})`, {
-                                'COA Tarihi': coaDateDebug,
-                                'Record Tarihi': recordDateDebug,
-                                'Tarih Eşleşmesi': recordDateDebug === coaDateDebug
-                            });
-                        }
+                        console.log(`✅ ${coa.materialCode} (${coa.supplier}) için ${matchingRecords.length} özellik eklendi`);
+                    } else if (enrichedCount < 3) {
+                        // İlk 3 eşleşmeyen kayıt için debug göster
+                        console.log(`⚠️ ${coa.materialCode} (${coa.supplier}) - COA_Records'ta veri yok`);
                     }
                 });
                 
