@@ -5943,8 +5943,23 @@
             
             // OCR'dan transfer edilen verileri ekle (varsa)
             if (window.pendingOCRData && window.pendingOCRData.properties) {
-                record.ocrProperties = window.pendingOCRData.properties;
-                console.log('📊 OCR verileri COA kaydına eklendi:', record.ocrProperties.length, 'özellik');
+                // Array'i Object'e çevir: [{name, coaValue}, ...] -> {name: {coaValue, status}, ...}
+                const ocrPropsObject = {};
+                window.pendingOCRData.properties.forEach(prop => {
+                    ocrPropsObject[prop.name] = {
+                        tdsValue: prop.tdsValue || '',
+                        coaValue: prop.coaValue || '',
+                        unit: prop.unit || '',
+                        status: prop.coaCompliance || prop.status || '-',
+                        method: prop.standard || '',
+                        lowerLimit: prop.lowerLimit || '',
+                        upperLimit: prop.upperLimit || '',
+                        standardValue: prop.standardValue || '',
+                        requirement: prop.requirement || ''
+                    };
+                });
+                record.ocrProperties = ocrPropsObject;
+                console.log('📊 OCR verileri COA kaydına eklendi (Object formatında):', Object.keys(ocrPropsObject).length, 'özellik');
             }
             
             // OCR zaten fotoğraf çekilirken yapıldı (startOCRAnalysis), tekrar yapmaya gerek yok
@@ -5969,6 +5984,7 @@
                     // OCR'dan gelen veriler varsa onları kullan, yoksa TDS'i kullan
                     let propertiesToSave = null;
                     if (window.pendingOCRData && window.pendingOCRData.properties) {
+                        // Array formatında zaten
                         propertiesToSave = window.pendingOCRData.properties;
                         console.log('📊 COA_Records için OCR verileri kullanılıyor:', propertiesToSave.length, 'özellik');
                     } else if (tdsData[cleanMaterialCode]) {
@@ -6713,7 +6729,11 @@
                                             coaValue: cleanedValue,
                                             unit: '',
                                             status: status,
-                                            method: ''
+                                            method: '',
+                                            lowerLimit: '',
+                                            upperLimit: '',
+                                            standardValue: '',
+                                            requirement: ''
                                         };
                                     });
                                     console.log('✅ Extraction sonuçları kaydedildi:', Object.keys(ocrProperties).length, 'özellik');
@@ -7436,14 +7456,30 @@
                         matchingRecords.forEach(record => {
                             const propName = record.propertyName || 'Unknown';
                             
+                            // Değerleri temizle ve boşluk normalization yap
+                            const cleanValue = (val) => {
+                                if (!val) return '';
+                                let cleaned = String(val).trim();
+                                // Boşluklu ondalık: "0 035" → "0.035"
+                                if (/^\d\s+\d+$/.test(cleaned)) {
+                                    const parts = cleaned.split(/\s+/);
+                                    cleaned = parts[0] === '0' ? '0.' + parts[1] : parts[0] + '.' + parts[1];
+                                }
+                                return cleaned;
+                            };
+                            
                             // TDS değeri: standardValue, minLimit-maxLimit formatında olabilir
-                            let tdsValue = record.standardValue || '';
-                            if (record.minLimit && record.maxLimit) {
-                                tdsValue = `${record.minLimit} - ${record.maxLimit}`;
-                            } else if (record.minLimit) {
-                                tdsValue = `≥ ${record.minLimit}`;
-                            } else if (record.maxLimit) {
-                                tdsValue = `≤ ${record.maxLimit}`;
+                            const cleanStdValue = cleanValue(record.standardValue);
+                            const cleanMinLimit = cleanValue(record.minLimit);
+                            const cleanMaxLimit = cleanValue(record.maxLimit);
+                            
+                            let tdsValue = cleanStdValue;
+                            if (cleanMinLimit && cleanMaxLimit) {
+                                tdsValue = `${cleanMinLimit} - ${cleanMaxLimit}`;
+                            } else if (cleanMinLimit) {
+                                tdsValue = `≥ ${cleanMinLimit}`;
+                            } else if (cleanMaxLimit) {
+                                tdsValue = `≤ ${cleanMaxLimit}`;
                             }
                             
                             // Status kontrolü: pass/fail veya uygun/değil
@@ -7455,14 +7491,14 @@
                             
                             coa.ocrProperties[propName] = {
                                 tdsValue: tdsValue,
-                                coaValue: record.coaValue || '',
+                                coaValue: cleanValue(record.coaValue),
                                 unit: record.unit || '',
                                 status: displayStatus,
                                 compliance: displayStatus,
                                 method: record.standard || '',
-                                lowerLimit: record.minLimit || '',
-                                upperLimit: record.maxLimit || '',
-                                standardValue: record.standardValue || '',
+                                lowerLimit: cleanMinLimit,
+                                upperLimit: cleanMaxLimit,
+                                standardValue: cleanStdValue,
                                 requirement: record.requirement || ''
                             };
                         });
@@ -10118,6 +10154,19 @@
                         // Limit değerlerinde virgül varsa noktaya çevir
                         if (lowerLimit) lowerLimit = String(lowerLimit).replace(/,/g, '.');
                         if (upperLimit) upperLimit = String(upperLimit).replace(/,/g, '.');
+                        
+                        // ÖZEL DURUM: Boşluklu ondalık sayıları düzelt (limitler için de)
+                        // Örn: "0 035" → "0.035"
+                        if (lowerLimit && /^\d\s+\d+$/.test(lowerLimit)) {
+                            const parts = String(lowerLimit).split(/\s+/);
+                            lowerLimit = parts[0] === '0' ? '0.' + parts[1] : parts[0] + '.' + parts[1];
+                            console.log(`  🔧 Lower limit boşluk düzeltildi: "${prop.min}" → "${lowerLimit}"`);
+                        }
+                        if (upperLimit && /^\d\s+\d+$/.test(upperLimit)) {
+                            const parts = String(upperLimit).split(/\s+/);
+                            upperLimit = parts[0] === '0' ? '0.' + parts[1] : parts[0] + '.' + parts[1];
+                            console.log(`  🔧 Upper limit boşluk düzeltildi: "${prop.max}" → "${upperLimit}"`);
+                        }
                         
                         // Eğer property'de yoksa hesapla
                         if (!lowerLimit || !upperLimit) {
