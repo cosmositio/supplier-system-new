@@ -10341,10 +10341,24 @@
                         tdsData[materialCode] = tdsRecord;
                     });
                     localStorage.setItem('tdsData', JSON.stringify(tdsData));
-                    console.log('✅ Google Sheets\'ten', Object.keys(result.data).length, 'TDS yüklendi');
+                    const loadedCount = Object.keys(result.data).length;
+                    console.log('✅ Google Sheets\'ten', loadedCount, 'TDS yüklendi');
+                    
+                    // Kaç hammaddenin kaç özelliği olduğunu say
+                    let totalProperties = 0;
+                    Object.keys(result.data).forEach(materialCode => {
+                        const tds = tdsData[materialCode];
+                        if (tds && tds.properties && Array.isArray(tds.properties)) {
+                            totalProperties += tds.properties.length;
+                        }
+                    });
+                    
+                    // Kullanıcıya bildirim göster
+                    showToast(`☁️ ${loadedCount} hammadde için ${totalProperties} özellik buluttan yüklendi`, 'success', 4000);
                     return true;
                 } else {
                     console.log('⚠️ Sheets\'te TDS verisi yok');
+                    showToast('⚠️ Bulutta TDS verisi bulunamadı', 'warning', 3000);
                     return false;
                 }
             } catch(error) {
