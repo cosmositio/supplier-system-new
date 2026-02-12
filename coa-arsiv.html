@@ -3184,6 +3184,18 @@
                 if (data && data.success) {
                     // Kayıtları al (fileData dahil)
                     coaData = (data.data || []).map(record => {
+                        // ocrProperties parse et (JSON string ise)
+                        let ocrProps = null;
+                        if (record.ocrProperties) {
+                            try {
+                                ocrProps = typeof record.ocrProperties === 'string' 
+                                    ? JSON.parse(record.ocrProperties) 
+                                    : record.ocrProperties;
+                            } catch(e) {
+                                console.warn('ocrProperties parse hatası:', e);
+                            }
+                        }
+                        
                         return {
                             id: record.id,
                             supplier: record.supplier,
@@ -3200,6 +3212,7 @@
                             fileData: record.fileData || '',
                             fileSize: record.fileSize || 0,
                             driveFileId: record.driveFileId || '',
+                            ocrProperties: ocrProps, // COA değerleri
                             createdAt: record.createdAt || '',
                             updatedAt: record.updatedAt || '',
                             // Eğer fileData boş ama driveFileId varsa, direkt Drive linkini kullan
@@ -3444,6 +3457,7 @@
                     driveFileId: driveFileId,
                     fileData: shouldSkipFileData ? '' : '', // PDF ve çok sayfalılar için boş
                     fileSize: fileSize || record.fileSize || 0, // Dosya boyutu
+                    ocrProperties: record.ocrProperties ? JSON.stringify(record.ocrProperties) : '', // COA değerleri
                     createdAt: record.createdAt || new Date().toISOString()
                 };
                 
@@ -7371,7 +7385,7 @@
                 
                 // Her COA kaydı için ilgili COA_Records verilerini bul ve ekle
                 coaData.forEach(coa => {
-                    // Eğer zaten ocrProperties varsa atla
+                    // Eğer zaten ocrProperties varsa atla (Sheets'ten gelmiş demektir)
                     if (coa.ocrProperties && Object.keys(coa.ocrProperties).length > 0) {
                         return;
                     }
@@ -7466,7 +7480,11 @@
                     }
                 });
                 
-                console.log(`✅ Toplam ${enrichedCount} COA kaydına değerler eklendi`);
+                console.log(`✅ Toplam ${enrichedCount} COA kaydına COA_Records'tan değerler eklendi`);
+                const fromSheets = coaData.filter(c => c.ocrProperties && Object.keys(c.ocrProperties).length > 0).length - enrichedCount;
+                if (fromSheets > 0) {
+                    console.log(`📊 ${fromSheets} COA, Sheets'ten ocrProperties ile geldi`);
+                }
                 
             } catch (error) {
                 console.error('❌ COA_Records yükleme hatası:', error);
