@@ -10750,7 +10750,23 @@
             for (const [propertyName, coaValue] of Object.entries(extractedProperties)) {
                 if (!coaValue || coaValue.trim() === '') continue;
                 
-                const cleanedCoaValue = coaValue.trim();
+                let cleanedCoaValue = coaValue.trim();
+                
+                // COA değerinden birim ve operatör sembolleri parse et
+                let extractedUnit = '';
+                let cleanedNumericValue = cleanedCoaValue;
+                
+                // Önce operatör sembollerini çıkar (≤, ≥, <, >, =)
+                cleanedNumericValue = cleanedNumericValue.replace(/^[≤≥<>=]+\s*/, '');
+                
+                // Boşluk varsa ve sayı + unit formatındaysa unit'i ayır
+                // Örn: "0.035 W/mK" → value: "0.035", unit: "W/mK"
+                const unitMatch = cleanedNumericValue.match(/^([\d.,\s-]+)\s+([a-zA-Z\/°%]+.*)$/);
+                if (unitMatch) {
+                    cleanedNumericValue = unitMatch[1].trim();
+                    extractedUnit = unitMatch[2].trim();
+                    console.log(`  🔧 Unit parse edildi: "${cleanedCoaValue}" → value="${cleanedNumericValue}", unit="${extractedUnit}"`);
+                }
                 
                 // TDS'te bu özelliği bul - Fuzzy matching ile
                 // 1. Tam eşleşme dene
@@ -10824,7 +10840,7 @@
                 
                 // TDS bilgilerini hazırla - boşluk normalization ile
                 const tdsInfo = {
-                    unit: tdsProp.unit || '',
+                    unit: tdsProp.unit || extractedUnit || '',  // TDS unit öncelikli, yoksa COA'dan çıkarılan
                     standard: tdsProp.standard || '',
                     lowerLimit: cleanNumericValue(tdsProp.lowerLimit),
                     upperLimit: cleanNumericValue(tdsProp.upperLimit),
@@ -10881,8 +10897,9 @@
                 }
                 
                 // Sayısal değer kontrolü (range veya tek değer)
+                // cleanedNumericValue zaten operatör ve unit temizlenmiş durumda
                 // Virgülü nokta ile değiştir (Avrupa formatı: 29,8 → 29.8)
-                const normalizedValue = cleanedCoaValue.replace(/,/g, '.');
+                const normalizedValue = cleanedNumericValue.replace(/,/g, '.');
                 const numericPattern = /([0-9]+\.?[0-9]*)\s*[-~]\s*([0-9]+\.?[0-9]*)/;
                 const rangeMatch = normalizedValue.match(numericPattern);
                 
@@ -11008,22 +11025,42 @@
                         }
                         
                         if (!isNaN(tdsLowerLimit) && !isNaN(tdsUpperLimit) && (tdsLowerLimit !== 0 || tdsUpperLimit !== 0)) {
-                            const isInRange = numValue >= tdsLowerLimit && numValue <= tdsUpperLimit;
+                            // Operator kontrolü yap
+                            const operator = tdsProp.operator || 'range';
+                            let isPass = false;
                             
-                            if (isInRange) {
-                                console.log(`✅ ${propertyName}: ${numValue} TDS limitleri içinde (${tdsLowerLimit}-${tdsUpperLimit}) -> UYGUN`);
+                            if (operator === '≤' || operator === '<=') {
+                                // Küçük eşit: sadece upperLimit kontrolü
+                                isPass = numValue <= tdsUpperLimit;
+                                console.log(`📊 ${propertyName}: Operator ≤ | ${numValue} ≤ ${tdsUpperLimit} ? ${isPass}`);
+                            } else if (operator === '≥' || operator === '>=') {
+                                // Büyük eşit: sadece lowerLimit kontrolü
+                                isPass = numValue >= tdsLowerLimit;
+                                console.log(`📊 ${propertyName}: Operator ≥ | ${numValue} ≥ ${tdsLowerLimit} ? ${isPass}`);
+                            } else {
+                                // Range: her iki limit de kontrol
+                                isPass = numValue >= tdsLowerLimit && numValue <= tdsUpperLimit;
+                                console.log(`📊 ${propertyName}: Operator range | ${tdsLowerLimit} ≤ ${numValue} ≤ ${tdsUpperLimit} ? ${isPass}`);
+                            }
+                            
+                            if (isPass) {
+                                console.log(`✅ ${propertyName}: ${numValue} TDS limitleri içinde -> UYGUN`);
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
                                     status: 'Uygun',
-                                    reason: `Value ${numValue} within TDS limits ${tdsLowerLimit}-${tdsUpperLimit}`
+                                    reason: `Value ${numValue} within TDS limits`,
+                                    tdsValue: tdsValueDisplay,
+                                    ...tdsInfo
                                 };
                                 comparisonResults.passed++;
                             } else {
-                                console.log(`❌ ${propertyName}: ${numValue} TDS limitleri dışında (${tdsLowerLimit}-${tdsUpperLimit}) -> UYGUN DEĞİL`);
+                                console.log(`❌ ${propertyName}: ${numValue} TDS limitleri dışında -> UYGUN DEĞİL`);
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
                                     status: 'Uygun Değil',
-                                    reason: `Value ${numValue} outside TDS limits ${tdsLowerLimit}-${tdsUpperLimit}`
+                                    reason: `Value ${numValue} outside TDS limits`,
+                                    tdsValue: tdsValueDisplay,
+                                    ...tdsInfo
                                 };
                                 comparisonResults.failed++;
                             }
