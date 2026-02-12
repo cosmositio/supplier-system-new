@@ -10775,13 +10775,25 @@
                 
                 comparisonResults.matched++;
                 
-                // TDS bilgilerini hazırla
+                // Boşluklu ondalık sayıları düzelt fonksiyonu
+                const cleanNumericValue = (val) => {
+                    if (!val) return val;
+                    let cleaned = String(val).trim();
+                    // "0 035" → "0.035", "1 234" → "1.234"
+                    if (/^\d\s+\d+$/.test(cleaned)) {
+                        const parts = cleaned.split(/\s+/);
+                        cleaned = parts[0] === '0' ? '0.' + parts[1] : parts[0] + '.' + parts[1];
+                    }
+                    return cleaned;
+                };
+                
+                // TDS bilgilerini hazırla - boşluk normalization ile
                 const tdsInfo = {
                     unit: tdsProp.unit || '',
                     standard: tdsProp.standard || '',
-                    lowerLimit: tdsProp.lowerLimit,
-                    upperLimit: tdsProp.upperLimit,
-                    standardValue: tdsProp.standardValue,
+                    lowerLimit: cleanNumericValue(tdsProp.lowerLimit),
+                    upperLimit: cleanNumericValue(tdsProp.upperLimit),
+                    standardValue: cleanNumericValue(tdsProp.standardValue),
                     requirement: tdsProp.requirement
                 };
                 
@@ -11942,9 +11954,14 @@
             if (!currentTDSMaterial || !tdsData[currentTDSMaterial]) return;
             
             if (tdsData[currentTDSMaterial].properties[index]) {
-                // Sayısal alanlarda virgül/nokta dönüşümü yap
-                if (['standardValue', 'lowerTolerance', 'upperTolerance', 'min', 'max'].includes(field)) {
-                    value = String(value).replace(/,/g, '.');
+                // Sayısal alanlarda virgül/nokta dönüşümü ve boşluk normalization
+                if (['standardValue', 'lowerTolerance', 'upperTolerance', 'min', 'max', 'lowerLimit', 'upperLimit'].includes(field)) {
+                    value = String(value).replace(/,/g, '.'); // Virgül → nokta
+                    // Boşluklu ondalık: "0 035" → "0.035", "1 234" → "1.234"
+                    if (/^\d\s+\d+$/.test(value)) {
+                        const parts = value.split(/\s+/);
+                        value = parts[0] === '0' ? '0.' + parts[1] : parts[0] + '.' + parts[1];
+                    }
                 }
                 tdsData[currentTDSMaterial].properties[index][field] = value;
                 // Render çağırmıyoruz - focus kaybını önlemek için
@@ -12027,10 +12044,31 @@
         function saveTDS() {
             if (!currentTDSMaterial) return;
             
+            // Boşluk normalization helper
+            const cleanNumericValue = (val) => {
+                if (!val) return val;
+                let cleaned = String(val).trim();
+                // "0 035" → "0.035", "1 234" → "1.234"
+                if (/^\d\s+\d+$/.test(cleaned)) {
+                    const parts = cleaned.split(/\s+/);
+                    cleaned = parts[0] === '0' ? '0.' + parts[1] : parts[0] + '.' + parts[1];
+                }
+                return cleaned;
+            };
+            
             // Alt/Üst limitleri hesapla ve property'lere ekle
             const tds = tdsData[currentTDSMaterial];
             if (tds && tds.properties) {
                 tds.properties.forEach(prop => {
+                    // Önce boşluk normalization uygula
+                    prop.standardValue = cleanNumericValue(prop.standardValue);
+                    prop.lowerTolerance = cleanNumericValue(prop.lowerTolerance);
+                    prop.upperTolerance = cleanNumericValue(prop.upperTolerance);
+                    prop.lowerLimit = cleanNumericValue(prop.lowerLimit);
+                    prop.upperLimit = cleanNumericValue(prop.upperLimit);
+                    prop.min = cleanNumericValue(prop.min);
+                    prop.max = cleanNumericValue(prop.max);
+                    
                     // Tüm sayısal değerlerde virgül/nokta dönüşümü yap
                     const stdValue = parseFloat(String(prop.standardValue || 0).replace(/,/g, '.'));
                     const lowerTol = parseFloat(String(prop.lowerTolerance || 0).replace(/,/g, '.'));
