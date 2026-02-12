@@ -1000,6 +1000,15 @@ function getAllCOA() {
             value = `${year}-${month}-${day}`;
           }
           
+          // ocrProperties JSON string'se parse et
+          if (headers[j] === 'ocrProperties' && value && typeof value === 'string') {
+            try {
+              value = JSON.parse(value);
+            } catch(e) {
+              Logger.log('⚠️ ocrProperties parse hatası: ' + e.toString());
+            }
+          }
+          
           // fileData dahil tüm alanları al
           record[headers[j]] = value;
         }
@@ -1038,6 +1047,15 @@ function getCOA(id) {
             const month = String(value.getMonth() + 1).padStart(2, '0');
             const day = String(value.getDate()).padStart(2, '0');
             value = `${year}-${month}-${day}`;
+          }
+          
+          // ocrProperties JSON string'se parse et
+          if (headers[j] === 'ocrProperties' && value && typeof value === 'string') {
+            try {
+              value = JSON.parse(value);
+            } catch(e) {
+              Logger.log('⚠️ ocrProperties parse hatası: ' + e.toString());
+            }
           }
           
           // fileData dahil tüm alanları al
@@ -1101,6 +1119,15 @@ function searchCOA(query, field) {
               value = `${year}-${month}-${day}`;
             }
             
+            // ocrProperties JSON string'se parse et
+            if (headers[j] === 'ocrProperties' && value && typeof value === 'string') {
+              try {
+                value = JSON.parse(value);
+              } catch(e) {
+                Logger.log('⚠️ ocrProperties parse hatası: ' + e.toString());
+              }
+            }
+            
             record[headers[j]] = value;
           }
         }
@@ -1158,6 +1185,11 @@ function addCOA(record) {
     if (!record.fileSize && record.fileData) {
       const base64Content = record.fileData.includes(',') ? record.fileData.split(',')[1] : record.fileData;
       record.fileSize = Math.ceil(base64Content.length * 0.75); // Base64'ten gerçek boyut
+    }
+    
+    // ocrProperties varsa JSON string'e çevir
+    if (record.ocrProperties && typeof record.ocrProperties === 'object') {
+      record.ocrProperties = JSON.stringify(record.ocrProperties);
     }
     
     // fileData'yı Sheet'e kaydet (sıkıştırılmış halde geldi)
@@ -1282,6 +1314,11 @@ function updateCOA(id, newData) {
         if (newData.hasOwnProperty('fileData') && newData.fileData && !newData.fileSize) {
           const base64Content = newData.fileData.includes(',') ? newData.fileData.split(',')[1] : newData.fileData;
           newData.fileSize = Math.ceil(base64Content.length * 0.75);
+        }
+        
+        // ocrProperties varsa JSON string'e çevir
+        if (newData.ocrProperties && typeof newData.ocrProperties === 'object') {
+          newData.ocrProperties = JSON.stringify(newData.ocrProperties);
         }
         
         // Mevcut veriyi güncelle
