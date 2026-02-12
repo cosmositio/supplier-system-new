@@ -6677,7 +6677,11 @@
                                                 coaValue: propData.value || '',
                                                 unit: propData.unit || '',
                                                 status: propData.status || '-',
-                                                method: propData.standard || ''
+                                                method: propData.standard || '',
+                                                lowerLimit: propData.lowerLimit || '',
+                                                upperLimit: propData.upperLimit || '',
+                                                standardValue: propData.standardValue || '',
+                                                requirement: propData.requirement || ''
                                             };
                                         });
                                     }
@@ -7455,7 +7459,11 @@
                                 unit: record.unit || '',
                                 status: displayStatus,
                                 compliance: displayStatus,
-                                method: record.standard || ''
+                                method: record.standard || '',
+                                lowerLimit: record.minLimit || '',
+                                upperLimit: record.maxLimit || '',
+                                standardValue: record.standardValue || '',
+                                requirement: record.requirement || ''
                             };
                         });
                         
