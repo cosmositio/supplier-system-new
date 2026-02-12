@@ -6608,11 +6608,12 @@
                     const fileExt = fileObj.file.name.split('.').pop().toLowerCase();
                     const isImageOrPDF = ['pdf', 'jpg', 'jpeg', 'png', 'gif'].includes(fileExt);
                     const isExcelOrOffice = ['xlsx', 'xls', 'docx', 'doc'].includes(fileExt);
+                    const isTemplateCompatible = ['pdf', 'xlsx', 'xls', 'docx', 'doc', 'jpg', 'jpeg', 'png'].includes(fileExt);
                     
-                    // Excel/Office dosyaları için Template-based Extraction
-                    if (isExcelOrOffice) {
-                        progressTitle.textContent = `📊 Excel/Office COA okunuyor... (${fileNumber}/${bulkFiles.length})`;
-                        console.log('📊 Excel/Office dosyası tespit edildi, template ile değerler çıkarılıyor...');
+                    // Template-based Extraction (PDF, Excel, Office, Image)
+                    if (isTemplateCompatible) {
+                        progressTitle.textContent = `📊 Template ile COA okunuyor... (${fileNumber}/${bulkFiles.length})`;
+                        console.log('📊 Template ile değerler çıkarılıyor...');
                         
                         try {
                             // Tedarikçiye göre template bul - Fuzzy matching ile
@@ -6679,44 +6680,23 @@
                                     }
                                     
                                     console.log('✅ TDS karşılaştırma ve kayıt tamamlandı:', Object.keys(ocrProperties).length, 'özellik');
+                                } else {
+                                    // TDS yoksa direkt extracted properties'i kullan
+                                    console.log('⚠️ TDS yok, sadece extraction sonuçları kaydediliyor');
+                                    Object.entries(extractedProperties).forEach(([propName, propValue]) => {
+                                        ocrProperties[propName] = {
+                                            coaValue: propValue || '',
+                                            status: '-' // TDS olmadığı için durum bilinmiyor
+                                        };
+                                    });
+                                    console.log('✅ Extraction sonuçları kaydedildi:', Object.keys(ocrProperties).length, 'özellik');
                                 }
                             } else {
                                 console.log('⚠️ Bu tedarikçi için template bulunamadı:', fileObj.supplier);
+                                showToast('⚠️ Template yok, COA değerleri manuel girilmeli', 'warning', 3000);
                             }
                         } catch (extractError) {
-                            console.error('❌ Excel/Office extraction hatası:', extractError);
-                        }
-                    }
-                    // Image/PDF dosyaları için Tesseract OCR
-                    else if (isImageOrPDF && typeof Tesseract !== 'undefined') {
-                        progressTitle.textContent = `🔍 OCR yapılıyor... (${fileNumber}/${bulkFiles.length})`;
-                        console.log('🔍 OCR başlatılıyor...');
-                        
-                        try {
-                            const result = await Tesseract.recognize(
-                                fileData,
-                                'eng',
-                                {
-                                    logger: m => {
-                                        if (m.status === 'recognizing text') {
-                                            const ocrProgress = Math.round(m.progress * 100);
-                                            progressTitle.textContent = `🔍 OCR ${ocrProgress}% (${fileNumber}/${bulkFiles.length})`;
-                                        }
-                                    }
-                                }
-                            );
-                            
-                            const ocrText = result.data.text;
-                            console.log('✅ OCR tamamlandı, metin uzunluğu:', ocrText.length);
-                            
-                            // TDS ile karşılaştır
-                            if (tdsData[fileObj.materialCode] && tdsData[fileObj.materialCode].properties) {
-                                console.log('📊 TDS karşılaştırması yapılıyor...');
-                                ocrProperties = await matchOCRTextWithTDS(ocrText, fileObj.materialCode);
-                                console.log('✅ TDS eşleşme:', Object.keys(ocrProperties).length, 'özellik');
-                            }
-                        } catch (ocrError) {
-                            console.error('❌ OCR hatası:', ocrError);
+                            console.error('❌ Template extraction hatası:', extractError);
                         }
                     }
                     
@@ -6786,6 +6766,19 @@
                             };
                         });
                     } 
+                    // TDS yok AMA OCR var -> direkt OCR sonuçlarını kaydet
+                    else if (Object.keys(ocrProperties).length > 0) {
+                        console.log('📊 TDS yok, sadece OCR verileri kaydediliyor...');
+                        propertiesToSave = Object.entries(ocrProperties).map(([propName, propData]) => ({
+                            name: propName,
+                            coaValue: propData.coaValue || propData.value || propData,
+                            status: propData.status || '-',
+                            unit: '',
+                            testStandard: '',
+                            min: '',
+                            max: ''
+                        }));
+                    }
                     // OCR yoksa ama TDS varsa sadece TDS'i kullan (boş COA değerleriyle)
                     else if (tdsData[cleanMaterialCode]) {
                         console.log('📊 OCR yok, TDS verileri kullanılıyor');
