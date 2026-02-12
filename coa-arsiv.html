@@ -6671,36 +6671,13 @@
                                     
                                     // ocrProperties formatına çevir (property adı -> değer+durum)
                                     if (comparisonResults && comparisonResults.properties) {
-                                        const tdsProperties = tdsData[fileObj.materialCode].properties;
-                                        
                                         Object.entries(comparisonResults.properties).forEach(([propName, propData]) => {
-                                            // TDS'ten property bilgilerini bul
-                                            const tdsProp = tdsProperties.find(p => 
-                                                p.name && p.name.toLowerCase() === propName.toLowerCase()
-                                            );
-                                            
-                                            // TDS değerini formatla
-                                            let tdsValue = '';
-                                            if (tdsProp) {
-                                                if (tdsProp.lowerLimit && tdsProp.upperLimit) {
-                                                    tdsValue = `${tdsProp.lowerLimit} - ${tdsProp.upperLimit}`;
-                                                } else if (tdsProp.lowerLimit) {
-                                                    tdsValue = `≥ ${tdsProp.lowerLimit}`;
-                                                } else if (tdsProp.upperLimit) {
-                                                    tdsValue = `≤ ${tdsProp.upperLimit}`;
-                                                } else if (tdsProp.standardValue) {
-                                                    tdsValue = tdsProp.standardValue;
-                                                } else if (tdsProp.requirement) {
-                                                    tdsValue = tdsProp.requirement;
-                                                }
-                                            }
-                                            
                                             ocrProperties[propName] = {
-                                                tdsValue: tdsValue,
+                                                tdsValue: propData.tdsValue || '',
                                                 coaValue: propData.value || '',
-                                                unit: tdsProp?.unit || '',
+                                                unit: propData.unit || '',
                                                 status: propData.status || '-',
-                                                method: tdsProp?.standard || ''
+                                                method: propData.standard || ''
                                             };
                                         });
                                     }
@@ -10722,6 +10699,30 @@
                 
                 comparisonResults.matched++;
                 
+                // TDS bilgilerini hazırla
+                const tdsInfo = {
+                    unit: tdsProp.unit || '',
+                    standard: tdsProp.standard || '',
+                    lowerLimit: tdsProp.lowerLimit,
+                    upperLimit: tdsProp.upperLimit,
+                    standardValue: tdsProp.standardValue,
+                    requirement: tdsProp.requirement
+                };
+                
+                // TDS değerini formatla
+                let tdsValueDisplay = '';
+                if (tdsInfo.lowerLimit && tdsInfo.upperLimit) {
+                    tdsValueDisplay = `${tdsInfo.lowerLimit} - ${tdsInfo.upperLimit}`;
+                } else if (tdsInfo.lowerLimit) {
+                    tdsValueDisplay = `≥ ${tdsInfo.lowerLimit}`;
+                } else if (tdsInfo.upperLimit) {
+                    tdsValueDisplay = `≤ ${tdsInfo.upperLimit}`;
+                } else if (tdsInfo.standardValue) {
+                    tdsValueDisplay = tdsInfo.standardValue;
+                } else if (tdsInfo.requirement) {
+                    tdsValueDisplay = tdsInfo.requirement;
+                }
+                
                 // Tick işareti kontrolü (✓ ✔ √ veya "Pass", "OK", "Uygun" gibi kelimeler)
                 const hasTickMark = /[✓✔√]/u.test(cleanedCoaValue) || 
                                    /\b(pass|ok|uygun|geçti|başarılı|conform)\b/i.test(cleanedCoaValue);
@@ -10734,7 +10735,9 @@
                     comparisonResults.properties[propertyName] = {
                         value: cleanedCoaValue,
                         status: 'Uygun',
-                        reason: 'Tick mark detected'
+                        reason: 'Tick mark detected',
+                        tdsValue: tdsValueDisplay,
+                        ...tdsInfo
                     };
                     comparisonResults.passed++;
                     continue;
@@ -10746,7 +10749,9 @@
                     comparisonResults.properties[propertyName] = {
                         value: cleanedCoaValue,
                         status: 'Uygun Değil',
-                        reason: 'Fail mark detected'
+                        reason: 'Fail mark detected',
+                        tdsValue: tdsValueDisplay,
+                        ...tdsInfo
                     };
                     comparisonResults.failed++;
                     continue;
@@ -10792,7 +10797,9 @@
                             comparisonResults.properties[propertyName] = {
                                 value: cleanedCoaValue,
                                 status: 'Uygun',
-                                reason: `Range ${lowerValue}-${upperValue} within TDS limits ${tdsLowerLimit}-${tdsUpperLimit}`
+                                reason: `Range ${lowerValue}-${upperValue} within TDS limits ${tdsLowerLimit}-${tdsUpperLimit}`,
+                                tdsValue: tdsValueDisplay,
+                                ...tdsInfo
                             };
                             comparisonResults.passed++;
                         } else {
@@ -10800,7 +10807,9 @@
                             comparisonResults.properties[propertyName] = {
                                 value: cleanedCoaValue,
                                 status: 'Uygun Değil',
-                                reason: `Range ${lowerValue}-${upperValue} outside TDS limits ${tdsLowerLimit}-${tdsUpperLimit}`
+                                reason: `Range ${lowerValue}-${upperValue} outside TDS limits ${tdsLowerLimit}-${tdsUpperLimit}`,
+                                tdsValue: tdsValueDisplay,
+                                ...tdsInfo
                             };
                             comparisonResults.failed++;
                         }
@@ -10808,6 +10817,7 @@
                         // TDS limitleri tanımlı değil veya 0-0 - requirement ile karşılaştır
                         if (tdsProp.requirement && tdsProp.requirement.trim() !== '') {
                             const normalizeStr = (str) => String(str)
+                                .replace(/,/g, '.')  // Virgülü nokta yap
                                 .replace(/\s+/g, '')
                                 .replace(/[≤≥<>=]/g, '')
                                 .toLowerCase()
@@ -10823,7 +10833,9 @@
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
                                     status: 'Uygun',
-                                    reason: `Range matches requirement: ${tdsProp.requirement}`
+                                    reason: `Range matches requirement: ${tdsProp.requirement}`,
+                                    tdsValue: tdsValueDisplay,
+                                    ...tdsInfo
                                 };
                                 comparisonResults.passed++;
                             } else {
@@ -10831,7 +10843,9 @@
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
                                     status: 'Uygun Değil',
-                                    reason: `Range doesn't match requirement: ${tdsProp.requirement}`
+                                    reason: `Range doesn't match requirement: ${tdsProp.requirement}`,
+                                    tdsValue: tdsValueDisplay,
+                                    ...tdsInfo
                                 };
                                 comparisonResults.failed++;
                             }
@@ -10894,6 +10908,7 @@
                             // TDS limitleri tanımlı değil veya 0-0 - requirement ile karşılaştır
                             if (tdsProp.requirement && tdsProp.requirement.trim() !== '') {
                                 const normalizeStr = (str) => String(str)
+                                    .replace(/,/g, '.')  // Virgülü nokta yap
                                     .replace(/\s+/g, '')
                                     .replace(/[≤≥<>=]/g, '')
                                     .toLowerCase()
@@ -10909,7 +10924,9 @@
                                     comparisonResults.properties[propertyName] = {
                                         value: cleanedCoaValue,
                                         status: 'Uygun',
-                                        reason: `Value matches requirement: ${tdsProp.requirement}`
+                                        reason: `Value matches requirement: ${tdsProp.requirement}`,
+                                        tdsValue: tdsValueDisplay,
+                                        ...tdsInfo
                                     };
                                     comparisonResults.passed++;
                                 } else {
@@ -10917,7 +10934,9 @@
                                     comparisonResults.properties[propertyName] = {
                                         value: cleanedCoaValue,
                                         status: 'Uygun Değil',
-                                        reason: `Value doesn't match requirement: ${tdsProp.requirement}`
+                                        reason: `Value doesn't match requirement: ${tdsProp.requirement}`,
+                                        tdsValue: tdsValueDisplay,
+                                        ...tdsInfo
                                     };
                                     comparisonResults.failed++;
                                 }
@@ -10926,7 +10945,9 @@
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
                                     status: 'unknown',
-                                    reason: 'TDS limits not defined and no requirement'
+                                    reason: 'TDS limits not defined and no requirement',
+                                    tdsValue: tdsValueDisplay,
+                                    ...tdsInfo
                                 };
                             }
                         }
@@ -10937,6 +10958,7 @@
                         // Eğer requirement tanımlıysa text karşılaştırması yap
                         if (tdsProp.requirement && tdsProp.requirement.trim() !== '') {
                             const normalizeStr = (str) => String(str)
+                                .replace(/,/g, '.')  // Virgülü nokta yap
                                 .replace(/\s+/g, '')
                                 .replace(/[≤≥<>=]/g, '')
                                 .toLowerCase()
@@ -10952,7 +10974,9 @@
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
                                     status: 'Uygun',
-                                    reason: `Text matches requirement: ${tdsProp.requirement}`
+                                    reason: `Text matches requirement: ${tdsProp.requirement}`,
+                                    tdsValue: tdsValueDisplay,
+                                    ...tdsInfo
                                 };
                                 comparisonResults.passed++;
                             } else {
@@ -10960,7 +10984,9 @@
                                 comparisonResults.properties[propertyName] = {
                                     value: cleanedCoaValue,
                                     status: 'Uygun Değil',
-                                    reason: `Text doesn't match requirement: ${tdsProp.requirement}`
+                                    reason: `Text doesn't match requirement: ${tdsProp.requirement}`,
+                                    tdsValue: tdsValueDisplay,
+                                    ...tdsInfo
                                 };
                                 comparisonResults.failed++;
                             }
@@ -10969,7 +10995,9 @@
                             comparisonResults.properties[propertyName] = {
                                 value: cleanedCoaValue,
                                 status: 'unknown',
-                                reason: 'Text value, no requirement defined'
+                                reason: 'Text value, no requirement defined',
+                                tdsValue: tdsValueDisplay,
+                                ...tdsInfo
                             };
                         }
                     }
