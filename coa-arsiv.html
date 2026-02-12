@@ -12856,7 +12856,7 @@
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 140px;">Requirement</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 120px;">COA Değeri</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 80px;">Birim</th>
-                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 100px;">Durum</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 150px;">Durum</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -12869,11 +12869,11 @@
                     const statusLower = (prop.status || '').toLowerCase();
                     
                     if (statusLower === 'pass' || statusLower === 'uygun') {
-                        statusBadge = '<span style="background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em;">✅ Uygun</span>';
+                        statusBadge = '<span style="background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em; white-space: nowrap;">✅ Uygun</span>';
                     } else if (statusLower === 'fail' || statusLower === 'uygun değil' || statusLower.includes('uygun değil')) {
-                        statusBadge = '<span style="background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em;">❌ Uygun Değil</span>';
+                        statusBadge = '<span style="background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em; white-space: nowrap;">❌ Uygun Değil</span>';
                     } else {
-                        statusBadge = '<span style="background: #6c757d; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em;">-</span>';
+                        statusBadge = '<span style="background: #6c757d; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em; white-space: nowrap;">-</span>';
                     }
                     
                     // TDS Limit formatla (Alt - Üst)
