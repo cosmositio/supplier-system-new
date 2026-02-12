@@ -10255,15 +10255,50 @@
                             }
                         }
                         
+                        // ÖNEMLI: min, max, standardValue'yu da Number'a çevir (Sheets'te 0.035 = 35 hatasını önle)
+                        let finalMinNumber = '';
+                        let finalMaxNumber = '';
+                        let finalStdNumber = '';
+                        
+                        if (finalMin && finalMin !== '') {
+                            const minNum = parseFloat(String(finalMin).replace(/,/g, '.'));
+                            if (!isNaN(minNum) && isFinite(minNum)) {
+                                finalMinNumber = minNum;  // Number olarak
+                                console.log(`  🔢 Min limit Number'a çevrildi: "${finalMin}" → ${finalMinNumber}`);
+                            } else {
+                                finalMinNumber = finalMin;  // Parse edilemezse string olarak bırak
+                            }
+                        }
+                        
+                        if (finalMax && finalMax !== '') {
+                            const maxNum = parseFloat(String(finalMax).replace(/,/g, '.'));
+                            if (!isNaN(maxNum) && isFinite(maxNum)) {
+                                finalMaxNumber = maxNum;  // Number olarak
+                                console.log(`  🔢 Max limit Number'a çevrildi: "${finalMax}" → ${finalMaxNumber}`);
+                            } else {
+                                finalMaxNumber = finalMax;  // Parse edilemezse string olarak bırak
+                            }
+                        }
+                        
+                        if (finalStandardValue && finalStandardValue !== '') {
+                            const stdNum = parseFloat(String(finalStandardValue).replace(/,/g, '.'));
+                            if (!isNaN(stdNum) && isFinite(stdNum)) {
+                                finalStdNumber = stdNum;  // Number olarak
+                                console.log(`  🔢 Standard value Number'a çevrildi: "${finalStandardValue}" → ${finalStdNumber}`);
+                            } else {
+                                finalStdNumber = finalStandardValue;  // Parse edilemezse string olarak bırak
+                            }
+                        }
+                        
                         return {
                             name: prop.name,
                             coaValue: finalCoaValue,
                             unit: unit,
                             standard: prop.standard || '',
                             operator: operator,
-                            standardValue: finalStandardValue,
-                            min: finalMin,
-                            max: finalMax,
+                            standardValue: finalStdNumber,
+                            min: finalMinNumber,
+                            max: finalMaxNumber,
                             requirement: sheetRequirement,  // Sheets'e sadece compliance mode'da gönder
                             status: calculatePropertyStatus(coaValue, lowerLimit, upperLimit, operator, prop)
                         };
