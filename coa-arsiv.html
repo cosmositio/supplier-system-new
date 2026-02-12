@@ -7404,18 +7404,6 @@
                         const materialMatch = recordMaterial === coaMaterial;
                         const dateMatch = recordDate === coaDate;
                         
-                        // İlk kayıt için detaylı debug
-                        if (enrichedCount === 0 && supplierMatch && materialMatch) {
-                            console.log('🔍 İlk eşleşme denemesi:', {
-                                coaMaterial: coa.materialCode,
-                                recordDate: recordDate,
-                                coaDate: coaDate,
-                                dateMatch: dateMatch,
-                                recordDateRaw: record.date,
-                                coaDateRaw: coa.deliveryDate
-                            });
-                        }
-                        
                         return supplierMatch && materialMatch && dateMatch;
                     });
                     
@@ -7448,9 +7436,33 @@
                         
                         enrichedCount++;
                         console.log(`✅ ${coa.materialCode} (${coa.supplier}) ${coa.deliveryDate} için ${matchingRecords.length} özellik eklendi`);
-                    } else {
-                        // Debug: Neden eşleşmedi?
-                        console.log(`❌ Eşleşme bulunamadı: ${coa.materialCode} (${coa.supplier}) ${coa.deliveryDate}`);
+                    } else if (enrichedCount < 5) {
+                        // İlk 5 eşleşmeyen kayıt için debug göster
+                        const sampleRecord = allCOARecords.find(r => 
+                            (r.materialCode || '').trim().toLowerCase() === (coa.materialCode || '').trim().toLowerCase() &&
+                            (r.supplier || '').trim().toLowerCase() === (coa.supplier || '').trim().toLowerCase()
+                        );
+                        
+                        if (sampleRecord) {
+                            let recordDateDebug = sampleRecord.date || '';
+                            if (typeof recordDateDebug === 'string' && recordDateDebug.includes('T')) {
+                                recordDateDebug = recordDateDebug.split('T')[0];
+                            }
+                            if (recordDateDebug instanceof Date) {
+                                recordDateDebug = recordDateDebug.toISOString().split('T')[0];
+                            }
+                            
+                            let coaDateDebug = coa.deliveryDate || '';
+                            if (coaDateDebug instanceof Date) {
+                                coaDateDebug = coaDateDebug.toISOString().split('T')[0];
+                            }
+                            
+                            console.log(`❌ Eşleşme bulunamadı: ${coa.materialCode} (${coa.supplier})`, {
+                                'COA Tarihi': coaDateDebug,
+                                'Record Tarihi': recordDateDebug,
+                                'Tarih Eşleşmesi': recordDateDebug === coaDateDebug
+                            });
+                        }
                     }
                 });
                 
