@@ -76,7 +76,9 @@ const SharedConfig = {
         if (!url) return [];
         
         try {
-            const data = await this.jsonp(url + '?action=getCOARecords');
+            // 🔥 Cache bypass için timestamp ekle
+            const timestamp = new Date().getTime();
+            const data = await this.jsonp(url + '?action=getCOARecords&_=' + timestamp);
             return data.success ? (data.data || []) : [];
         } catch (error) {
             console.error('COA_Records verileri alınamadı:', error);

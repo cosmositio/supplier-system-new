@@ -2082,6 +2082,9 @@ function saveCOARecord(data) {
 // COA kayıtlarını getir (analiz için)
 function getCOARecords() {
   try {
+    // 🔥 Cache'i temizle (her zaman güncel veri çek)
+    SpreadsheetApp.flush();
+    
     const sheet = getCOARecordsSheet();
     const data = sheet.getDataRange().getValues();
     
