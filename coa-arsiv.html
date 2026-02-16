@@ -5873,6 +5873,37 @@
                     updatedAt: new Date().toISOString()
                 };
                 
+                // ✅ TDS'teki manuel değerleri ocrProperties'e merge et
+                const tds = tdsData[materialCode];
+                if (tds && tds.properties) {
+                    console.log('🔄 TDS\'teki manuel değerler ocrProperties\'e aktarılıyor...');
+                    tds.properties.forEach(prop => {
+                        if (prop.coaValue) {  // Sadece COA değeri olanları
+                            if (!record.ocrProperties) record.ocrProperties = {};
+                            
+                            // Mevcut ocrProperty'yi güncelle veya yeni oluştur
+                            if (!record.ocrProperties[prop.name]) {
+                                record.ocrProperties[prop.name] = {};
+                            }
+                            
+                            // Manuel girilen COA değerleri ile güncelle
+                            record.ocrProperties[prop.name] = {
+                                ...record.ocrProperties[prop.name],  // Eski değerleri koru
+                                coaValue: prop.coaValue,  // ✅ Manuel değer
+                                status: prop.coaCompliance || record.ocrProperties[prop.name].status || 'Bilinmiyor',
+                                tdsValue: prop.standardValue || record.ocrProperties[prop.name].tdsValue || '',
+                                unit: prop.unit || record.ocrProperties[prop.name].unit || '',
+                                method: prop.standard || record.ocrProperties[prop.name].method || '',
+                                lowerLimit: prop.min || record.ocrProperties[prop.name].lowerLimit || '',
+                                upperLimit: prop.max || record.ocrProperties[prop.name].upperLimit || '',
+                                standardValue: prop.standardValue || record.ocrProperties[prop.name].standardValue || '',
+                                requirement: prop.requirement || record.ocrProperties[prop.name].requirement || ''
+                            };
+                            console.log(`   ✏️ ${prop.name}: "${prop.coaValue}" [${prop.coaCompliance || 'bilinmiyor'}]`);
+                        }
+                    });
+                }
+                
                 // OCR zaten fotoğraf çekilirken yapıldı, tekrar yapmaya gerek yok
                 console.log('ℹ️ Edit modda OCR atlanıyor (çekim sırasında yapıldı)');
                 
@@ -6043,6 +6074,32 @@
                 });
                 record.ocrProperties = ocrPropsObject;
                 console.log('📊 OCR verileri COA kaydına eklendi (Object formatında):', Object.keys(ocrPropsObject).length, 'özellik');
+            } else {
+                // pendingOCRData yoksa TDS'teki manuel değerleri kullan
+                const tds = tdsData[materialCode];
+                if (tds && tds.properties) {
+                    console.log('📋 TDS\'teki manuel değerler ocrProperties\'e aktarılıyor...');
+                    const ocrPropsObject = {};
+                    tds.properties.forEach(prop => {
+                        if (prop.coaValue) {  // Sadece COA değeri olanları
+                            ocrPropsObject[prop.name] = {
+                                tdsValue: prop.standardValue || '',
+                                coaValue: prop.coaValue || '',
+                                unit: prop.unit || '',
+                                status: prop.coaCompliance || 'Bilinmiyor',
+                                method: prop.standard || '',
+                                lowerLimit: prop.min || '',
+                                upperLimit: prop.max || '',
+                                standardValue: prop.standardValue || '',
+                                requirement: prop.requirement || ''
+                            };
+                        }
+                    });
+                    if (Object.keys(ocrPropsObject).length > 0) {
+                        record.ocrProperties = ocrPropsObject;
+                        console.log('📊 TDS manuel değerleri COA kaydına eklendi:', Object.keys(ocrPropsObject).length, 'özellik');
+                    }
+                }
             }
             
             // OCR zaten fotoğraf çekilirken yapıldı (startOCRAnalysis), tekrar yapmaya gerek yok
