@@ -14549,6 +14549,40 @@
                     }
                 }
                 
+                // Y ekseni için min/max hesapla (tüm dataset'lerden)
+                const allYValues = [];
+                datasets.forEach(ds => {
+                    if (ds.data) {
+                        ds.data.forEach(v => {
+                            if (v !== null && !isNaN(v) && isFinite(v)) {
+                                allYValues.push(v);
+                            }
+                        });
+                    }
+                });
+                
+                let yMin = 0;
+                let yMax = 100;
+                if (allYValues.length > 0) {
+                    const dataMin = Math.min(...allYValues);
+                    const dataMax = Math.max(...allYValues);
+                    const range = dataMax - dataMin;
+                    
+                    // Eğer veri aralığı çok küçükse (örn: 200-210), padding ekle
+                    if (range < (dataMax * 0.2)) {  // %20'den küçük aralık
+                        yMin = dataMin - (range * 0.3);
+                        yMax = dataMax + (range * 0.3);
+                    } else {
+                        yMin = dataMin - (range * 0.1);
+                        yMax = dataMax + (range * 0.1);
+                    }
+                    
+                    // Negatif değere inmemesi için kontrol
+                    if (yMin < 0 && dataMin >= 0) {
+                        yMin = 0;
+                    }
+                }
+                
                 // Grafik oluştur 
                 const ctx = canvas.getContext('2d');
                 const chart = new Chart(ctx, {
@@ -14596,7 +14630,9 @@
                         },
                         scales: {
                             y: {
-                                beginAtZero: true,
+                                beginAtZero: false,
+                                min: yMin,
+                                max: yMax,
                                 title: {
                                     display: true,
                                     text: propData[0]?.unit || '',
