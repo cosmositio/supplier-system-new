@@ -7446,7 +7446,28 @@
                     return;
                 }
                 
-                // İlk birkaç kayıt örneği göster
+                // 🔥 DEBUG: Sayfada göster (console çalışmıyor)
+                if (allCOARecords.length > 0 && coaData.length > 0) {
+                    const debugInfo = 
+                        '📋 İlk COA_Records:\n' +
+                        'materialCode: ' + allCOARecords[0].materialCode + '\n' +
+                        'supplier: ' + allCOARecords[0].supplier + '\n' +
+                        'date: ' + allCOARecords[0].date + '\n' +
+                        'deliveryNo: "' + allCOARecords[0].deliveryNo + '"\n' +
+                        'propertyName: ' + allCOARecords[0].propertyName + '\n\n' +
+                        '📋 İlk coaData:\n' +
+                        'materialCode: ' + coaData[0].materialCode + '\n' +
+                        'supplier: ' + coaData[0].supplier + '\n' +
+                        'deliveryDate: ' + coaData[0].deliveryDate + '\n' +
+                        'deliveryNo: "' + coaData[0].deliveryNo + '"\n\n' +
+                        '📋 BERKOSAN COA:\n' +
+                        JSON.stringify(coaData.find(c => c.materialCode === '944.4.KFR30-40.3'), null, 2);
+                    
+                    alert(debugInfo);
+                    console.log('📋 DEBUG INFO:\n', debugInfo);
+                }
+                
+                // Console için de log
                 if (allCOARecords.length > 0) {
                     console.log('📋 İlk COA_Records örneği:', {
                         supplier: allCOARecords[0].supplier,
