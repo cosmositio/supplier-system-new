@@ -7499,9 +7499,20 @@
                         if (/^\d{2}\.\d{2}\.\d{4}$/.test(coaDate)) {
                             const [day, month, year] = coaDate.split('.');
                             coaDate = `${year}-${month}-${day}`;
+                        } else if (/^\d{4}-\d{2}-\d{2}$/.test(coaDate)) {
+                            // Zaten YYYY-MM-DD formatında
+                            coaDate = coaDate;
                         }
                         
                         const dateMatch = recordDate === coaDate;
+                        
+                        // 🐛 DEBUG: İlk COA için tarih karşılaştırmasını göster
+                        if (enrichedCount === 0 && supplierMatch && materialMatch) {
+                            console.log(`🐛 DEBUG: ${coa.materialCode}`);
+                            console.log(`   COA date: "${coa.deliveryDate}" → normalized: "${coaDate}"`);
+                            console.log(`   Records date: "${record.date}" → normalized: "${recordDate}"`);
+                            console.log(`   Match: ${dateMatch}`);
+                        }
                         
                         // İrsaliye no eşleşmesi (opsiyonel, varsa kontrol et)
                         const recordDeliveryNo = (record.deliveryNo || '').trim();
