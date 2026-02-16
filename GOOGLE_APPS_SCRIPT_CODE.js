@@ -339,14 +339,20 @@ function createResponse(result, callback) {
   const output = JSON.stringify(result);
   
   if (callback) {
-    // JSONP response - no CORS headers needed for JSONP
+    // JSONP response - 🔥 NO CACHE! Her zaman güncel veri
     return ContentService.createTextOutput(callback + '(' + output + ')')
-      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      .setMimeType(ContentService.MimeType.JAVASCRIPT)
+      .setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+      .setHeader('Pragma', 'no-cache')
+      .setHeader('Expires', '0');
   }
   
-  // Plain JSON response
+  // Plain JSON response - 🔥 NO CACHE!
   return ContentService.createTextOutput(output)
-    .setMimeType(ContentService.MimeType.JSON);
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+    .setHeader('Pragma', 'no-cache')
+    .setHeader('Expires', '0');
 }
 
 function parseFormData(contents) {
