@@ -1968,6 +1968,51 @@ function saveCOARecord(data) {
       Logger.log('COA_Records - Tarih formatı dönüştürüldü: ' + (data.date || data.deliveryDate) + ' → ' + deliveryDate);
     }
     
+    // 🔥 ÖNEMLİ: Aynı irsaliyeye ait ESKİ kayıtları SİL (tekrar kaydetmeden önce)
+    // Bu sayede aynı irsaliye için tekrarlayan satırlar oluşmaz
+    const allData = sheet.getDataRange().getValues();
+    const headers = allData[0];
+    
+    // Sütun index'lerini bul
+    const dateIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('tarih'));
+    const deliveryNoIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('irsaliye'));
+    const materialIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('malzeme'));
+    
+    if (dateIdx >= 0 && deliveryNoIdx >= 0 && materialIdx >= 0) {
+      const rowsToDelete = [];
+      
+      // Eşleşen satırları bul (sondan başa doğru)
+      for (let i = allData.length - 1; i > 0; i--) {
+        const row = allData[i];
+        let rowDate = String(row[dateIdx] || '').trim();
+        
+        // Tarih formatını normalize et
+        if (rowDate instanceof Date) {
+          const d = new Date(rowDate);
+          rowDate = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+        }
+        
+        const rowDeliveryNo = String(row[deliveryNoIdx] || '').trim();
+        const rowMaterial = String(row[materialIdx] || '').trim();
+        
+        // Eşleşme kontrolü
+        if (rowDate === deliveryDate && 
+            rowDeliveryNo === (data.deliveryNo || '') && 
+            rowMaterial === (data.materialCode || '')) {
+          rowsToDelete.push(i + 1); // Sheet satır numarası (1-indexed)
+        }
+      }
+      
+      // Eşleşen satırları sil (sondan başa doğru)
+      if (rowsToDelete.length > 0) {
+        Logger.log(`🗑️ Aynı irsaliye için ${rowsToDelete.length} eski satır siliniyor...`);
+        rowsToDelete.forEach(rowNum => {
+          sheet.deleteRow(rowNum);
+        });
+        Logger.log('✅ Eski satırlar silindi, yeni kayıtlar eklenecek');
+      }
+    }
+    
     // Her özellik için ayrı satır oluştur
     data.properties.forEach(prop => {
       // COA değerini kontrol et - tarih formatlarını atla
