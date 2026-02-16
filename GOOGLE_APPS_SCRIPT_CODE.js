@@ -1959,14 +1959,27 @@ function saveCOARecord(data) {
     const now = new Date().toLocaleString('tr-TR');
     const rows = [];
     
-    // Tarih formatını normalize et (YYYY-MM-DD → DD.MM.YYYY)
-    let deliveryDate = data.date || data.deliveryDate || '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate)) {
-      // YYYY-MM-DD formatından DD.MM.YYYY formatına çevir
-      const [year, month, day] = deliveryDate.split('-');
-      deliveryDate = `${day}.${month}.${year}`;
-      Logger.log('COA_Records - Tarih formatı dönüştürüldü: ' + (data.date || data.deliveryDate) + ' → ' + deliveryDate);
+    // Tarih formatını YYYY-MM-DD olarak normalize et (karşılaştırma için)
+    let deliveryDateNormalized = data.date || data.deliveryDate || '';
+    
+    // DD.MM.YYYY → YYYY-MM-DD
+    if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(deliveryDateNormalized)) {
+      const [day, month, year] = deliveryDateNormalized.split('.');
+      deliveryDateNormalized = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
     }
+    // DD/MM/YYYY → YYYY-MM-DD
+    else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(deliveryDateNormalized)) {
+      const [day, month, year] = deliveryDateNormalized.split('/');
+      deliveryDateNormalized = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    // Date object → YYYY-MM-DD
+    else if (deliveryDateNormalized instanceof Date) {
+      const d = new Date(deliveryDateNormalized);
+      deliveryDateNormalized = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    
+    Logger.log(`📅 Normalized delivery date: ${deliveryDateNormalized}`);
+    Logger.log(`📦 Material: ${data.materialCode}, Delivery No: ${data.deliveryNo}, Location: ${data.location}`);
     
     // 🔥 ÖNEMLİ: Aynı irsaliyeye ait ESKİ kayıtları SİL (tekrar kaydetmeden önce)
     // Bu sayede aynı irsaliye için tekrarlayan satırlar oluşmaz
@@ -1984,22 +1997,35 @@ function saveCOARecord(data) {
       // Eşleşen satırları bul (sondan başa doğru)
       for (let i = allData.length - 1; i > 0; i--) {
         const row = allData[i];
-        let rowDate = String(row[dateIdx] || '').trim();
+        let rowDate = row[dateIdx] || '';
         
-        // Tarih formatını normalize et
+        // Tarih formatını normalize et (YYYY-MM-DD)
         if (rowDate instanceof Date) {
           const d = new Date(rowDate);
-          rowDate = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+          rowDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        } else if (typeof rowDate === 'string') {
+          rowDate = String(rowDate).trim();
+          // DD.MM.YYYY → YYYY-MM-DD
+          if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(rowDate)) {
+            const [day, month, year] = rowDate.split('.');
+            rowDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          }
+          // DD/MM/YYYY → YYYY-MM-DD
+          else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(rowDate)) {
+            const [day, month, year] = rowDate.split('/');
+            rowDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          }
         }
         
         const rowDeliveryNo = String(row[deliveryNoIdx] || '').trim();
         const rowMaterial = String(row[materialIdx] || '').trim();
         
-        // Eşleşme kontrolü
-        if (rowDate === deliveryDate && 
+        // Eşleşme kontrolü (her ikisi de YYYY-MM-DD formatında)
+        if (rowDate === deliveryDateNormalized && 
             rowDeliveryNo === (data.deliveryNo || '') && 
             rowMaterial === (data.materialCode || '')) {
           rowsToDelete.push(i + 1); // Sheet satır numarası (1-indexed)
+          Logger.log(`   🎯 Eşleşme: Satır ${i + 1} - ${rowMaterial} | ${rowDate} | ${rowDeliveryNo}`);
         }
       }
       
@@ -2015,40 +2041,41 @@ function saveCOARecord(data) {
     
     // Her özellik için ayrı satır oluştur
     data.properties.forEach(prop => {
-      // COA değerini kontrol et - tarih formatlarını atla
-      const coaValueStr = String(prop.coaValue || '').trim();
-      
-      // ISO tarih formatı kontrolü (2026-05-04T21:00:00.000Z)
-      if (/^\d{4}-\d{2}-\d{2}T/.test(coaValueStr) || /^\d{4}-\d{2}-\d{2}$/.test(coaValueStr)) {
-        Logger.log(`⚠️ ${prop.name}: Tarih formatında değer atlanıyor: "${coaValueStr}"`);
-        return; // Bu property'yi kaydetme
-      }
-      
-      // DD.MM.YYYY veya DD/MM/YYYY formatı
-      if (/^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4}$/.test(coaValueStr)) {
-        Logger.log(`⚠️ ${prop.name}: Tarih formatında değer atlanıyor: "${coaValueStr}"`);
-        return; // Bu property'yi kaydetme
-      }
-      
-      // Yıl kontrolü (1900-2099 arası gerçek yıllar)
-      const testNum = parseFloat(coaValueStr.replace(/,/g, '.'));
-      if (!isNaN(testNum) && testNum >= 1900 && testNum <= 2099) {
-        Logger.log(`⚠️ ${prop.name}: Yıl değeri atlanıyor: "${coaValueStr}"`);
-        return; // Bu property'yi kaydetme
-      }
-      
       // Benzersiz ID oluştur (timestamp + random)
       const uniqueId = 'REC_' + new Date().getTime() + '_' + Math.random().toString(36).substr(2, 9);
+      
+      // COA değeri varsa tarih formatlarını kontrol et (yanlışlıkla tarih girilmişse atla)
+      const coaValueStr = String(prop.coaValue || '').trim();
+      if (coaValueStr) {
+        // ISO tarih formatı kontrolü (2026-05-04T21:00:00.000Z)
+        if (/^\d{4}-\d{2}-\d{2}T/.test(coaValueStr) || /^\d{4}-\d{2}-\d{2}$/.test(coaValueStr)) {
+          Logger.log(`⚠️ ${prop.name}: Tarih formatında değer atlanıyor: "${coaValueStr}"`);
+          return; // Bu property'yi kaydetme
+        }
+        
+        // DD.MM.YYYY veya DD/MM/YYYY formatı
+        if (/^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4}$/.test(coaValueStr)) {
+          Logger.log(`⚠️ ${prop.name}: Tarih formatında değer atlanıyor: "${coaValueStr}"`);
+          return; // Bu property'yi kaydetme
+        }
+        
+        // Yıl kontrolü (1900-2099 arası gerçek yıllar)
+        const testNum = parseFloat(coaValueStr.replace(/,/g, '.'));
+        if (!isNaN(testNum) && testNum >= 1900 && testNum <= 2099) {
+          Logger.log(`⚠️ ${prop.name}: Yıl değeri atlanıyor: "${coaValueStr}"`);
+          return; // Bu property'yi kaydetme
+        }
+      }
       
       // Geçerli değer, satır oluştur
       rows.push([
         uniqueId,  // Yeni: Benzersiz ID
-        deliveryDate,
+        deliveryDateNormalized,  // ✅ Normalize edilmiş tarih (YYYY-MM-DD)
         data.deliveryNo || '',
         data.lotNumber || '',
         data.materialCode || '',
         data.supplier || '',
-        data.location || '',
+        data.location || '',  // ✅ Location eklendi
         prop.name || '',
         prop.unit || '',
         prop.standard || '',
@@ -2057,7 +2084,7 @@ function saveCOARecord(data) {
         prop.min || '',
         prop.max || '',
         prop.requirement || '',  // Yeni: Compliance mode için
-        prop.coaValue || '',
+        prop.coaValue || '',  // ✅ Boş olabilir artık
         prop.status || '',
         now
       ]);
