@@ -7461,14 +7461,30 @@
                         supplier: coaData[0].supplier,
                         materialCode: coaData[0].materialCode,
                         deliveryDate: coaData[0].deliveryDate,
-                        dateType: typeof coaData[0].deliveryDate
+                        dateType: typeof coaData[0].deliveryDate,
+                        deliveryNo: coaData[0].deliveryNo
                     });
                 }
+                
+                // 🐛 COA_Records'tan ilk 3 örneği göster
+                console.log('🐛 COA_Records örnekleri (ilk 3):');
+                allCOARecords.slice(0, 3).forEach((rec, idx) => {
+                    console.log(`   ${idx + 1}. ${rec.materialCode} (${rec.supplier}) - Tarih: ${rec.date} - İrsaliye: ${rec.deliveryNo}`);
+                });
                 
                 let enrichedCount = 0;
                 
                 // Her COA kaydı için ilgili COA_Records verilerini bul ve ekle
+                let debugCount = 0; // İlk 3 COA için debug göster
                 coaData.forEach(coa => {
+                    // 🐛 DEBUG: İLK 3 COA için detaylı log (eşleşsin ya da eşleşmesin)
+                    if (debugCount < 3) {
+                        console.log(`🐛 DEBUG ${debugCount + 1}: ${coa.materialCode} (${coa.supplier})`);
+                        console.log(`   deliveryDate: "${coa.deliveryDate}"`);
+                        console.log(`   deliveryNo: "${coa.deliveryNo}"`);
+                        debugCount++;
+                    }
+                    
                     // Eğer zaten ocrProperties varsa atla (Sheets'ten gelmiş demektir)
                     if (coa.ocrProperties && Object.keys(coa.ocrProperties).length > 0) {
                         return;
