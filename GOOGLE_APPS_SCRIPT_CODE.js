@@ -150,6 +150,27 @@ function doGet(e) {
         }
         result = coaRecordData ? saveCOARecord(coaRecordData) : { success: false, error: 'Veri eksik' };
         break;
+      case 'updateCOARecordByID':
+        // Yeni: ID'ye göre tek satır güncelle
+        let updateRecordData = null;
+        if (e.parameter.data) {
+          try {
+            updateRecordData = JSON.parse(e.parameter.data);
+          } catch(parseErr) {
+            try {
+              updateRecordData = JSON.parse(decodeURIComponent(e.parameter.data));
+            } catch(decodeErr) {
+              result = { success: false, error: 'Update data parse hatası' };
+              break;
+            }
+          }
+        }
+        result = updateRecordData ? updateCOARecordByID(e.parameter.id, updateRecordData) : { success: false, error: 'Veri eksik' };
+        break;
+      case 'deleteCOARecordByID':
+        // Yeni: ID'ye göre tek satır sil
+        result = deleteCOARecordByID(e.parameter.id);
+        break;
       case 'getCOATemplate':
         result = getCOATemplate(e.parameter.supplier);
         break;
@@ -1828,6 +1849,7 @@ function getCOARecordsSheet() {
     
     // Başlıklar
     const headers = [
+      'ID',
       'Tarih',
       'İrsaliye No',
       'Lot No',
@@ -1857,32 +1879,35 @@ function getCOARecordsSheet() {
       .setHorizontalAlignment('center');
     
     // Sütun genişlikleri
-    sheet.setColumnWidth(1, 100);  // Tarih
-    sheet.setColumnWidth(2, 120);  // İrsaliye
-    sheet.setColumnWidth(3, 100);  // Lot
-    sheet.setColumnWidth(4, 100);  // Kod
-    sheet.setColumnWidth(5, 150);  // Tedarikçi
-    sheet.setColumnWidth(6, 150);  // Özellik
-    sheet.setColumnWidth(7, 100);  // COA
-    sheet.setColumnWidth(8, 80);   // Birim
-    sheet.setColumnWidth(9, 100);  // Test Standardı
-    sheet.setColumnWidth(10, 70);  // Operatör
-    sheet.setColumnWidth(11, 100); // Standart Değer
-    sheet.setColumnWidth(12, 80);  // Alt Limit
-    sheet.setColumnWidth(13, 80);  // Üst Limit
-    sheet.setColumnWidth(14, 150); // Requirement
-    sheet.setColumnWidth(15, 80);  // COA Değeri
-    sheet.setColumnWidth(16, 80);  // Durum
-    sheet.setColumnWidth(17, 150); // Kayıt
+    sheet.setColumnWidth(1, 200);  // ID
+    sheet.setColumnWidth(2, 100);  // Tarih
+    sheet.setColumnWidth(3, 120);  // İrsaliye
+    sheet.setColumnWidth(4, 100);  // Lot
+    sheet.setColumnWidth(5, 100);  // Kod
+    sheet.setColumnWidth(6, 150);  // Tedarikçi
+    sheet.setColumnWidth(7, 150);  // Lokasyon
+    sheet.setColumnWidth(8, 150);  // Özellik
+    sheet.setColumnWidth(9, 80);   // Birim
+    sheet.setColumnWidth(10, 100); // Test Standardı
+    sheet.setColumnWidth(11, 70);  // Operatör
+    sheet.setColumnWidth(12, 100); // Standart Değer
+    sheet.setColumnWidth(13, 80);  // Alt Limit
+    sheet.setColumnWidth(14, 80);  // Üst Limit
+    sheet.setColumnWidth(15, 150); // Requirement
+    sheet.setColumnWidth(16, 80);  // COA Değeri
+    sheet.setColumnWidth(17, 80);  // Durum
+    sheet.setColumnWidth(18, 150); // Kayıt
     
     // Freeze başlık
     sheet.setFrozenRows(1);
   } else {
-    // Mevcut sheet varsa header'ı kontrol et ve düzelt
+    // Mevcut sheet varsa header'ı kontrol et ve ID sütunu ekle
     const currentHeader = sheet.getRange(1, 1).getValue();
-    if (currentHeader !== 'Tarih') {
-      // Header yanlış, düzelt!
+    if (currentHeader !== 'ID') {
+      // ID sütunu yok, ekle
+      sheet.insertColumnBefore(1);
       const headers = [
+        'ID',
         'Tarih',
         'İrsaliye No',
         'Lot No',
@@ -1903,7 +1928,21 @@ function getCOARecordsSheet() {
       ];
       
       sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-      Logger.log('✅ COA_Records header\'ı düzeltildi: "' + currentHeader + '" → "Tarih"');
+      sheet.getRange(1, 1, 1, headers.length)
+        .setBackground('#4285f4')
+        .setFontColor('#ffffff')
+        .setFontWeight('bold')
+        .setHorizontalAlignment('center');
+      
+      // Mevcut satırlara ID ekle
+      const existingData = sheet.getDataRange().getValues();
+      for (let i = 1; i < existingData.length; i++) {
+        const id = 'REC_' + new Date().getTime() + '_' + i;
+        sheet.getRange(i + 1, 1).setValue(id);
+      }
+      
+      sheet.setColumnWidth(1, 200); // ID sütunu genişliği
+      Logger.log('✅ COA_Records\'a ID sütunu eklendi');
     }
   }
   
@@ -1953,8 +1992,12 @@ function saveCOARecord(data) {
         return; // Bu property'yi kaydetme
       }
       
+      // Benzersiz ID oluştur (timestamp + random)
+      const uniqueId = 'REC_' + new Date().getTime() + '_' + Math.random().toString(36).substr(2, 9);
+      
       // Geçerli değer, satır oluştur
       rows.push([
+        uniqueId,  // Yeni: Benzersiz ID
         deliveryDate,
         data.deliveryNo || '',
         data.lotNumber || '',
@@ -1977,7 +2020,7 @@ function saveCOARecord(data) {
     
     // Tüm satırları ekle
     if (rows.length > 0) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 17).setValues(rows);
+      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 18).setValues(rows);
     }
     
     return { 
@@ -2014,6 +2057,7 @@ function getCOARecords() {
       return -1;
     };
     
+    const idIdx = getColIndex('ID');
     const dateIdx = getColIndex('Tarih');
     const deliveryNoIdx = getColIndex('İrsaliye');
     const lotIdx = getColIndex('Lot');
@@ -2027,6 +2071,7 @@ function getCOARecords() {
     const stdValueIdx = getColIndex('Standart Değer');
     const minIdx = getColIndex('Alt Limit');
     const maxIdx = getColIndex('Üst Limit');
+    const requirementIdx = getColIndex('Requirement');
     const coaValueIdx = getColIndex('COA');
     const statusIdx = getColIndex('Durum');
     const timestampIdx = getColIndex('Kayıt');
@@ -2034,6 +2079,7 @@ function getCOARecords() {
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       records.push({
+        id: idIdx >= 0 ? (row[idIdx] || '') : '',  // Yeni: Unique ID
         date: dateIdx >= 0 ? (row[dateIdx] || '') : '',
         deliveryNo: deliveryNoIdx >= 0 ? (row[deliveryNoIdx] || '') : '',
         lotNumber: lotIdx >= 0 ? (row[lotIdx] || '') : '',
@@ -2047,6 +2093,7 @@ function getCOARecords() {
         standardValue: stdValueIdx >= 0 ? (row[stdValueIdx] || '') : '',
         minLimit: minIdx >= 0 ? (row[minIdx] || '') : '',
         maxLimit: maxIdx >= 0 ? (row[maxIdx] || '') : '',
+        requirement: requirementIdx >= 0 ? (row[requirementIdx] || '') : '',
         coaValue: coaValueIdx >= 0 ? (row[coaValueIdx] || '') : '',
         status: statusIdx >= 0 ? (row[statusIdx] || '') : '',
         timestamp: timestampIdx >= 0 ? (row[timestampIdx] || '') : ''
@@ -2056,6 +2103,118 @@ function getCOARecords() {
     return { success: true, data: records };
     
   } catch(error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+// ID'ye göre COA kaydını güncelle (tek satır)
+function updateCOARecordByID(recordId, updateData) {
+  if (!recordId) {
+    return { success: false, error: 'Record ID gerekli' };
+  }
+  
+  try {
+    const sheet = getCOARecordsSheet();
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    
+    // ID sütununun index'ini bul
+    let idColIndex = -1;
+    for (let i = 0; i < headers.length; i++) {
+      if (headers[i] && headers[i].toString().toLowerCase() === 'id') {
+        idColIndex = i;
+        break;
+      }
+    }
+    
+    if (idColIndex === -1) {
+      return { success: false, error: 'ID sütunu bulunamadı' };
+    }
+    
+    // Satırı bul
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idColIndex] === recordId) {
+        const now = new Date().toLocaleString('tr-TR');
+        
+        // Sütun mapping'leri
+        const colMap = {};
+        headers.forEach((header, index) => {
+          colMap[header] = index;
+        });
+        
+        // Güncellenen değerleri ayarla
+        const row = data[i].slice(); // Mevcut satırı kopyala
+        
+        if (updateData.date !== undefined && colMap['Tarih'] !== undefined) row[colMap['Tarih']] = updateData.date;
+        if (updateData.deliveryNo !== undefined && colMap['İrsaliye No'] !== undefined) row[colMap['İrsaliye No']] = updateData.deliveryNo;
+        if (updateData.lotNumber !== undefined && colMap['Lot No'] !== undefined) row[colMap['Lot No']] = updateData.lotNumber;
+        if (updateData.materialCode !== undefined && colMap['Malzeme Kodu'] !== undefined) row[colMap['Malzeme Kodu']] = updateData.materialCode;
+        if (updateData.supplier !== undefined && colMap['Tedarikçi'] !== undefined) row[colMap['Tedarikçi']] = updateData.supplier;
+        if (updateData.location !== undefined && colMap['Lokasyon'] !== undefined) row[colMap['Lokasyon']] = updateData.location;
+        if (updateData.propertyName !== undefined && colMap['Özellik Adı'] !== undefined) row[colMap['Özellik Adı']] = updateData.propertyName;
+        if (updateData.unit !== undefined && colMap['Birim'] !== undefined) row[colMap['Birim']] = updateData.unit;
+        if (updateData.standard !== undefined && colMap['Test Standardı'] !== undefined) row[colMap['Test Standardı']] = updateData.standard;
+        if (updateData.operator !== undefined && colMap['Operatör'] !== undefined) row[colMap['Operatör']] = updateData.operator;
+        if (updateData.standardValue !== undefined && colMap['Standart Değer'] !== undefined) row[colMap['Standart Değer']] = updateData.standardValue;
+        if (updateData.minLimit !== undefined && colMap['Alt Limit'] !== undefined) row[colMap['Alt Limit']] = updateData.minLimit;
+        if (updateData.maxLimit !== undefined && colMap['Üst Limit'] !== undefined) row[colMap['Üst Limit']] = updateData.maxLimit;
+        if (updateData.requirement !== undefined && colMap['Requirement'] !== undefined) row[colMap['Requirement']] = updateData.requirement;
+        if (updateData.coaValue !== undefined && colMap['COA Değeri'] !== undefined) row[colMap['COA Değeri']] = updateData.coaValue;
+        if (updateData.status !== undefined && colMap['Durum'] !== undefined) row[colMap['Durum']] = updateData.status;
+        if (colMap['Kayıt Zamanı'] !== undefined) row[colMap['Kayıt Zamanı']] = now;
+        
+        sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+        
+        Logger.log('✅ COA_Records satır güncellendi: ID=' + recordId);
+        return { success: true, message: 'Kayıt güncellendi', id: recordId };
+      }
+    }
+    
+    return { success: false, error: 'Kayıt bulunamadı: ' + recordId };
+    
+  } catch(error) {
+    Logger.log('❌ updateCOARecordByID hatası: ' + error.toString());
+    return { success: false, error: error.toString() };
+  }
+}
+
+// ID'ye göre COA kaydını sil (tek satır)
+function deleteCOARecordByID(recordId) {
+  if (!recordId) {
+    return { success: false, error: 'Record ID gerekli' };
+  }
+  
+  try {
+    const sheet = getCOARecordsSheet();
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    
+    // ID sütununun index'ini bul
+    let idColIndex = -1;
+    for (let i = 0; i < headers.length; i++) {
+      if (headers[i] && headers[i].toString().toLowerCase() === 'id') {
+        idColIndex = i;
+        break;
+      }
+    }
+    
+    if (idColIndex === -1) {
+      return { success: false, error: 'ID sütunu bulunamadı' };
+    }
+    
+    // Satırı bul ve sil
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idColIndex] === recordId) {
+        sheet.deleteRow(i + 1);
+        Logger.log('✅ COA_Records satır silindi: ID=' + recordId);
+        return { success: true, message: 'Kayıt silindi', id: recordId };
+      }
+    }
+    
+    return { success: false, error: 'Kayıt bulunamadı: ' + recordId };
+    
+  } catch(error) {
+    Logger.log('❌ deleteCOARecordByID hatası: ' + error.toString());
     return { success: false, error: error.toString() };
   }
 }
