@@ -7474,7 +7474,7 @@
                         return;
                     }
                     
-                    // Bu COA'ya ait kayıtları bul (tedarikçi ve hammadde kodu - tarih OPSIYONEL)
+                    // Bu COA'ya ait kayıtları bul (tedarikçi + hammadde kodu + TARİH + İRSALİYE NO)
                     const matchingRecords = allCOARecords.filter(record => {
                         const recordSupplier = (record.supplier || '').trim().toLowerCase();
                         const coaSupplier = (coa.supplier || '').trim().toLowerCase();
@@ -7485,8 +7485,31 @@
                         const supplierMatch = recordSupplier === coaSupplier;
                         const materialMatch = recordMaterial === coaMaterial;
                         
-                        // SADECE tedarikçi ve hammadde eşleşsin, tarih kontrolü kaldırıldı
-                        return supplierMatch && materialMatch;
+                        // ✅ TARİH ve İRSALİYE NO KONTROLÜ EKLENDİ!
+                        // COA_Records'taki tarih formatını normalize et
+                        let recordDate = record.date || '';
+                        if (recordDate instanceof Date || typeof recordDate === 'object') {
+                            recordDate = new Date(recordDate).toISOString().split('T')[0]; // YYYY-MM-DD
+                        } else {
+                            recordDate = String(recordDate).split('T')[0]; // Zaten ISO string ise
+                        }
+                        
+                        // coaData'daki deliveryDate formatını normalize et (DD.MM.YYYY → YYYY-MM-DD)
+                        let coaDate = coa.deliveryDate || '';
+                        if (/^\d{2}\.\d{2}\.\d{4}$/.test(coaDate)) {
+                            const [day, month, year] = coaDate.split('.');
+                            coaDate = `${year}-${month}-${day}`;
+                        }
+                        
+                        const dateMatch = recordDate === coaDate;
+                        
+                        // İrsaliye no eşleşmesi (opsiyonel, varsa kontrol et)
+                        const recordDeliveryNo = (record.deliveryNo || '').trim();
+                        const coaDeliveryNo = (coa.deliveryNo || '').trim();
+                        const deliveryMatch = !recordDeliveryNo || !coaDeliveryNo || recordDeliveryNo === coaDeliveryNo;
+                        
+                        // TEDARİKÇİ + MALZEME + TARİH + İRSALİYE eşleşmeli!
+                        return supplierMatch && materialMatch && dateMatch && deliveryMatch;
                     });
                     
                     if (matchingRecords.length > 0) {
