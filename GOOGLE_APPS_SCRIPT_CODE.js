@@ -1990,12 +1990,15 @@ function saveCOARecord(data) {
     const dateIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('tarih'));
     const deliveryNoIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('irsaliye'));
     const materialIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('malzeme'));
+    const propertyNameIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('özellik adı'));
     
-    if (dateIdx >= 0 && deliveryNoIdx >= 0 && materialIdx >= 0) {
-      const rowsToDelete = [];
+    let insertPosition = null; // İlk satırın pozisyonu
+    
+    if (dateIdx >= 0 && deliveryNoIdx >= 0 && materialIdx >= 0 && propertyNameIdx >= 0) {
+      const matchingRows = [];
       
-      // Eşleşen satırları bul (sondan başa doğru)
-      for (let i = allData.length - 1; i > 0; i--) {
+      // Eşleşen satırları bul (property bilgisi ile birlikte)
+      for (let i = 1; i < allData.length; i++) {
         const row = allData[i];
         let rowDate = row[dateIdx] || '';
         
@@ -2019,23 +2022,171 @@ function saveCOARecord(data) {
         
         const rowDeliveryNo = String(row[deliveryNoIdx] || '').trim();
         const rowMaterial = String(row[materialIdx] || '').trim();
+        const rowPropertyName = String(row[propertyNameIdx] || '').trim();
         
-        // Eşleşme kontrolü (her ikisi de YYYY-MM-DD formatında)
+        // Eşleşme kontrolü
         if (rowDate === deliveryDateNormalized && 
             rowDeliveryNo === (data.deliveryNo || '') && 
             rowMaterial === (data.materialCode || '')) {
-          rowsToDelete.push(i + 1); // Sheet satır numarası (1-indexed)
-          Logger.log(`   🎯 Eşleşme: Satır ${i + 1} - ${rowMaterial} | ${rowDate} | ${rowDeliveryNo}`);
+          matchingRows.push({
+            rowIndex: i,
+            sheetRow: i + 1, // 1-indexed
+            propertyName: rowPropertyName,
+            rowData: row
+          });
+          if (insertPosition === null) {
+            insertPosition = i + 1; // İlk eşleşen satırın pozisyonu
+          }
+          Logger.log(`   🎯 Eşleşme: Satır ${i + 1} - ${rowPropertyName}`);
         }
       }
       
-      // Eşleşen satırları sil (sondan başa doğru)
-      if (rowsToDelete.length > 0) {
-        Logger.log(`🗑️ Aynı irsaliye için ${rowsToDelete.length} eski satır siliniyor...`);
-        rowsToDelete.forEach(rowNum => {
-          sheet.deleteRow(rowNum);
+      if (matchingRows.length > 0) {
+        Logger.log(`📋 ${matchingRows.length} eski satır bulundu, güncelleme/ekleme yapılacak...`);
+        
+        // Her yeni property için işlem yap
+        data.properties.forEach(newProp => {
+          // Tarih formatı kontrolü (yanlışlıkla tarih girilmişse atla)
+          const coaValueStr = String(newProp.coaValue || '').trim();
+          if (coaValueStr) {
+            // ISO tarih formatı kontrolü
+            if (/^\d{4}-\d{2}-\d{2}T/.test(coaValueStr) || /^\d{4}-\d{2}-\d{2}$/.test(coaValueStr)) {
+              Logger.log(`⚠️ ${newProp.name}: Tarih formatında değer atlanıyor: "${coaValueStr}"`);
+              return;
+            }
+            // DD.MM.YYYY veya DD/MM/YYYY formatı
+            if (/^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4}$/.test(coaValueStr)) {
+              Logger.log(`⚠️ ${newProp.name}: Tarih formatında değer atlanıyor: "${coaValueStr}"`);
+              return;
+            }
+            // Yıl kontrolü (1900-2099 arası)
+            const testNum = parseFloat(coaValueStr.replace(/,/g, '.'));
+            if (!isNaN(testNum) && testNum >= 1900 && testNum <= 2099) {
+              Logger.log(`⚠️ ${newProp.name}: Yıl değeri atlanıyor: "${coaValueStr}"`);
+              return;
+            }
+          }
+          
+          // Aynı property name'e sahip eski satırı bul
+          const existingRow = matchingRows.find(m => m.propertyName === newProp.name);
+          
+          if (existingRow) {
+            // Mevcut satırı GÜNCELLE
+            Logger.log(`   ✏️ Güncelleniyor: ${newProp.name} (Satır ${existingRow.sheetRow})`);
+            
+            // Yeni satır verisini hazırla
+            const uniqueId = 'REC_' + new Date().getTime() + '_' + Math.random().toString(36).substr(2, 9);
+            const updatedRow = [
+              uniqueId,
+              deliveryDateNormalized,
+              data.deliveryNo || '',
+              data.lotNumber || '',
+              data.materialCode || '',
+              data.supplier || '',
+              data.location || '',
+              newProp.name || '',
+              newProp.unit || '',
+              newProp.standard || '',
+              newProp.operator || '',
+              newProp.standardValue || '',
+              newProp.min || '',
+              newProp.max || '',
+              newProp.requirement || '',
+              newProp.coaValue || '',
+              newProp.status || '',
+              now
+            ];
+            
+            // Satırı güncelle
+            const range = sheet.getRange(existingRow.sheetRow, 1, 1, updatedRow.length);
+            range.setValues([updatedRow]);
+            
+            // İşlenmiş olarak işaretle
+            existingRow.processed = true;
+          }
         });
-        Logger.log('✅ Eski satırlar silindi, yeni kayıtlar eklenecek');
+        
+        // İşlenmemiş (silinecek) eski satırları bul
+        const rowsToDelete = matchingRows
+          .filter(m => !m.processed)
+          .map(m => m.sheetRow)
+          .sort((a, b) => b - a); // Sondan başa doğru sıralı
+        
+        // Fazla eski satırları sil
+        if (rowsToDelete.length > 0) {
+          Logger.log(`🗑️ ${rowsToDelete.length} eski satır siliniyor...`);
+          rowsToDelete.forEach(rowNum => {
+            sheet.deleteRow(rowNum);
+          });
+        }
+        
+        // Yeni property'leri INSERT et (eski satırların hemen altına)
+        const newProperties = data.properties.filter(newProp => {
+          // Tarih kontrolünü tekrar yapalım (güvenli olsun)
+          const coaValueStr = String(newProp.coaValue || '').trim();
+          if (coaValueStr) {
+            if (/^\d{4}-\d{2}-\d{2}T/.test(coaValueStr) || /^\d{4}-\d{2}-\d{2}$/.test(coaValueStr)) {
+              return false; // Tarih formatı, atla
+            }
+            if (/^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4}$/.test(coaValueStr)) {
+              return false; // Tarih formatı, atla
+            }
+            const testNum = parseFloat(coaValueStr.replace(/,/g, '.'));
+            if (!isNaN(testNum) && testNum >= 1900 && testNum <= 2099) {
+              return false; // Yıl değeri, atla
+            }
+          }
+          
+          // Eski property'lerde yoksa true döndür (yeni property)
+          return !matchingRows.some(m => m.propertyName === newProp.name);
+        });
+        
+        if (newProperties.length > 0) {
+          Logger.log(`➕ ${newProperties.length} yeni özellik eski satırların altına ekleniyor...`);
+          
+          // InsertPosition'ı hesapla (silme işleminden sonra kaymış olabilir)
+          const deletedBeforeInsert = rowsToDelete.filter(r => r < insertPosition).length;
+          const finalInsertPosition = insertPosition + matchingRows.filter(m => m.processed).length - deletedBeforeInsert;
+          
+          newProperties.forEach((newProp, idx) => {
+            const uniqueId = 'REC_' + new Date().getTime() + '_' + Math.random().toString(36).substr(2, 9);
+            const newRow = [
+              uniqueId,
+              deliveryDateNormalized,
+              data.deliveryNo || '',
+              data.lotNumber || '',
+              data.materialCode || '',
+              data.supplier || '',
+              data.location || '',
+              newProp.name || '',
+              newProp.unit || '',
+              newProp.standard || '',
+              newProp.operator || '',
+              newProp.standardValue || '',
+              newProp.min || '',
+              newProp.max || '',
+              newProp.requirement || '',
+              newProp.coaValue || '',
+              newProp.status || '',
+              now
+            ];
+            
+            // Satırı belirli pozisyona ekle
+            sheet.insertRowAfter(finalInsertPosition - 1 + idx);
+            const range = sheet.getRange(finalInsertPosition + idx, 1, 1, newRow.length);
+            range.setValues([newRow]);
+            
+            Logger.log(`     ✅ ${newProp.name} eklendi (Satır ${finalInsertPosition + idx})`);
+          });
+        }
+        
+        Logger.log('✅ Güncelleme/Ekleme tamamlandı!');
+        
+        return {
+          success: true,
+          recordCount: data.properties.length,
+          message: `${matchingRows.filter(m => m.processed).length} güncellendi, ${newProperties.length} yeni eklendi`
+        };
       }
     }
     
