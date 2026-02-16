@@ -11954,16 +11954,24 @@
                             ${isNaN(parseFloat(upperLimit)) ? '-' : upperLimit}
                         </td>
                     `}
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background: #e3f2fd; font-weight: 600; color: #1565c0;">
-                        ${prop.coaValue || '-'}
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background: #e3f2fd;">
+                        <input type="text" value="${prop.coaValue || ''}" 
+                               oninput="updateTDSProperty(${index}, 'coaValue', this.value); recalculateCompliance(${index});"
+                               style="width: 100%; padding: 6px; border: 1px solid #0277bd; border-radius: 4px; font-size: 13px; text-align: center; font-weight: 600; color: #1565c0; background: white;"
+                               placeholder="COA değeri">
                     </td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background: #fff3e0; font-weight: 600;">
-                        <span id="compliance_${index}" style="padding: 4px 8px; border-radius: 4px; ${
-                            prop.coaCompliance === 'Uygun' ? 'background: #c8e6c9; color: #2e7d32;' :
-                            prop.coaCompliance === 'Uygun Değil' ? 'background: #ffcdd2; color: #c62828;' :
-                            prop.coaCompliance === 'Bilinmiyor' ? 'background: #fff9c4; color: #f57f17;' :
-                            'color: #999;'
-                        }">${prop.coaCompliance || '-'}</span>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background: #fff3e0;">
+                        <select onchange="updateTDSProperty(${index}, 'coaCompliance', this.value)"
+                                style="width: 100%; padding: 6px; border: 1px solid #f57c00; border-radius: 4px; font-size: 13px; font-weight: 600; ${
+                                    prop.coaCompliance === 'Uygun' ? 'background: #c8e6c9; color: #2e7d32;' :
+                                    prop.coaCompliance === 'Uygun Değil' ? 'background: #ffcdd2; color: #c62828;' :
+                                    'background: #fff9c4; color: #f57f17;'
+                                }">
+                            <option value="" ${!prop.coaCompliance ? 'selected' : ''}>-</option>
+                            <option value="Uygun" ${prop.coaCompliance === 'Uygun' ? 'selected' : ''}>✅ Uygun</option>
+                            <option value="Uygun Değil" ${prop.coaCompliance === 'Uygun Değil' ? 'selected' : ''}>❌ Uygun Değil</option>
+                            <option value="Bilinmiyor" ${prop.coaCompliance === 'Bilinmiyor' ? 'selected' : ''}>❓ Bilinmiyor</option>
+                        </select>
                     </td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
                         <button onclick="deleteTDSProperty(${index})" class="btn btn-sm" style="background: #f44336; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">🗑</button>
@@ -12132,6 +12140,85 @@
             }
         }
         
+        // COA değeri değiştiğinde compliance'ı yeniden hesapla (OPSIYONEL - otomatik)
+        function recalculateCompliance(index) {
+            if (!currentTDSMaterial || !tdsData[currentTDSMaterial]) return;
+            
+            const prop = tdsData[currentTDSMaterial].properties[index];
+            if (!prop || !prop.coaValue) return;
+            
+            // Eğer kullanıcı manuel olarak compliance ayarladıysa, otomatik hesaplama yapma
+            // (Bu özelliği eklemek için bir "manualCompliance" flag'i ekleyebiliriz)
+            
+            let calculatedCompliance = null;
+            
+            if (prop.operator === 'compliance' && prop.requirement) {
+                // Compliance mode: checkCompliance fonksiyonunu kullan
+                calculatedCompliance = checkCompliance(prop.coaValue, prop.requirement);
+            } else if (prop.operator !== 'compliance') {
+                // Numeric mode: Limit kontrolü
+                const cleanValue = String(prop.coaValue).replace(/^[≤≥<>=]+\s*/, '').replace(/,/g, '.');
+                const value = parseFloat(cleanValue);
+                
+                if (!isNaN(value)) {
+                    const stdValueStr = String(prop.standardValue || '0').replace(/,/g, '.');
+                    const stdValue = parseFloat(stdValueStr);
+                    const lowerTol = parseFloat(String(prop.lowerTolerance || 0).replace(/,/g, '.'));
+                    const upperTol = parseFloat(String(prop.upperTolerance || 0).replace(/,/g, '.'));
+                    
+                    let decimalPlaces = 2;
+                    if (stdValueStr.includes('.')) {
+                        const decimalPart = stdValueStr.split('.')[1];
+                        decimalPlaces = decimalPart ? decimalPart.length : 0;
+                    }
+                    
+                    const lowerLimit = parseFloat((stdValue - lowerTol).toFixed(decimalPlaces));
+                    const upperLimit = parseFloat((stdValue + upperTol).toFixed(decimalPlaces));
+                    
+                    const operator = prop.operator || 'range';
+                    let isCompliant = false;
+                    
+                    if (operator === 'range') {
+                        isCompliant = value >= lowerLimit && value <= upperLimit;
+                    } else if (operator === '>') {
+                        isCompliant = value > lowerLimit;
+                    } else if (operator === '<') {
+                        isCompliant = value < upperLimit;
+                    } else if (operator === '>=') {
+                        isCompliant = value >= lowerLimit;
+                    } else if (operator === '<=') {
+                        isCompliant = value <= upperLimit;
+                    } else if (operator === '=') {
+                        isCompliant = Math.abs(value - stdValue) < 0.01;
+                    }
+                    
+                    calculatedCompliance = isCompliant ? 'Uygun' : 'Uygun Değil';
+                }
+            }
+            
+            // Eğer hesaplama yapıldıysa, sadece select'i güncelle (tdsData'yı değiştirme - kullanıcı manuel değiştirebilsin)
+            if (calculatedCompliance) {
+                const rows = document.querySelectorAll('#tdsPropertiesTable tr');
+                if (rows[index]) {
+                    const select = rows[index].querySelector('select[onchange*="coaCompliance"]');
+                    if (select && !select.dataset.manuallySet) {
+                        select.value = calculatedCompliance;
+                        // Renk güncelle
+                        if (calculatedCompliance === 'Uygun') {
+                            select.style.background = '#c8e6c9';
+                            select.style.color = '#2e7d32';
+                        } else if (calculatedCompliance === 'Uygun Değil') {
+                            select.style.background = '#ffcdd2';
+                            select.style.color = '#c62828';
+                        } else {
+                            select.style.background = '#fff9c4';
+                            select.style.color = '#f57f17';
+                        }
+                    }
+                }
+            }
+        }
+        
         // TDS mode toggle (compliance vs numeric)
         function toggleTDSMode(index, operator) {
             if (!currentTDSMaterial || !tdsData[currentTDSMaterial]) return;
@@ -12205,7 +12292,7 @@
         }
         
         // TDS kaydet
-        function saveTDS() {
+        async function saveTDS() {
             if (!currentTDSMaterial) return;
             
             // Boşluk normalization helper
@@ -12232,6 +12319,7 @@
                     prop.upperLimit = cleanNumericValue(prop.upperLimit);
                     prop.min = cleanNumericValue(prop.min);
                     prop.max = cleanNumericValue(prop.max);
+                    prop.coaValue = cleanNumericValue(prop.coaValue);  // COA değerini de temizle
                     
                     // Tüm sayısal değerlerde virgül/nokta dönüşümü yap
                     const stdValue = parseFloat(String(prop.standardValue || 0).replace(/,/g, '.'));
@@ -12265,9 +12353,74 @@
                 });
             }
             
+            // TDS Definitions'a kaydet (COA değerleri HARİÇ)
             saveTDSData();
-            showToast('✅ TDS kaydedildi', 'success');
+            
+            // 📊 COA değerleri varsa COA_Records'a da kaydet
+            await saveTDSCOAValuesToRecords();
+            
+            showToast('✅ TDS ve COA değerleri kaydedildi', 'success');
             closeTDSModal();
+        }
+        
+        // TDS'teki manuel COA değerlerini COA_Records'a kaydet
+        async function saveTDSCOAValuesToRecords() {
+            if (!currentTDSMaterial) return;
+            
+            const tds = tdsData[currentTDSMaterial];
+            if (!tds || !tds.properties) return;
+            
+            // COA değeri olan özellikleri filtrele
+            const propsWithCOA = tds.properties.filter(p => p.coaValue);
+            if (propsWithCOA.length === 0) {
+                console.log('⏭️ TDS\'de COA değeri yok, COA_Records\'a kayıt yapılmadı');
+                return;
+            }
+            
+            // Aktif COA kaydını bul
+            const activeCOA = coaData.find(coa => coa.materialCode === currentTDSMaterial);
+            if (!activeCOA) {
+                console.log('⚠️ Bu malzeme için COA kaydı bulunamadı');
+                return;
+            }
+            
+            console.log(`📊 TDS'ten ${propsWithCOA.length} COA değeri COA_Records'a kaydediliyor...`);
+            
+            try {
+                const data = {
+                    date: activeCOA.deliveryDate,
+                    deliveryNo: activeCOA.deliveryNo || '',
+                    lotNumber: activeCOA.lotNumber || '',
+                    materialCode: currentTDSMaterial,
+                    supplier: activeCOA.supplier,
+                    location: activeCOA.location || '',
+                    properties: propsWithCOA.map(prop => ({
+                        name: prop.name,
+                        coaValue: prop.coaValue,
+                        unit: prop.unit || '',
+                        standard: prop.standard || '',
+                        operator: prop.operator || 'range',
+                        standardValue: prop.standardValue || '',
+                        min: prop.min || '',
+                        max: prop.max || '',
+                        requirement: prop.requirement || '',
+                        status: prop.coaCompliance || 'Bilinmiyor'  // Manuel seçilen durum
+                    }))
+                };
+                
+                const url = `${googleScriptUrl}?action=saveCOARecord&data=${encodeURIComponent(JSON.stringify(data))}`;
+                const response = await fetch(url);
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log(`✅ ${result.recordCount} COA değeri COA_Records'a kaydedildi`);
+                    showToast(`📊 ${result.recordCount} COA değeri kaydedildi`, 'success', 2000);
+                } else {
+                    console.error('❌ COA_Records kayıt hatası:', result.error);
+                }
+            } catch(error) {
+                console.error('❌ TDS COA değerleri kayıt hatası:', error);
+            }
         }
         
         // Close modal on click outside
