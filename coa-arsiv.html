@@ -12295,8 +12295,12 @@
                 }
             }
             
-            // Eğer hesaplama yapıldıysa, sadece select'i güncelle (tdsData'yı değiştirme - kullanıcı manuel değiştirebilsin)
+            // Eğer hesaplama yapıldıysa, select'i güncelle VE tdsData'ya kaydet
             if (calculatedCompliance) {
+                // ✅ tdsData'daki compliance'ı güncelle (saveCOA için gerekli)
+                prop.coaCompliance = calculatedCompliance;
+                console.log(`🔄 ${prop.name} compliance güncellendi: ${calculatedCompliance}`);
+                
                 const rows = document.querySelectorAll('#tdsPropertiesTable tr');
                 if (rows[index]) {
                     const select = rows[index].querySelector('select[onchange*="coaCompliance"]');
