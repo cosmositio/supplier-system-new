@@ -7446,25 +7446,12 @@
                     return;
                 }
                 
-                // 🔥 DEBUG: Sayfada göster (console çalışmıyor)
+                // DEBUG: Console log (alert kaldırıldı)
                 if (allCOARecords.length > 0 && coaData.length > 0) {
-                    const debugInfo = 
-                        '📋 İlk COA_Records:\n' +
-                        'materialCode: ' + allCOARecords[0].materialCode + '\n' +
-                        'supplier: ' + allCOARecords[0].supplier + '\n' +
-                        'date: ' + allCOARecords[0].date + '\n' +
-                        'deliveryNo: "' + allCOARecords[0].deliveryNo + '"\n' +
-                        'propertyName: ' + allCOARecords[0].propertyName + '\n\n' +
-                        '📋 İlk coaData:\n' +
-                        'materialCode: ' + coaData[0].materialCode + '\n' +
-                        'supplier: ' + coaData[0].supplier + '\n' +
-                        'deliveryDate: ' + coaData[0].deliveryDate + '\n' +
-                        'deliveryNo: "' + coaData[0].deliveryNo + '"\n\n' +
-                        '📋 BERKOSAN COA:\n' +
-                        JSON.stringify(coaData.find(c => c.materialCode === '944.4.KFR30-40.3'), null, 2);
-                    
-                    alert(debugInfo);
-                    console.log('📋 DEBUG INFO:\n', debugInfo);
+                    console.log('📋 DEBUG - İlk kayıtlar:', {
+                        firstRecord: allCOARecords[0],
+                        firstCOA: coaData[0]
+                    });
                 }
                 
                 // Console için de log
@@ -7488,39 +7475,16 @@
                     });
                 }
                 
-                // 🐛 COA_Records'tan ilk 3 örneği göster
-                console.log('🐛 COA_Records örnekleri (ilk 3):');
-                allCOARecords.slice(0, 3).forEach((rec, idx) => {
-                    console.log(`   ${idx + 1}. ${rec.materialCode} (${rec.supplier}) - Tarih: ${rec.date} - İrsaliye: ${rec.deliveryNo}`);
-                });
-                
                 let enrichedCount = 0;
                 
                 // Her COA kaydı için ilgili COA_Records verilerini bul ve ekle
-                let debugCount = 0; // İlk 3 COA için debug göster
                 coaData.forEach(coa => {
-                    // 🐛 DEBUG: İLK 3 COA için detaylı log (eşleşsin ya da eşleşmesin)
-                    if (debugCount < 3) {
-                        console.log(`🐛 DEBUG ${debugCount + 1}: ${coa.materialCode} (${coa.supplier})`);
-                        console.log(`   deliveryDate: "${coa.deliveryDate}"`);
-                        console.log(`   deliveryNo: "${coa.deliveryNo}"`);
-                        debugCount++;
-                    }
-                    
-                    // 🐛 ÖZEL DEBUG: BERKOSAN 944.4.KFR30-40.3
-                    if (coa.materialCode === '944.4.KFR30-40.3') {
-                        console.log(`🔍 BERKOSAN COA bulundu!`);
-                        console.log(`   deliveryDate: "${coa.deliveryDate}"`);
-                        console.log(`   deliveryNo: "${coa.deliveryNo}"`);
-                        console.log(`   supplier: "${coa.supplier}"`);
-                    }
-                    
                     // Eğer zaten ocrProperties varsa atla (Sheets'ten gelmiş demektir)
                     if (coa.ocrProperties && Object.keys(coa.ocrProperties).length > 0) {
                         return;
                     }
                     
-                    // Bu COA'ya ait kayıtları bul (tedarikçi + hammadde kodu + TARİH + İRSALİYE NO)
+                    // Bu COA'ya ait kayıtları bul (tedarikçi + hammadde kodu + İRSALİYE NO)
                     const matchingRecords = allCOARecords.filter(record => {
                         const recordSupplier = (record.supplier || '').trim().toLowerCase();
                         const coaSupplier = (coa.supplier || '').trim().toLowerCase();
@@ -7550,25 +7514,31 @@
                             coaDate = coaDate;
                         }
                         
-                        const dateMatch = recordDate === coaDate;
-                        
-                        // 🐛 DEBUG: İlk COA veya BERKOSAN için tarih karşılaştırmasını göster
-                        if ((enrichedCount === 0 || coa.materialCode === '944.4.KFR30-40.3') && supplierMatch && materialMatch) {
-                            console.log(`🐛 DATE DEBUG: ${coa.materialCode}`);
-                            console.log(`   COA date: "${coa.deliveryDate}" → normalized: "${coaDate}"`);
-                            console.log(`   Records date: "${record.date}" → normalized: "${recordDate}"`);
-                            console.log(`   Date Match: ${dateMatch}`);
-                            console.log(`   COA deliveryNo: "${coa.deliveryNo}"`);
-                            console.log(`   Record deliveryNo: "${record.deliveryNo}"`);
-                        }
-                        
-                        // İrsaliye no eşleşmesi (opsiyonel, varsa kontrol et)
+                        // İrsaliye no eşleşmesi kontrolü
                         const recordDeliveryNo = (record.deliveryNo || '').trim();
                         const coaDeliveryNo = (coa.deliveryNo || '').trim();
-                        const deliveryMatch = !recordDeliveryNo || !coaDeliveryNo || recordDeliveryNo === coaDeliveryNo;
                         
-                        // TEDARİKÇİ + MALZEME + TARİH + İRSALİYE eşleşmeli!
-                        return supplierMatch && materialMatch && dateMatch && deliveryMatch;
+                        // ESNEK MATCHING: İrsaliye no varsa öncelik ona!
+                        if (recordDeliveryNo && coaDeliveryNo) {
+                            // İkisi de varsa: supplier + material + deliveryNo KESIN eşleşmeli
+                            // Tarih ±1 gün toleranslı (timezone farkı için)
+                            const deliveryMatch = recordDeliveryNo === coaDeliveryNo;
+                            
+                            if (deliveryMatch) {
+                                // Date tolerance: ±1 gün
+                                const date1 = new Date(recordDate);
+                                const date2 = new Date(coaDate);
+                                const dayDiff = Math.abs((date1 - date2) / (1000 * 60 * 60 * 24));
+                                const dateMatchFlexible = dayDiff <= 1;
+                                
+                                return supplierMatch && materialMatch && deliveryMatch && dateMatchFlexible;
+                            }
+                            return false;
+                        } else {
+                            // İrsaliye no yoksa: Kesin tarih + supplier + material
+                            const dateMatch = recordDate === coaDate;
+                            return supplierMatch && materialMatch && dateMatch;
+                        }
                     });
                     
                     if (matchingRecords.length > 0) {
@@ -7626,8 +7596,8 @@
                         });
                         
                         enrichedCount++;
-                        console.log(`✅ ${coa.materialCode} (${coa.supplier}) için ${matchingRecords.length} özellik eklendi`);
-                    } else if (enrichedCount < 3) {
+                        console.log(`✅ ${coa.materialCode} için ${matchingRecords.length} özellik eklendi (İrsaliye: ${coa.deliveryNo || 'yok'})`);
+                    } else if (enrichedCount < 5) {
                         // İlk 3 eşleşmeyen kayıt için debug göster
                         console.log(`⚠️ ${coa.materialCode} (${coa.supplier}) - COA_Records'ta veri yok`);
                     }
