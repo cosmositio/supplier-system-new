@@ -7479,10 +7479,8 @@
                 
                 // Her COA kaydı için ilgili COA_Records verilerini bul ve ekle
                 coaData.forEach(coa => {
-                    // Eğer zaten ocrProperties varsa atla (Sheets'ten gelmiş demektir)
-                    if (coa.ocrProperties && Object.keys(coa.ocrProperties).length > 0) {
-                        return;
-                    }
+                    // ✅ COA_Records'tan veri varsa OVERRIDE et (Sheets öncelikli)
+                    // TDS'ten gelmiş ocrProperties varsa bile, Sheets'teki güncel veri üzerine yazmalı
                     
                     // Bu COA'ya ait kayıtları bul (tedarikçi + hammadde kodu + İRSALİYE NO)
                     const matchingRecords = allCOARecords.filter(record => {
