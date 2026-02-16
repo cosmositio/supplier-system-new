@@ -5868,12 +5868,56 @@
                     fileUrl: uploadResult ? uploadResult.viewUrl : existingRecord.fileUrl,
                     driveFileId: uploadResult ? uploadResult.fileId : existingRecord.driveFileId,
                     fileSize: uploadResult ? uploadResult.fileSize : existingRecord.fileSize, // Gerçek boyut
+                    ocrProperties: existingRecord.ocrProperties || {},  // ✅ OCR değerlerini koru
                     createdAt: existingRecord.createdAt,
                     updatedAt: new Date().toISOString()
                 };
                 
                 // OCR zaten fotoğraf çekilirken yapıldı, tekrar yapmaya gerek yok
                 console.log('ℹ️ Edit modda OCR atlanıyor (çekim sırasında yapıldı)');
+                
+                // 📊 OCR değerleri varsa COA_Records'a da kaydet
+                if (record.ocrProperties && Object.keys(record.ocrProperties).length > 0) {
+                    console.log('📊 Edit modda ocrProperties COA_Records\'a kaydediliyor:', Object.keys(record.ocrProperties).length, 'özellik');
+                    
+                    // Object formatından Array formatına çevir
+                    const propertiesArray = Object.entries(record.ocrProperties).map(([name, data]) => ({
+                        name: name,
+                        coaValue: data.coaValue || '',
+                        unit: data.unit || '',
+                        standard: data.method || '',
+                        operator: 'range',
+                        standardValue: data.standardValue || '',
+                        min: data.lowerLimit || '',
+                        max: data.upperLimit || '',
+                        requirement: data.requirement || '',
+                        status: data.status || data.compliance || 'Bilinmiyor'
+                    }));
+                    
+                    const recordData = {
+                        date: deliveryDate,
+                        deliveryNo: deliveryNo || '',
+                        lotNumber: lotNumber || '',
+                        supplier: supplier,
+                        location: location || '',
+                        properties: propertiesArray
+                    };
+                    
+                    try {
+                        const dataStr = JSON.stringify(recordData);
+                        const url = `${googleScriptUrl}?action=saveCOARecord&data=${encodeURIComponent(dataStr)}`;
+                        const saveResponse = await fetch(url);
+                        const saveResult = await saveResponse.json();
+                        
+                        if (saveResult.success) {
+                            console.log(`✅ ${saveResult.recordCount} özellik COA_Records'a güncellendi`);
+                        } else {
+                            console.error('❌ COA_Records kayıt hatası:', saveResult.error);
+                        }
+                    } catch(err) {
+                        console.error('❌ COA_Records kayıt hatası:', err);
+                    }
+                }
                 
                 // Google Sheets'e güncelle
                 if (googleScriptUrl) {
