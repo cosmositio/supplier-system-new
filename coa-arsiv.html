@@ -7453,6 +7453,7 @@
                         materialCode: allCOARecords[0].materialCode,
                         date: allCOARecords[0].date,
                         dateType: typeof allCOARecords[0].date,
+                        deliveryNo: allCOARecords[0].deliveryNo,
                         propertyName: allCOARecords[0].propertyName
                     });
                 }
@@ -7483,6 +7484,14 @@
                         console.log(`   deliveryDate: "${coa.deliveryDate}"`);
                         console.log(`   deliveryNo: "${coa.deliveryNo}"`);
                         debugCount++;
+                    }
+                    
+                    // 🐛 ÖZEL DEBUG: BERKOSAN 944.4.KFR30-40.3
+                    if (coa.materialCode === '944.4.KFR30-40.3') {
+                        console.log(`🔍 BERKOSAN COA bulundu!`);
+                        console.log(`   deliveryDate: "${coa.deliveryDate}"`);
+                        console.log(`   deliveryNo: "${coa.deliveryNo}"`);
+                        console.log(`   supplier: "${coa.supplier}"`);
                     }
                     
                     // Eğer zaten ocrProperties varsa atla (Sheets'ten gelmiş demektir)
@@ -7522,12 +7531,14 @@
                         
                         const dateMatch = recordDate === coaDate;
                         
-                        // 🐛 DEBUG: İlk COA için tarih karşılaştırmasını göster
-                        if (enrichedCount === 0 && supplierMatch && materialMatch) {
-                            console.log(`🐛 DEBUG: ${coa.materialCode}`);
+                        // 🐛 DEBUG: İlk COA veya BERKOSAN için tarih karşılaştırmasını göster
+                        if ((enrichedCount === 0 || coa.materialCode === '944.4.KFR30-40.3') && supplierMatch && materialMatch) {
+                            console.log(`🐛 DATE DEBUG: ${coa.materialCode}`);
                             console.log(`   COA date: "${coa.deliveryDate}" → normalized: "${coaDate}"`);
                             console.log(`   Records date: "${record.date}" → normalized: "${recordDate}"`);
-                            console.log(`   Match: ${dateMatch}`);
+                            console.log(`   Date Match: ${dateMatch}`);
+                            console.log(`   COA deliveryNo: "${coa.deliveryNo}"`);
+                            console.log(`   Record deliveryNo: "${record.deliveryNo}"`);
                         }
                         
                         // İrsaliye no eşleşmesi (opsiyonel, varsa kontrol et)
