@@ -2858,8 +2858,9 @@
                 });
             }
             
-            // ⚠️ localStorage KALDIRILDI - Artık sadece Google Sheets kullanılıyor!
-            // Google Sheets bağlantısı otomatik olarak connectGoogleSheets() ile yapılacak
+            // 💾 İlk yüklemede localStorage'dan yükle (FALLBACK - Sheets yoksa)
+            // Sheets bağlantısı sonra connectGoogleSheets() ile güncelleyecek
+            await loadFromLocalStorage();
             
             // Sayfa başına kayıt sayısını localStorage'dan yükle
             const savedRowsPerPage = localStorage.getItem('rowsPerPage');
@@ -3139,10 +3140,19 @@
                 document.getElementById('statusDot').classList.remove('connected');
                 document.getElementById('statusText').textContent = 'Bağlantı başarısız';
                 
-                // ⚠️ localStorage KALDIRILDI - Google Sheets çalışmazsa veri yok!
-                if (!silent) {
-                    showToast('🚨 GOOGLE SHEETS BAĞLANTISI YOK - VERİ YÜKLENEMİYOR!', 'error', 8000);
-                    showToast('💡 ÇÖZÜM: Apps Script\'i yeniden deploy edin veya URL\'yi kontrol edin', 'info', 8000);
+                // FALLBACK: localStorage'dan yükle
+                const localCount = coaData.length;
+                if (localCount > 0) {
+                    console.log(`💾 FALLBACK: ${localCount} kayıt localStorage'dan kullanılıyor`);
+                    if (!silent) {
+                        showToast(`⚠️ Sheets bağlantısı yok, ${localCount} yerel kayıt kullanılıyor`, 'warning', 5000);
+                        showToast('💡 Apps Script deployment yapın', 'info', 5000);
+                    }
+                } else {
+                    if (!silent) {
+                        showToast('🚨 NE SHEETS NE DE YEREL VERİ YOK!', 'error', 8000);
+                        showToast('💡 Apps Script\'i deploy edin veya yedek dosya yükleyin', 'info', 8000);
+                    }
                 }
             }
             updateUI();
@@ -3241,7 +3251,8 @@
                         });
                     }
                     
-                    // ⚠️ saveToLocalStorage KALDIRILDI - Sadece Google Sheets kullanılıyor
+                    // Sheets'ten başarıyla yüklendiysaveToLocalStorage() ile yedekle
+                    saveToLocalStorage();
                     
                     // COA_Records'tan değerleri yükle
                     await loadCOARecordsForAll();
@@ -3256,16 +3267,26 @@
                     showToast('✅ ' + coaData.length + ' kayıt yüklendi (' + withFiles + ' dosyalı)', 'success');
                 } else {
                     console.error('Veri yükleme hatası:', data?.error);
-                    // ⚠️ localStorage KALDIRILDI
+                    // FALLBACK: Zaten localStorage'dan yüklenmiş olabilir
                     renderTable();
-                    showToast('🚨 GOOGLE SHEETS HATA VERDİ - VERİ YÜKLENEMEDİ!', 'error', 8000);
+                    const localCount = coaData.length;
+                    if (localCount > 0) {
+                        showToast(`⚠️ Sheets hatası, ${localCount} yerel kayıt kullanılıyor`, 'warning', 5000);
+                    } else {
+                        showToast('🚨 VERİ YÜKLENEMEDİ!', 'error', 8000);
+                    }
                 }
             } catch (error) {
                 console.error('Yükleme hatası:', error);
-                // ⚠️ localStorage KALDIRILDI - Google Sheets çalışmazsa veri yüklenemez!
+                // FALLBACK: localStorage zaten yüklenmiş olabilir (DOMContentLoaded'da)
                 renderTable();
-                showToast('🚨 GOOGLE SHEETS ERİŞİLEMİYOR - VERİ YOK!', 'error', 8000);
-                showToast('💡 Apps Script deployment yapın veya internet bağlantınızı kontrol edin', 'info', 8000);
+                const localCount = coaData.length;
+                if (localCount > 0) {
+                    showToast(`💾 Çevrimdışı mod: ${localCount} yerel kayıt`, 'warning', 5000);
+                } else {
+                    showToast('🚨 GOOGLE SHEETS ERİŞİLEMİYOR!', 'error', 8000);
+                    showToast('💡 Apps Script deployment veya internet kontrolü', 'info', 8000);
+                }
             }
         }
         
@@ -3978,7 +3999,7 @@
                 }
             }
             
-            // ⚠️ saveToLocalStorage KALDIRILDI
+            saveToLocalStorage(); // Senkronizasyon sonrası localStorage'a kaydet
             
             if (failCount === 0) {
                 showToast('✅ ' + successCount + ' kayıt senkronize edildi', 'success');
@@ -4109,18 +4130,38 @@
             }
         }
         
-        // ==================== Local Storage [DEVRE DIŞI] ====================
-        // ⚠️ ARTIK localStorage KULLANILMIYOR!
-        // Tüm veriler Google Sheets'ten (buluttan) geriye doğru yükleniyor
+        // ==================== Local Storage [FALLBACK SYSTEM] ====================
+        // 🚨 FALLBACK (YEDEKLeme) SİSTEMİ:
+        // 1. ÖNCE Google Sheets'ten yüklemeyi dene (öncelik)
+        // 2. Başarısız olursa localStorage'dan yükle (fallback)
+        // 3. Sheets çalıştığında otomatik localStorage'a kaydet (senkronize)
         
         async function loadFromLocalStorage() {
-            // ❌ KALDIRILDI - Artık sadece Google Sheets kullanılıyor
-            console.warn('⚠️ loadFromLocalStorage() çağrıldı ama DEVRE DIŞI - Sadece Google Sheets kullanılıyor!');
+            const saved = localStorage.getItem('coa_arsiv_data');
+            if (saved) {
+                coaData = JSON.parse(saved);
+                console.log('💾 localStorage\'dan yüklendi (FALLBACK):', coaData.length, 'kayıt');
+                console.warn('⚠️ Google Sheets bağlantısı olmadığı için yerel veriler kullanılıyor!');
+                
+                // COA_Records'tan değerleri yükle (eğer Sheets çalışıyorsa)
+                try {
+                    await loadCOARecordsForAll();
+                } catch (e) {
+                    console.warn('COA_Records yüklenemedi (Sheets bağlantısı yok):', e.message);
+                }
+            } else {
+                console.error('🚨 NE SHEETS NE DE localStorage VERİSİ YOK - PROGRAM BOŞ!');
+            }
         }
         
         function saveToLocalStorage() {
-            // ❌ KALDIRILDI - Artık sadece Google Sheets kullanılıyor
-            // Hiçbir şey yapma (sessizce gözardı et)
+            // Sheets çalıştığında localStorage'a yedek kaydet
+            try {
+                localStorage.setItem('coa_arsiv_data', JSON.stringify(coaData));
+                console.log('💾 localStorage senkronize edildi:', coaData.length, 'kayıt');
+            } catch (e) {
+                console.error('localStorage kaydetme hatası:', e);
+            }
         }
         
         // ==================== JSON Backup & Restore ====================
@@ -4186,7 +4227,7 @@
                     
                     // Restore data
                     coaData = backup.data;
-                    // ⚠️ saveToLocalStorage KALDIRILDI - Sadece Sheets kullanılıyor
+                    saveToLocalStorage(); // JSON'dan yüklenince localStorage'ı güncelle
                     renderTable();
                     updateStats();
                     
@@ -5842,7 +5883,7 @@
                         if (idx >= 0) {
                             coaData[idx] = record;
                         }
-                        // ⚠️ saveToLocalStorage KALDIRILDI
+                        saveToLocalStorage(); // Güncelleme sonrası yedekle
                         showToast('✅ COA güncellendi!', 'success');
                     }
                 } else {
@@ -5850,7 +5891,7 @@
                     if (idx >= 0) {
                         coaData[idx] = record;
                     }
-                    // ⚠️ saveToLocalStorage KALDIRILDI
+                    saveToLocalStorage(); // Sheets yokken yerel güncelleme
                     showToast('✅ Yerel olarak güncellendi!', 'success');
                 }
                 
@@ -6012,11 +6053,13 @@
                     return;
                 }
             } else {
-                console.log('⚠️ Google Sheets URL yok - KAYıT YAPILAMIYOR!');
-                // ⚠️ localStorage KALDIRILDI - Sheets olmadan kayıt yapılamaz!
-                showToast('🚨 GOOGLE SHEETS BAĞLANTISI YOK - VERİ KAYDEDILEMİYOR!', 'error', 8000);
-                console.log('❌ KAYIT TAMAMLANAMADI - SHEETS OLMADAN ÇALIŞMAZ!');
-                return; // Kayıt yapma
+                // Sheets yokken FALLBACK: localStorage'a kaydet
+                console.log('⚠️ Google Sheets URL yok, yerel kayıt yapılıyor...');
+                coaData.unshift(record);
+                saveToLocalStorage();
+                showToast('⚠️ Sheets olmadan yerel kayıt yapıldı!', 'warning', 5000);
+                showToast('💡 Sheets bağlandığında senkronize edin', 'info', 5000);
+                console.log('✅ KAYIT TAMAMLANDI - LOCAL ONLY (FALLBACK)!');
             }
             
             console.log('✅ Kayıt tamamlandı, form temizleniyor...');
@@ -6521,8 +6564,9 @@
                     progressTitle.textContent = '🛑 İptal Edildi';
                     showToast(`⚠️ İşlem iptal edildi. ${successCount} COA kaydedildi, ${bulkFiles.length - i} atlandı.`, 'warning', 5000);
                     
-                    // ⚠️ localStorage KALDIRILDI
+                    // Başarılı kayıtları localStorage'a kaydet
                     if (successCount > 0) {
+                        saveToLocalStorage();
                         renderTable();
                     }
                     
@@ -6883,7 +6927,7 @@
             
             // Update UI
             if (successCount > 0) {
-                // ⚠️ saveToLocalStorage KALDIRILDI
+                saveToLocalStorage(); // Toplu yükleme sonrası yedekle
                 
                 showToast(`✅ ${successCount} COA başarıyla kaydedildi!`, 'success', 5000);
                 renderTable();
@@ -7044,7 +7088,7 @@
                 successCount++;
             }
             
-            // ⚠️ saveToLocalStorage KALDIRILDI
+            saveToLocalStorage(); // Toplu silme sonrası yedekle
             updateUI();
             
             // Detaylı sonuç mesajı
@@ -7132,7 +7176,7 @@
             }
             
             coaData = coaData.filter(c => c.id !== id);
-            // ⚠️ saveToLocalStorage KALDIRILDI
+            saveToLocalStorage(); // Silme sonrası yedekle
             updateUI();
             
             let message, toastType;
