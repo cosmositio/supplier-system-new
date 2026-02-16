@@ -13251,9 +13251,12 @@
                         statusBadge = '<span style="background: #6c757d; color: white; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.8em; white-space: nowrap;">-</span>';
                     }
                     
-                    // TDS Limit formatla (Alt - Üst)
+                    // TDS Limit formatla (Alt - Üst) - SADECE requirement YOKSA göster
                     let tdsLimitDisplay = '-';
-                    if (prop.lowerLimit && prop.upperLimit) {
+                    if (prop.requirement && prop.requirement.trim()) {
+                        // Requirement varsa TDS Limit gösterme
+                        tdsLimitDisplay = '-';
+                    } else if (prop.lowerLimit && prop.upperLimit) {
                         tdsLimitDisplay = `${prop.lowerLimit} - ${prop.upperLimit}`;
                     } else if (prop.lowerLimit) {
                         tdsLimitDisplay = `≥ ${prop.lowerLimit}`;
