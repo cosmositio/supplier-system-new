@@ -1957,7 +1957,6 @@ function saveCOARecord(data) {
     // data: { date OR deliveryDate, deliveryNo, lotNumber, materialCode, supplier, location, properties: [{name, coaValue, unit, standard, operator, standardValue, min, max, status}] }
     
     const now = new Date().toLocaleString('tr-TR');
-    const rows = [];
     
     // Tarih formatını YYYY-MM-DD olarak normalize et (karşılaştırma için)
     let deliveryDateNormalized = data.date || data.deliveryDate || '';
