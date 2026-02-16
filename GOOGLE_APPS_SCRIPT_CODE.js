@@ -339,20 +339,14 @@ function createResponse(result, callback) {
   const output = JSON.stringify(result);
   
   if (callback) {
-    // JSONP response - 🔥 NO CACHE! Her zaman güncel veri
+    // JSONP response - Cache bypass timestamp frontend'de yapılıyor
     return ContentService.createTextOutput(callback + '(' + output + ')')
-      .setMimeType(ContentService.MimeType.JAVASCRIPT)
-      .setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-      .setHeader('Pragma', 'no-cache')
-      .setHeader('Expires', '0');
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
   
-  // Plain JSON response - 🔥 NO CACHE!
+  // Plain JSON response
   return ContentService.createTextOutput(output)
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-    .setHeader('Pragma', 'no-cache')
-    .setHeader('Expires', '0');
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function parseFormData(contents) {
