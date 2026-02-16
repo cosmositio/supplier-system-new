@@ -1990,59 +1990,71 @@ function saveCOARecord(data) {
     const dateIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('tarih'));
     const deliveryNoIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('irsaliye'));
     const materialIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('malzeme'));
-    const propertyNameIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('özellik adı'));
+    const propertyNameIdx = headers.findIndex(h => h && (
+      h.toString().toLowerCase().includes('özellik') || 
+      h.toString().toLowerCase().includes('property')
+    ));
+    
+    Logger.log(`📋 Column indexes: date=${dateIdx}, delivery=${deliveryNoIdx}, material=${materialIdx}, property=${propertyNameIdx}`);
+    
+    // Eğer gerekli kolonlar yoksa, hata döndür
+    if (dateIdx < 0 || deliveryNoIdx < 0 || materialIdx < 0 || propertyNameIdx < 0) {
+      Logger.log('❌ Gerekli kolonlar bulunamadı! Header kontrol edin.');
+      return {
+        success: false,
+        error: 'COA_Records sheet\'inde gerekli kolonlar bulunamadı. Header: Tarih, İrsaliye No, Malzeme Kodu, Özellik Adı'
+      };
+    }
     
     let insertPosition = null; // İlk satırın pozisyonu
+    const matchingRows = [];
     
-    if (dateIdx >= 0 && deliveryNoIdx >= 0 && materialIdx >= 0 && propertyNameIdx >= 0) {
-      const matchingRows = [];
+    // Eşleşen satırları bul (property bilgisi ile birlikte)
+    for (let i = 1; i < allData.length; i++) {
+      const row = allData[i];
+      let rowDate = row[dateIdx] || '';
       
-      // Eşleşen satırları bul (property bilgisi ile birlikte)
-      for (let i = 1; i < allData.length; i++) {
-        const row = allData[i];
-        let rowDate = row[dateIdx] || '';
-        
-        // Tarih formatını normalize et (YYYY-MM-DD)
-        if (rowDate instanceof Date) {
-          const d = new Date(rowDate);
-          rowDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        } else if (typeof rowDate === 'string') {
-          rowDate = String(rowDate).trim();
-          // DD.MM.YYYY → YYYY-MM-DD
-          if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(rowDate)) {
-            const [day, month, year] = rowDate.split('.');
-            rowDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-          }
-          // DD/MM/YYYY → YYYY-MM-DD
-          else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(rowDate)) {
-            const [day, month, year] = rowDate.split('/');
-            rowDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-          }
+      // Tarih formatını normalize et (YYYY-MM-DD)
+      if (rowDate instanceof Date) {
+        const d = new Date(rowDate);
+        rowDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      } else if (typeof rowDate === 'string') {
+        rowDate = String(rowDate).trim();
+        // DD.MM.YYYY → YYYY-MM-DD
+        if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(rowDate)) {
+          const [day, month, year] = rowDate.split('.');
+          rowDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
         }
-        
-        const rowDeliveryNo = String(row[deliveryNoIdx] || '').trim();
-        const rowMaterial = String(row[materialIdx] || '').trim();
-        const rowPropertyName = String(row[propertyNameIdx] || '').trim();
-        
-        // Eşleşme kontrolü
-        if (rowDate === deliveryDateNormalized && 
-            rowDeliveryNo === (data.deliveryNo || '') && 
-            rowMaterial === (data.materialCode || '')) {
-          matchingRows.push({
-            rowIndex: i,
-            sheetRow: i + 1, // 1-indexed
-            propertyName: rowPropertyName,
-            rowData: row
-          });
-          if (insertPosition === null) {
-            insertPosition = i + 1; // İlk eşleşen satırın pozisyonu
-          }
-          Logger.log(`   🎯 Eşleşme: Satır ${i + 1} - ${rowPropertyName}`);
+        // DD/MM/YYYY → YYYY-MM-DD
+        else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(rowDate)) {
+          const [day, month, year] = rowDate.split('/');
+          rowDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
         }
       }
       
-      if (matchingRows.length > 0) {
-        Logger.log(`📋 ${matchingRows.length} eski satır bulundu, güncelleme/ekleme yapılacak...`);
+      const rowDeliveryNo = String(row[deliveryNoIdx] || '').trim();
+      const rowMaterial = String(row[materialIdx] || '').trim();
+      const rowPropertyName = String(row[propertyNameIdx] || '').trim();
+      
+      // Eşleşme kontrolü
+      if (rowDate === deliveryDateNormalized && 
+          rowDeliveryNo === (data.deliveryNo || '') && 
+          rowMaterial === (data.materialCode || '')) {
+        matchingRows.push({
+          rowIndex: i,
+          sheetRow: i + 1, // 1-indexed
+          propertyName: rowPropertyName,
+          rowData: row
+        });
+        if (insertPosition === null) {
+          insertPosition = i + 1; // İlk eşleşen satırın pozisyonu
+        }
+        Logger.log(`   🎯 Eşleşme: Satır ${i + 1} - ${rowPropertyName}`);
+      }
+    }
+    
+    if (matchingRows.length > 0) {
+      Logger.log(`📋 ${matchingRows.length} eski satır bulundu, güncelleme/ekleme yapılacak...`);
         
         // Her yeni property için işlem yap
         data.properties.forEach(newProp => {
@@ -2187,8 +2199,13 @@ function saveCOARecord(data) {
           recordCount: data.properties.length,
           message: `${matchingRows.filter(m => m.processed).length} güncellendi, ${newProperties.length} yeni eklendi`
         };
-      }
+    } else {
+      // İlk kez kaydediliyor (matching rows yok) - Yeni satırları EN SONA ekle
+      Logger.log('📝 İlk kez kaydediliyor, yeni satırlar ekleniyor...');
     }
+    
+    // FALLBACK: İlk kayıt için eski mantık (sadece matching rows yoksa çalışır)
+    const rows = [];
     
     // Her özellik için ayrı satır oluştur
     data.properties.forEach(prop => {
