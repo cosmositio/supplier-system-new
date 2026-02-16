@@ -1995,13 +1995,16 @@ function saveCOARecord(data) {
     ));
     
     Logger.log(`📋 Column indexes: date=${dateIdx}, delivery=${deliveryNoIdx}, material=${materialIdx}, property=${propertyNameIdx}`);
+    Logger.log(`📋 Headers array:`, JSON.stringify(headers));
     
     // Eğer gerekli kolonlar yoksa, hata döndür
     if (dateIdx < 0 || deliveryNoIdx < 0 || materialIdx < 0 || propertyNameIdx < 0) {
       Logger.log('❌ Gerekli kolonlar bulunamadı! Header kontrol edin.');
+      const headerDebug = headers.map((h, i) => `${i}: "${h}"`).join(', ');
+      Logger.log(`📋 Bulunan header'lar: ${headerDebug}`);
       return {
         success: false,
-        error: 'COA_Records sheet\'inde gerekli kolonlar bulunamadı. Header: Tarih, İrsaliye No, Malzeme Kodu, Özellik Adı'
+        error: `COA_Records kolonları eksik! date=${dateIdx}, delivery=${deliveryNoIdx}, material=${materialIdx}, property=${propertyNameIdx}. Headers: ${headerDebug.substring(0, 200)}`
       };
     }
     
