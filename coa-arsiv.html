@@ -1998,19 +1998,6 @@
         
         // Dosya tipine göre ikon oluştur
         function getFileIcon(fileName, fileType, itemId) {
-            // 🔍 SUPER DEBUG - ALERT ile test
-            if (!window.fileIconTestDone) {
-                alert('✅ getFileIcon ÇALIŞIYOR! (Bu mesajı bir kez göreceksin)');
-                window.fileIconTestDone = true;
-            }
-            
-            // 🔍 Debug log
-            console.log('🎯 getFileIcon çağrıldı:', {
-                fileName: fileName,
-                fileType: fileType,
-                itemId: itemId
-            });
-            
             // Dosya uzantısını al
             const extension = fileName ? fileName.split('.').pop().toLowerCase() : '';
             
@@ -2067,14 +2054,6 @@
                 iconText = extension ? extension.toUpperCase().substring(0, 3) : 'FILE';
                 iconClass = 'unknown';
             }
-            
-            // 🔍 Debug: Oluşturulan ikon
-            console.log('✅ İkon oluşturuldu:', {
-                extension: extension,
-                iconEmoji: iconEmoji,
-                iconText: iconText,
-                iconClass: iconClass
-            });
             
             return '<div class="file-icon ' + iconClass + '" onclick="viewFile(\'' + itemId + '\')">' + 
                    '<div style="font-size: 1.5em; margin-bottom: 2px;">' + iconEmoji + '</div>' + 
@@ -6408,8 +6387,8 @@
             }
         }
         
-        // Dosya tipine göre ikon döndür
-        function getFileIcon(filename) {
+        // Bulk upload için basit emoji döndür (sadece emoji, HTML div değil)
+        function getFileIconSimple(filename) {
             const ext = filename.split('.').pop().toLowerCase();
             const icons = {
                 'pdf': '�',
@@ -6427,6 +6406,11 @@
             };
             return icons[ext] || '📎';
         }
+        
+        // UYARI: Bu fonksiyon BİRİNCİ getFileIcon() (line ~2000) üzerine yazıyor!
+        // Bulk upload için basit wrapper - gerçek fonksiyonu kullan
+        // Artık HTML div döndürmek yerine sadece bu fonksiyonu silelim
+        // çünkü JavaScript'te son tanım öncekini ezer!
         
         function handleBulkFileSelect(e) {
             const files = Array.from(e.target.files);
@@ -6562,8 +6546,8 @@
                 const bgColor = isMissing ? '#fff5f5' : (fileObj.isMultiple ? '#f0fff4' : 'white');
                 const deliveryStyle = isMissing ? 'color: #dc3545; font-weight: 600;' : (fileObj.isMultiple ? 'color: #28a745; font-weight: 600;' : '');
                 
-                // Dosya tipine göre ikon
-                const fileIcon = getFileIcon(fileObj.file.name);
+                // Dosya tipine göre ikon (bulk upload için sadece emoji)
+                const fileIcon = getFileIconSimple(fileObj.file.name);
                 
                 // Birden fazla irsaliye varsa göster
                 const multipleIndicator = fileObj.isMultiple ? ` <span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75em;">(${fileObj.multipleIndex}/${fileObj.multipleTotal})</span>` : '';
@@ -7861,14 +7845,8 @@
             tbody.innerHTML = displayData.map(c => {
                 const isChecked = selectedItems.has(c.id) ? 'checked' : '';
                 
-                // 🔍 Debug: fileName kontrolü
-                if (!c.fileName) {
-                    console.warn('⚠️ fileName eksik:', c.id, c);
-                }
-                
                 // Dosya önizlemesi - tüm dosyalar için ikon göster
                 let filePreview = getFileIcon(c.fileName, c.fileType, c.id);
-                console.log('🎨 File preview oluşturuldu:', c.id, '→', filePreview ? 'OK' : 'BOŞ');
                 
                 const onlineIcon = c.fileData ? ' 💾' : (c.fileUrl ? ' ☁️' : '');
                 
