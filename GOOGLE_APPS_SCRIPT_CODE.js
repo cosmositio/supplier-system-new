@@ -2150,6 +2150,13 @@ function saveCOARecord(data) {
             const range = sheet.getRange(existingRow.sheetRow, 1, 1, updatedRow.length);
             range.setValues([updatedRow]);
             
+            // Numerik sütunları text formatına çevir (0,035 gibi değerleri korumak için)
+            sheet.getRange(existingRow.sheetRow, 12).setNumberFormat('@'); // standardValue
+            sheet.getRange(existingRow.sheetRow, 13).setNumberFormat('@'); // min
+            sheet.getRange(existingRow.sheetRow, 14).setNumberFormat('@'); // max
+            sheet.getRange(existingRow.sheetRow, 16).setNumberFormat('@'); // coaValue
+            Logger.log(`   🔧 Text format uygulandı: ${newProp.name}`);
+            
             // İşlenmiş olarak işaretle
             existingRow.processed = true;
           }
@@ -2247,7 +2254,14 @@ function saveCOARecord(data) {
             const range = sheet.getRange(finalInsertPosition + idx, 1, 1, newRow.length);
             range.setValues([newRow]);
             
-            Logger.log(`     ✅ ${newProp.name} eklendi (Satır ${finalInsertPosition + idx})`);
+            // Numerik sütunları text formatına çevir
+            const rowNum = finalInsertPosition + idx;
+            sheet.getRange(rowNum, 12).setNumberFormat('@'); // standardValue
+            sheet.getRange(rowNum, 13).setNumberFormat('@'); // min
+            sheet.getRange(rowNum, 14).setNumberFormat('@'); // max
+            sheet.getRange(rowNum, 16).setNumberFormat('@'); // coaValue
+            
+            Logger.log(`     ✅ ${newProp.name} eklendi (Satır ${finalInsertPosition + idx}) - Text format uygulandı`);
           });
         }
         
@@ -2341,7 +2355,15 @@ function saveCOARecord(data) {
     
     // Tüm satırları ekle
     if (rows.length > 0) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 18).setValues(rows);
+      const startRow = sheet.getLastRow() + 1;
+      sheet.getRange(startRow, 1, rows.length, 18).setValues(rows);
+      
+      // Numerik sütunları text formatına çevir (tüm yeni satırlar için)
+      sheet.getRange(startRow, 12, rows.length, 1).setNumberFormat('@'); // standardValue
+      sheet.getRange(startRow, 13, rows.length, 1).setNumberFormat('@'); // min
+      sheet.getRange(startRow, 14, rows.length, 1).setNumberFormat('@'); // max
+      sheet.getRange(startRow, 16, rows.length, 1).setNumberFormat('@'); // coaValue
+      Logger.log(`🔧 ${rows.length} satır için text format uygulandı`);
     }
     
     return { 
