@@ -6680,6 +6680,9 @@
             // İptal flag'ini sıfırla
             bulkUploadCancelled = false;
             
+            // Batch COA_Records kayıtları için array
+            const batchCOARecords = [];
+            
             // Ana formdan tedarikçi bilgisini al
             const supplier = document.getElementById('supplierInput').value.trim();
             
@@ -7051,7 +7054,7 @@
                     }
                     
                     if (propertiesToSave) {
-                        console.log('📊 COA_Records\'a kaydediliyor...', propertiesToSave.length, 'özellik');
+                        console.log('� Batch\'e ekleniyor...', propertiesToSave.length, 'özellik');
                         
                         // Record data objesini oluştur
                         const recordDataForSheets = {
@@ -7062,8 +7065,14 @@
                             location: record.location
                         };
                         
-                        await saveCOARecordToSheets(cleanMaterialCode, propertiesToSave, recordDataForSheets);
-                        console.log('✅ COA_Records kayıt başarılı');
+                        // ✅ Batch array'ine ekle (hemen kaydetme, sonra topluca gönder)
+                        batchCOARecords.push({
+                            materialCode: cleanMaterialCode,
+                            properties: propertiesToSave,
+                            recordData: recordDataForSheets
+                        });
+                        
+                        console.log(`📦 Batch'e eklendi (toplam: ${batchCOARecords.length})`);
                     } else {
                         console.log('⚠️ TDS tanımlı değil:', cleanMaterialCode);
                     }
@@ -7096,6 +7105,61 @@
             
             // Progress bar tamamlandı
             progressBar.style.width = '100%';
+            progressTitle.textContent = '✅ Dosyalar yüklendi, COA_Records kaydediliyor...';
+            
+            // ✅ Batch COA_Records kayıtlarını toplu olarak gönder
+            if (batchCOARecords.length > 0 && !bulkUploadCancelled) {
+                console.log('');
+                console.log('═══════════════════════════════════════════════════════');
+                console.log(`📊 BATCH COA_RECORDS KAYDI BAŞLIYOR: ${batchCOARecords.length} kayıt`);
+                console.log('═══════════════════════════════════════════════════════');
+                
+                let batchSaveSuccess = 0;
+                let batchSaveError = 0;
+                
+                // Her kayıt için sırayla gönder (rate limit koruması)
+                for (let i = 0; i < batchCOARecords.length; i++) {
+                    const batchItem = batchCOARecords[i];
+                    
+                    try {
+                        progressTitle.textContent = `📊 COA_Records kaydediliyor... (${i + 1}/${batchCOARecords.length})`;
+                        
+                        console.log(`📊 [${i + 1}/${batchCOARecords.length}] Kaydediliyor: ${batchItem.materialCode} (${batchItem.properties.length} özellik)`);
+                        
+                        await saveCOARecordToSheets(
+                            batchItem.materialCode, 
+                            batchItem.properties, 
+                            batchItem.recordData
+                        );
+                        
+                        batchSaveSuccess++;
+                        console.log(`✅ [${i + 1}/${batchCOARecords.length}] Kaydedildi: ${batchItem.materialCode}`);
+                        
+                        // Rate limit koruması: Her kayıt arasında 300ms bekle
+                        if (i < batchCOARecords.length - 1) {
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                        }
+                        
+                    } catch (error) {
+                        batchSaveError++;
+                        console.error(`❌ [${i + 1}/${batchCOARecords.length}] Hata: ${batchItem.materialCode}`, error);
+                    }
+                }
+                
+                console.log('═══════════════════════════════════════════════════════');
+                console.log(`✅ BATCH KAYIT TAMAMLANDI: ${batchSaveSuccess} başarılı, ${batchSaveError} hata`);
+                console.log('═══════════════════════════════════════════════════════');
+                console.log('');
+                
+                if (batchSaveSuccess > 0) {
+                    showToast(`✅ ${batchSaveSuccess} COA_Records kaydı tamamlandı`, 'success', 4000);
+                }
+                
+                if (batchSaveError > 0) {
+                    showToast(`⚠️ ${batchSaveError} COA_Records kaydedilemedi`, 'warning', 4000);
+                }
+            }
+            
             progressTitle.textContent = '✅ Tamamlandı!';
             
             // Update UI
@@ -8844,11 +8908,16 @@
                     
                     console.log(`✂️ ${regionsToProcess.length} bölge hazır!\n`);
                     
-                    // ADIM 2: Tüm bölgeleri PARALEL olarak OCR'a gönder
-                    console.log('🚀 ADIM 2: Tüm bölgeler PARALEL OCR\'a gönderiliyor...');
-                    showToast(`🚀 ${regionsToProcess.length} bölge paralel taranıyor...`, 'info', 3000);
+                    // ADIM 2: Tüm bölgeleri SIRALI olarak OCR'a gönder (Rate Limit koruması)
+                    console.log('🚀 ADIM 2: Tüm bölgeler SIRALI OCR\'a gönderiliyor (Rate Limit koruması)...');
+                    showToast(`🚀 ${regionsToProcess.length} bölge sıralı taranıyor...`, 'info', 3000);
                     
-                    const ocrPromises = regionsToProcess.map(async (region) => {
+                    const results = [];
+                    
+                    // Sequential processing with delay (Rate Limit koruması)
+                    for (let i = 0; i < regionsToProcess.length; i++) {
+                        const region = regionsToProcess[i];
+                        
                         try {
                             let ocrText = '';
                             
@@ -8857,7 +8926,7 @@
                                 const azureResult = await performAzureOCR(region.imageData);
                                 ocrText = azureResult?.text || '';
                             } else {
-                                console.log(`🟢 [${region.index}] ${region.propertyName} - OCR.space başlatıldı`);
+                                console.log(`🟢 [${region.index}/${regionsToProcess.length}] ${region.propertyName} - OCR.space başlatıldı`);
                                 ocrText = await performOCRSpaceOCR(region.imageData);
                             }
                             
@@ -8865,25 +8934,28 @@
                             let cleanText = ocrText.trim().replace(/\s+/g, ' ');
                             cleanText = cleanText.replace(/(\d+)\.\s+(\d+)/g, '$1.$2');
                             
-                            console.log(`✅ [${region.index}] ${region.propertyName}: "${cleanText}"`);
+                            console.log(`✅ [${region.index}/${regionsToProcess.length}] ${region.propertyName}: "${cleanText}"`);
                             
-                            return {
+                            results.push({
                                 propertyName: region.propertyName,
                                 value: cleanText
-                            };
+                            });
+                            
+                            // Rate Limit koruması: Her istek arasında 600ms bekle (free tier: 10/dakika)
+                            if (i < regionsToProcess.length - 1) {
+                                console.log('⏳ Rate limit koruması - 600ms bekleniyor...');
+                                await new Promise(resolve => setTimeout(resolve, 600));
+                            }
                             
                         } catch (error) {
                             console.error(`❌ [${region.index}] ${region.propertyName} OCR hatası:`, error.message);
-                            return {
+                            results.push({
                                 propertyName: region.propertyName,
                                 value: '',
                                 error: true
-                            };
+                            });
                         }
-                    });
-                    
-                    // Tüm sonuçları bekle
-                    const results = await Promise.all(ocrPromises);
+                    }
                     
                     // Sonuçları properties objesine dönüştür
                     const properties = {};
@@ -8899,7 +8971,7 @@
                         }
                     });
                     
-                    console.log(`\n✅ PARALEL OCR TAMAMLANDI: ${successCount} başarılı, ${errorCount} hata`);
+                    console.log(`\n✅ SEQUENTIAL OCR TAMAMLANDI: ${successCount} başarılı, ${errorCount} hata`);
                     showToast(`✅ ${successCount} özellik okundu ${errorCount > 0 ? `(${errorCount} hata)` : ''}`, 'success');
                     resolve(properties);
                     
