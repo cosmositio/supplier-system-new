@@ -1998,6 +1998,13 @@
         
         // Dosya tipine göre ikon oluştur
         function getFileIcon(fileName, fileType, itemId) {
+            // 🔍 Debug log
+            console.log('🎯 getFileIcon çağrıldı:', {
+                fileName: fileName,
+                fileType: fileType,
+                itemId: itemId
+            });
+            
             // Dosya uzantısını al
             const extension = fileName ? fileName.split('.').pop().toLowerCase() : '';
             
@@ -2054,6 +2061,14 @@
                 iconText = extension ? extension.toUpperCase().substring(0, 3) : 'FILE';
                 iconClass = 'unknown';
             }
+            
+            // 🔍 Debug: Oluşturulan ikon
+            console.log('✅ İkon oluşturuldu:', {
+                extension: extension,
+                iconEmoji: iconEmoji,
+                iconText: iconText,
+                iconClass: iconClass
+            });
             
             return '<div class="file-icon ' + iconClass + '" onclick="viewFile(\'' + itemId + '\')">' + 
                    '<div style="font-size: 1.5em; margin-bottom: 2px;">' + iconEmoji + '</div>' + 
@@ -7840,8 +7855,14 @@
             tbody.innerHTML = displayData.map(c => {
                 const isChecked = selectedItems.has(c.id) ? 'checked' : '';
                 
+                // 🔍 Debug: fileName kontrolü
+                if (!c.fileName) {
+                    console.warn('⚠️ fileName eksik:', c.id, c);
+                }
+                
                 // Dosya önizlemesi - tüm dosyalar için ikon göster
                 let filePreview = getFileIcon(c.fileName, c.fileType, c.id);
+                console.log('🎨 File preview oluşturuldu:', c.id, '→', filePreview ? 'OK' : 'BOŞ');
                 
                 const onlineIcon = c.fileData ? ' 💾' : (c.fileUrl ? ' ☁️' : '');
                 
