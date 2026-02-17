@@ -4081,7 +4081,8 @@
             }
             
             // deliveryNo opsiyonel, boş string olabilir
-            deliveryNo = deliveryNo || '';
+            // Normalize et: boşlukları temizle, | çevresindeki boşlukları kaldır
+            deliveryNo = deliveryNo ? String(deliveryNo).replace(/\s+\|\s+/g, '|').trim() : '';
             
             try {
                 // Date object varsa YYYY-MM-DD formatına çevir
@@ -4089,9 +4090,16 @@
                 if (deliveryDate instanceof Date) {
                     formattedDate = deliveryDate.toISOString().split('T')[0];
                     console.log('📅 Date object YYYY-MM-DD formatına dönüştürüldü:', formattedDate);
-                } else if (typeof deliveryDate === 'string' && deliveryDate.includes('T')) {
-                    formattedDate = deliveryDate.split('T')[0];
-                    console.log('📅 ISO string YYYY-MM-DD formatına dönüştürüldü:', formattedDate);
+                } else if (typeof deliveryDate === 'string') {
+                    // DD.MM.YYYY formatını YYYY-MM-DD'ye çevir
+                    if (/^\d{2}\.\d{2}\.\d{4}$/.test(deliveryDate)) {
+                        const [day, month, year] = deliveryDate.split('.');
+                        formattedDate = `${year}-${month}-${day}`;
+                        console.log('📅 DD.MM.YYYY formatı YYYY-MM-DD\'ye dönüştürüldü:', formattedDate);
+                    } else if (deliveryDate.includes('T')) {
+                        formattedDate = deliveryDate.split('T')[0];
+                        console.log('📅 ISO string YYYY-MM-DD formatına dönüştürüldü:', formattedDate);
+                    }
                 }
                 
                 console.log('🗑️ COA_Records\'dan siliniyor:');
@@ -4112,7 +4120,7 @@
                 console.log('📦 Silme sonucu:', result);
                 
                 if (result && result.success) {
-                    console.log('✅ COA_Records\'dan silindi:', result.message || '');
+                    console.log('✅ COA_Records\'dan silindi:', result.message || '', '- Silinen satır sayısı:', result.deletedCount || 0);
                     return true;
                 } else {
                     console.warn('⚠️ COA_Records silme hatası:', result?.error);
@@ -4126,6 +4134,10 @@
                         console.table(result.debug.sheetInfo.headers);
                         console.log('📝 Sheet İlk Satırlar:');
                         console.table(result.debug.sampleRows);
+                        console.log('🔍 Eşleşme detayları:');
+                        if (result.debug.matchDetails) {
+                            console.table(result.debug.matchDetails);
+                        }
                         console.groupEnd();
                     }
                     
@@ -7517,11 +7529,25 @@
                     ? record.materialCode.split('|')[0].trim() 
                     : record.materialCode.trim();
                 
-                await deleteCOARecordFromSheets(
+                console.log('🗑️ COA_Records silme parametreleri:', {
+                    materialCode: cleanMaterialCode,
+                    deliveryDate: record.deliveryDate,
+                    deliveryNo: record.deliveryNo || '(boş)',
+                    supplier: record.supplier
+                });
+                
+                const recordDeleted = await deleteCOARecordFromSheets(
                     cleanMaterialCode,
                     record.deliveryDate,
                     record.deliveryNo || ''
                 );
+                
+                if (recordDeleted) {
+                    // Cache'i temizle (yeni veri çekilsin)
+                    cachedCOARecords = null;
+                    cacheTimestamp = null;
+                    console.log('💾 COA_Records cache temizlendi');
+                }
             }
             
             coaData = coaData.filter(c => c.id !== id);
@@ -7779,21 +7805,70 @@
         }
         
         // COA_Records'tan tüm COA kayıtları için değerleri yükle
-        async function loadCOARecordsForAll() {
+        // Cache için global değişken
+        let cachedCOARecords = null;
+        let cacheTimestamp = null;
+        const CACHE_DURATION = 5 * 60 * 1000; // 5 dakika cache
+        
+        async function loadCOARecordsForAll(forceRefresh = false) {
             try {
+                const perfStart = performance.now();
+                
                 if (typeof SharedConfig === 'undefined' || !SharedConfig.isConnected()) {
                     console.log('⚠️ SharedConfig bağlantısı yok, COA değerleri yüklenemedi');
                     return;
                 }
                 
+                // Cache kontrolü
+                const now = Date.now();
+                if (!forceRefresh && cachedCOARecords && cacheTimestamp && (now - cacheTimestamp) < CACHE_DURATION) {
+                    console.log('⚡ COA_Records cache\'ten yükleniyor (', Math.round((now - cacheTimestamp) / 1000), 'sn önce)...');
+                    const allCOARecords = cachedCOARecords;
+                    
+                    const enrichStart = performance.now();
+                    // Cache'ten hızlı yükle
+                    enrichCOADataWithRecords(allCOARecords);
+                    const enrichTime = performance.now() - enrichStart;
+                    const totalTime = performance.now() - perfStart;
+                    
+                    console.log(`⏱️ [CACHE] Enrich: ${enrichTime.toFixed(0)}ms | Total: ${totalTime.toFixed(0)}ms`);
+                    return;
+                }
+                
                 console.log('📊 COA_Records\'tan değerler yükleniyor...');
+                const fetchStart = performance.now();
                 const allCOARecords = await SharedConfig.getCOARecords();
+                const fetchTime = performance.now() - fetchStart;
+                console.log(`⏱️ getCOARecords() süresi: ${fetchTime.toFixed(0)}ms`);
                 console.log('📦 Toplam COA_Records kaydı:', allCOARecords.length);
+                
+                // Cache'e kaydet
+                cachedCOARecords = allCOARecords;
+                cacheTimestamp = now;
+                console.log('💾 COA_Records cache\'e kaydedildi');
                 
                 if (allCOARecords.length === 0) {
                     console.log('⚠️ COA_Records\'ta veri yok');
                     return;
                 }
+                
+                // Enrich işlemini yap
+                const enrichStart = performance.now();
+                enrichCOADataWithRecords(allCOARecords);
+                const enrichTime = performance.now() - enrichStart;
+                
+                const totalTime = performance.now() - perfStart;
+                console.log(`⏱️ [FRESH] Fetch: ${fetchTime.toFixed(0)}ms | Enrich: ${enrichTime.toFixed(0)}ms | Total: ${totalTime.toFixed(0)}ms`);
+                
+            } catch (error) {
+                console.error('❌ COA_Records yükleme hatası:', error);
+            }
+        }
+        
+        // Ayrı fonksiyon: COA verilerini enrich et (cache için)
+        function enrichCOADataWithRecords(allCOARecords) {
+            try {
+                const enrichStart = performance.now();
                 
                 // DEBUG: Console log (alert kaldırıldı)
                 if (allCOARecords.length > 0 && coaData.length > 0) {
@@ -7824,7 +7899,10 @@
                     });
                 }
                 
+                console.log(`⏱️ [ENRICH] COA kayıtları: ${coaData.length}, Records: ${allCOARecords.length}`);
+                
                 let enrichedCount = 0;
+                const matchStart = performance.now();
                 
                 // Her COA kaydı için ilgili COA_Records verilerini bul ve ekle
                 coaData.forEach(coa => {
@@ -7943,12 +8021,17 @@
                         });
                         
                         enrichedCount++;
-                        console.log(`✅ ${coa.materialCode} için ${matchingRecords.length} özellik eklendi (İrsaliye: ${coa.deliveryNo || 'yok'})`);
-                    } else if (enrichedCount < 5) {
+                        if (enrichedCount <= 3) {
+                            console.log(`✅ ${coa.materialCode} için ${matchingRecords.length} özellik eklendi (İrsaliye: ${coa.deliveryNo || 'yok'})`);
+                        }
+                    } else if (enrichedCount < 3) {
                         // İlk 3 eşleşmeyen kayıt için debug göster
                         console.log(`⚠️ ${coa.materialCode} (${coa.supplier}) - COA_Records'ta veri yok`);
                     }
                 });
+                
+                const matchTime = performance.now() - matchStart;
+                console.log(`⏱️ [ENRICH] Matching: ${matchTime.toFixed(0)}ms`);
                 
                 console.log(`✅ Toplam ${enrichedCount} COA kaydına COA_Records'tan değerler eklendi`);
                 const fromSheets = coaData.filter(c => c.ocrProperties && Object.keys(c.ocrProperties).length > 0).length - enrichedCount;
@@ -7966,6 +8049,9 @@
                 } else if (totalWithValues > 0) {
                     console.log(`✅ ${totalWithValues}/${totalCOAs} COA'da değerler mevcut`);
                 }
+                
+                const enrichTotal = performance.now() - enrichStart;
+                console.log(`⏱️ [ENRICH] Toplam süre: ${enrichTotal.toFixed(0)}ms`);
                 
             } catch (error) {
                 console.error('❌ COA_Records yükleme hatası:', error);
