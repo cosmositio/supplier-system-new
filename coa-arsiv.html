@@ -6696,6 +6696,23 @@
                 return;
             }
             
+            // ⚡ Performans koruma: Maksimum dosya sayısı kontrolü
+            const MAX_BULK_FILES = 30;
+            if (bulkFiles.length > MAX_BULK_FILES) {
+                const confirmMsg = `⚠️ PERFORMANS UYARISI\n\n${bulkFiles.length} dosya yüklemek sistem performansını olumsuz etkileyebilir.\n\n` +
+                    `Önerilen maksimum: ${MAX_BULK_FILES} dosya\n\n` +
+                    `Daha iyi performans için:\n` +
+                    `• Dosyaları ${MAX_BULK_FILES}'er ${MAX_BULK_FILES}'er yükleyin\n` +
+                    `• Her batch sonrası tarayıcıya dinlenme fırsatı verin\n\n` +
+                    `Yine de devam etmek istiyor musunuz?`;
+                
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+                
+                showToast(`⚠️ ${bulkFiles.length} dosya yüklenecek - Bu biraz zaman alabilir, lütfen bekleyin...`, 'warning', 5000);
+            }
+            
             if (!googleScriptUrl) {
                 showToast('❌ Google Sheets bağlantısı yapılmamış!', 'error');
                 return;
@@ -6734,6 +6751,9 @@
             
             // Her dosyayı sırayla işle (manuel kayıt mantığı ile)
             for (let i = 0; i < bulkFiles.length; i++) {
+                // UI'ın nefes alması için her dosya başında event loop'a dön
+                await new Promise(resolve => setTimeout(resolve, 0));
+                
                 // İptal kontrolü
                 if (bulkUploadCancelled) {
                     console.log('⚠️ İşlem kullanıcı tarafından iptal edildi');
@@ -6784,6 +6804,9 @@
                     
                     console.log(`📄 [${fileNumber}/${bulkFiles.length}] İşleniyor: ${displayFileName}`);
                     
+                    // UI'ın nefes alması için
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                    
                     // Convert file to base64
                     const fileData = await new Promise((resolve, reject) => {
                         const reader = new FileReader();
@@ -6795,6 +6818,9 @@
                     // 1. ADIM: Drive'a dosyayı yükle (manuel kayıt mantığı)
                     progressTitle.textContent = `☁️ Drive'a yükleniyor... (${fileNumber}/${bulkFiles.length})`;
                     console.log('☁️ Drive yükleme başlatılıyor...');
+                    
+                    // UI'ın nefes alması için
+                    await new Promise(resolve => setTimeout(resolve, 0));
                     
                     const compressedData = await compressForSheets(fileData, 200);
                     console.log('📦 Sıkıştırılmış boyut:', Math.round(compressedData.length / 1024), 'KB');
@@ -6835,6 +6861,9 @@
                     }
                     
                     console.log('✅ Drive yükleme başarılı:', uploadResult);
+                    
+                    // UI'ın nefes alması için
+                    await new Promise(resolve => setTimeout(resolve, 0));
                     
                     // 2. ADIM: OCR ve TDS karşılaştırması
                     let ocrProperties = {};
@@ -6889,9 +6918,15 @@
                                 console.log('🎨 Template bulundu:', matchedTemplate.supplier || matchedTemplate.template?.supplier);
                                 const actualTemplate = matchedTemplate.template || matchedTemplate;
                                 
+                                // UI'ın nefes alması için
+                                await new Promise(resolve => setTimeout(resolve, 0));
+                                
                                 // Template ile değerleri çıkar
                                 const extractedProperties = await extractCOAPropertiesWithTemplate(fileData, actualTemplate);
                                 console.log('✅ Template extraction tamamlandı:', Object.keys(extractedProperties).length, 'özellik');
+                                
+                                // UI'ın nefes alması için
+                                await new Promise(resolve => setTimeout(resolve, 0));
                                 
                                 // TDS ile karşılaştır
                                 if (tdsData[fileObj.materialCode] && tdsData[fileObj.materialCode].properties) {
@@ -6901,6 +6936,9 @@
                                     console.log('💾 TDS\'e kaydediliyor (toplu yükleme)...');
                                     // TDS'e kaydet (tekli yüklemedeki gibi)
                                     await saveTDSPropertiesFromOCR(fileObj.materialCode, comparisonResults.properties);
+                                    
+                                    // UI'ın nefes alması için
+                                    await new Promise(resolve => setTimeout(resolve, 0));
                                     
                                     // ocrProperties formatına çevir (property adı -> değer+durum)
                                     if (comparisonResults && comparisonResults.properties) {
@@ -6964,6 +7002,9 @@
                         }
                     }
                     
+                    // UI'ın nefes alması için
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                    
                     // 3. ADIM: COA kaydını oluştur (manuel kayıt yapısı)
                     const record = {
                         id: 'coa_bulk_' + Date.now() + '_' + fileNumber,
@@ -6998,6 +7039,9 @@
                     }
                     
                     console.log('✅ Sheets kayıt başarılı');
+                    
+                    // UI'ın nefes alması için
+                    await new Promise(resolve => setTimeout(resolve, 0));
                     
                     // 5. ADIM: COA_Records'a kaydet (TDS varsa)
                     const cleanMaterialCode = fileObj.materialCode.includes('|') 
@@ -7102,11 +7146,14 @@
                     errorCountSpan.textContent = errorCount;
                 }
                 
-                // Google Sheets'i rahatlatmak için her dosya arasında kısa bekleme
+                // Google Sheets ve UI'ı rahatlatmak için her dosya arasında kısa bekleme
                 // (Son dosya değilse ve iptal edilmediyse)
                 if (i < bulkFiles.length - 1 && !bulkUploadCancelled) {
-                    await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 saniye bekle
+                    await new Promise(resolve => setTimeout(resolve, 800)); // 800ms bekle - hem UI hemde Sheets için
                 }
+                
+                // UI'ın rendering yapması için ek nefes
+                await new Promise(resolve => requestAnimationFrame(resolve));
             }
             
             // Progress bar tamamlandı
