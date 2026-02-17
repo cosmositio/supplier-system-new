@@ -1261,7 +1261,7 @@
                     <label>Sertifika Dosyası *</label>
                     
                     <!-- Drag & Drop Alan -->
-                    <div id="dragDropArea" style="border: 2px dashed #2196F3; border-radius: 8px; padding: 15px; margin-bottom: 10px; text-align: center; background: linear-gradient(135deg, #e3f2fd 0%, #f5f5f5 100%); cursor: pointer; transition: all 0.3s;" onclick="document.getElementById('fileInput').click()">
+                    <div id="dragDropArea" style="border: 2px dashed #2196F3; border-radius: 8px; padding: 15px; margin-bottom: 10px; text-align: center; background: linear-gradient(135deg, #e3f2fd 0%, #f5f5f5 100%); cursor: pointer; transition: all 0.3s;" onclick="var fileInput = document.getElementById('fileInput'); fileInput.value = ''; fileInput.click();">
                         <div style="font-size: 1.5em; margin-bottom: 5px;">📁</div>
                         <div style="font-size: 0.9em; color: #1976D2; font-weight: 500;">Dosya sürükleyip bırakın veya tıklayın</div>
                         <div style="font-size: 0.75em; color: #666; margin-top: 3px;">PDF, Resim, Excel, Word</div>
@@ -1271,7 +1271,7 @@
                         <button type="button" class="btn btn-secondary" onclick="openDocumentScanner()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
                             📷 Belge Tara
                         </button>
-                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('fileInput').click()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <button type="button" class="btn btn-secondary" onclick="var fileInput = document.getElementById('fileInput'); fileInput.value = ''; fileInput.click();" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
                             📁 Dosya Yükle
                         </button>
                     </div>
@@ -1366,7 +1366,7 @@
                     
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #495057;">1️⃣ COA Dosyalarını Yükleyin (Çoklu) *</label>
-                        <div style="border: 3px dashed #667eea; border-radius: 8px; padding: 30px; text-align: center; background: linear-gradient(135deg, #f5f7fa 0%, #e3f2fd 100%); cursor: pointer; transition: all 0.3s;" onclick="document.getElementById('bulkFileInput').click()" onmouseover="this.style.borderColor='#764ba2'; this.style.background='linear-gradient(135deg, #e3f2fd 0%, #f5f7fa 100%)'" onmouseout="this.style.borderColor='#667eea'; this.style.background='linear-gradient(135deg, #f5f7fa 0%, #e3f2fd 100%)'">
+                        <div style="border: 3px dashed #667eea; border-radius: 8px; padding: 30px; text-align: center; background: linear-gradient(135deg, #f5f7fa 0%, #e3f2fd 100%); cursor: pointer; transition: all 0.3s;" onclick="var bulkInput = document.getElementById('bulkFileInput'); bulkInput.value = ''; bulkInput.click();" onmouseover="this.style.borderColor='#764ba2'; this.style.background='linear-gradient(135deg, #e3f2fd 0%, #f5f7fa 100%)'" onmouseout="this.style.borderColor='#667eea'; this.style.background='linear-gradient(135deg, #f5f7fa 0%, #e3f2fd 100%)'">
                             <div style="font-size: 2.5em; margin-bottom: 10px;">📁</div>
                             <div style="font-size: 1.1em; color: #667eea; font-weight: 600; margin-bottom: 5px;">Dosyaları sürükleyin veya tıklayın</div>
                             <div style="font-size: 0.85em; color: #666;">Birden fazla dosya seçebilirsiniz (PDF, Resim, Excel, Word)</div>
@@ -1467,7 +1467,7 @@
                         <button class="btn btn-success btn-sm" onclick="downloadJSONBackup()" style="width: 100%; background: #28a745; border-color: #28a745;">
                             📥 JSON İndir (Yedekle)
                         </button>
-                        <button class="btn btn-primary btn-sm" onclick="document.getElementById('jsonUploadInput').click()" style="width: 100%; background: #007bff; border-color: #007bff;">
+                        <button class="btn btn-primary btn-sm" onclick="var jsonInput = document.getElementById('jsonUploadInput'); jsonInput.value = ''; jsonInput.click();" style="width: 100%; background: #007bff; border-color: #007bff;">
                             📤 JSON Yükle (Geri Yükle)
                         </button>
                         <input type="file" id="jsonUploadInput" accept=".json,application/json" style="display: none;" onchange="uploadJSONBackup(event)">
@@ -1703,7 +1703,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #e0e0e0;">
                 <h2 style="margin: 0;">🎨 COA Template Editor</h2>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-info" onclick="document.getElementById('templateFileChangeInput').click()">🔄 Dosya Değiştir</button>
+                    <button class="btn btn-info" onclick="var tplInput = document.getElementById('templateFileChangeInput'); tplInput.value = ''; tplInput.click();">🔄 Dosya Değiştir</button>
                     <button class="btn btn-success" onclick="saveTemplateWithImage()">💾 Template Kaydet</button>
                     <button class="btn btn-primary" onclick="loadTemplateWithImage()">📂 Template Yükle</button>
                     <button class="btn btn-secondary" onclick="closeTemplateEditor()">❌ Kapat</button>
@@ -5327,7 +5327,10 @@
             const uploadArea = document.getElementById('uploadArea');
             const fileInput = document.getElementById('fileInput');
             
-            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('click', () => {
+                fileInput.value = ''; // Reset input to allow same file selection
+                fileInput.click();
+            });
             
             uploadArea.addEventListener('dragover', (e) => {
                 e.preventDefault();
@@ -5347,7 +5350,17 @@
             
             fileInput.addEventListener('change', (e) => {
                 const file = e.target.files[0];
-                if (file) handleFile(file);
+                console.log('📁 fileInput change event tetiklendi, dosya:', file ? file.name : 'YOK');
+                if (file) {
+                    console.log('  ✅ Dosya seçildi:', {
+                        name: file.name,
+                        size: Math.round(file.size / 1024) + 'KB',
+                        type: file.type
+                    });
+                    handleFile(file);
+                } else {
+                    console.warn('  ⚠️ Dosya seçilmedi veya iptal edildi');
+                }
             });
         }
         
@@ -5517,6 +5530,18 @@
         
         async function handleFile(file) {
             if (!file) return;
+            
+            console.log('');
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('📁📁📁 handleFile ÇAĞRILDI! 📁📁📁');
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('📄 Dosya:', file.name);
+            console.log('📦 Boyut:', Math.round(file.size / 1024), 'KB');
+            console.log('🏷️ Tip:', file.type);
+            console.log('🔒 isProcessingFile:', isProcessingFile);
+            console.log('🎨 templateMode:', templateMode);
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('');
             
             // Eğer dosya işleme devam ediyorsa, çıkış yap (duplicate event)
             if (isProcessingFile) {
@@ -12995,11 +13020,15 @@
             if (isAndroid) {
                 // Normal kamera kullan
                 showToast('📷 Kamera açılıyor...', 'info');
-                document.getElementById('cameraInput').click();
+                const cameraInput = document.getElementById('cameraInput');
+                cameraInput.value = ''; // Reset to allow same file
+                cameraInput.click();
                 
             } else {
                 showToast('⚠️ Sadece mobil cihazlarda çalışır', 'warning');
-                document.getElementById('cameraInput').click();
+                const cameraInput = document.getElementById('cameraInput');
+                cameraInput.value = ''; // Reset to allow same file
+                cameraInput.click();
             }
         }
         
@@ -13012,7 +13041,9 @@
         async function openCameraModal() {
             // Mobil cihazda doğrudan native kamera inputunu kullan
             if (isMobileDevice()) {
-                document.getElementById('cameraInput').click();
+                const cameraInput = document.getElementById('cameraInput');
+                cameraInput.value = ''; // Reset to allow same file
+                cameraInput.click();
                 return;
             }
             
