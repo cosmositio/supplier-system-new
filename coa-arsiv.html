@@ -12007,12 +12007,46 @@
                 const lowerTol = parseFloat(String(prop.lowerTolerance || 0).replace(/,/g, '.'));
                 const upperTol = parseFloat(String(prop.upperTolerance || 0).replace(/,/g, '.'));
                 
-                // Standart değerdeki ondalık basamak sayısını bul
+                // Standart değer, toleranslar ve sonuçların ondalık basamak sayısını bul
                 let decimalPlaces = 2; // Varsayılan
+                
+                // Standard value'daki ondalık basamakları kontrol et
                 if (stdValueStr.includes('.')) {
                     const decimalPart = stdValueStr.split('.')[1];
-                    decimalPlaces = decimalPart ? decimalPart.length : 0;
+                    decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
                 }
+                
+                // Lower tolerance'daki ondalık basamakları kontrol et
+                const lowerTolStr = String(prop.lowerTolerance || '0');
+                if (lowerTolStr.includes('.')) {
+                    const decimalPart = lowerTolStr.split('.')[1];
+                    decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
+                }
+                
+                // Upper tolerance'daki ondalık basamakları kontrol et
+                const upperTolStr = String(prop.upperTolerance || '0');
+                if (upperTolStr.includes('.')) {
+                    const decimalPart = upperTolStr.split('.')[1];
+                    decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
+                }
+                
+                // Hesaplanan limitlerin ondalık basamaklarını da kontrol et
+                const calculatedLower = stdValue - lowerTol;
+                const calculatedUpper = stdValue + upperTol;
+                const calcLowerStr = calculatedLower.toString();
+                const calcUpperStr = calculatedUpper.toString();
+                
+                if (calcLowerStr.includes('.')) {
+                    const decimalPart = calcLowerStr.split('.')[1];
+                    decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
+                }
+                if (calcUpperStr.includes('.')) {
+                    const decimalPart = calcUpperStr.split('.')[1];
+                    decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
+                }
+                
+                // En az 3 ondalık basamak kullan (0,035 gibi değerleri korumak için)
+                decimalPlaces = Math.max(3, decimalPlaces);
                 
                 const lowerLimit = (stdValue - lowerTol).toFixed(decimalPlaces);
                 const upperLimit = (stdValue + upperTol).toFixed(decimalPlaces);
@@ -12133,11 +12167,45 @@
                         const lowerTol = parseFloat(String(prop.lowerTolerance || 0).replace(/,/g, '.'));
                         const upperTol = parseFloat(String(prop.upperTolerance || 0).replace(/,/g, '.'));
                         
+                        // Standart değer, toleranslar ve sonuçların ondalık basamak sayısını bul
                         let decimalPlaces = 2;
+                        
+                        // Standard value'daki ondalık basamakları kontrol et
                         if (stdValueStr.includes('.')) {
                             const decimalPart = stdValueStr.split('.')[1];
-                            decimalPlaces = decimalPart ? decimalPart.length : 0;
+                            decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
                         }
+                        
+                        // Tolerance değerlerindeki ondalık basamakları kontrol et
+                        const lowerTolStr = String(prop.lowerTolerance || '0');
+                        if (lowerTolStr.includes('.')) {
+                            const decimalPart = lowerTolStr.split('.')[1];
+                            decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
+                        }
+                        
+                        const upperTolStr = String(prop.upperTolerance || '0');
+                        if (upperTolStr.includes('.')) {
+                            const decimalPart = upperTolStr.split('.')[1];
+                            decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
+                        }
+                        
+                        // Hesaplanan limitlerin ondalık basamaklarını kontrol et
+                        const calculatedLower = stdValue - lowerTol;
+                        const calculatedUpper = stdValue + upperTol;
+                        const calcLowerStr = calculatedLower.toString();
+                        const calcUpperStr = calculatedUpper.toString();
+                        
+                        if (calcLowerStr.includes('.')) {
+                            const decimalPart = calcLowerStr.split('.')[1];
+                            decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
+                        }
+                        if (calcUpperStr.includes('.')) {
+                            const decimalPart = calcUpperStr.split('.')[1];
+                            decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
+                        }
+                        
+                        // En az 3 ondalık basamak kullan (0,035 gibi değerleri korumak için)
+                        decimalPlaces = Math.max(3, decimalPlaces);
                         
                         const recalcLowerLimit = (stdValue - lowerTol).toFixed(decimalPlaces);
                         const recalcUpperLimit = (stdValue + upperTol).toFixed(decimalPlaces);
@@ -12284,11 +12352,45 @@
                     const lowerTol = parseFloat(String(prop.lowerTolerance || 0).replace(/,/g, '.'));
                     const upperTol = parseFloat(String(prop.upperTolerance || 0).replace(/,/g, '.'));
                     
+                    // Standart değer, toleranslar ve sonuçların ondalık basamak sayısını bul
                     let decimalPlaces = 2;
+                    
+                    // Standard value'daki ondalık basamakları kontrol et
                     if (stdValueStr.includes('.')) {
                         const decimalPart = stdValueStr.split('.')[1];
-                        decimalPlaces = decimalPart ? decimalPart.length : 0;
+                        decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
                     }
+                    
+                    // Tolerance değerlerindeki ondalık basamakları kontrol et
+                    const lowerTolStr = String(prop.lowerTolerance || '0');
+                    if (lowerTolStr.includes('.')) {
+                        const decimalPart = lowerTolStr.split('.')[1];
+                        decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
+                    }
+                    
+                    const upperTolStr = String(prop.upperTolerance || '0');
+                    if (upperTolStr.includes('.')) {
+                        const decimalPart = upperTolStr.split('.')[1];
+                        decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
+                    }
+                    
+                    // Hesaplanan limitlerin ondalık basamaklarını kontrol et
+                    const calculatedLower = stdValue - lowerTol;
+                    const calculatedUpper = stdValue + upperTol;
+                    const calcLowerStr = calculatedLower.toString();
+                    const calcUpperStr = calculatedUpper.toString();
+                    
+                    if (calcLowerStr.includes('.')) {
+                        const decimalPart = calcLowerStr.split('.')[1];
+                        decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
+                    }
+                    if (calcUpperStr.includes('.')) {
+                        const decimalPart = calcUpperStr.split('.')[1];
+                        decimalPlaces = Math.max(decimalPlaces, decimalPart ? decimalPart.length : 0);
+                    }
+                    
+                    // En az 3 ondalık basamak kullan (0,035 gibi değerleri korumak için)
+                    decimalPlaces = Math.max(3, decimalPlaces);
                     
                     const lowerLimit = parseFloat((stdValue - lowerTol).toFixed(decimalPlaces));
                     const upperLimit = parseFloat((stdValue + upperTol).toFixed(decimalPlaces));
