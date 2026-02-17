@@ -6174,8 +6174,10 @@
                 const success = await saveToGoogleSheets(record);
                 if (success) {
                     coaData.unshift(record);
+                    saveToLocalStorage(); // ✅ localStorage'ı senkronize et
                     showToast('✅ Google Sheets\'e kaydedildi!', 'success');
                     console.log('✅ KAYIT TAMAMLANDI - SHEETS\'E GÖNDERİLDİ!');
+                    console.log('💾 localStorage senkronize edildi');
                     
                     // COA_Records'a da kaydet (TDS tanımlıysa)
                     // materialCode'dan sadece kod kısmını çıkar (pipe öncesi)
