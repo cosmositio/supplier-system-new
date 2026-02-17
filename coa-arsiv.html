@@ -1998,6 +1998,12 @@
         
         // Dosya tipine göre ikon oluştur
         function getFileIcon(fileName, fileType, itemId) {
+            // 🔍 SUPER DEBUG - ALERT ile test
+            if (!window.fileIconTestDone) {
+                alert('✅ getFileIcon ÇALIŞIYOR! (Bu mesajı bir kez göreceksin)');
+                window.fileIconTestDone = true;
+            }
+            
             // 🔍 Debug log
             console.log('🎯 getFileIcon çağrıldı:', {
                 fileName: fileName,
