@@ -694,6 +694,7 @@
             height: 50px;
             color: white;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             border-radius: 8px;
@@ -702,35 +703,49 @@
             cursor: pointer;
             text-align: center;
             line-height: 1.2;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .file-icon:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         
         .file-icon.pdf {
-            background: #dc3545;
+            background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
         }
         
         .file-icon.doc,
         .file-icon.docx {
-            background: #2b579a;
+            background: linear-gradient(135deg, #2b579a 0%, #3b6fb3 100%);
         }
         
         .file-icon.xls,
         .file-icon.xlsx {
-            background: #217346;
+            background: linear-gradient(135deg, #217346 0%, #34a853 100%);
         }
         
         .file-icon.jpg,
         .file-icon.jpeg,
-        .file-icon.png,
+        .file-icon.png {
+            background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+        }
+        
         .file-icon.gif {
-            background: #4CAF50;
+            background: linear-gradient(135deg, #9C27B0 0%, #BA68C8 100%);
+        }
+        
+        .file-icon.bmp,
+        .file-icon.webp {
+            background: linear-gradient(135deg, #00897B 0%, #26A69A 100%);
         }
         
         .file-icon.txt {
-            background: #666;
+            background: linear-gradient(135deg, #607D8B 0%, #78909C 100%);
         }
         
         .file-icon.unknown {
-            background: #999;
+            background: linear-gradient(135deg, #9E9E9E 0%, #BDBDBD 100%);
         }
         
         /* Geriye dönük uyumluluk için */
@@ -1987,41 +2002,63 @@
             const extension = fileName ? fileName.split('.').pop().toLowerCase() : '';
             
             // Dosya tipine göre ikon ve class belirle
+            let iconEmoji = '';
             let iconText = '';
             let iconClass = '';
             
             // PDF
             if (extension === 'pdf' || fileType?.includes('pdf')) {
+                iconEmoji = '📄';
                 iconText = 'PDF';
                 iconClass = 'pdf';
             }
             // Word
             else if (extension === 'doc' || extension === 'docx' || fileType?.includes('word')) {
+                iconEmoji = '📝';
                 iconText = 'DOC';
                 iconClass = extension || 'doc';
             }
             // Excel
             else if (extension === 'xls' || extension === 'xlsx' || fileType?.includes('excel') || fileType?.includes('spreadsheet')) {
+                iconEmoji = '📊';
                 iconText = 'XLS';
                 iconClass = extension || 'xls';
             }
-            // Resim formatları
-            else if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension) || fileType?.startsWith('image/')) {
+            // PNG / JPEG / JPG
+            else if (['jpg', 'jpeg', 'png'].includes(extension) || (fileType?.startsWith('image/') && !['gif', 'bmp', 'webp'].includes(extension))) {
+                iconEmoji = '🖼️';
+                iconText = extension.toUpperCase();
+                iconClass = extension;
+            }
+            // GIF
+            else if (extension === 'gif') {
+                iconEmoji = '🎞️';
+                iconText = 'GIF';
+                iconClass = 'gif';
+            }
+            // Diğer resim formatları (BMP, WEBP)
+            else if (['bmp', 'webp'].includes(extension) || fileType?.startsWith('image/')) {
+                iconEmoji = '🖼️';
                 iconText = extension.toUpperCase();
                 iconClass = extension;
             }
             // Text
             else if (extension === 'txt' || fileType?.includes('text')) {
+                iconEmoji = '📋';
                 iconText = 'TXT';
                 iconClass = 'txt';
             }
             // Bilinmeyen
             else {
+                iconEmoji = '📎';
                 iconText = extension ? extension.toUpperCase().substring(0, 3) : 'FILE';
                 iconClass = 'unknown';
             }
             
-            return '<div class="file-icon ' + iconClass + '" onclick="viewFile(\'' + itemId + '\')">' + iconText + '</div>';
+            return '<div class="file-icon ' + iconClass + '" onclick="viewFile(\'' + itemId + '\')">' + 
+                   '<div style="font-size: 1.5em; margin-bottom: 2px;">' + iconEmoji + '</div>' + 
+                   '<div style="font-size: 0.65em; font-weight: 600;">' + iconText + '</div>' + 
+                   '</div>';
         }
         
         // URL parametresinden tedarikçileri otomatik yükle (Mobil link için)
@@ -6354,17 +6391,20 @@
         function getFileIcon(filename) {
             const ext = filename.split('.').pop().toLowerCase();
             const icons = {
-                'pdf': '📝',
+                'pdf': '�',
                 'jpg': '🖼️',
                 'jpeg': '🖼️',
                 'png': '🖼️',
-                'gif': '🖼️',
-                'xlsx': '📃',
-                'xls': '📃',
-                'docx': '📄',
-                'doc': '📄'
+                'gif': '🎞️',
+                'bmp': '🖼️',
+                'webp': '🖼️',
+                'xlsx': '📊',
+                'xls': '📊',
+                'docx': '📝',
+                'doc': '📝',
+                'txt': '📋'
             };
-            return icons[ext] || '📄';
+            return icons[ext] || '📎';
         }
         
         function handleBulkFileSelect(e) {
