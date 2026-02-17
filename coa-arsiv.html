@@ -8,22 +8,22 @@
     <!-- Cache Buster: <?php echo time(); ?> -->
     <!-- Shared Config for COA Integration -->
     <script src="shared-config.js"></script>
-    <!-- PDF.js for PDF compression -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <!-- SheetJS for Excel reading -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js" 
+    <!-- PDF.js for PDF compression - DEFER -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- SheetJS for Excel reading - DEFER -->
+    <script defer src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js" 
             onerror="console.error('❌ Primary XLSX CDN failed'); this.onerror=null; this.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';"></script>
-    <!-- Mammoth.js for Word reading -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"
+    <!-- Mammoth.js for Word reading - DEFER -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"
             onerror="console.error('❌ Mammoth CDN failed');"></script>
-    <!-- Tesseract.js for OCR -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-    <!-- Chart.js for COA Analysis -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <!-- jsPDF and html2canvas for PDF export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://unpkg.com/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Tesseract.js for OCR - DEFER -->
+    <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <!-- Chart.js for COA Analysis - DEFER -->
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- jsPDF and html2canvas for PDF export - DEFER -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script defer src="https://unpkg.com/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -2823,146 +2823,126 @@
         
         // ==================== Initialization ====================
         document.addEventListener('DOMContentLoaded', async function() {
+            console.time('⚡ Sayfa Yükleme');
+            
             // Sayfa yüklendiğinde kilidi temizle
             unlockFileProcessing('Sayfa yüklendi');
-            console.log('🔓 Sayfa yüklendi, dosya yükleme kilidi temizlendi');
             
             // PDF.js worker ayarla (global)
             if (typeof pdfjsLib !== 'undefined') {
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                console.log('✅ PDF.js worker ayarlandı');
             }
-            
-            // Load template property names from localStorage
-            loadTemplatePropertyNames();
-            updateTemplatePropertyDropdown();
-            
-            // Kütüphane yükleme kontrolü
-            console.log('📚 Kütüphane kontrolü:');
-            console.log('  - XLSX:', typeof XLSX !== 'undefined' ? '✅ Yüklendi' : '❌ Yüklenmedi');
-            console.log('  - mammoth:', typeof mammoth !== 'undefined' ? '✅ Yüklendi' : '❌ Yüklenmedi');
-            console.log('  - html2canvas:', typeof html2canvas !== 'undefined' ? '✅ Yüklendi' : '❌ Yüklenmedi');
-            console.log('  - pdfjsLib:', typeof pdfjsLib !== 'undefined' ? '✅ Yüklendi' : '❌ Yüklenmedi');
-            console.log('  - Tesseract:', typeof Tesseract !== 'undefined' ? '✅ Yüklendi' : '❌ Yüklenmedi');
-            
-            // Eski ana sayfadan gelen tedarikçi listesini temizle (artık kullanmıyoruz)
-            localStorage.removeItem('supplierListForCOA');
-            
-            // Önce URL'den tedarikçileri yükle (mobil link varsa)
-            loadSuppliersFromURL();
-            
-            // Google Sheets'ten TDS verilerini yükle (arka planda)
-            loadTDSFromGoogleSheets().catch(err => {
-                console.log('⚠️ Google Sheets TDS yükleme başarısız, localStorage kullanılıyor');
-            });
-            
-            // Template listesini yükle
-            loadTemplatesFromGoogleSheets().catch(err => {
-                console.log('⚠️ Template listesi yüklenemedi, localStorage kullanılıyor');
-                updateTemplateDropdown(); // LocalStorage'dakilerle dropdown'ı doldur
-            });
             
             // Set default date to today
             document.getElementById('deliveryDate').value = new Date().toISOString().split('T')[0];
             
-            // Init upload area
+            // HEMEN Init upload area (kullanıcı dosya seçebilsin)
             initUploadArea();
             
-            // Init drag & drop
+            // HEMEN Init drag & drop (kullanıcı drag yapabilsin)
             initDragDrop();
             
             // Init filters
             document.getElementById('searchInput').addEventListener('input', filterList);
             document.getElementById('filterMonth').addEventListener('change', filterList);
             
-            // Init multiselect
-            initSupplierMultiselect();
+            console.timeEnd('⚡ Sayfa Yükleme');
+            console.log('✅ UI HAZIR - Kullanıcı dosya yükleyebilir!');
             
-            // Load suppliers from localStorage (from index.html)
-            loadSuppliers();
-            
-            // TEST: Kaydet butonunu test et
-            console.log('🔧 TEST: Kaydet butonu kontrolü');
-            const saveBtn = document.getElementById('saveBtn');
-            if (saveBtn) {
-                console.log('✅ Kaydet butonu bulundu');
-                console.log('🔍 onclick:', saveBtn.onclick);
-            } else {
-                console.error('❌ Kaydet butonu bulunamadı!');
-            }
-            
-            // Load TDS data
-            loadTDSData();
-            
-            // Load materials from localStorage
-            loadMaterials();
-            
-            // İrsaliye checkbox'larına event listener ekle
-            const autoFillDateCheckbox = document.getElementById('autoFillDeliveryDate');
-            const autoFillNoCheckbox = document.getElementById('autoFillDeliveryNo');
-            
-            if (autoFillDateCheckbox) {
-                autoFillDateCheckbox.addEventListener('change', function() {
-                    const materialInput = document.getElementById('materialCode');
-                    const value = materialInput?.value?.trim();
-                    if (value) {
-                        handleMaterialBlur();
-                    }
-                });
-            }
-            
-            if (autoFillNoCheckbox) {
-                autoFillNoCheckbox.addEventListener('change', function() {
-                    const materialInput = document.getElementById('materialCode');
-                    const value = materialInput?.value?.trim();
-                    if (value) {
-                        handleMaterialBlur();
-                    }
-                });
-            }
-            
-            // 💾 İlk yüklemede localStorage'dan yükle (FALLBACK - Sheets yoksa)
-            // Sheets bağlantısı sonra connectGoogleSheets() ile güncelleyecek
-            await loadFromLocalStorage();
-            
-            // Sayfa başına kayıt sayısını localStorage'dan yükle
-            const savedRowsPerPage = localStorage.getItem('rowsPerPage');
-            if (savedRowsPerPage) {
-                const rowsSelect = document.getElementById('rowsPerPage');
-                if (rowsSelect) {
-                    rowsSelect.value = savedRowsPerPage;
-                }
-            }
-            
-            if (coaData.length > 0) {
-                renderTable();
-                updateStats();
+            // ARKA PLANDA (async) ağır işlemleri yap
+            setTimeout(async () => {
+                console.time('📊 Veri Yükleme');
                 
-                // Kullanıcıya bilgi göster
-                const recordCount = coaData.length;
-                showToast(`✅ ${recordCount} kayıt yüklendi`, 'success', 3000);
-            }
+                // Load template property names from localStorage
+                loadTemplatePropertyNames();
+                updateTemplatePropertyDropdown();
+                
+                // Eski ana sayfadan gelen tedarikçi listesini temizle
+                localStorage.removeItem('supplierListForCOA');
+                
+                // Önce URL'den tedarikçileri yükle
+                loadSuppliersFromURL();
+                
+                // Init multiselect
+                initSupplierMultiselect();
+                
+                // Load suppliers from localStorage
+                loadSuppliers();
+                
+                // Load TDS data
+                loadTDSData();
+                
+                // Load materials from localStorage
+                loadMaterials();
+                
+                // İrsaliye checkbox'larına event listener ekle
+                const autoFillDateCheckbox = document.getElementById('autoFillDeliveryDate');
+                const autoFillNoCheckbox = document.getElementById('autoFillDeliveryNo');
+                
+                if (autoFillDateCheckbox) {
+                    autoFillDateCheckbox.addEventListener('change', function() {
+                        const materialInput = document.getElementById('materialCode');
+                        const value = materialInput?.value?.trim();
+                        if (value) handleMaterialBlur();
+                    });
+                }
+                
+                if (autoFillNoCheckbox) {
+                    autoFillNoCheckbox.addEventListener('change', function() {
+                        const materialInput = document.getElementById('materialCode');
+                        const value = materialInput?.value?.trim();
+                        if (value) handleMaterialBlur();
+                    });
+                }
+                
+                // localStorage'dan yükle (AWAIT KALDIRILDI - artık bloke etmiyor!)
+                loadFromLocalStorage();
+                
+                // Sayfa başına kayıt sayısını localStorage'dan yükle
+                const savedRowsPerPage = localStorage.getItem('rowsPerPage');
+                if (savedRowsPerPage) {
+                    const rowsSelect = document.getElementById('rowsPerPage');
+                    if (rowsSelect) rowsSelect.value = savedRowsPerPage;
+                }
+                
+                if (coaData.length > 0) {
+                    renderTable();
+                    updateStats();
+                    showToast(`✅ ${coaData.length} kayıt yüklendi`, 'success', 2000);
+                }
+                
+                // Google Sheets'ten TDS verilerini yükle (arka planda)
+                loadTDSFromGoogleSheets().catch(err => {
+                    console.log('⚠️ Google Sheets TDS yükleme başarısız');
+                });
+                
+                // Template listesini yükle (arka planda)
+                loadTemplatesFromGoogleSheets().catch(err => {
+                    console.log('⚠️ Template listesi yüklenemedi');
+                    updateTemplateDropdown();
+                });
+                
+                // Tedarikçi ve hammadde sayılarını göster
+                if (suppliers.length > 0) {
+                    console.log(`📋 ${suppliers.length} tedarikçi yüklendi`);
+                }
+                if (materials.length > 0) {
+                    console.log(`🔧 ${materials.length} hammadde kodu yüklendi`);
+                }
+                
+                console.timeEnd('📊 Veri Yükleme');
+            }, 50); // 50ms gecikme - UI önce render edilsin
             
-            // Tedarikçi ve hammadde sayılarını göster
-            if (suppliers.length > 0) {
-                console.log(`📋 ${suppliers.length} tedarikçi yüklendi`);
-            }
-            if (materials.length > 0) {
-                console.log(`🔧 ${materials.length} hammadde kodu yüklendi`);
-            }
-            
-            // Doğru URL - her zaman bu URL kulanılsın
-            const correctUrl = 'https://script.google.com/macros/s/AKfycbz3KZblRoWV0uU7_LU24Wih4npAl2x8_vFWDjmc-F0bDeRHgmrSEi0XB-YsaaD0_i4u/exec';
-            
-            // Her zaman default URL'yi kullan ve kaydet
-            localStorage.setItem('google_script_url', correctUrl);
-            document.getElementById('googleScriptUrl').value = correctUrl;
-            googleScriptUrl = correctUrl;
-            
-            // Bağlantıyı başlat
+            // Google Sheets bağlantısı DAHA GEÇ başlat (2 saniye sonra - UI tamamen hazır olduktan sonra)
             setTimeout(function() {
+                const correctUrl = 'https://script.google.com/macros/s/AKfycbz3KZblRoWV0uU7_LU24Wih4npAl2x8_vFWDjmc-F0bDeRHgmrSEi0XB-YsaaD0_i4u/exec';
+                localStorage.setItem('google_script_url', correctUrl);
+                document.getElementById('googleScriptUrl').value = correctUrl;
+                googleScriptUrl = correctUrl;
+                
+                // Sheets bağlantısını başlat
                 connectGoogleSheets(true);
-            }, 100);
+            }, 2000);
         });
         
         // ==================== JSONP Helper ====================
@@ -4199,21 +4179,18 @@
         // 2. Başarısız olursa localStorage'dan yükle (fallback)
         // 3. Sheets çalıştığında otomatik localStorage'a kaydet (senkronize)
         
-        async function loadFromLocalStorage() {
+        function loadFromLocalStorage() {
             const saved = localStorage.getItem('coa_arsiv_data');
             if (saved) {
                 coaData = JSON.parse(saved);
                 console.log('💾 localStorage\'dan yüklendi (FALLBACK):', coaData.length, 'kayıt');
-                console.warn('⚠️ Google Sheets bağlantısı olmadığı için yerel veriler kullanılıyor!');
                 
-                // COA_Records'tan değerleri yükle (eğer Sheets çalışıyorsa)
-                try {
-                    await loadCOARecordsForAll();
-                } catch (e) {
-                    console.warn('COA_Records yüklenemedi (Sheets bağlantısı yok):', e.message);
-                }
+                // COA_Records'tan değerleri yükle (arka planda - UI'yi bloke etme!)
+                loadCOARecordsForAll().catch(e => {
+                    console.warn('COA_Records yüklenemedi:', e.message);
+                });
             } else {
-                console.error('🚨 NE SHEETS NE DE localStorage VERİSİ YOK - PROGRAM BOŞ!');
+                console.log('ℹ️ localStorage boş, Sheets\'ten yüklenecek');
             }
         }
         
