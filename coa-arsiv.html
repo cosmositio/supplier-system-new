@@ -5924,19 +5924,27 @@
                             }
                             
                             // Manuel girilen COA değerleri ile güncelle
+                            const requirement = prop.requirement || record.ocrProperties[prop.name].requirement || '';
+                            const minLimit = prop.min || record.ocrProperties[prop.name].lowerLimit || '';
+                            const maxLimit = prop.max || record.ocrProperties[prop.name].upperLimit || '';
+                            const stdValue = prop.standardValue || record.ocrProperties[prop.name].standardValue || '';
+                            
+                            // ✅ Otomatik compliance hesaplama
+                            const autoStatus = calculateCompliance(prop.coaValue, requirement, minLimit, maxLimit, stdValue);
+                            
                             record.ocrProperties[prop.name] = {
                                 ...record.ocrProperties[prop.name],  // Eski değerleri koru
                                 coaValue: prop.coaValue,  // ✅ Manuel değer
-                                status: prop.coaCompliance || record.ocrProperties[prop.name].status || 'Bilinmiyor',
-                                tdsValue: prop.standardValue || record.ocrProperties[prop.name].tdsValue || '',
+                                status: autoStatus,  // ✅ OTOMATIK HESAPLANAN değer (artık manuel değil!)
+                                tdsValue: stdValue,
                                 unit: prop.unit || record.ocrProperties[prop.name].unit || '',
                                 method: prop.standard || record.ocrProperties[prop.name].method || '',
-                                lowerLimit: prop.min || record.ocrProperties[prop.name].lowerLimit || '',
-                                upperLimit: prop.max || record.ocrProperties[prop.name].upperLimit || '',
-                                standardValue: prop.standardValue || record.ocrProperties[prop.name].standardValue || '',
-                                requirement: prop.requirement || record.ocrProperties[prop.name].requirement || ''
+                                lowerLimit: minLimit,
+                                upperLimit: maxLimit,
+                                standardValue: stdValue,
+                                requirement: requirement
                             };
-                            console.log(`   ✏️ ${prop.name}: "${prop.coaValue}" [${prop.coaCompliance || 'bilinmiyor'}]`);
+                            console.log(`   ✏️ ${prop.name}: "${prop.coaValue}" [${autoStatus}] (otomatik)`);
                         }
                     });
                 }
@@ -9957,6 +9965,67 @@
             return similarity;
         }
         
+        // COA değerini TDS limitlerine göre otomatik kontrol et
+        function calculateCompliance(coaValue, requirement, min, max, standardValue) {
+            // coaValue boşsa veya parse edilemezse bilinmiyor
+            if (!coaValue || coaValue === '-' || coaValue === '') {
+                return 'Bilinmiyor';
+            }
+            
+            const coa = parseFloat(String(coaValue).replace(',', '.'));
+            if (isNaN(coa)) {
+                console.log(`⚠️ COA değeri numerik değil: "${coaValue}"`);
+                return 'Bilinmiyor';
+            }
+            
+            // requirement yoksa bilinmiyor
+            if (!requirement) {
+                return 'Bilinmiyor';
+            }
+            
+            // Aralık kontrolü (range)
+            if (requirement === 'Aralık' || requirement === 'range') {
+                const minVal = parseFloat(String(min).replace(',', '.'));
+                const maxVal = parseFloat(String(max).replace(',', '.'));
+                
+                if (isNaN(minVal) || isNaN(maxVal)) {
+                    return 'Bilinmiyor';
+                }
+                
+                const isCompliant = (coa >= minVal && coa <= maxVal);
+                return isCompliant ? 'uygun' : 'uygun değil';
+            }
+            // Minimum kontrolü (≥)
+            else if (requirement === '≥' || requirement === 'min') {
+                const minVal = parseFloat(String(min).replace(',', '.'));
+                
+                if (isNaN(minVal)) {
+                    return 'Bilinmiyor';
+                }
+                
+                const isCompliant = (coa >= minVal);
+                return isCompliant ? 'uygun' : 'uygun değil';
+            }
+            // Maximum kontrolü (≤)
+            else if (requirement === '≤' || requirement === 'max') {
+                const maxVal = parseFloat(String(max).replace(',', '.'));
+                
+                if (isNaN(maxVal)) {
+                    return 'Bilinmiyor';
+                }
+                
+                const isCompliant = (coa <= maxVal);
+                return isCompliant ? 'uygun' : 'uygun değil';
+            }
+            // Uygunluk kontrolü (text-based, manual review needed)
+            else if (requirement === 'Uygunluk kontrolü' || requirement === 'compliance') {
+                return 'Kontrol Gerekli';
+            }
+            
+            // Tanımlanmamış requirement tipi
+            return 'Bilinmiyor';
+        }
+        
         // TDS'deki özellikleri COA verileriyle eşleştir
         function matchCOAWithTDS(materialCode, coaProperties) {
             console.log('🔍 matchCOAWithTDS çağrıldı:', materialCode, coaProperties);
@@ -10006,10 +10075,10 @@
                     // BASF FORMAT: Handle object values
                     let actualValue = coaValue;
                     if (isBASFFormat && typeof coaValue === 'object' && coaValue !== null) {
-                        // Store requirement and compliance in TDS
-                        if (coaValue.compliance) {
-                            prop.coaCompliance = coaValue.compliance;
-                        }
+                        // ⚠️ BASF format compliance değerini ARTIK KULLANMIYORUZ - TDS ile hesaplayacağız
+                        // if (coaValue.compliance) {
+                        //     prop.coaCompliance = coaValue.compliance;
+                        // }
                         if (coaValue.requirement) {
                             prop.coaRequirement = coaValue.requirement;
                             // If TDS property doesn't have requirement yet, store from COA
@@ -10081,6 +10150,19 @@
                     } else {
                         console.log(`   ❌ Eşleşme bulunamadı: "${prop.name}"`);
                     }
+                }
+                
+                // ✅ OCR sonrası otomatik compliance hesaplama
+                if (prop.coaValue) {
+                    const autoCompliance = calculateCompliance(
+                        prop.coaValue, 
+                        prop.requirement, 
+                        prop.min, 
+                        prop.max, 
+                        prop.standardValue
+                    );
+                    prop.coaCompliance = autoCompliance;
+                    console.log(`   🔍 Auto-compliance: "${prop.name}" = "${prop.coaValue}" → [${autoCompliance}]`);
                 }
             });
             
@@ -12019,11 +12101,25 @@
                     // COA değerleri korunuyor
                     const coaCount = tds.properties.filter(p => p.coaValue).length;
                     console.log(`🔒 ${materialCode} COA değerleri korunuyor (clearCOAValues=false): ${coaCount} özellikte COA değeri var`);
+                    
+                    // ✅ Mevcut COA değerleri için compliance'ı yeniden hesapla
                     tds.properties.forEach(prop => {
                         if (prop.coaValue) {
-                            console.log(`  - ${prop.name}: "${prop.coaValue}" [${prop.coaCompliance}]`);
+                            const oldCompliance = prop.coaCompliance || 'yok';
+                            const newCompliance = calculateCompliance(
+                                prop.coaValue,
+                                prop.requirement,
+                                prop.min,
+                                prop.max,
+                                prop.standardValue
+                            );
+                            prop.coaCompliance = newCompliance;
+                            console.log(`  - ${prop.name}: "${prop.coaValue}" [${oldCompliance} → ${newCompliance}]`);
                         }
                     });
+                    
+                    // Güncellenmiş compliance değerlerini localStorage'a kaydet
+                    localStorage.setItem('tdsData', JSON.stringify(tdsData));
                 }
                 renderTDSProperties(tds.properties);
                 
