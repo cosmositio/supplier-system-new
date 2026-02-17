@@ -7072,18 +7072,11 @@
                         // Her dosya farklı lot number'a sahipse ayrı kaydedilir
                         const recordKey = `${cleanMaterialCode.trim()}-${fileObj.deliveryDate.trim()}-${fileObj.deliveryNo.trim()}-${record.lotNumber.trim()}`;
                         
-                        console.log(`🔑 [${fileNumber}] RecordKey: "${recordKey}" (Lot: ${record.lotNumber})`);
-                        console.log(`   📦 Set'te ${processedRecordKeys.size} kayıt var:`, Array.from(processedRecordKeys));
-                        
                         if (processedRecordKeys.has(recordKey)) {
-                            console.log(`⏭️ [${fileNumber}] COA_Records ATLANDI (duplicate): ${cleanMaterialCode} | ${fileObj.deliveryNo}`);
-                            console.log(`   ⚠️ Bu kayıt daha önce işlendi, COA_Records'a tekrar gönderilmeyecek!`);
+                            console.log(`⏭️ [${fileNumber}] COA_Records ATLANDI (duplicate): ${cleanMaterialCode}`);
                         } else {
                             console.log(`📊 [${fileNumber}] COA_Records paralel kaydediliyor: ${cleanMaterialCode} (${propertiesToSave.length} özellik)`);
-                            
-                            // Key'i işlenmiş olarak işaretle
                             processedRecordKeys.add(recordKey);
-                            console.log(`   ✅ Key Set'e eklendi (toplam: ${processedRecordKeys.size})`);
                         
                             
                             // Promise'i array'e ekle ama await ETME (paralel çalışsın)
