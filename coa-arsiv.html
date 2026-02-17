@@ -5912,18 +5912,36 @@
                     console.log('📊 Edit modda ocrProperties COA_Records\'a kaydediliyor:', Object.keys(record.ocrProperties).length, 'özellik');
                     
                     // Object formatından Array formatına çevir
-                    const propertiesArray = Object.entries(record.ocrProperties).map(([name, data]) => ({
-                        name: name,
-                        coaValue: data.coaValue || '',
-                        unit: data.unit || '',
-                        standard: data.method || '',
-                        operator: 'range',
-                        standardValue: data.standardValue || '',
-                        min: data.lowerLimit || '',
-                        max: data.upperLimit || '',
-                        requirement: data.requirement || '',
-                        status: data.status || data.compliance || 'Bilinmiyor'
-                    }));
+                    const propertiesArray = Object.entries(record.ocrProperties).map(([name, data]) => {
+                        const propData = {
+                            name: name,
+                            coaValue: data.coaValue || '',
+                            unit: data.unit || '',
+                            standard: data.method || '',
+                            operator: 'range',
+                            standardValue: data.standardValue || '',
+                            min: data.lowerLimit || '',
+                            max: data.upperLimit || '',
+                            requirement: data.requirement || '',
+                            status: data.status || data.compliance || 'Bilinmiyor'
+                        };
+                        
+                        // 0, ile başlayan değerleri logla
+                        if (propData.coaValue && /^0[,\.]/.test(propData.coaValue)) {
+                            console.log(`   🔍 ${name} COA değeri: "${propData.coaValue}"`);
+                        }
+                        if (propData.min && /^0[,\.]/.test(propData.min)) {
+                            console.log(`   🔍 ${name} Min: "${propData.min}"`);
+                        }
+                        if (propData.max && /^0[,\.]/.test(propData.max)) {
+                            console.log(`   🔍 ${name} Max: "${propData.max}"`);
+                        }
+                        if (propData.standardValue && /^0[,\.]/.test(propData.standardValue)) {
+                            console.log(`   🔍 ${name} StandardValue: "${propData.standardValue}"`);
+                        }
+                        
+                        return propData;
+                    });
                     
                     const recordData = {
                         date: deliveryDate,
