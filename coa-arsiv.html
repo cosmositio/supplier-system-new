@@ -7068,12 +7068,12 @@
                             location: record.location
                         };
                         
-                        // Duplicate COA_Records kontrolü (aynı malzeme + tarih + irsaliye sadece 1 kez kaydedilsin)
-                        // Whitespace temizliği için trim()
-                        const recordKey = `${cleanMaterialCode.trim()}-${fileObj.deliveryDate.trim()}-${fileObj.deliveryNo.trim()}`;
+                        // Duplicate COA_Records kontrolü (aynı malzeme + tarih + irsaliye + LOT sadece 1 kez kaydedilsin)
+                        // Her dosya farklı lot number'a sahipse ayrı kaydedilir
+                        const recordKey = `${cleanMaterialCode.trim()}-${fileObj.deliveryDate.trim()}-${fileObj.deliveryNo.trim()}-${record.lotNumber.trim()}`;
                         
-                        console.log(`🔑 [${fileNumber}] RecordKey oluşturuldu: "${recordKey}"`);
-                        console.log(`   📦 Set içeriği (${processedRecordKeys.size} kayıt):`, Array.from(processedRecordKeys));
+                        console.log(`🔑 [${fileNumber}] RecordKey: "${recordKey}" (Lot: ${record.lotNumber})`);
+                        console.log(`   📦 Set'te ${processedRecordKeys.size} kayıt var:`, Array.from(processedRecordKeys));
                         
                         if (processedRecordKeys.has(recordKey)) {
                             console.log(`⏭️ [${fileNumber}] COA_Records ATLANDI (duplicate): ${cleanMaterialCode} | ${fileObj.deliveryNo}`);
