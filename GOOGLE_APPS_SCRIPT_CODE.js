@@ -1985,13 +1985,26 @@ function saveCOARecord(data) {
     const allData = sheet.getDataRange().getValues();
     const headers = allData[0];
     
-    // Sütun index'lerini bul
-    const dateIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('tarih'));
-    const deliveryNoIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('irsaliye'));
-    const materialIdx = headers.findIndex(h => h && h.toString().toLowerCase().includes('malzeme'));
+    // Türkçe karakter normalizasyonu için helper fonksiyon
+    const normalizeTurkish = (str) => {
+      return str.toString()
+        .replace(/İ/g, 'i')
+        .replace(/I/g, 'ı')
+        .replace(/Ğ/g, 'g')
+        .replace(/Ü/g, 'u')
+        .replace(/Ş/g, 's')
+        .replace(/Ö/g, 'o')
+        .replace(/Ç/g, 'c')
+        .toLowerCase();
+    };
+    
+    // Sütun index'lerini bul (Türkçe karakter desteği ile)
+    const dateIdx = headers.findIndex(h => h && normalizeTurkish(h).includes('tarih'));
+    const deliveryNoIdx = headers.findIndex(h => h && normalizeTurkish(h).includes('irsaliye'));
+    const materialIdx = headers.findIndex(h => h && normalizeTurkish(h).includes('malzeme'));
     const propertyNameIdx = headers.findIndex(h => h && (
-      h.toString().toLowerCase().includes('özellik') || 
-      h.toString().toLowerCase().includes('property')
+      normalizeTurkish(h).includes('ozellik') || 
+      normalizeTurkish(h).includes('property')
     ));
     
     Logger.log(`📋 Column indexes: date=${dateIdx}, delivery=${deliveryNoIdx}, material=${materialIdx}, property=${propertyNameIdx}`);
