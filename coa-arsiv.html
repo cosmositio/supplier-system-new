@@ -5571,6 +5571,11 @@
                     }
                     isProcessingFile = false; // OCR arka planda devam edecek
                 };
+                reader.onerror = () => {
+                    console.error('❌ PDF okuma hatası');
+                    showToast('❌ PDF okunamadı', 'error');
+                    isProcessingFile = false;
+                };
                 reader.readAsDataURL(file);
             }
             // Excel dosyaları (.xlsx, .xls)
@@ -5589,6 +5594,11 @@
                     
                     isProcessingFile = false;
                 };
+                reader.onerror = () => {
+                    console.error('❌ Excel okuma hatası');
+                    showToast('❌ Excel dosyası okunamadı', 'error');
+                    isProcessingFile = false;
+                };
                 reader.readAsDataURL(file);
             }
             // Word dosyaları (.docx, .doc)
@@ -5605,6 +5615,11 @@
                         startCOATemplateOCR();
                     }
                     
+                    isProcessingFile = false;
+                };
+                reader.onerror = () => {
+                    console.error('❌ Word okuma hatası');
+                    showToast('❌ Word dosyası okunamadı', 'error');
                     isProcessingFile = false;
                 };
                 reader.readAsDataURL(file);
@@ -5687,6 +5702,11 @@
                     };
                     img.src = e.target.result; // ORİJİNAL dosyadan oku
                 };
+                ocrReader.onerror = () => {
+                    console.error('❌ OCR için resim okuma hatası');
+                    showToast('❌ Resim okunamadı', 'error');
+                    isProcessingFile = false;
+                };
                 ocrReader.readAsDataURL(file); // ORİJİNAL dosyayı oku (sıkıştırılmamış)
             }
             // Küçük resim veya diğer dosyalar
@@ -5706,6 +5726,11 @@
                     }
                     
                     isProcessingFile = false; // Kilidi serbest bırak
+                };
+                reader.onerror = () => {
+                    console.error('❌ Dosya okuma hatası');
+                    showToast('❌ Dosya okunamadı', 'error');
+                    isProcessingFile = false;
                 };
                 reader.readAsDataURL(file);
             }
@@ -6252,6 +6277,7 @@
             selectedFileData = null;
             editMode = false;
             editingId = null;
+            isProcessingFile = false; // ✅ Dosya işleme kilidini serbest bırak
             document.getElementById('saveBtn').textContent = '💾 Kaydet';
             document.getElementById('cancelEditBtn').style.display = 'none';
             
@@ -6279,6 +6305,14 @@
             localStorage.setItem('tdsData', JSON.stringify(tdsData));
             console.log('🧹 clearForm: Tüm TDS COA değerleri temizlendi');
         }
+        
+        // DEBUG: Manuel olarak dosya yükleme kilidini sıfırla
+        // Kullanım: Tarayıcı konsolunda resetFileUploadLock() yazın
+        window.resetFileUploadLock = function() {
+            isProcessingFile = false;
+            console.log('🔓 Dosya yükleme kilidi manuel olarak sıfırlandı');
+            showToast('🔓 Dosya yükleme kilidi sıfırlandı', 'success');
+        };
         
         function editCOA(id) {
             const record = coaData.find(c => c.id === id);
