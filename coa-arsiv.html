@@ -1163,15 +1163,24 @@
         <div class="main-grid">
             <!-- Form -->
             <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px;">
                     <h2 style="margin: 0;">📤 Yeni Sertifika Ekle</h2>
-                    <button onclick="window.location.reload()" 
-                            style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s;"
-                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.6)';"
-                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(102, 126, 234, 0.4)';"
-                            title="Sayfayı yenile ve formu temizle">
-                        🔄 Yeni Sorgu
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="resetFileUploadLock()" 
+                                style="padding: 8px 12px; background: #ff9800; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3); transition: all 0.3s;"
+                                onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(255, 152, 0, 0.5)';"
+                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(255, 152, 0, 0.3)';"
+                                title="Dosya yükleme kilidi açık kaldıysa sıfırla">
+                            🔓 Kilidi Aç
+                        </button>
+                        <button onclick="window.location.reload()" 
+                                style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s;"
+                                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.6)';"
+                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(102, 126, 234, 0.4)';"
+                                title="Sayfayı yenile ve formu temizle">
+                            🔄 Yeni Sorgu
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -1965,7 +1974,20 @@
         let lastOCRMaterialCode = null; // Son OCR yapılan hammadde (modal açılışta değerleri korumak için)
         let currentRenderTask = null; // Aktif PDF render işlemi
         let isProcessingFile = false; // Dosya işleme kilidi
+        let fileProcessingTimeout = null; // Dosya işleme timeout'u
         let currentPage = 1; // Aktif sayfa numarası
+        
+        // Helper: Dosya işleme kilidini güvenli şekilde aç
+        function unlockFileProcessing(reason = '') {
+            if (fileProcessingTimeout) {
+                clearTimeout(fileProcessingTimeout);
+                fileProcessingTimeout = null;
+            }
+            if (isProcessingFile) {
+                console.log('🔓 Kilit AÇILDI (isProcessingFile = false)' + (reason ? ' - ' + reason : ''));
+            }
+            isProcessingFile = false;
+        }
         
         // Template özellik adları (localStorage'dan yüklenecek)
         let templatePropertyNames = [
@@ -2801,6 +2823,10 @@
         
         // ==================== Initialization ====================
         document.addEventListener('DOMContentLoaded', async function() {
+            // Sayfa yüklendiğinde kilidi temizle
+            unlockFileProcessing('Sayfa yüklendi');
+            console.log('🔓 Sayfa yüklendi, dosya yükleme kilidi temizlendi');
+            
             // PDF.js worker ayarla (global)
             if (typeof pdfjsLib !== 'undefined') {
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -5349,6 +5375,12 @@
             });
             
             fileInput.addEventListener('change', (e) => {
+                // ÖNCE kilidi ZORLA aç (önceki işlem takılmış olabilir)
+                if (isProcessingFile) {
+                    console.warn('⚠️ Kilit açıktı, ZORLA kapatılıyor');
+                    unlockFileProcessing('Change event - zorla');
+                }
+                
                 const file = e.target.files[0];
                 console.log('📁 fileInput change event tetiklendi, dosya:', file ? file.name : 'YOK');
                 if (file) {
@@ -5529,7 +5561,10 @@
         }
         
         async function handleFile(file) {
-            if (!file) return;
+            if (!file) {
+                unlockFileProcessing('Dosya yok');
+                return;
+            }
             
             console.log('');
             console.log('═══════════════════════════════════════════════════════');
@@ -5545,12 +5580,25 @@
             
             // Eğer dosya işleme devam ediyorsa, çıkış yap (duplicate event)
             if (isProcessingFile) {
-                console.log('⚠️ Dosya zaten işleniyor, duplicate event atlandı');
+                console.warn('⚠️⚠️⚠️ Dosya zaten işleniyor, duplicate event atlandı');
+                console.warn('💡 Kilidi açmak için: resetFileUploadLock() komutunu kullanın');
+                showToast('⚠️ Dosya işleniyor, lütfen bekleyin...', 'warning', 2000);
                 return;
             }
             
             isProcessingFile = true;
-            console.log('📁 handleFile çağrıldı:', file.name, 'Template mode:', templateMode);
+            console.log('🔒 Kilit AÇILDI (isProcessingFile = true)');
+            
+            // 10 saniye sonra otomatik unlock (acil durum)
+            fileProcessingTimeout = setTimeout(() => {
+                if (isProcessingFile) {
+                    console.error('🚨 10 saniye geçti, kilit OTOMATIK AÇILIYOR!');
+                    unlockFileProcessing('Zaman aşımı');
+                    showToast('⚠️ Dosya işleme zaman aşımı', 'warning');
+                }
+            }, 10000);
+            
+            console.log('📁 handleFile devam ediyor:', file.name, 'Template mode:', templateMode);
             
             // Template mode kontrolü
             if (templateMode) {
@@ -5561,7 +5609,7 @@
                 } catch (error) {
                     console.error('❌ Template editor hatası:', error);
                 } finally {
-                    isProcessingFile = false;
+                    unlockFileProcessing('Template editor tamamlandı');
                 }
                 return;
             }
@@ -5594,12 +5642,12 @@
                     } else {
                         startOCRAnalysis();
                     }
-                    isProcessingFile = false; // OCR arka planda devam edecek
+                    unlockFileProcessing('PDF okundu');
                 };
                 reader.onerror = () => {
                     console.error('❌ PDF okuma hatası');
                     showToast('❌ PDF okunamadı', 'error');
-                    isProcessingFile = false;
+                    unlockFileProcessing('PDF okuma hatası');
                 };
                 reader.readAsDataURL(file);
             }
@@ -5617,12 +5665,12 @@
                         startCOATemplateOCR();
                     }
                     
-                    isProcessingFile = false;
+                    unlockFileProcessing('Excel okundu');
                 };
                 reader.onerror = () => {
                     console.error('❌ Excel okuma hatası');
                     showToast('❌ Excel dosyası okunamadı', 'error');
-                    isProcessingFile = false;
+                    unlockFileProcessing('Excel okuma hatası');
                 };
                 reader.readAsDataURL(file);
             }
@@ -5640,12 +5688,12 @@
                         startCOATemplateOCR();
                     }
                     
-                    isProcessingFile = false;
+                    unlockFileProcessing('Word okundu');
                 };
                 reader.onerror = () => {
                     console.error('❌ Word okuma hatası');
                     showToast('❌ Word dosyası okunamadı', 'error');
-                    isProcessingFile = false;
+                    unlockFileProcessing('Word okuma hatası');
                 };
                 reader.readAsDataURL(file);
             }
@@ -5723,14 +5771,14 @@
                         
                         window.originalFileDataForOCR = result || canvas.toDataURL('image/jpeg', 0.70);
                         startOCRAnalysis();
-                        isProcessingFile = false; // OCR arka planda devam edecek
+                        unlockFileProcessing('Büyük resim optimize edildi');
                     };
                     img.src = e.target.result; // ORİJİNAL dosyadan oku
                 };
                 ocrReader.onerror = () => {
                     console.error('❌ OCR için resim okuma hatası');
                     showToast('❌ Resim okunamadı', 'error');
-                    isProcessingFile = false;
+                    unlockFileProcessing('OCR için resim okuma hatası');
                 };
                 ocrReader.readAsDataURL(file); // ORİJİNAL dosyayı oku (sıkıştırılmamış)
             }
@@ -5750,19 +5798,19 @@
                         preview.innerHTML = '<div class="file-name">📄 ' + file.name + '</div>';
                     }
                     
-                    isProcessingFile = false; // Kilidi serbest bırak
+                    unlockFileProcessing('Küçük resim/dosya okundu');
                 };
                 reader.onerror = () => {
                     console.error('❌ Dosya okuma hatası');
                     showToast('❌ Dosya okunamadı', 'error');
-                    isProcessingFile = false;
+                    unlockFileProcessing('Dosya okuma hatası');
                 };
                 reader.readAsDataURL(file);
             }
             } catch (error) {
                 console.error('❌ Dosya işleme hatası:', error);
                 showToast('❌ Dosya yüklenemedi', 'error');
-                isProcessingFile = false;
+                unlockFileProcessing('Dosya işleme hatası');
             }
         }
         
@@ -6302,7 +6350,7 @@
             selectedFileData = null;
             editMode = false;
             editingId = null;
-            isProcessingFile = false; // ✅ Dosya işleme kilidini serbest bırak
+            unlockFileProcessing('Form temizlendi'); // ✅ Dosya işleme kilidini serbest bırak
             document.getElementById('saveBtn').textContent = '💾 Kaydet';
             document.getElementById('cancelEditBtn').style.display = 'none';
             
@@ -6334,7 +6382,7 @@
         // DEBUG: Manuel olarak dosya yükleme kilidini sıfırla
         // Kullanım: Tarayıcı konsolunda resetFileUploadLock() yazın
         window.resetFileUploadLock = function() {
-            isProcessingFile = false;
+            unlockFileProcessing('Manuel reset');
             console.log('🔓 Dosya yükleme kilidi manuel olarak sıfırlandı');
             showToast('🔓 Dosya yükleme kilidi sıfırlandı', 'success');
         };
