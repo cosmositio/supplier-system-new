@@ -6683,6 +6683,9 @@
             // COA_Records promise'lerini topla (paralel kayıt için)
             const coaRecordsPromises = [];
             
+            // Duplicate COA_Records engelleme için Set (materialCode-deliveryDate-deliveryNo kombinasyonu)
+            const processedRecordKeys = new Set();
+            
             // Ana formdan tedarikçi bilgisini al
             const supplier = document.getElementById('supplierInput').value.trim();
             
@@ -7065,20 +7068,30 @@
                             location: record.location
                         };
                         
-                        console.log(`📊 [${fileNumber}] COA_Records paralel kaydediliyor: ${cleanMaterialCode} (${propertiesToSave.length} özellik)`);
+                        // Duplicate COA_Records kontrolü (aynı malzeme + tarih + irsaliye sadece 1 kez kaydedilsin)
+                        const recordKey = `${cleanMaterialCode}-${fileObj.deliveryDate}-${fileObj.deliveryNo}`;
                         
-                        // Promise'i array'e ekle ama await ETME (paralel çalışsın)
-                        const recordPromise = saveCOARecordToSheets(
-                            cleanMaterialCode, 
-                            propertiesToSave, 
-                            recordDataForSheets
-                        ).then(() => {
-                            console.log(`✅ [${fileNumber}] COA_Records kaydedildi: ${cleanMaterialCode}`);
-                        }).catch(error => {
-                            console.error(`❌ [${fileNumber}] COA_Records hatası: ${cleanMaterialCode}`, error);
-                        });
-                        
-                        coaRecordsPromises.push(recordPromise);
+                        if (processedRecordKeys.has(recordKey)) {
+                            console.log(`⏭️ [${fileNumber}] COA_Records atlandı (zaten kaydedildi): ${cleanMaterialCode} | ${fileObj.deliveryNo}`);
+                        } else {
+                            console.log(`📊 [${fileNumber}] COA_Records paralel kaydediliyor: ${cleanMaterialCode} (${propertiesToSave.length} özellik)`);
+                            
+                            // Key'i işlenmiş olarak işaretle
+                            processedRecordKeys.add(recordKey);
+                            
+                            // Promise'i array'e ekle ama await ETME (paralel çalışsın)
+                            const recordPromise = saveCOARecordToSheets(
+                                cleanMaterialCode, 
+                                propertiesToSave, 
+                                recordDataForSheets
+                            ).then(() => {
+                                console.log(`✅ [${fileNumber}] COA_Records kaydedildi: ${cleanMaterialCode}`);
+                            }).catch(error => {
+                                console.error(`❌ [${fileNumber}] COA_Records hatası: ${cleanMaterialCode}`, error);
+                            });
+                            
+                            coaRecordsPromises.push(recordPromise);
+                        }
                     } else {
                         console.log('⚠️ TDS tanımlı değil:', cleanMaterialCode);
                     }
