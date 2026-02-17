@@ -2101,6 +2101,28 @@ function saveCOARecord(data) {
             // Mevcut satırı GÜNCELLE
             Logger.log(`   ✏️ Güncelleniyor: ${newProp.name} (Satır ${existingRow.sheetRow})`);
             
+            // COA değerini string olarak koru (0,035 gibi değerler için)
+            let coaValueFormatted = newProp.coaValue || '';
+            if (coaValueFormatted && /^0[,\.]/.test(coaValueFormatted)) {
+              coaValueFormatted = "'" + coaValueFormatted;  // Apostrophe ekle
+            }
+            
+            // Min/Max değerlerini de string olarak koru
+            let minFormatted = newProp.min || '';
+            if (minFormatted && /^0[,\.]/.test(minFormatted)) {
+              minFormatted = "'" + minFormatted;
+            }
+            let maxFormatted = newProp.max || '';
+            if (maxFormatted && /^0[,\.]/.test(maxFormatted)) {
+              maxFormatted = "'" + maxFormatted;
+            }
+            
+            // Standard değerini de koru
+            let standardValueFormatted = newProp.standardValue || '';
+            if (standardValueFormatted && /^0[,\.]/.test(standardValueFormatted)) {
+              standardValueFormatted = "'" + standardValueFormatted;
+            }
+            
             // Yeni satır verisini hazırla
             const uniqueId = 'REC_' + new Date().getTime() + '_' + Math.random().toString(36).substr(2, 9);
             const updatedRow = [
@@ -2115,11 +2137,11 @@ function saveCOARecord(data) {
               newProp.unit || '',
               newProp.standard || '',
               newProp.operator || '',
-              newProp.standardValue || '',
-              newProp.min || '',
-              newProp.max || '',
+              standardValueFormatted,
+              minFormatted,
+              maxFormatted,
               newProp.requirement || '',
-              newProp.coaValue || '',
+              coaValueFormatted,
               newProp.status || '',
               now
             ];
@@ -2176,6 +2198,28 @@ function saveCOARecord(data) {
           const finalInsertPosition = insertPosition + matchingRows.filter(m => m.processed).length - deletedBeforeInsert;
           
           newProperties.forEach((newProp, idx) => {
+            // COA değerini string olarak koru (0,035 gibi değerler için)
+            let coaValueFormatted = newProp.coaValue || '';
+            if (coaValueFormatted && /^0[,\.]/.test(coaValueFormatted)) {
+              coaValueFormatted = "'" + coaValueFormatted;  // Apostrophe ekle
+            }
+            
+            // Min/Max değerlerini de string olarak koru
+            let minFormatted = newProp.min || '';
+            if (minFormatted && /^0[,\.]/.test(minFormatted)) {
+              minFormatted = "'" + minFormatted;
+            }
+            let maxFormatted = newProp.max || '';
+            if (maxFormatted && /^0[,\.]/.test(maxFormatted)) {
+              maxFormatted = "'" + maxFormatted;
+            }
+            
+            // Standard değerini de koru
+            let standardValueFormatted = newProp.standardValue || '';
+            if (standardValueFormatted && /^0[,\.]/.test(standardValueFormatted)) {
+              standardValueFormatted = "'" + standardValueFormatted;
+            }
+            
             const uniqueId = 'REC_' + new Date().getTime() + '_' + Math.random().toString(36).substr(2, 9);
             const newRow = [
               uniqueId,
@@ -2189,11 +2233,11 @@ function saveCOARecord(data) {
               newProp.unit || '',
               newProp.standard || '',
               newProp.operator || '',
-              newProp.standardValue || '',
-              newProp.min || '',
-              newProp.max || '',
+              standardValueFormatted,
+              minFormatted,
+              maxFormatted,
               newProp.requirement || '',
-              newProp.coaValue || '',
+              coaValueFormatted,
               newProp.status || '',
               now
             ];
@@ -2250,6 +2294,28 @@ function saveCOARecord(data) {
         }
       }
       
+      // COA değerini string olarak koru (0,035 gibi değerler için)
+      let coaValueFormatted = prop.coaValue || '';
+      if (coaValueFormatted && /^0[,\.]/.test(coaValueFormatted)) {
+        coaValueFormatted = "'" + coaValueFormatted;  // Apostrophe ekle
+      }
+      
+      // Min/Max değerlerini de string olarak koru
+      let minFormatted = prop.min || '';
+      if (minFormatted && /^0[,\.]/.test(minFormatted)) {
+        minFormatted = "'" + minFormatted;
+      }
+      let maxFormatted = prop.max || '';
+      if (maxFormatted && /^0[,\.]/.test(maxFormatted)) {
+        maxFormatted = "'" + maxFormatted;
+      }
+      
+      // Standard değerini de koru
+      let standardValueFormatted = prop.standardValue || '';
+      if (standardValueFormatted && /^0[,\.]/.test(standardValueFormatted)) {
+        standardValueFormatted = "'" + standardValueFormatted;
+      }
+      
       // Geçerli değer, satır oluştur
       rows.push([
         uniqueId,  // Yeni: Benzersiz ID
@@ -2263,11 +2329,11 @@ function saveCOARecord(data) {
         prop.unit || '',
         prop.standard || '',
         prop.operator || '',
-        prop.standardValue || '',
-        prop.min || '',
-        prop.max || '',
+        standardValueFormatted,
+        minFormatted,
+        maxFormatted,
         prop.requirement || '',  // Yeni: Compliance mode için
-        prop.coaValue || '',  // ✅ Boş olabilir artık
+        coaValueFormatted,  // ✅ Boş olabilir artık
         prop.status || '',
         now
       ]);
