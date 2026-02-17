@@ -6680,8 +6680,8 @@
             // İptal flag'ini sıfırla
             bulkUploadCancelled = false;
             
-            // Batch COA_Records kayıtları için array
-            const batchCOARecords = [];
+            // COA_Records promise'lerini topla (paralel kayıt için)
+            const coaRecordsPromises = [];
             
             // Ana formdan tedarikçi bilgisini al
             const supplier = document.getElementById('supplierInput').value.trim();
@@ -7065,14 +7065,20 @@
                             location: record.location
                         };
                         
-                        // ✅ Batch array'ine ekle (hemen kaydetme, sonra topluca gönder)
-                        batchCOARecords.push({
-                            materialCode: cleanMaterialCode,
-                            properties: propertiesToSave,
-                            recordData: recordDataForSheets
+                        console.log(`📊 [${fileNumber}] COA_Records paralel kaydediliyor: ${cleanMaterialCode} (${propertiesToSave.length} özellik)`);
+                        
+                        // Promise'i array'e ekle ama await ETME (paralel çalışsın)
+                        const recordPromise = saveCOARecordToSheets(
+                            cleanMaterialCode, 
+                            propertiesToSave, 
+                            recordDataForSheets
+                        ).then(() => {
+                            console.log(`✅ [${fileNumber}] COA_Records kaydedildi: ${cleanMaterialCode}`);
+                        }).catch(error => {
+                            console.error(`❌ [${fileNumber}] COA_Records hatası: ${cleanMaterialCode}`, error);
                         });
                         
-                        console.log(`📦 Batch'e eklendi (toplam: ${batchCOARecords.length})`);
+                        coaRecordsPromises.push(recordPromise);
                     } else {
                         console.log('⚠️ TDS tanımlı değil:', cleanMaterialCode);
                     }
@@ -7105,58 +7111,31 @@
             
             // Progress bar tamamlandı
             progressBar.style.width = '100%';
-            progressTitle.textContent = '✅ Dosyalar yüklendi, COA_Records kaydediliyor...';
+            progressTitle.textContent = '✅ Dosyalar yüklendi, COA_Records bekleniyor...';
             
-            // ✅ Batch COA_Records kayıtlarını toplu olarak gönder
-            if (batchCOARecords.length > 0 && !bulkUploadCancelled) {
+            // ✅ Tüm COA_Records promise'lerini bekle (paralel çalışıyorlar)
+            if (coaRecordsPromises.length > 0 && !bulkUploadCancelled) {
                 console.log('');
                 console.log('═══════════════════════════════════════════════════════');
-                console.log(`📊 BATCH COA_RECORDS KAYDI BAŞLIYOR: ${batchCOARecords.length} kayıt`);
+                console.log(`⏳ ${coaRecordsPromises.length} COA_Records kaydı tamamlanıyor...`);
                 console.log('═══════════════════════════════════════════════════════');
                 
-                let batchSaveSuccess = 0;
-                let batchSaveError = 0;
+                const results = await Promise.allSettled(coaRecordsPromises);
                 
-                // Her kayıt için sırayla gönder (rate limit koruması)
-                for (let i = 0; i < batchCOARecords.length; i++) {
-                    const batchItem = batchCOARecords[i];
-                    
-                    try {
-                        progressTitle.textContent = `📊 COA_Records kaydediliyor... (${i + 1}/${batchCOARecords.length})`;
-                        
-                        console.log(`📊 [${i + 1}/${batchCOARecords.length}] Kaydediliyor: ${batchItem.materialCode} (${batchItem.properties.length} özellik)`);
-                        
-                        await saveCOARecordToSheets(
-                            batchItem.materialCode, 
-                            batchItem.properties, 
-                            batchItem.recordData
-                        );
-                        
-                        batchSaveSuccess++;
-                        console.log(`✅ [${i + 1}/${batchCOARecords.length}] Kaydedildi: ${batchItem.materialCode}`);
-                        
-                        // Rate limit koruması: Her kayıt arasında 300ms bekle
-                        if (i < batchCOARecords.length - 1) {
-                            await new Promise(resolve => setTimeout(resolve, 300));
-                        }
-                        
-                    } catch (error) {
-                        batchSaveError++;
-                        console.error(`❌ [${i + 1}/${batchCOARecords.length}] Hata: ${batchItem.materialCode}`, error);
-                    }
-                }
+                const successCount = results.filter(r => r.status === 'fulfilled').length;
+                const errorCount = results.filter(r => r.status === 'rejected').length;
                 
                 console.log('═══════════════════════════════════════════════════════');
-                console.log(`✅ BATCH KAYIT TAMAMLANDI: ${batchSaveSuccess} başarılı, ${batchSaveError} hata`);
+                console.log(`✅ COA_RECORDS TAMAMLANDI: ${successCount} başarılı, ${errorCount} hata`);
                 console.log('═══════════════════════════════════════════════════════');
                 console.log('');
                 
-                if (batchSaveSuccess > 0) {
-                    showToast(`✅ ${batchSaveSuccess} COA_Records kaydı tamamlandı`, 'success', 4000);
+                if (successCount > 0) {
+                    showToast(`✅ ${successCount} COA_Records kaydı tamamlandı`, 'success', 4000);
                 }
                 
-                if (batchSaveError > 0) {
-                    showToast(`⚠️ ${batchSaveError} COA_Records kaydedilemedi`, 'warning', 4000);
+                if (errorCount > 0) {
+                    showToast(`⚠️ ${errorCount} COA_Records kaydedilemedi`, 'warning', 4000);
                 }
             }
             
