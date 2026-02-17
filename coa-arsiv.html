@@ -2009,43 +2009,43 @@
             // PDF
             if (extension === 'pdf' || fileType?.includes('pdf')) {
                 iconEmoji = '📄';
-                iconText = 'PDF';
+                iconText = extension.toUpperCase(); // PDF
                 iconClass = 'pdf';
             }
             // Word
             else if (extension === 'doc' || extension === 'docx' || fileType?.includes('word')) {
                 iconEmoji = '📝';
-                iconText = 'DOC';
+                iconText = extension.toUpperCase(); // DOC veya DOCX
                 iconClass = extension || 'doc';
             }
             // Excel
             else if (extension === 'xls' || extension === 'xlsx' || fileType?.includes('excel') || fileType?.includes('spreadsheet')) {
                 iconEmoji = '📊';
-                iconText = 'XLS';
+                iconText = extension.toUpperCase(); // XLS veya XLSX
                 iconClass = extension || 'xls';
             }
             // PNG / JPEG / JPG
             else if (['jpg', 'jpeg', 'png'].includes(extension) || (fileType?.startsWith('image/') && !['gif', 'bmp', 'webp'].includes(extension))) {
                 iconEmoji = '🖼️';
-                iconText = extension.toUpperCase();
+                iconText = extension.toUpperCase(); // JPG, JPEG veya PNG
                 iconClass = extension;
             }
             // GIF
             else if (extension === 'gif') {
                 iconEmoji = '🎞️';
-                iconText = 'GIF';
+                iconText = extension.toUpperCase(); // GIF
                 iconClass = 'gif';
             }
             // Diğer resim formatları (BMP, WEBP)
             else if (['bmp', 'webp'].includes(extension) || fileType?.startsWith('image/')) {
                 iconEmoji = '🖼️';
-                iconText = extension.toUpperCase();
+                iconText = extension.toUpperCase(); // BMP veya WEBP
                 iconClass = extension;
             }
             // Text
             else if (extension === 'txt' || fileType?.includes('text')) {
                 iconEmoji = '📋';
-                iconText = 'TXT';
+                iconText = extension.toUpperCase(); // TXT
                 iconClass = 'txt';
             }
             // Bilinmeyen
