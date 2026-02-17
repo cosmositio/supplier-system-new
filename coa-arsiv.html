@@ -10765,9 +10765,34 @@
                 
                 console.log('📊 COA_Records\'a gönderiliyor:', data);
                 
-                const url = `${googleScriptUrl}?action=saveCOARecord&data=${encodeURIComponent(JSON.stringify(data))}`;
-                const response = await fetch(url);
-                const result = await response.json();
+                const result = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.timeout = 60000;
+                    
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            try {
+                                resolve(JSON.parse(xhr.responseText));
+                            } catch (e) {
+                                reject(new Error('JSON parse hatası'));
+                            }
+                        } else {
+                            reject(new Error('HTTP ' + xhr.status));
+                        }
+                    };
+                    
+                    xhr.onerror = () => reject(new Error('Bağlantı hatası'));
+                    xhr.ontimeout = () => reject(new Error('Zaman aşımı (60sn)'));
+                    
+                    xhr.open('POST', googleScriptUrl, true);
+                    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                    
+                    const formData = new URLSearchParams();
+                    formData.append('action', 'saveCOARecord');
+                    formData.append('data', JSON.stringify(data));
+                    
+                    xhr.send(formData.toString());
+                });
                 
                 if (result.success) {
                     console.log('✅ COA_Records\'a kaydedildi:', result.recordCount, 'satır');
