@@ -13396,6 +13396,9 @@
                 // Array'e çevir ve sırala
                 const materialArray = Object.values(materialStats);
                 
+                // Global değişkende sakla (detay export için gerekli)
+                window.currentReportData = materialArray;
+                
                 if (materialArray.length === 0) {
                     contentDiv.innerHTML = `
                         <div style="text-align: center; padding: 60px; color: #999;">
@@ -13697,7 +13700,19 @@
                         <tr id="${detailId}" style="display: none;">
                             <td colspan="9" style="padding: 0; border: 1px solid #ddd;">
                                 <div style="background: #f5f5f5; padding: 15px;">
-                                    <h4 style="margin: 0 0 10px 0; color: #667eea;">📋 ${material.materialCode} - İrsaliye Detayları</h4>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                        <h4 style="margin: 0; color: #667eea;">📋 ${material.materialCode} - İrsaliye Detayları</h4>
+                                        <div style="display: flex; gap: 8px;">
+                                            <button onclick="exportDeliveryDetailsToExcel('${material.materialCode}')" 
+                                                    style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+                                                📊 Excel
+                                            </button>
+                                            <button onclick="exportDeliveryDetailsToPDF('${material.materialCode}')" 
+                                                    style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+                                                📄 PDF
+                                            </button>
+                                        </div>
+                                    </div>
                                     <table style="width: 100%; border-collapse: collapse; background: white; font-size: 12px;">
                                         <thead>
                                             <tr style="background: #e0e7ff;">
@@ -14186,6 +14201,200 @@
                 doc.save(fileName);
                 
                 showToast('✅ PDF raporu indirildi!', 'success');
+            } catch (error) {
+                console.error('PDF export hatası:', error);
+                showToast('❌ PDF export hatası: ' + error.message, 'error');
+            }
+        }
+        
+        // Detay Listesi Excel Export
+        function exportDeliveryDetailsToExcel(materialCode) {
+            if (!window.currentReportData) {
+                showToast('⚠️ Rapor verisi bulunamadı!', 'warning');
+                return;
+            }
+            
+            try {
+                // İlgili materyali bul
+                const material = window.currentReportData.find(m => m.materialCode === materialCode);
+                
+                if (!material || !material.deliveryDetails) {
+                    showToast('⚠️ Detay verisi bulunamadı!', 'warning');
+                    return;
+                }
+                
+                // Excel workbook oluştur
+                const wb = XLSX.utils.book_new();
+                
+                // Sıralı detay verisi
+                const sortedDeliveries = [...material.deliveryDetails].sort((a, b) => {
+                    const dateA = a.deliveryDate.split('.').reverse().join('');
+                    const dateB = b.deliveryDate.split('.').reverse().join('');
+                    return dateB.localeCompare(dateA);
+                });
+                
+                // Veriyi hazırla
+                const excelData = [
+                    ['İRSALİYE DETAYLARI'],
+                    [],
+                    ['Hammadde Kodu:', material.materialCode],
+                    ['Hammadde Adı:', material.materialName],
+                    ['Tedarikçi:', material.supplier],
+                    ['Toplam İrsaliye:', material.totalDeliveries],
+                    ['COA Yüklü:', material.uploadedDeliveries],
+                    ['COA Eksik:', material.notUploadedDeliveries],
+                    ['Tamamlanma:', Math.round((material.uploadedDeliveries / material.totalDeliveries) * 100) + '%'],
+                    [],
+                    ['#', 'COA Durumu', 'İrsaliye Tarihi', 'İrsaliye No', 'Dosya Adı']
+                ];
+                
+                sortedDeliveries.forEach((delivery, index) => {
+                    excelData.push([
+                        index + 1,
+                        delivery.hasCOA ? 'Yüklendi' : 'Yüklenmedi',
+                        delivery.deliveryDate,
+                        delivery.deliveryNo,
+                        delivery.fileName || '-'
+                    ]);
+                });
+                
+                // Sheet oluştur
+                const ws = XLSX.utils.aoa_to_sheet(excelData);
+                
+                // Kolon genişlikleri
+                ws['!cols'] = [
+                    { wch: 5 },
+                    { wch: 15 },
+                    { wch: 15 },
+                    { wch: 25 },
+                    { wch: 40 }
+                ];
+                
+                XLSX.utils.book_append_sheet(wb, ws, 'İrsaliye Detayları');
+                
+                // İndir
+                const fileName = `Irsaliye_Detaylari_${materialCode}_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                
+                showToast('✅ Excel dosyası indirildi!', 'success');
+            } catch (error) {
+                console.error('Excel export hatası:', error);
+                showToast('❌ Excel export hatası: ' + error.message, 'error');
+            }
+        }
+        
+        // Detay Listesi PDF Export
+        function exportDeliveryDetailsToPDF(materialCode) {
+            if (!window.currentReportData) {
+                showToast('⚠️ Rapor verisi bulunamadı!', 'warning');
+                return;
+            }
+            
+            try {
+                // İlgili materyali bul
+                const material = window.currentReportData.find(m => m.materialCode === materialCode);
+                
+                if (!material || !material.deliveryDetails) {
+                    showToast('⚠️ Detay verisi bulunamadı!', 'warning');
+                    return;
+                }
+                
+                // PDF oluştur
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                
+                // Başlık
+                doc.setFontSize(16);
+                doc.setFont(undefined, 'bold');
+                doc.text('İRSALİYE DETAYLARI', pageWidth / 2, 20, { align: 'center' });
+                
+                // Tarih
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Rapor Tarihi: ${new Date().toLocaleString('tr-TR')}`, pageWidth / 2, 28, { align: 'center' });
+                
+                // Materyal bilgileri
+                let yPos = 40;
+                doc.setFontSize(12);
+                doc.setFont(undefined, 'bold');
+                doc.text('Materyal Bilgileri:', 14, yPos);
+                yPos += 7;
+                
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Hammadde Kodu: ${material.materialCode}`, 14, yPos);
+                yPos += 5;
+                doc.text(`Hammadde Adı: ${material.materialName}`, 14, yPos);
+                yPos += 5;
+                doc.text(`Tedarikçi: ${material.supplier}`, 14, yPos);
+                yPos += 5;
+                doc.text(`Toplam İrsaliye: ${material.totalDeliveries}`, 14, yPos);
+                yPos += 5;
+                doc.text(`COA Yüklü: ${material.uploadedDeliveries}`, 14, yPos);
+                yPos += 5;
+                doc.text(`COA Eksik: ${material.notUploadedDeliveries}`, 14, yPos);
+                yPos += 5;
+                doc.text(`Tamamlanma: ${Math.round((material.uploadedDeliveries / material.totalDeliveries) * 100)}%`, 14, yPos);
+                yPos += 12;
+                
+                // İrsaliye tablosu
+                const sortedDeliveries = [...material.deliveryDetails].sort((a, b) => {
+                    const dateA = a.deliveryDate.split('.').reverse().join('');
+                    const dateB = b.deliveryDate.split('.').reverse().join('');
+                    return dateB.localeCompare(dateA);
+                });
+                
+                const headers = [['#', 'COA Durumu', 'İrsaliye Tarihi', 'İrsaliye No']];
+                const rows = sortedDeliveries.map((delivery, index) => [
+                    index + 1,
+                    delivery.hasCOA ? 'Yüklendi' : 'Yüklenmedi',
+                    delivery.deliveryDate,
+                    delivery.deliveryNo
+                ]);
+                
+                // AutoTable kullanarak tablo oluştur
+                if (typeof doc.autoTable === 'function') {
+                    doc.autoTable({
+                        head: headers,
+                        body: rows,
+                        startY: yPos,
+                        theme: 'striped',
+                        styles: { fontSize: 9, cellPadding: 3 },
+                        headStyles: { fillColor: [102, 126, 234], textColor: 255 },
+                        columnStyles: {
+                            0: { cellWidth: 15 },
+                            1: { cellWidth: 35 },
+                            2: { cellWidth: 35 },
+                            3: { cellWidth: 105 }
+                        }
+                    });
+                } else {
+                    // Basit tablo (AutoTable yoksa)
+                    doc.setFontSize(9);
+                    headers[0].forEach((h, i) => {
+                        doc.text(h, 14 + (i * 45), yPos);
+                    });
+                    yPos += 7;
+                    
+                    rows.slice(0, 30).forEach(row => {
+                        if (yPos > pageHeight - 20) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        row.forEach((cell, i) => {
+                            doc.text(String(cell), 14 + (i * 45), yPos);
+                        });
+                        yPos += 6;
+                    });
+                }
+                
+                // İndir
+                const fileName = `Irsaliye_Detaylari_${materialCode}_${new Date().toISOString().split('T')[0]}.pdf`;
+                doc.save(fileName);
+                
+                showToast('✅ PDF dosyası indirildi!', 'success');
             } catch (error) {
                 console.error('PDF export hatası:', error);
                 showToast('❌ PDF export hatası: ' + error.message, 'error');
