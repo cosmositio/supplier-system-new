@@ -7230,9 +7230,9 @@
             
             // Progress bar dosya yükleme bitti
             progressBar.style.width = '95%';
-            progressTitle.textContent = bulkUploadCancelled
-                ? '🛑 İptal edildi'
-                : `📊 Dosyalar yüklendi, COA_Records kaydediliyor... (${coaRecordsQueue.length} kayıt)`;
+            progressTitle.textContent = coaRecordsQueue.length > 0
+                ? `📊 ${bulkUploadCancelled ? '🛑 İptal edildi - ' : ''}COA_Records kaydediliyor... (${coaRecordsQueue.length} kayıt)`
+                : (bulkUploadCancelled ? '🛑 İptal edildi' : '📊 Tamamlandı');
             
             if (errorCount > 0) {
                 showToast(`⚠️ ${errorCount} COA kaydedilemedi!`, 'warning', 5000);
@@ -7244,12 +7244,11 @@
                 renderTable();
             }
             
-            // COA_Records'ı sıralı kaydet (her biri kendi lotNumber ile - üzerine yazma yok)
-            if (coaRecordsQueue.length > 0 && !bulkUploadCancelled) {
-                console.log(`🚀 ${coaRecordsQueue.length} COA_Records sıralı kaydediliyor (LotNo bazlı)...`);
+            // COA_Records'ı sıralı kaydet - iptal edilse bile kuyruktaki verileri kaydet!
+            if (coaRecordsQueue.length > 0) {
+                console.log(`🚀 ${coaRecordsQueue.length} COA_Records sıralı kaydediliyor (iptal=${bulkUploadCancelled}) (LotNo bazlı)...`);
                 let savedCount = 0;
                 for (const item of coaRecordsQueue) {
-                    if (bulkUploadCancelled) break;
                     try {
                         await saveCOARecordToSheets(item.materialCode, item.properties, item.recordData);
                         savedCount++;
