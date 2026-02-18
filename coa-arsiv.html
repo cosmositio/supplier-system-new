@@ -15878,16 +15878,21 @@
                     const maxLimit = parseFloat(String(r.maxLimit || '').replace(/,/g, '.'));
                     let isCompliant = false;
                     
+                    // Küçük tolerans: sınır değerlerde floating-point hatasını ve tam eşit değerleri tolere et
+                    const eps = Math.abs(val) * 1e-9 + 1e-12;
+                    
                     if (operator === 'range') {
-                        isCompliant = !isNaN(minLimit) && !isNaN(maxLimit) && val >= minLimit && val <= maxLimit;
+                        isCompliant = !isNaN(minLimit) && !isNaN(maxLimit) && val >= minLimit - eps && val <= maxLimit + eps;
                     } else if (operator === '>') {
-                        isCompliant = !isNaN(stdValue) && val > stdValue;
+                        // COA bağlamında 'min limit' — sınır değer uygun kabul edilir
+                        isCompliant = !isNaN(stdValue) && val >= stdValue - eps;
                     } else if (operator === '<') {
-                        isCompliant = !isNaN(stdValue) && val < stdValue;
+                        // COA bağlamında 'max limit' — sınır değer uygun kabul edilir
+                        isCompliant = !isNaN(stdValue) && val <= stdValue + eps;
                     } else if (operator === '>=') {
-                        isCompliant = !isNaN(stdValue) && val >= stdValue;
+                        isCompliant = !isNaN(stdValue) && val >= stdValue - eps;
                     } else if (operator === '<=') {
-                        isCompliant = !isNaN(stdValue) && val <= stdValue;
+                        isCompliant = !isNaN(stdValue) && val <= stdValue + eps;
                     } else if (operator === '=') {
                         isCompliant = !isNaN(stdValue) && Math.abs(val - stdValue) < 0.01;
                     } else {
@@ -16195,21 +16200,26 @@
                     if (val === null || isNaN(val) || !isFinite(val)) return;
                     
                     const operator = r.operator || 'range';
-                    const stdValue = parseFloat(r.standardValue);
-                    const minLimit = parseFloat(r.minLimit);
-                    const maxLimit = parseFloat(r.maxLimit);
+                    const stdValue = parseFloat(String(r.standardValue || '').replace(/,/g, '.'));
+                    const minLimit = parseFloat(String(r.minLimit || '').replace(/,/g, '.'));
+                    const maxLimit = parseFloat(String(r.maxLimit || '').replace(/,/g, '.'));
                     let isCompliant = false;
                     
+                    // Küçük tolerans: sınır değerlerde floating-point hatasını ve tam eşit değerleri tolere et
+                    const eps = Math.abs(val) * 1e-9 + 1e-12;
+                    
                     if (operator === 'range') {
-                        isCompliant = !isNaN(minLimit) && !isNaN(maxLimit) && val >= minLimit && val <= maxLimit;
+                        isCompliant = !isNaN(minLimit) && !isNaN(maxLimit) && val >= minLimit - eps && val <= maxLimit + eps;
                     } else if (operator === '>') {
-                        isCompliant = !isNaN(stdValue) && val > stdValue;
+                        // COA bağlamında 'min limit' — sınır değer uygun kabul edilir
+                        isCompliant = !isNaN(stdValue) && val >= stdValue - eps;
                     } else if (operator === '<') {
-                        isCompliant = !isNaN(stdValue) && val < stdValue;
+                        // COA bağlamında 'max limit' — sınır değer uygun kabul edilir
+                        isCompliant = !isNaN(stdValue) && val <= stdValue + eps;
                     } else if (operator === '>=') {
-                        isCompliant = !isNaN(stdValue) && val >= stdValue;
+                        isCompliant = !isNaN(stdValue) && val >= stdValue - eps;
                     } else if (operator === '<=') {
-                        isCompliant = !isNaN(stdValue) && val <= stdValue;
+                        isCompliant = !isNaN(stdValue) && val <= stdValue + eps;
                     } else if (operator === '=') {
                         isCompliant = !isNaN(stdValue) && Math.abs(val - stdValue) < 0.01;
                     } else {
