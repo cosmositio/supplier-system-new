@@ -11570,7 +11570,7 @@
                         }
                     }
                     
-                    if (!isNaN(tdsLowerLimit) && !isNaN(tdsUpperLimit) && (tdsLowerLimit !== 0 || tdsUpperLimit !== 0)) {
+                    if (( (!isNaN(tdsLowerLimit) && tdsLowerLimit !== 0) || (!isNaN(tdsUpperLimit) && tdsUpperLimit !== 0) )) {
                         // Operatör ile kontrol et
                         const rangeOperator = tdsProp.operator || 'range';
                         let isRangePass = false;
@@ -11680,7 +11680,7 @@
                             }
                         }
                         
-                        if (!isNaN(tdsLowerLimit) && !isNaN(tdsUpperLimit) && (tdsLowerLimit !== 0 || tdsUpperLimit !== 0)) {
+                        if (( (!isNaN(tdsLowerLimit) && tdsLowerLimit !== 0) || (!isNaN(tdsUpperLimit) && tdsUpperLimit !== 0) )) {
                             // Operator kontrolü yap
                             const operator = tdsProp.operator || 'range';
                             let isPass = false;
@@ -13777,13 +13777,44 @@
                 
                 // Özellikleri tablo olarak göster
                 const properties = Object.entries(coa.ocrProperties);
+                // Durumu kayıtlı veriden + limitlerden yeniden hesapla (eski kayıtlardaki >= / <= hatalarını düzelt)
+                const recomputeStatus = (prop) => {
+                    if (!prop.coaValue || !prop.coaValue.trim()) return (prop.status || '').toLowerCase();
+                    const rawCOA = String(prop.coaValue).replace(/,/g, '.').replace(/^[≤≥<>=]+\s*/, '').trim();
+                    const lo = parseFloat(String(prop.lowerLimit || '').replace(/,/g, '.'));
+                    const hi = parseFloat(String(prop.upperLimit || '').replace(/,/g, '.'));
+                    const op = (prop.operator || 'range').toString().trim();
+                    const hasLo = !isNaN(lo) && lo !== 0;
+                    const hasHi = !isNaN(hi) && hi !== 0;
+                    const rangeM = rawCOA.match(/([0-9]+\.?[0-9]*)\s*[-~]\s*([0-9]+\.?[0-9]*)/);
+                    if (hasLo || hasHi) {
+                        let pass;
+                        if (rangeM) {
+                            const cL = parseFloat(rangeM[1]), cH = parseFloat(rangeM[2]);
+                            if (op === '<' || op === '≤' || op === '<=') pass = cH <= hi;
+                            else if (op === '>' || op === '≥' || op === '>=') pass = cL >= lo;
+                            else pass = (hasLo ? cL >= lo : true) && (hasHi ? cH <= hi : true);
+                        } else {
+                            const numM = rawCOA.match(/([0-9]+\.?[0-9]*)/);
+                            if (numM) {
+                                const cV = parseFloat(numM[1]);
+                                if (op === '≤' || op === '<=') pass = cV <= hi;
+                                else if (op === '≥' || op === '>=') pass = cV >= lo;
+                                else pass = (hasLo ? cV >= lo : true) && (hasHi ? cV <= hi : true);
+                            } else return (prop.status || '').toLowerCase();
+                        }
+                        return pass ? 'uygun' : 'uygun değil';
+                    }
+                    return (prop.status || '').toLowerCase();
+                };
+                
                 const passCount = properties.filter(([_, p]) => {
-                    const statusLower = (p.status || '').toLowerCase();
-                    return statusLower === 'pass' || statusLower === 'uygun';
+                    const s = recomputeStatus(p);
+                    return s === 'pass' || s === 'uygun';
                 }).length;
                 const failCount = properties.filter(([_, p]) => {
-                    const statusLower = (p.status || '').toLowerCase();
-                    return statusLower === 'fail' || statusLower.includes('uygun değil');
+                    const s = recomputeStatus(p);
+                    return s === 'fail' || s.includes('uygun değil');
                 }).length;
                 const unknownCount = properties.length - passCount - failCount;
                 
@@ -13835,7 +13866,17 @@
                     let statusBadge = '-';
                     let statusColor = '#6c757d';
                     
-                    const statusLower = (prop.status || '').toLowerCase();
+                    // Durumu kayıtlı veriden al; limit bilgileri varsa yeniden hesapla (eski hatalı kayıtları düzelt)
+                    let computedStatus = recomputeStatus(prop);
+                    
+                    // Requirement karşılaştırması (metin tabanlı: Renk, Yüzey vb.)
+                    if (computedStatus === (prop.status || '').toLowerCase() && prop.requirement && prop.coaValue) {
+                        const normalize = s => String(s).toLowerCase().replace(/\s+/g, '').replace(/[ı]/g, 'i').replace(/[İ]/g, 'i').replace(/[ğ]/g, 'g').replace(/[ş]/g, 's').replace(/[ü]/g, 'u').replace(/[ö]/g, 'o').replace(/[ç]/g, 'c').replace(/[≤≥<>=]/g, '');
+                        const nc = normalize(prop.coaValue), nr = normalize(prop.requirement);
+                        if (nc && nr) computedStatus = (nc.includes(nr) || nr.includes(nc)) ? 'uygun' : 'uygun değil';
+                    }
+                    
+                    const statusLower = computedStatus;
                     
                     if (statusLower === 'pass' || statusLower === 'uygun') {
                         statusBadge = '<span style="background: #28a745; color: white; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.8em; white-space: nowrap;">✅ Uygun</span>';
