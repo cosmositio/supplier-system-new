@@ -1677,13 +1677,14 @@
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <label style="font-size: 0.9em; color: #666; width: 120px;">🔑 OCR.space Key:</label>
-                        <input 
-                            type="text" 
-                            id="ocrApiKeyInput" 
-                            placeholder="K82811583888957" 
-                            style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 0.85em; width: 200px;"
-                            onchange="localStorage.setItem('ocrspace_api_key', this.value); showToast('✅ API key kaydedildi', 'success');">
-                        <a href="https://ocr.space/ocrapi" target="_blank" style="font-size: 0.85em; color: #2196F3; text-decoration: none;">🔗 Key Al</a>
+                        <select
+                            id="ocrApiKeyInput"
+                            style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 0.85em; flex: 1;"
+                            onchange="localStorage.setItem('ocrspace_api_key', this.value); showToast('✅ OCR.space key güncellendi: ' + this.options[this.selectedIndex].text, 'success');">
+                            <option value="K82811583888957">Key 1 — K82811583888957</option>
+                            <option value="K89284221488957">Key 2 — K89284221488957</option>
+                        </select>
+                        <a href="https://ocr.space/ocrapi" target="_blank" style="font-size: 0.85em; color: #2196F3; text-decoration: none; white-space: nowrap;">🔗 Key Al</a>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <label style="font-size: 0.9em; color: #666; width: 120px;">🔑 Azure Key:</label>
@@ -12092,7 +12093,11 @@
             // API key'leri ve OCR engine'i input'lara yükle
             const apiKeyInput = document.getElementById('ocrApiKeyInput');
             if (apiKeyInput) {
-                apiKeyInput.value = localStorage.getItem('ocrspace_api_key') || 'K82811583888957';
+                const savedKey = localStorage.getItem('ocrspace_api_key') || 'K82811583888957';
+                // Dropdown'da kayıtlı key'i seç
+                const opt = Array.from(apiKeyInput.options).find(o => o.value === savedKey);
+                if (opt) apiKeyInput.value = savedKey;
+                else apiKeyInput.value = apiKeyInput.options[0]?.value || 'K82811583888957';
             }
             
             const azureKeyInput = document.getElementById('azureApiKeyInput');
