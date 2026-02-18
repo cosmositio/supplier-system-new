@@ -1682,17 +1682,59 @@
                             <option value="both">İkisini de dene (En iyi sonucu seç)</option>
                         </select>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                         <label style="font-size: 0.9em; color: #666; width: 120px;">🔑 OCR.space Key:</label>
                         <select
                             id="ocrApiKeyInput"
-                            style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 0.85em; flex: 1;"
-                            onchange="localStorage.setItem('ocrspace_api_key', this.value); showToast('✅ OCR.space key güncellendi: ' + this.options[this.selectedIndex].text, 'success');">
+                            style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 0.85em; flex: 1; min-width: 200px;"
+                            onchange="
+                                if (this.value === '__manual__') {
+                                    document.getElementById('ocrManualKeyRow').style.display = 'flex';
+                                    document.getElementById('ocrManualKeyInput').focus();
+                                } else {
+                                    document.getElementById('ocrManualKeyRow').style.display = 'none';
+                                    localStorage.setItem('ocrspace_api_key', this.value);
+                                    showToast('✅ OCR.space key güncellendi: ' + this.options[this.selectedIndex].text, 'success');
+                                }
+                            ">
                             <option value="K82811583888957">Key 1 — K82811583888957</option>
                             <option value="K89284221488957">Key 2 — K89284221488957</option>
+                            <option value="__manual__">✏️ Yeni key gir...</option>
                         </select>
                         <a href="https://ocr.space/ocrapi" target="_blank" style="font-size: 0.85em; color: #2196F3; text-decoration: none; white-space: nowrap;">🔗 Key Al</a>
                     </div>
+                    <div id="ocrManualKeyRow" style="display: none; align-items: center; gap: 10px; margin-top: 6px; padding-left: 130px;">
+                        <input
+                            id="ocrManualKeyInput"
+                            type="text"
+                            placeholder="Yeni OCR.space API key (örn: K12345678901234)"
+                            style="padding: 8px 12px; border: 1px solid #aaa; border-radius: 5px; font-family: monospace; font-size: 0.85em; flex: 1; min-width: 220px;"
+                            onkeydown="if(event.key==='Enter') saveOcrManualKey();">
+                        <button onclick="saveOcrManualKey()" style="padding: 8px 14px; background: #4CAF50; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em; white-space: nowrap;">💾 Kaydet</button>
+                        <button onclick="document.getElementById('ocrManualKeyRow').style.display='none'; document.getElementById('ocrApiKeyInput').value=localStorage.getItem('ocrspace_api_key')||'K82811583888957';" style="padding: 8px 10px; background: #e0e0e0; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em;">✕</button>
+                    </div>
+                    <script>
+                    function saveOcrManualKey() {
+                        const input = document.getElementById('ocrManualKeyInput');
+                        const newKey = input.value.trim();
+                        if (!newKey) { showToast('⚠️ Key boş olamaz!', 'warning'); return; }
+                        const select = document.getElementById('ocrApiKeyInput');
+                        // Zaten listede var mı?
+                        let existing = Array.from(select.options).find(o => o.value === newKey);
+                        if (!existing) {
+                            const label = 'Key ' + (select.options.length) + ' — ' + newKey;
+                            const opt = new Option(label, newKey);
+                            // "Yeni key gir..." seçeneğinden önce ekle
+                            select.insertBefore(opt, select.querySelector('option[value="__manual__"]'));
+                            existing = opt;
+                        }
+                        select.value = newKey;
+                        localStorage.setItem('ocrspace_api_key', newKey);
+                        document.getElementById('ocrManualKeyRow').style.display = 'none';
+                        input.value = '';
+                        showToast('✅ Yeni OCR.space key kaydedildi: ' + newKey.substring(0,6) + '...', 'success');
+                    }
+                    </script>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <label style="font-size: 0.9em; color: #666; width: 120px;">🔑 Azure Key:</label>
                         <input 
@@ -12199,8 +12241,14 @@
             const apiKeyInput = document.getElementById('ocrApiKeyInput');
             if (apiKeyInput) {
                 const savedKey = localStorage.getItem('ocrspace_api_key') || 'K82811583888957';
-                // Dropdown'da kayıtlı key'i seç
-                const opt = Array.from(apiKeyInput.options).find(o => o.value === savedKey);
+                let opt = Array.from(apiKeyInput.options).find(o => o.value === savedKey);
+                if (!opt && savedKey !== '__manual__') {
+                    // Kayıtlı key listede yok → dinamik olarak ekle
+                    const label = 'Key ' + (apiKeyInput.options.length) + ' — ' + savedKey;
+                    const newOpt = new Option(label, savedKey);
+                    apiKeyInput.insertBefore(newOpt, apiKeyInput.querySelector('option[value="__manual__"]'));
+                    opt = newOpt;
+                }
                 if (opt) apiKeyInput.value = savedKey;
                 else apiKeyInput.value = apiKeyInput.options[0]?.value || 'K82811583888957';
             }
