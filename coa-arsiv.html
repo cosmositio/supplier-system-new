@@ -15691,7 +15691,17 @@
                 if (isTextChart) {
                     const PASS_KW = /^(uygun(?!\s*de)|pass|ok|geçti|geçer|conform|evet|yes|kabul|[✓✔√])/i;
                     const FAIL_KW = /^(uygun\s*de|fail|hayır|red|reddedildi|non.conform|geçmedi|[✗✘×])/i;
-                    const statusList = rawTextValues.map(v => PASS_KW.test(v) ? 'pass' : FAIL_KW.test(v) ? 'fail' : v ? 'other' : 'empty');
+                    // Önce r.status alanını kullan (en güvenilir kaynak), yoksa coaValue metnini dene
+                    const statusList = propData.map((r, i) => {
+                        const st = String(r.status || '').trim();
+                        if (PASS_KW.test(st)) return 'pass';
+                        if (FAIL_KW.test(st)) return 'fail';
+                        // status yoksa veya belirsizse coaValue'ya bak
+                        const v = rawTextValues[i];
+                        if (PASS_KW.test(v)) return 'pass';
+                        if (FAIL_KW.test(v)) return 'fail';
+                        return v ? 'other' : 'empty';
+                    });
                     const passCount = statusList.filter(s => s === 'pass').length;
                     const failCount = statusList.filter(s => s === 'fail').length;
                     const otherCount = statusList.filter(s => s === 'other').length;
@@ -15715,7 +15725,12 @@
                             plugins: {
                                 title: { display: true, text: `${supplier} - ${material} - ${property}`, font: { size: 18, weight: 'bold' }, padding: { top: 10, bottom: 15 } },
                                 legend: { display: false },
-                                tooltip: { callbacks: { label: ctx => rawTextValues[ctx.dataIndex] || '—' } }
+                                tooltip: { callbacks: { label: ctx => {
+                                    const r = propData[ctx.dataIndex];
+                                    const v = rawTextValues[ctx.dataIndex] || '—';
+                                    const st = String(r?.status || '').trim();
+                                    return st && st !== '-' ? `${v}  (${st})` : v;
+                                }}}
                             },
                             scales: {
                                 y: { min: -0.15, max: 1.25,
