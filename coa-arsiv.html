@@ -1125,6 +1125,81 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(44, 95, 45, 0.15);
         }
+
+        /* =================== Yıl Yönetimi CSS =================== */
+        .year-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 10500;
+            align-items: center;
+            justify-content: center;
+        }
+        .year-modal-overlay.active { display: flex; }
+        .year-modal-box {
+            background: white;
+            border-radius: 14px;
+            padding: 28px 24px 22px;
+            max-width: 380px;
+            width: 90%;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+            text-align: center;
+        }
+        .year-modal-box h3 { margin: 0 0 6px; font-size: 1.15em; color: #2d5a3d; }
+        .year-modal-box p { margin: 0 0 16px; font-size: 0.88em; color: #666; }
+        .year-modal-box input[type="number"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid #27ae60;
+            border-radius: 8px;
+            font-size: 1.4em;
+            text-align: center;
+            color: #2d5a3d;
+            font-weight: 700;
+            margin: 0 0 16px;
+            outline: none;
+        }
+        .year-modal-btns { display: flex; gap: 10px; }
+        .year-modal-btns button { flex: 1; padding: 11px; border-radius: 8px; font-size: 0.95em; font-weight: 600; cursor: pointer; border: none; transition: background 0.2s; }
+        .year-modal-btns .btn-confirm { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; }
+        .year-modal-btns .btn-confirm:hover { background: #1e8449; }
+        .year-modal-btns .btn-cancel { background: #e0e0e0; color: #333; }
+        .year-modal-btns .btn-cancel:hover { background: #bdbdbd; }
+        .year-panel {
+            margin-top: 10px;
+            padding: 10px 12px;
+            background: #f0f9f4;
+            border: 1px solid #c8e6c9;
+            border-radius: 8px;
+            font-size: 0.85em;
+        }
+        .year-panel-title {
+            color: #2d5a3d;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .year-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .year-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            border-radius: 20px;
+            padding: 4px 10px;
+            font-size: 0.88em;
+            font-weight: 600;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .year-tag.active { background: #27ae60; color: white; border-color: #1e8449; }
+        .year-tag:not(.active) { background: #e8f5e9; color: #2d5a3d; border-color: #a5d6a7; }
+        .year-tag:not(.active):hover { background: #c8e6c9; cursor: pointer; }
+        .year-tag-switch { cursor: pointer; background: none; border: none; color: inherit; font-weight: 700; font-size: 0.95em; padding: 0; }
+        .year-tag-del { background: none; border: none; color: inherit; cursor: pointer; font-size: 0.85em; padding: 0 0 0 3px; opacity: 0.65; line-height: 1; }
+        .year-tag-del:hover { opacity: 1; }
     </style>
 </head>
 <body>
@@ -1203,10 +1278,16 @@
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px; flex-wrap: wrap;">
                         <small style="color:#666; font-size:0.85em; flex: 1; min-width: 200px;">Excel dosyası yükleyerek tedarikçi ve hammadde listelerini otomatik doldurun</small>
-                        <label for="excelFileInput" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); color: white; padding: 10px 20px; border-radius: 8px; font-size: 0.9em; cursor: pointer; white-space: nowrap; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(46, 204, 113, 0.3);" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(46, 204, 113, 0.4)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(46, 204, 113, 0.3)'">
+                        <label onclick="openYearSelectModal()" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); color: white; padding: 10px 20px; border-radius: 8px; font-size: 0.9em; cursor: pointer; white-space: nowrap; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(46, 204, 113, 0.3);" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(46, 204, 113, 0.4)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(46, 204, 113, 0.3)'">
                             📊 Excel Yükle
                         </label>
                         <input type="file" id="excelFileInput" accept=".xlsx,.xls" onchange="loadExcelFile(event)" style="display: none;">
+                    </div>
+
+                    <!-- Yıl Yönetim Paneli -->
+                    <div class="year-panel" id="yearManagementPanel" style="display: none;">
+                        <div class="year-panel-title">📅 Yüklü Yıllar <span style="font-size:0.8em; font-weight:400; color:#666;">(tıklayarak geçiş yapın)</span></div>
+                        <div class="year-tags" id="yearTagsList"></div>
                     </div>
                 </div>
                 
@@ -1976,6 +2057,7 @@
         let isProcessingFile = false; // Dosya işleme kilidi
         let fileProcessingTimeout = null; // Dosya işleme timeout'u
         let currentPage = 1; // Aktif sayfa numarası
+        let pendingExcelYear = null; // Excel yükleme sırasında seçilen yıl
         
         // Helper: Dosya işleme kilidini güvenli şekilde aç
         function unlockFileProcessing(reason = '') {
@@ -2874,7 +2956,10 @@
                 
                 // Load materials from localStorage
                 loadMaterials();
-                
+
+                // Yıl yönetim panelini güncelle
+                renderYearPanel();
+
                 // İrsaliye checkbox'larına event listener ekle
                 const autoFillDateCheckbox = document.getElementById('autoFillDeliveryDate');
                 const autoFillNoCheckbox = document.getElementById('autoFillDeliveryNo');
@@ -4306,18 +4391,35 @@
         // ==================== Suppliers ====================
         function loadSuppliers() {
             let supplierNames = [];
-            
-            // Artık index.html'den tedarikçi listesi almıyoruz
+
+            // Aktif yıldan yükle (yıl yönetimi aktifse)
+            const activeYear = getActiveYear();
+            if (activeYear) {
+                const yearData = localStorage.getItem('coaExcelData_' + activeYear);
+                if (yearData) {
+                    try {
+                        const parsed = JSON.parse(yearData);
+                        if (parsed.suppliers && parsed.suppliers.length > 0) {
+                            supplierNames = parsed.suppliers;
+                            console.log(`Tedarikçi listesi yüklendi (${activeYear} yılı):`, supplierNames.length);
+                        }
+                    } catch(e) { console.error('Yıl verisi parse hatası:', e); }
+                }
+            }
+
+            // Legacy fallback: Artık index.html'den tedarikçi listesi almıyoruz
             // Sadece COA arşiv kendi Excel dosyasından tedarikçi listesi alacak
-            
-            // COA Excel'inden kaydedilmiş tedarikçileri yükle
-            const coaSuppliers = localStorage.getItem('coaSupplierList');
-            if (coaSuppliers) {
-                try {
-                    supplierNames = JSON.parse(coaSuppliers);
-                    console.log('Tedarikçi listesi yüklendi (coaSupplierList):', supplierNames.length);
-                } catch(e) {
-                    console.error('coaSupplierList parse hatası:', e);
+
+            // COA Excel'inden kaydedilmiş tedarikçileri yükle (legacy)
+            if (supplierNames.length === 0) {
+                const coaSuppliers = localStorage.getItem('coaSupplierList');
+                if (coaSuppliers) {
+                    try {
+                        supplierNames = JSON.parse(coaSuppliers);
+                        console.log('Tedarikçi listesi yüklendi (coaSupplierList):', supplierNames.length);
+                    } catch(e) {
+                        console.error('coaSupplierList parse hatası:', e);
+                    }
                 }
             }
             
@@ -4564,21 +4666,20 @@
                         return;
                     }
                     
-                    // LocalStorage'a kaydet
-                    if (supplierArray.length > 0) {
-                        // Hem supplierListForCOA hem de coaSupplierList'e kaydet (uyumluluk için)
-                        localStorage.setItem('coaSupplierList', JSON.stringify(supplierArray));
-                        suppliers = supplierArray;
-                        updateSupplierDropdowns();
-                    }
-                    
-                    if (materialArray.length > 0) {
-                        materials = materialArray;
-                        saveMaterials();
-                        updateMaterialDropdown();
-                    }
-                    
-                    showToast(`✅ Excel yüklendi! ${supplierArray.length} tedarikçi, ${materialArray.length} hammadde`, 'success');
+                    // ---- Yıl bazlı kaydetme ----
+                    const saveYear = pendingExcelYear || String(new Date().getFullYear());
+                    pendingExcelYear = null; // sıfırla
+
+                    saveYearData(saveYear, supplierArray, materialArray, file.name);
+                    setActiveYear(saveYear);
+                    renderYearPanel();
+
+                    suppliers = supplierArray;
+                    materials = materialArray;
+                    updateSupplierDropdowns();
+                    updateMaterialDropdown();
+
+                    showToast(`✅ ${saveYear} yılı Excel yüklendi! ${supplierArray.length} tedarikçi, ${materialArray.length} hammadde`, 'success');
                     console.log('✅ Excel\'den yüklendi:');
                     console.log('- Tedarikçiler:', supplierArray.length);
                     console.log('- Hammaddeler:', materialArray.length);
@@ -4808,11 +4909,29 @@
         
         // ==================== Material Functions ====================
         function loadMaterials() {
+            // Aktif yıldan yükle (yıl yönetimi aktifse)
+            const activeYear = getActiveYear();
+            if (activeYear) {
+                const yearData = localStorage.getItem('coaExcelData_' + activeYear);
+                if (yearData) {
+                    try {
+                        const parsed = JSON.parse(yearData);
+                        if (parsed.materials && parsed.materials.length > 0) {
+                            materials = parsed.materials;
+                            console.log(`✅ Hammadde listesi yüklendi (${activeYear} yılı):`, materials.length);
+                            updateMaterialDropdown();
+                            return;
+                        }
+                    } catch(e) { console.error('Yıl hammadde parse hatası:', e); }
+                }
+            }
+
+            // Legacy fallback
             const savedMaterials = localStorage.getItem('coa_materials');
             if (savedMaterials) {
                 try {
                     materials = JSON.parse(savedMaterials);
-                    console.log('✅ Hammadde listesi yüklendi:', materials.length);
+                    console.log('✅ Hammadde listesi yüklendi (legacy):', materials.length);
                     updateMaterialDropdown();
                 } catch (e) {
                     console.error('Hammadde parse hatası:', e);
@@ -4826,7 +4945,138 @@
             localStorage.setItem('coa_materials', JSON.stringify(dataToSave));
             console.log('💾 Hammadde listesi kaydedildi:', dataToSave.length, 'adet');
         }
-        
+
+        // ==================== Yıl Yönetimi Fonksiyonları ====================
+        function getAvailableYears() {
+            const years = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('coaExcelData_')) {
+                    years.push(key.replace('coaExcelData_', ''));
+                }
+            }
+            return years.sort();
+        }
+
+        function getActiveYear() {
+            return localStorage.getItem('coaActiveYear') || null;
+        }
+
+        function setActiveYear(year) {
+            localStorage.setItem('coaActiveYear', year);
+            renderYearPanel();
+        }
+
+        function saveYearData(year, supplierArr, materialArr, fileName) {
+            const data = {
+                suppliers: supplierArr,
+                materials: materialArr,
+                fileName: fileName || '',
+                loadedAt: new Date().toISOString()
+            };
+            localStorage.setItem('coaExcelData_' + year, JSON.stringify(data));
+            // Geriye uyumluluk için legacy anahtarları da güncelle
+            localStorage.setItem('coaSupplierList', JSON.stringify(supplierArr));
+            localStorage.setItem('coa_materials', JSON.stringify(materialArr));
+        }
+
+        function switchYear(year) {
+            const raw = localStorage.getItem('coaExcelData_' + year);
+            if (!raw) {
+                showToast('⚠️ Bu yıla ait veri bulunamadı!', 'warning');
+                return;
+            }
+            try {
+                const data = JSON.parse(raw);
+                suppliers = data.suppliers || [];
+                materials = data.materials || [];
+                setActiveYear(year);
+                // Legacy anahtarları güncelle
+                localStorage.setItem('coaSupplierList', JSON.stringify(suppliers));
+                localStorage.setItem('coa_materials', JSON.stringify(materials));
+                updateSupplierDropdowns();
+                updateMaterialDropdown();
+                showToast(`✅ ${year} yılı verileri yüklendi: ${suppliers.length} tedarikçi, ${materials.length} hammadde`, 'success');
+            } catch(e) {
+                showToast('❌ Yıl verisi okunamadı!', 'error');
+            }
+        }
+
+        function deleteYear(year) {
+            if (!confirm(`⚠️ ${year} yılına ait Excel verilerini silmek istediğinize emin misiniz?\n\nNot: Yüklü COA kayıtları silinmez, yalnızca tedarikçi ve hammadde listesi silinir.`)) return;
+            localStorage.removeItem('coaExcelData_' + year);
+            const activeYear = getActiveYear();
+            if (activeYear === year) {
+                const remaining = getAvailableYears();
+                if (remaining.length > 0) {
+                    switchYear(remaining[remaining.length - 1]);
+                } else {
+                    localStorage.removeItem('coaActiveYear');
+                    suppliers = [];
+                    materials = [];
+                    updateSupplierDropdowns();
+                    updateMaterialDropdown();
+                }
+            }
+            renderYearPanel();
+            showToast(`🗑️ ${year} yılı verileri silindi`, 'info');
+        }
+
+        function renderYearPanel() {
+            const panel = document.getElementById('yearManagementPanel');
+            const tagsList = document.getElementById('yearTagsList');
+            if (!panel || !tagsList) return;
+
+            const years = getAvailableYears();
+            const activeYear = getActiveYear();
+
+            if (years.length === 0) {
+                panel.style.display = 'none';
+                return;
+            }
+
+            panel.style.display = 'block';
+            tagsList.innerHTML = '';
+
+            years.forEach(year => {
+                const isActive = year === activeYear;
+                const tag = document.createElement('div');
+                tag.className = 'year-tag' + (isActive ? ' active' : '');
+                tag.innerHTML = `
+                    <button class="year-tag-switch" onclick="switchYear('${year}')" title="${year} yılına geç">📅 ${year}${isActive ? ' ✓' : ''}</button>
+                    <button class="year-tag-del" onclick="deleteYear('${year}')" title="${year} yılı verisini sil">✕</button>
+                `;
+                tagsList.appendChild(tag);
+            });
+        }
+
+        function openYearSelectModal() {
+            const modal = document.getElementById('yearSelectModal');
+            if (!modal) return;
+            const yearInput = document.getElementById('yearSelectInput');
+            if (yearInput) yearInput.value = new Date().getFullYear();
+            modal.classList.add('active');
+            setTimeout(() => { if (yearInput) yearInput.focus(); }, 100);
+        }
+
+        function closeYearSelectModal() {
+            const modal = document.getElementById('yearSelectModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function confirmYearAndOpenFile() {
+            const yearInput = document.getElementById('yearSelectInput');
+            const val = yearInput ? parseInt(yearInput.value) : NaN;
+            if (isNaN(val) || val < 2000 || val > 2100) {
+                showToast('⚠️ Geçerli bir yıl girin (örn: 2025)', 'warning');
+                return;
+            }
+            pendingExcelYear = String(val);
+            closeYearSelectModal();
+            document.getElementById('excelFileInput').click();
+        }
+        // ==================== Yıl Yönetimi Sonu ====================
+
         function loadMaterialJSON(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -17190,6 +17440,19 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- =================== Yıl Seçim Modalı =================== -->
+    <div class="year-modal-overlay" id="yearSelectModal">
+        <div class="year-modal-box">
+            <h3>📅 Excel Hangi Yıla Ait?</h3>
+            <p>Yüklediğiniz Excel dosyasının ait olduğu yılı seçin.<br>Her yılın verisi ayrı saklanır.</p>
+            <input type="number" id="yearSelectInput" min="2020" max="2050" placeholder="2025">
+            <div class="year-modal-btns">
+                <button class="btn-confirm" onclick="confirmYearAndOpenFile()">📁 Dosya Seç</button>
+                <button class="btn-cancel" onclick="closeYearSelectModal()">İptal</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
