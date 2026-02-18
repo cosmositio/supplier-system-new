@@ -8683,40 +8683,56 @@
             const blob = new Blob([byteArray], { type: 'image/png' });
             console.log('✅ Blob oluşturuldu:', Math.round(blob.size / 1024), 'KB');
             
-            // FormData oluştur - mobil için optimize edilmiş parametreler
-            const formData = new FormData();
-            formData.append('file', blob, 'coa.png');
-            formData.append('apikey', apiKey);
-            formData.append('language', 'tur'); // Türkçe (Ğ, İ, Ş, Ç gibi karakterler için)
-            formData.append('isOverlayRequired', 'false');
-            formData.append('detectOrientation', 'true');
-            formData.append('scale', 'true'); // Otomatik upscaling
-            formData.append('OCREngine', '2'); // Engine 2 daha iyi
-            formData.append('isTable', 'true'); // Tablo modu
-            formData.append('filetype', 'PNG'); // PNG format
-            console.log('✅ FormData hazır (Türkçe dil desteği)');
-            
-            console.log('🌐 API\'ye istek gönderiliyor...');
-            const response = await fetch('https://api.ocr.space/parse/image', {
-                method: 'POST',
-                body: formData
-            });
-            console.log('📡 API yanıt aldı, status:', response.status);
-            
-            if (!response.ok) {
-                throw new Error(`OCR API hatası: ${response.status}`);
+            // OCR.space'e istek gönderen yardımcı fonksiyon
+            const doOCRRequest = async (engineNum, lang = 'eng') => {
+                const fd = new FormData();
+                fd.append('file', blob, 'coa.png');
+                fd.append('apikey', apiKey);
+                fd.append('language', lang);
+                fd.append('isOverlayRequired', 'false');
+                fd.append('detectOrientation', 'true');
+                fd.append('scale', 'true');
+                fd.append('OCREngine', String(engineNum));
+                fd.append('isTable', 'true');
+                fd.append('filetype', 'PNG');
+                console.log(`🌐 OCR.space Engine ${engineNum} (lang=${lang}) isteği gönderiliyor...`);
+                const resp = await fetch('https://api.ocr.space/parse/image', { method: 'POST', body: fd });
+                if (!resp.ok) throw new Error(`OCR API HTTP hatası: ${resp.status}`);
+                return await resp.json();
+            };
+
+            // Önce Engine 2 + Türkçe dene
+            let result = null;
+            try {
+                result = await doOCRRequest(2, 'tur');
+                console.log('🔍 OCR.space Engine 2 (tur) Response:', result);
+            } catch (e2err) {
+                console.warn('⚠️ Engine 2/tur HTTP hatası:', e2err.message);
             }
-            
-            const result = await response.json();
-            console.log('🔍 OCR.space Response:', result);
-            
-            if (!result.IsErroredOnProcessing && result.ParsedResults && result.ParsedResults.length > 0) {
+
+            // Engine 2 boş/hatalı döndü veya exception attıysa → Engine 1 + eng dene (ücretsiz key fallback)
+            const eng2Text = (result && !result.IsErroredOnProcessing && result.ParsedResults?.[0]?.ParsedText || '').trim();
+            if (!eng2Text) {
+                console.warn('⚠️ Engine 2 sonuç vermedi, Engine 1 (eng) deneniyor...');
+                try {
+                    result = await doOCRRequest(1, 'eng');
+                    console.log('🔍 OCR.space Engine 1 (eng) Response:', result);
+                } catch (e1err) {
+                    console.warn('⚠️ Engine 1/eng HTTP hatası:', e1err.message);
+                    // Son çare: Engine 1 + tur
+                    console.warn('⚠️ Son deneme: Engine 1 (tur)...');
+                    result = await doOCRRequest(1, 'tur');
+                    console.log('🔍 OCR.space Engine 1 (tur) Response:', result);
+                }
+            }
+
+            if (result && !result.IsErroredOnProcessing && result.ParsedResults && result.ParsedResults.length > 0) {
                 const text = result.ParsedResults[0].ParsedText;
                 console.log('✅ OCR.space başarılı:', text.length, 'karakter');
                 return text;
             } else {
-                const errorMsg = result.ErrorMessage || result.OCRExitCode || 'OCR başarısız';
-                console.error('❌ OCR sonucu hatalı:', errorMsg);
+                const errorMsg = (result && (result.ErrorMessage || result.OCRExitCode)) || 'OCR başarısız';
+                console.error('❌ OCR sonucu hatalı:', errorMsg, result);
                 throw new Error(errorMsg);
             }
         }
