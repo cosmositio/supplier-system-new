@@ -7101,7 +7101,7 @@
                         location: document.getElementById('location').value || '',
                         fileName: uploadResult.fileName,
                         fileType: fileObj.file.type,
-                        fileData: fileData,
+                        fileData: '', // ⚡ Drive'a zaten yüklendi, tekrar yükleme önlenir
                         fileUrl: uploadResult.viewUrl,
                         driveFileId: uploadResult.fileId,
                         fileSize: uploadResult.fileSize,
@@ -7128,7 +7128,7 @@
                     // UI'ın nefes alması için
                     await new Promise(resolve => setTimeout(resolve, 0));
                     
-                    // 5. ADIM: COA_Records'a kaydet (TDS varsa)
+                    // 5. ADIM: COA_Records'a kaydet (TDS varsa) - SENKRON, bir sonraki dosyaya geçmeden önce
                     const cleanMaterialCode = fileObj.materialCode.includes('|') 
                         ? fileObj.materialCode.split('|')[0].trim() 
                         : fileObj.materialCode.trim();
@@ -7183,22 +7183,23 @@
                     }
                     
                     if (propertiesToSave) {
-                        console.log(`📦 Batch'e ekleniyor...`, propertiesToSave.length, 'özellik');
+                        console.log(`� COA_Records'a kaydediliyor... ${propertiesToSave.length} özellik`);
+                        progressTitle.textContent = `📊 COA_Records kaydediliyor... (${fileNumber}/${bulkFiles.length})`;
                         
-                        // Batch dataya ekle (şimdilik gönderme, sonra toplu gönder)
-                        coaRecordsBatchData.push({
-                            materialCode: cleanMaterialCode,
-                            properties: propertiesToSave,
-                            deliveryDate: fileObj.deliveryDate,
-                            deliveryNo: fileObj.deliveryNo,
-                            lotNumber: record.lotNumber,
-                            supplier: fileObj.supplier,
-                            location: record.location
-                        });
-                        
-                        console.log('📊 [' + fileNumber + '] Batch e eklendi:', cleanMaterialCode, '(' + propertiesToSave.length + ' özellik)');
+                        try {
+                            await saveCOARecordToSheets(cleanMaterialCode, propertiesToSave, {
+                                deliveryDate: fileObj.deliveryDate,
+                                deliveryNo: fileObj.deliveryNo,
+                                lotNumber: record.lotNumber,
+                                supplier: fileObj.supplier,
+                                location: record.location
+                            });
+                            console.log('✅ [' + fileNumber + '] COA_Records kaydedildi:', cleanMaterialCode, '(' + propertiesToSave.length + ' özellik)');
+                        } catch (recordError) {
+                            console.error('❌ COA_Records kayıt hatası:', recordError);
+                        }
                     } else {
-                        console.log('⚠️ TDS tanımlı değil:', cleanMaterialCode);
+                        console.log('⚠️ TDS tanımlı değil, Records atlandı:', cleanMaterialCode);
                     }
                     
                     // Memory'e ekle
@@ -7233,50 +7234,8 @@
             // Progress bar tamamlandı
             progressBar.style.width = '100%';
             progressTitle.textContent = bulkUploadCancelled 
-                ? '⏳ İptal edildi - işlenenler kaydediliyor...' 
-                : '✅ Dosyalar yüklendi, COA_Records bekleniyor...';
-            
-            // ✅ Tüm COA_Records'ları TEK SEFERDE kaydet (BATCH)
-            // Not: İptal edilse bile işlenmiş kayıtlar varsa batch gönderilmeli
-            if (coaRecordsBatchData.length > 0) {
-                console.log('');
-                console.log('═══════════════════════════════════════════════════════');
-                if (bulkUploadCancelled) {
-                    console.log('⚠️ İşlem iptal edildi ama', coaRecordsBatchData.length, 'kayıt işlenmişti - bunlar kaydediliyor...');
-                } else {
-                    console.log('🚀', coaRecordsBatchData.length, 'COA için Records TOPLU kaydediliyor...');
-                }
-                console.log('═══════════════════════════════════════════════════════');
-                
-                const batchStartTime = performance.now();
-                
-                try {
-                    const result = await saveCOARecordsBatch(coaRecordsBatchData);
-                    
-                    const batchDuration = performance.now() - batchStartTime;
-                    
-                    console.log('═══════════════════════════════════════════════════════');
-                    console.log(`✅ COA_RECORDS BATCH TAMAMLANDI`);
-                    console.log(`   • ${result.inserted || 0} satır eklendi`);
-                    console.log(`   • ${result.updated || 0} satır güncellendi`);
-                    console.log(`   • ${result.errors || 0} hata`);
-                    console.log(`   • Süre: ${batchDuration.toFixed(0)}ms (${(batchDuration/1000).toFixed(1)}s)`);
-                    console.log('═══════════════════════════════════════════════════════');
-                    console.log('');
-                    
-                    if (result.success) {
-                        showToast('✅ ' + result.totalCOAs + ' COA için ' + (result.inserted + result.updated) + ' satır kaydedildi', 'success', 4000);
-                    } else {
-                        showToast(`⚠️ COA_Records kaydetme hatası: ${result.error}`, 'warning', 4000);
-                    }
-                    
-                } catch (error) {
-                    const batchDuration = performance.now() - batchStartTime;
-                    console.error('❌ COA_Records batch hatası:', error);
-                    console.log(`   • Süre: ${batchDuration.toFixed(0)}ms`);
-                    showToast('❌ COA_Records kaydedilemedi: ' + error.message, 'error', 5000);
-                }
-            }
+                ? '🛑 İptal edildi' 
+                : '✅ Tüm dosyalar ve COA_Records kaydedildi!';
             
             if (errorCount > 0) {
                 showToast(`⚠️ ${errorCount} COA kaydedilemedi!`, 'warning', 5000);
