@@ -11488,13 +11488,17 @@
                 
                 // Boşluklu ondalık sayıları düzelt fonksiyonu
                 const cleanNumericValue = (val) => {
-                    if (!val) return val;
+                    if (!val && val !== 0) return '';
                     let cleaned = String(val).trim();
+                    if (!cleaned || cleaned === '-') return '';
                     // "0 035" → "0.035", "1 234" → "1.234"
                     if (/^\d\s+\d+$/.test(cleaned)) {
                         const parts = cleaned.split(/\s+/);
                         cleaned = parts[0] === '0' ? '0.' + parts[1] : parts[0] + '.' + parts[1];
                     }
+                    // Sıfır değerleri boş döndür (limit tanımlı değil)
+                    const numVal = parseFloat(cleaned.replace(/,/g, '.'));
+                    if (!isNaN(numVal) && numVal === 0) return '';
                     return cleaned;
                 };
                 
@@ -11508,7 +11512,7 @@
                     requirement: tdsProp.requirement
                 };
                 
-                // TDS değerini formatla
+                // TDS değerini formatla (sıfır değerleri atla)
                 let tdsValueDisplay = '';
                 if (tdsInfo.lowerLimit && tdsInfo.upperLimit) {
                     tdsValueDisplay = `${tdsInfo.lowerLimit} - ${tdsInfo.upperLimit}`;
@@ -13846,18 +13850,32 @@
                         statusBadge = '<span style="background: #6c757d; color: white; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.8em; white-space: nowrap;">-</span>';
                     }
                     
+                    // Sıfır veya boş limit değeri kontrolü
+                    const isValidLimit = (val) => {
+                        if (!val && val !== 0) return false;
+                        const str = String(val).trim();
+                        if (!str || str === '-' || str === '') return false;
+                        const num = parseFloat(str);
+                        return !isNaN(num) && num !== 0;
+                    };
+                    
                     // TDS Limit formatla (Alt - Üst) - SADECE requirement YOKSA göster
                     let tdsLimitDisplay = '-';
-                    if (prop.requirement && prop.requirement.trim()) {
+                    const hasReq = prop.requirement && String(prop.requirement).trim() && String(prop.requirement).trim() !== '-';
+                    if (hasReq) {
                         // Requirement varsa TDS Limit gösterme
                         tdsLimitDisplay = '-';
-                    } else if (prop.lowerLimit && prop.upperLimit) {
-                        tdsLimitDisplay = `${prop.lowerLimit} - ${prop.upperLimit}`;
-                    } else if (prop.lowerLimit) {
-                        tdsLimitDisplay = `≥ ${prop.lowerLimit}`;
-                    } else if (prop.upperLimit) {
-                        tdsLimitDisplay = `≤ ${prop.upperLimit}`;
-                    } else if (prop.standardValue) {
+                    } else if (isValidLimit(prop.lowerLimit) || isValidLimit(prop.upperLimit)) {
+                        const lo = isValidLimit(prop.lowerLimit) ? prop.lowerLimit : '?';
+                        const hi = isValidLimit(prop.upperLimit) ? prop.upperLimit : '?';
+                        if (isValidLimit(prop.lowerLimit) && isValidLimit(prop.upperLimit)) {
+                            tdsLimitDisplay = `${prop.lowerLimit} - ${prop.upperLimit}`;
+                        } else if (isValidLimit(prop.lowerLimit)) {
+                            tdsLimitDisplay = `≥ ${prop.lowerLimit}`;
+                        } else {
+                            tdsLimitDisplay = `≤ ${prop.upperLimit}`;
+                        }
+                    } else if (prop.standardValue && String(prop.standardValue).trim() && String(prop.standardValue).trim() !== '0' && String(prop.standardValue).trim() !== '0.00') {
                         tdsLimitDisplay = prop.standardValue;
                     }
                     
