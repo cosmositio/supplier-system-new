@@ -1476,6 +1476,13 @@
                     
                     <!-- Bulk Upload Progress -->
                     <div id="bulkUploadProgress" style="display: none; padding: 20px; background: white; border-radius: 8px; margin-bottom: 15px; border: 2px solid #667eea;">
+                        <!-- Sekme uyarısı - tarayıcıyı tamamen kapatma -->
+                        <div id="bulkTabWarning" style="display:none; margin-bottom:10px; padding:8px 12px; background:#d4edda; border:1px solid #c3e6cb; border-radius:6px; font-size:0.85em; color:#155724; display:flex; align-items:center; gap:8px;">
+                            ✅ <strong>Sekmeyi küçültebilir veya başka sekmeye geçebilirsiniz</strong> — yükleme arka planda devam eder.
+                        </div>
+                        <div id="bulkTabPaused" style="display:none; margin-bottom:10px; padding:8px 12px; background:#d1ecf1; border:1px solid #bee5eb; border-radius:6px; font-size:0.85em; color:#0c5460; text-align:center; font-weight:600;">
+                            🔄 Arka planda işleniyor… Bu sekmeye geri döndüğünüzde işlem devam ediyor olacak.
+                        </div>
                         <h4 style="margin-bottom: 12px; color: #667eea; display: flex; align-items: center; gap: 8px; justify-content: space-between;">
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span class="spinner" style="width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></span>
@@ -5671,7 +5678,9 @@
                         canvas.width = viewport.width;
                         canvas.height = viewport.height;
                         
-                        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                        // intent:'print' → rAF (requestAnimationFrame) bağımlılığını atlar,
+                        // arka plan sekmesinde donmayı önler
+                        await page.render({ canvasContext: ctx, viewport: viewport, intent: 'print' }).promise;
                         
                         pageCanvases.push(canvas);
                         totalHeight += viewport.height;
@@ -7028,6 +7037,44 @@
         async function saveBulkCOAs() {
             // İptal flag'ini sıfırla
             bulkUploadCancelled = false;
+
+            // === Web Locks API: Tarayıcının arka planda timer throttling yapmasını engelle ===
+            // Kilit tutulduğu sürece browser bu sekmeyi “kritik iş yapıyor” olarak işaretler
+            let releaseBulkLock = null;
+            if ('locks' in navigator) {
+                const lockHeld = new Promise(resolve => { releaseBulkLock = resolve; });
+                navigator.locks.request('coa-bulk-upload', { mode: 'exclusive' }, () => lockHeld)
+                    .catch(() => {}); // desteklenmiyorsa sessizce geç
+                console.log('🔒 Web Lock alındı - arka plan throttling engellendi');
+            }
+
+            // Sayfa görünmeyen uyarısını göster
+            const tabWarning = document.getElementById('bulkTabWarning');
+            const tabPaused  = document.getElementById('bulkTabPaused');
+            if (tabWarning) tabWarning.style.display = 'flex';
+            if (tabPaused)  tabPaused.style.display  = 'none';
+
+            // Sekme görünürlüğü bilgilendirme amaçlı güncelle (artık duraklatmıyor)
+            function onVisibilityChange() {
+                const warn   = document.getElementById('bulkTabWarning');
+                const paused = document.getElementById('bulkTabPaused');
+                if (document.hidden) {
+                    if (warn)   warn.style.display   = 'none';
+                    if (paused) paused.style.display  = 'block';
+                } else {
+                    if (warn)   warn.style.display   = 'flex';
+                    if (paused) paused.style.display  = 'none';
+                }
+            }
+            document.addEventListener('visibilitychange', onVisibilityChange);
+
+            // Bitişinde lock + listener temizle
+            const cleanupVisibility = () => {
+                document.removeEventListener('visibilitychange', onVisibilityChange);
+                if (tabWarning) tabWarning.style.display = 'none';
+                if (tabPaused)  tabPaused.style.display  = 'none';
+                if (releaseBulkLock) { releaseBulkLock(); console.log('🔓 Web Lock serbest bırakıldı'); }
+            };
             
             // Ana formdan tedarikçi bilgisini al
             const supplier = document.getElementById('supplierInput').value.trim();
@@ -7479,13 +7526,16 @@
                 // Google Sheets ve UI'ı rahatlatmak için her dosya arasında kısa bekleme
                 // (Son dosya değilse ve iptal edilmediyse)
                 if (i < bulkFiles.length - 1 && !bulkUploadCancelled) {
-                    await new Promise(resolve => setTimeout(resolve, 800)); // 800ms bekle - hem UI hemde Sheets için
+                    await new Promise(resolve => setTimeout(resolve, 800));
                 }
-                
-                // UI'ın rendering yapması için ek nefes
-                await new Promise(resolve => requestAnimationFrame(resolve));
+
+                // Event loop'a kısa kontrol fırsatı ver (arka planda da çalışır - Web Lock throttling'i engeller)
+                await new Promise(resolve => setTimeout(resolve, 10));
             }
             
+            // Visibility listener'i temizle
+            cleanupVisibility();
+
             // Progress bar dosya yükleme bitti
             progressBar.style.width = '100%';
             
@@ -9173,7 +9223,7 @@
                         canvasHeight = viewport.height;
                         const ctx = canvas.getContext('2d');
                         
-                        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                        await page.render({ canvasContext: ctx, viewport: viewport, intent: 'print' }).promise;
                         console.log('✅ PDF canvas\'a çevrildi:', canvasWidth, 'x', canvasHeight);
                     } else {
                         // Image ise direkt canvas'a çiz
@@ -9458,7 +9508,7 @@
                             canvas.height = viewport.height;
                             const ctx = canvas.getContext('2d');
                             
-                            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                            await page.render({ canvasContext: ctx, viewport: viewport, intent: 'print' }).promise;
                             imageData = canvas.toDataURL('image/png');
                             console.log(`✅ PDF resme dönüştürüldü (scale=${scale})`);
                         } catch (pdfError) {
