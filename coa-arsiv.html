@@ -6778,9 +6778,6 @@
             // İptal flag'ini sıfırla
             bulkUploadCancelled = false;
             
-            // COA_Recordsı döngü sonunda aynı anda kaydet (parallel)
-            const coaRecordsQueue = [];
-            
             // Ana formdan tedarikçi bilgisini al
             const supplier = document.getElementById('supplierInput').value.trim();
             
@@ -7183,19 +7180,20 @@
                     }
                     
                     if (propertiesToSave) {
-                        console.log(`📊 [${fileNumber}] COA_Records kuyruğuna eklendi: ${propertiesToSave.length} özellik (LotNo: ${record.lotNumber})`);
-                        coaRecordsQueue.push({
-                            materialCode: cleanMaterialCode,
-                            properties: propertiesToSave,
-                            recordData: {
+                        console.log(`📊 [${fileNumber}] COA_Records kaydediliyor: ${propertiesToSave.length} özellik (LotNo: ${record.lotNumber})`);
+                        progressTitle.textContent = `💾 COA_Records kaydediliyor... (${fileNumber}/${bulkFiles.length})`;
+                        try {
+                            await saveCOARecordToSheets(cleanMaterialCode, propertiesToSave, {
                                 deliveryDate: fileObj.deliveryDate,
                                 deliveryNo: fileObj.deliveryNo,
                                 lotNumber: record.lotNumber,
                                 supplier: fileObj.supplier,
                                 location: record.location
-                            },
-                            fileNumber: fileNumber
-                        });
+                            });
+                            console.log(`✅ [${fileNumber}] COA_Records kaydedildi: ${cleanMaterialCode} (LotNo: ${record.lotNumber})`);
+                        } catch (recErr) {
+                            console.error(`❌ [${fileNumber}] COA_Records kayıt hatası:`, recErr);
+                        }
                     } else {
                         console.log('⚠️ TDS tanımlı değil, Records atlandı:', cleanMaterialCode);
                     }
@@ -7229,10 +7227,7 @@
             }
             
             // Progress bar dosya yükleme bitti
-            progressBar.style.width = '95%';
-            progressTitle.textContent = coaRecordsQueue.length > 0
-                ? `📊 ${bulkUploadCancelled ? '🛑 İptal edildi - ' : ''}COA_Records kaydediliyor... (${coaRecordsQueue.length} kayıt)`
-                : (bulkUploadCancelled ? '🛑 İptal edildi' : '📊 Tamamlandı');
+            progressBar.style.width = '100%';
             
             if (errorCount > 0) {
                 showToast(`⚠️ ${errorCount} COA kaydedilemedi!`, 'warning', 5000);
@@ -7244,26 +7239,9 @@
                 renderTable();
             }
             
-            // COA_Records'ı sıralı kaydet - iptal edilse bile kuyruktaki verileri kaydet!
-            if (coaRecordsQueue.length > 0) {
-                console.log(`🚀 ${coaRecordsQueue.length} COA_Records sıralı kaydediliyor (iptal=${bulkUploadCancelled}) (LotNo bazlı)...`);
-                let savedCount = 0;
-                for (const item of coaRecordsQueue) {
-                    try {
-                        await saveCOARecordToSheets(item.materialCode, item.properties, item.recordData);
-                        savedCount++;
-                        console.log(`✅ [${item.fileNumber}/${coaRecordsQueue.length}] COA_Records kaydedildi: ${item.materialCode} (LotNo: ${item.recordData.lotNumber})`);
-                    } catch (err) {
-                        console.error(`❌ [${item.fileNumber}] COA_Records kayıt hatası:`, err);
-                    }
-                }
-                console.log(`✅ COA_Records tamamlandı: ${savedCount}/${coaRecordsQueue.length} kayıt`);
-            }
-            
-            progressBar.style.width = '100%';
             progressTitle.textContent = bulkUploadCancelled
-                ? '🛑 İptal edildi'
-                : `✅ Tamamlandı! ${successCount} COA + ${coaRecordsQueue.length} COA_Records kaydedildi`;
+                ? `🛑 İptal edildi - ${successCount} COA kaydedildi`
+                : `✅ Tamamlandı! ${successCount} COA kaydedildi`;
             
             // Eksik COA kontrolü yap ve rapor göster
             checkMissingCOAs();
