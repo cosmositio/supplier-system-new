@@ -6778,8 +6778,8 @@
             // İptal flag'ini sıfırla
             bulkUploadCancelled = false;
             
-            // COA_Records promise'lerini topla (paralel kayıt için)
-            const coaRecordsPromises = [];
+            // COA_Records batch dataları topla (tek seferde gönder)
+            const coaRecordsBatchData = [];
             
             // Ana formdan tedarikçi bilgisini al
             const supplier = document.getElementById('supplierInput').value.trim();
@@ -7196,31 +7196,20 @@
                     }
                     
                     if (propertiesToSave) {
-                        console.log('� Batch\'e ekleniyor...', propertiesToSave.length, 'özellik');
+                        console.log('📦 Batch\'e ekleniyor...', propertiesToSave.length, 'özellik');
                         
-                        // Record data objesini oluştur
-                        const recordDataForSheets = {
+                        // Batch dataya ekle (şimdilik gönderme, sonra toplu gönder)
+                        coaRecordsBatchData.push({
+                            materialCode: cleanMaterialCode,
+                            properties: propertiesToSave,
                             deliveryDate: fileObj.deliveryDate,
                             deliveryNo: fileObj.deliveryNo,
                             lotNumber: record.lotNumber,
                             supplier: fileObj.supplier,
                             location: record.location
-                        };
-                        
-                        console.log(`📊 [${fileNumber}] COA_Records paralel kaydediliyor: ${cleanMaterialCode} (${propertiesToSave.length} özellik)`);
-                        
-                        // Promise'i array'e ekle ama await ETME (paralel çalışsın)
-                        const recordPromise = saveCOARecordToSheets(
-                            cleanMaterialCode, 
-                            propertiesToSave, 
-                            recordDataForSheets
-                        ).then(() => {
-                            console.log(`✅ [${fileNumber}] COA_Records kaydedildi: ${cleanMaterialCode}`);
-                        }).catch(error => {
-                            console.error(`❌ [${fileNumber}] COA_Records hatası: ${cleanMaterialCode}`, error);
                         });
                         
-                        coaRecordsPromises.push(recordPromise);
+                        console.log(`📊 [${fileNumber}] Batch'e eklendi: ${cleanMaterialCode} (${propertiesToSave.length} özellik)`);
                     } else {
                         console.log('⚠️ TDS tanımlı değil:', cleanMaterialCode);
                     }
@@ -7267,31 +7256,42 @@
                 
                 const results = await Promise.allSettled(coaRecordsPromises);
                 
-                const successCount = results.filter(r => r.status === 'fulfilled').length;
-                const errorCount = results.filter(r => r.status === 'rejected').length;
-                
-                console.log('═══════════════════════════════════════════════════════');
-                console.log(`✅ COA_RECORDS TAMAMLANDI: ${successCount} başarılı, ${errorCount} hata`);
-                console.log('═══════════════════════════════════════════════════════');
+                const successCount = results.filter(r => r.status === 'fultek seferde kaydediliyor...';
+            
+            // ✅ Tüm COA_Records'ları TEK SEFERDE kaydet (BATCH)
+            if (coaRecordsBatchData.length > 0 && !bulkUploadCancelled) {
                 console.log('');
+                console.log('═══════════════════════════════════════════════════════');
+                console.log(`🚀 ${coaRecordsBatchData.length} COA'nın Records'ları TOPLU kaydediliyor...`);
+                console.log('═══════════════════════════════════════════════════════');
                 
-                if (successCount > 0) {
-                    showToast(`✅ ${successCount} COA_Records kaydı tamamlandı`, 'success', 4000);
-                }
+                const batchStartTime = performance.now();
                 
-                if (errorCount > 0) {
-                    showToast(`⚠️ ${errorCount} COA_Records kaydedilemedi`, 'warning', 4000);
-                }
-            }
-            
-            progressTitle.textContent = '✅ Tamamlandı!';
-            
-            // Update UI
-            if (successCount > 0) {
-                saveToLocalStorage(); // Toplu yükleme sonrası yedekle
-                
-                showToast(`✅ ${successCount} COA başarıyla kaydedildi!`, 'success', 5000);
-                renderTable();
+                try {
+                    const result = await saveCOARecordsBatch(coaRecordsBatchData);
+                    
+                    const batchDuration = performance.now() - batchStartTime;
+                    
+                    console.log('═══════════════════════════════════════════════════════');
+                    console.log(`✅ COA_RECORDS BATCH TAMAMLANDI`);
+                    console.log(`   • ${result.inserted || 0} satır eklendi`);
+                    console.log(`   • ${result.updated || 0} satır güncellendi`);
+                    console.log(`   • ${result.errors || 0} hata`);
+                    console.log(`   • Süre: ${batchDuration.toFixed(0)}ms (${(batchDuration/1000).toFixed(1)}s)`);
+                    console.log('═══════════════════════════════════════════════════════');
+                    console.log('');
+                    
+                    if (result.success) {
+                        showToast(`✅ ${result.totalCOAs} COA için ${result.inserted + result.updated} satır kaydedildi`, 'success', 4000);
+                    } else {
+                        showToast(`⚠️ COA_Records kaydetme hatası: ${result.error}`, 'warning', 4000);
+                    }
+                    
+                } catch (error) {
+                    const batchDuration = performance.now() - batchStartTime;
+                    console.error('❌ COA_Records batch hatası:', error);
+                    console.log(`   • Süre: ${batchDuration.toFixed(0)}ms`);
+                    showToast(`❌ COA_Records kaydedilemedi: ${error.message}`, 'error', 5
             }
             
             if (errorCount > 0) {
@@ -10605,6 +10605,44 @@
         }
         
         // COA kayıtlarını satır bazlı Google Sheets'e kaydet
+        // ==================== BATCH COA_RECORDS KAYDETME ====================
+        
+        async function saveCOARecordsBatch(batchData) {
+            // batchData: Array of { materialCode, properties, deliveryDate, deliveryNo, lotNumber, supplier, location }
+            if (!googleScriptUrl) {
+                console.error('❌ Google Script URL tanımlı değil');
+                return { success: false, error: 'Google Script URL yok' };
+            }
+            
+            if (!batchData || batchData.length === 0) {
+                console.log('⚠️ Batch data boş');
+                return { success: false, error: 'Batch data boş' };
+            }
+            
+            try {
+                console.log(`🚀 ${batchData.length} COA'nın Records'ı tek seferde gönderiliyor...`);
+                console.log('📦 Batch data preview:', batchData.slice(0, 2)); // İlk 2 kayıt
+                
+                const params = new URLSearchParams();
+                params.append('action', 'saveCOARecordsBatch');
+                params.append('data', JSON.stringify(batchData));
+                
+                const result = await jsonp(googleScriptUrl + '?' + params.toString());
+                
+                if (result && result.success) {
+                    console.log('✅ COA_Records batch kaydedildi:', result.message);
+                    return result;
+                } else {
+                    console.error('⚠️ COA_Records batch hatası:', result?.error);
+                    return result || { success: false, error: 'Bilinmeyen hata' };
+                }
+                
+            } catch (error) {
+                console.error('❌ COA_Records batch exception:', error);
+                return { success: false, error: error.message || error.toString() };
+            }
+        }
+        
         async function saveCOARecordToSheets(materialCode, tdsProperties, recordData = null) {
             console.log('');
             console.log('═══════════════════════════════════════════════════════');

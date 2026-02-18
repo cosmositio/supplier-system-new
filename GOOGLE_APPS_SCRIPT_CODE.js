@@ -133,6 +133,23 @@ function doGet(e) {
       case 'getCOARecords':
         result = getCOARecords();
         break;
+      case 'saveCOARecordsBatch':
+        // TOPLU: Birden fazla COA'nın kayıtlarını tek seferde kaydet
+        let batchData = null;
+        if (e.parameter.data) {
+          try {
+            batchData = JSON.parse(e.parameter.data);
+          } catch(parseErr) {
+            try {
+              batchData = JSON.parse(decodeURIComponent(e.parameter.data));
+            } catch(decodeErr) {
+              result = { success: false, error: 'Batch data parse hatası' };
+              break;
+            }
+          }
+        }
+        result = batchData ? saveCOARecordsBatch(batchData) : { success: false, error: 'Veri eksik' };
+        break;
       case 'saveCOARecord':
         // Yeni: COA kayıt satırlarını kaydet
         let coaRecordData = null;
@@ -1996,6 +2013,61 @@ function getCOARecordsSheet() {
 }
 
 // COA kayıtlarını satır bazlı kaydet
+// ==================== BATCH COA_RECORDS KAYDETME ====================
+
+function saveCOARecordsBatch(batchData) {
+  // batchData: Array of { materialCode, properties, deliveryDate, deliveryNo, lotNumber, supplier, location }
+  try {
+    const sheet = getCOARecordsSheet();
+    const now = new Date().toLocaleString('tr-TR');
+    
+    Logger.log('🚀 BATCH COA_Records kaydediliyor: ' + batchData.length + ' COA');
+    
+    let totalInserted = 0;
+    let totalUpdated = 0;
+    let totalErrors = 0;
+    
+    // Her COA için kayıt yap
+    batchData.forEach((data, index) => {
+      try {
+        Logger.log(`   📦 [${index + 1}/${batchData.length}] ${data.materialCode} - ${data.properties.length} özellik`);
+        
+        // Tek COA'yı kaydet
+        const result = saveCOARecord(data);
+        
+        if (result.success) {
+          totalInserted += result.inserted || 0;
+          totalUpdated += result.updated || 0;
+        } else {
+          totalErrors++;
+          Logger.log(`   ❌ Hata: ${result.error}`);
+        }
+      } catch (error) {
+        totalErrors++;
+        Logger.log(`   ❌ Exception: ${error.toString()}`);
+      }
+    });
+    
+    Logger.log(`✅ BATCH TAMAMLANDI: ${totalInserted} eklendi, ${totalUpdated} güncellendi, ${totalErrors} hata`);
+    
+    return {
+      success: true,
+      totalCOAs: batchData.length,
+      inserted: totalInserted,
+      updated: totalUpdated,
+      errors: totalErrors,
+      message: `${totalInserted + totalUpdated} satır kaydedildi`
+    };
+    
+  } catch (error) {
+    Logger.log('❌ BATCH HATASI: ' + error.toString());
+    return {
+      success: false,
+      error: 'Batch kayıt hatası: ' + error.toString()
+    };
+  }
+}
+
 function saveCOARecord(data) {
   try {
     const sheet = getCOARecordsSheet();
