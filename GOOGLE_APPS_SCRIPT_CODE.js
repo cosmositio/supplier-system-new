@@ -1463,9 +1463,9 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
     
     // İlk satır header'dır, 2. satırdan itibaren kontrol et (TERSTEN - son satırdan başa doğru)
     for (let i = data.length - 1; i >= 1; i--) {
-      let rowDeliveryDate = data[i][0];   // Column 0: Delivery Date
-      let rawDeliveryNo = String(data[i][1] || '').trim();     // Column 1: Delivery No
-      const rowMaterialCode = String(data[i][3] || '').trim();   // Column 3: Material Code
+      let rowDeliveryDate = data[i][1];   // Column 1: Tarih (ID sütunundan sonra)
+      let rawDeliveryNo = String(data[i][2] || '').trim();     // Column 2: İrsaliye No
+      const rowMaterialCode = String(data[i][4] || '').trim();   // Column 4: Malzeme Kodu
       
       // Delivery No'yu normalize et (sheet'teki değer için)
       const rowDeliveryNo = rawDeliveryNo.replace(/\s+\|\s+/g, '|').trim();
@@ -1483,9 +1483,9 @@ function deleteCOARecord(materialCode, deliveryDate, deliveryNo) {
       // İlk 5 satırı logla (daha fazla örneklem)
       if (i <= 5) {
         Logger.log('📝 DATA Satır ' + (i+1) + ':');
-        Logger.log('    Column 0 (Tarih): "' + rowDeliveryDate + '"');
-        Logger.log('    Column 1 (İrsaliye): RAW="' + rawDeliveryNo + '" → NORM="' + rowDeliveryNo + '"');
-        Logger.log('    Column 3 (Material): "' + rowMaterialCode + '"');
+        Logger.log('    Column 1 (Tarih): "' + rowDeliveryDate + '"');
+        Logger.log('    Column 2 (İrsaliye): RAW="' + rawDeliveryNo + '" → NORM="' + rowDeliveryNo + '"');
+        Logger.log('    Column 4 (Material): "' + rowMaterialCode + '"');
       }
       
       // Eşleşme kontrolü yap
