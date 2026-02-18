@@ -3378,9 +3378,9 @@
             try {
                 showToast('📤 Kaydediliyor...', 'info');
                 
-                let fileUrl = '';
-                let driveFileId = '';
-                let fileSize = 0;
+                let fileUrl = record.fileUrl || '';
+                let driveFileId = record.driveFileId || '';
+                let fileSize = record.fileSize || 0;
                 
                 // Dosya varsa Drive'a yükle
                 if (record.fileData && record.fileName) {
