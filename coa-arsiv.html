@@ -6778,8 +6778,8 @@
             // İptal flag'ini sıfırla
             bulkUploadCancelled = false;
             
-            // COA_Records batch dataları topla (tek seferde gönder)
-            const coaRecordsBatchData = [];
+            // COA_Recordsı döngü sonunda aynı anda kaydet (parallel)
+            const coaRecordsQueue = [];
             
             // Ana formdan tedarikçi bilgisini al
             const supplier = document.getElementById('supplierInput').value.trim();
@@ -7183,25 +7183,22 @@
                     }
                     
                     if (propertiesToSave) {
-                        console.log(`� COA_Records'a kaydediliyor... ${propertiesToSave.length} özellik`);
-                        progressTitle.textContent = `📊 COA_Records kaydediliyor... (${fileNumber}/${bulkFiles.length})`;
-                        
-                        try {
-                            await saveCOARecordToSheets(cleanMaterialCode, propertiesToSave, {
+                        console.log(`📊 [${fileNumber}] COA_Records kuyruğuna eklendi: ${propertiesToSave.length} özellik (LotNo: ${record.lotNumber})`);
+                        coaRecordsQueue.push({
+                            materialCode: cleanMaterialCode,
+                            properties: propertiesToSave,
+                            recordData: {
                                 deliveryDate: fileObj.deliveryDate,
                                 deliveryNo: fileObj.deliveryNo,
                                 lotNumber: record.lotNumber,
                                 supplier: fileObj.supplier,
                                 location: record.location
-                            });
-                            console.log('✅ [' + fileNumber + '] COA_Records kaydedildi:', cleanMaterialCode, '(' + propertiesToSave.length + ' özellik)');
-                        } catch (recordError) {
-                            console.error('❌ COA_Records kayıt hatası:', recordError);
-                        }
+                            },
+                            fileNumber: fileNumber
+                        });
                     } else {
                         console.log('⚠️ TDS tanımlı değil, Records atlandı:', cleanMaterialCode);
                     }
-                    
                     // Memory'e ekle
                     coaData.unshift(record);
                     
@@ -7231,11 +7228,11 @@
                 await new Promise(resolve => requestAnimationFrame(resolve));
             }
             
-            // Progress bar tamamlandı
-            progressBar.style.width = '100%';
-            progressTitle.textContent = bulkUploadCancelled 
-                ? '🛑 İptal edildi' 
-                : '✅ Tüm dosyalar ve COA_Records kaydedildi!';
+            // Progress bar dosya yükleme bitti
+            progressBar.style.width = '95%';
+            progressTitle.textContent = bulkUploadCancelled
+                ? '🛑 İptal edildi'
+                : `📊 Dosyalar yüklendi, COA_Records kaydediliyor... (${coaRecordsQueue.length} kayıt)`;
             
             if (errorCount > 0) {
                 showToast(`⚠️ ${errorCount} COA kaydedilemedi!`, 'warning', 5000);
@@ -7246,6 +7243,32 @@
                 saveToLocalStorage();
                 renderTable();
             }
+            
+            // COA_Recordsı AYNI ANDA kaydet (Promise.all - parallel)
+            if (coaRecordsQueue.length > 0 && !bulkUploadCancelled) {
+                console.log(`🚀 ${coaRecordsQueue.length} COA_Records AYNI ANDA kaydediliyor...`);
+                try {
+                    await Promise.all(
+                        coaRecordsQueue.map(item =>
+                            saveCOARecordToSheets(item.materialCode, item.properties, item.recordData)
+                                .then(() => {
+                                    console.log(`✅ [${item.fileNumber}] COA_Records kaydedildi: ${item.materialCode} (LotNo: ${item.recordData.lotNumber})`);
+                                })
+                                .catch(err => {
+                                    console.error(`❌ [${item.fileNumber}] COA_Records kayıt hatası:`, err);
+                                })
+                        )
+                    );
+                    console.log(`✅ Tüm COA_Records kaydedildi: ${coaRecordsQueue.length} kayıt`);
+                } catch (batchErr) {
+                    console.error('❌ COA_Records parallel kayıt hatası:', batchErr);
+                }
+            }
+            
+            progressBar.style.width = '100%';
+            progressTitle.textContent = bulkUploadCancelled
+                ? '🛑 İptal edildi'
+                : `✅ Tamamlandı! ${successCount} COA + ${coaRecordsQueue.length} COA_Records kaydedildi`;
             
             // Eksik COA kontrolü yap ve rapor göster
             checkMissingCOAs();
