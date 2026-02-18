@@ -7144,6 +7144,8 @@
             
             // Her dosyayı sırayla işle (manuel kayıt mantığı ile)
             window.ocrSpaceRateLimited = false; // Yeni oturum başlıyor, flag sıfırla
+            window.ocrSpaceRateLimitTemp = false;
+            window.ocrSpaceRateLimitedAt = 0;
             for (let i = 0; i < bulkFiles.length; i++) {
                 // UI'ın nefes alması için her dosya başında event loop'a dön
                 await new Promise(resolve => setTimeout(resolve, 0));
@@ -7299,12 +7301,24 @@
                                 console.log('🎨 Template bulundu:', matchedTemplate.supplier || matchedTemplate.template?.supplier);
                                 const actualTemplate = matchedTemplate.template || matchedTemplate;
                                 
-                                // OCR rate limit varsa OCR'ı tamamen atla
+                                // OCR rate limit varsa, geçici mi kalıcı mı kontrol et
                                 if (window.ocrSpaceRateLimited) {
-                                    console.warn('🚫 OCR.space rate limit aktif - bu dosya için OCR atlanıyor:', fileObj.file.name);
-                                    showToast('⚠️ OCR limiti - dosya Drive\'a yüklendi, COA değerleri okunamadı', 'warning', 3000);
-                                    // extractedProperties boş bırak, devam et
-                                } else {
+                                    const elapsed = Date.now() - (window.ocrSpaceRateLimitedAt || 0);
+                                    if (window.ocrSpaceRateLimitTemp && elapsed > 65000) {
+                                        console.log('⏰ OCR rate limit süresi doldu (65s geçti), bu dosya için yeniden deneniyor...');
+                                        window.ocrSpaceRateLimited = false;
+                                        window.ocrSpaceRateLimitTemp = false;
+                                    } else {
+                                        const remaining = window.ocrSpaceRateLimitTemp ? Math.max(0, Math.ceil((65000 - elapsed) / 1000)) : 0;
+                                        const msg = window.ocrSpaceRateLimitTemp
+                                            ? `⚠️ OCR limiti aktif (${remaining}s kaldı) - dosya kaydedildi, OCR atlandı`
+                                            : '🚫 OCR kota doldu - dosya kaydedildi, OCR atlandı';
+                                        console.warn('🚫 OCR.space rate limit aktif - bu dosya için OCR atlanıyor:', fileObj.file.name);
+                                        showToast(msg, 'warning', 3000);
+                                        // extractedProperties boş bırak, devam et
+                                    }
+                                }
+                                if (!window.ocrSpaceRateLimited) {
                                 
                                 // UI'ın nefes alması için
                                 await new Promise(resolve => setTimeout(resolve, 0));
@@ -7381,7 +7395,7 @@
                                     });
                                     console.log('✅ Extraction sonuçları kaydedildi:', Object.keys(ocrProperties).length, 'özellik');
                                 }
-                                } // closes else (OCR rate limit değil)
+                                } // closes if (!ocrSpaceRateLimited)
                             } else {
                                 console.log('⚠️ Bu tedarikçi için template bulunamadı:', fileObj.supplier);
                                 showToast('⚠️ Template yok, COA değerleri manuel girilmeli', 'warning', 3000);
@@ -8697,7 +8711,12 @@
                 fd.append('filetype', 'PNG');
                 console.log(`🌐 OCR.space Engine ${engineNum} (lang=${lang}) isteği gönderiliyor...`);
                 const resp = await fetch('https://api.ocr.space/parse/image', { method: 'POST', body: fd });
-                if (!resp.ok) throw new Error(`OCR API HTTP hatası: ${resp.status}`);
+                if (!resp.ok) {
+                    let detail = '';
+                    try { const errJson = await resp.json(); detail = errJson.ErrorMessage || errJson.OCRExitCode || ''; } catch(e) {}
+                    const msg = `OCR API HTTP hatası: ${resp.status}${detail ? ' – ' + detail : ''}`;
+                    throw new Error(msg);
+                }
                 return await resp.json();
             };
 
@@ -9388,9 +9407,17 @@
                         const region = regionsToProcess[i];
                         
                         // OCR rate limit varsa kalan bölgeleri atla
+                        // Geçici rate limit (dakika bazlı) ise 65 saniye sonra sıfırla
                         if (window.ocrSpaceRateLimited) {
-                            results.push({ propertyName: region.propertyName, value: '', error: true });
-                            continue;
+                            const elapsed = Date.now() - (window.ocrSpaceRateLimitedAt || 0);
+                            if (window.ocrSpaceRateLimitTemp && elapsed > 65000) {
+                                console.log('⏰ OCR rate limit süresi doldu (65s), yeniden deneniyor...');
+                                window.ocrSpaceRateLimited = false;
+                                window.ocrSpaceRateLimitTemp = false;
+                            } else {
+                                results.push({ propertyName: region.propertyName, value: '', error: true });
+                                continue;
+                            }
                         }
                         
                         try {
@@ -9425,11 +9452,23 @@
                         } catch (error) {
                             console.error(`❌ [${region.index}] ${region.propertyName} OCR hatası:`, error.message);
                             
-                            // 403 = API key rate limit veya kota aşımı -> daha fazla istek yapma
-                            if (error.message && error.message.includes('403')) {
-                                console.warn('🚫 OCR.space 403 hatası - API rate limit veya kota aşımı! Kalan bölgeler atlanıyor.');
+                            // 403/429 = rate limit veya kota aşımı
+                            const is403 = error.message && error.message.includes('403');
+                            const is429 = error.message && error.message.includes('429');
+                            if (is403 || is429) {
                                 window.ocrSpaceRateLimited = true;
-                                showToast('⚠️ OCR.space API limiti aşıldı! OCR atlanıyor...', 'warning', 5000);
+                                window.ocrSpaceRateLimitedAt = Date.now();
+                                // Hata mesajında kota/quota söz konusuysa kalıcı, değilse geçici
+                                const isPermQuota = error.message && /quota|exceeded|exhausted|limit.*month|limit.*day/i.test(error.message);
+                                window.ocrSpaceRateLimitTemp = !isPermQuota;
+                                if (isPermQuota) {
+                                    console.warn('🚫 OCR.space KOTA DOLDU (kalıcı) - Kalan bölgeler atlanıyor. Key değiştirin.');
+                                    showToast('🚫 OCR.space kota doldu! Lütfen farklı bir API key seçin.', 'error', 8000);
+                                } else {
+                                    const waitSec = is429 ? 60 : 65;
+                                    console.warn(`⏳ OCR.space geçici rate limit (${is429 ? 429 : 403}) - ${waitSec}s sonra otomatik sıfırlanacak.`);
+                                    showToast(`⚠️ OCR.space dakika limiti aşıldı – ${waitSec} saniye sonra otomatik devam eder.`, 'warning', waitSec * 1000);
+                                }
                             }
                             
                             results.push({
