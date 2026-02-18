@@ -2120,12 +2120,16 @@ function saveCOARecord(data) {
     const dateIdx = headers.findIndex(h => h && normalizeTurkish(h).includes('tarih'));
     const deliveryNoIdx = headers.findIndex(h => h && normalizeTurkish(h).includes('irsaliye'));
     const materialIdx = headers.findIndex(h => h && normalizeTurkish(h).includes('malzeme'));
+    const lotNoIdx = headers.findIndex(h => h && (
+      normalizeTurkish(h).includes('lot') ||
+      normalizeTurkish(h).includes('parti')
+    ));
     const propertyNameIdx = headers.findIndex(h => h && (
       normalizeTurkish(h).includes('ozellik') || 
       normalizeTurkish(h).includes('property')
     ));
     
-    Logger.log(`📋 Column indexes: date=${dateIdx}, delivery=${deliveryNoIdx}, material=${materialIdx}, property=${propertyNameIdx}`);
+    Logger.log(`📋 Column indexes: date=${dateIdx}, delivery=${deliveryNoIdx}, material=${materialIdx}, lot=${lotNoIdx}, property=${propertyNameIdx}`);
     Logger.log(`📋 Headers array:`, JSON.stringify(headers));
     
     // Eğer gerekli kolonlar yoksa, hata döndür
@@ -2135,7 +2139,7 @@ function saveCOARecord(data) {
       Logger.log(`📋 Bulunan header'lar: ${headerDebug}`);
       return {
         success: false,
-        error: `COA_Records kolonları eksik! date=${dateIdx}, delivery=${deliveryNoIdx}, material=${materialIdx}, property=${propertyNameIdx}. Headers: ${headerDebug.substring(0, 200)}`
+        error: `COA_Records kolonları eksik! date=${dateIdx}, delivery=${deliveryNoIdx}, material=${materialIdx}, lot=${lotNoIdx}, property=${propertyNameIdx}. Headers: ${headerDebug.substring(0, 200)}`
       };
     }
     
@@ -2167,12 +2171,16 @@ function saveCOARecord(data) {
       
       const rowDeliveryNo = String(row[deliveryNoIdx] || '').trim();
       const rowMaterial = String(row[materialIdx] || '').trim();
+      const rowLotNo = lotNoIdx >= 0 ? String(row[lotNoIdx] || '').trim() : '';
       const rowPropertyName = String(row[propertyNameIdx] || '').trim();
       
-      // Eşleşme kontrolü
+      // Eşleşme kontrolü - lotNumber da dahil (aynı irsaliyenin farklı partileri ayrı kayıt)
+      const incomingLotNo = String(data.lotNumber || '').trim();
+      const lotMatches = (lotNoIdx < 0) || (incomingLotNo === '') || (rowLotNo === incomingLotNo);
       if (rowDate === deliveryDateNormalized && 
           rowDeliveryNo === (data.deliveryNo || '') && 
-          rowMaterial === (data.materialCode || '')) {
+          rowMaterial === (data.materialCode || '') &&
+          lotMatches) {
         matchingRows.push({
           rowIndex: i,
           sheetRow: i + 1, // 1-indexed
