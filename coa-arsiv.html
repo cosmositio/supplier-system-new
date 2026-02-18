@@ -7247,17 +7247,6 @@
             progressBar.style.width = '100%';
             progressTitle.textContent = '✅ Dosyalar yüklendi, COA_Records bekleniyor...';
             
-            // ✅ Tüm COA_Records promise'lerini bekle (paralel çalışıyorlar)
-            if (coaRecordsPromises.length > 0 && !bulkUploadCancelled) {
-                console.log('');
-                console.log('═══════════════════════════════════════════════════════');
-                console.log(`⏳ ${coaRecordsPromises.length} COA_Records kaydı tamamlanıyor...`);
-                console.log('═══════════════════════════════════════════════════════');
-                
-                const results = await Promise.allSettled(coaRecordsPromises);
-                
-                const successCount = results.filter(r => r.status === 'fultek seferde kaydediliyor...';
-            
             // ✅ Tüm COA_Records'ları TEK SEFERDE kaydet (BATCH)
             if (coaRecordsBatchData.length > 0 && !bulkUploadCancelled) {
                 console.log('');
@@ -7291,7 +7280,8 @@
                     const batchDuration = performance.now() - batchStartTime;
                     console.error('❌ COA_Records batch hatası:', error);
                     console.log(`   • Süre: ${batchDuration.toFixed(0)}ms`);
-                    showToast(`❌ COA_Records kaydedilemedi: ${error.message}`, 'error', 5
+                    showToast('❌ COA_Records kaydedilemedi: ' + error.message, 'error', 5000);
+                }
             }
             
             if (errorCount > 0) {
