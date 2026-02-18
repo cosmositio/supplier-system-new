@@ -15900,6 +15900,9 @@
                     }
                     
                     // Uygunluğa göre renk
+                    if (!isCompliant) {
+                        console.warn(`🔴 HEDEF DIŞI TESPIT: property=${property}, tarih=${r.date}, irsaliye=${r.deliveryNo}, coaValue="${r.coaValue}", val=${val}, operator="${operator}", stdValue=${stdValue}, minLimit=${minLimit}, maxLimit=${maxLimit}, eps=${eps}`);
+                    }
                     if (isCompliant) {
                         backgroundColors.push(colors[propIndex % colors.length].bg);
                         borderColors.push(colors[propIndex % colors.length].border);
