@@ -2591,7 +2591,7 @@
             if (googleScriptUrl) {
                 try {
                     // Her zaman saveTemplate action kullan (backend zaten update/insert karar veriyor)
-                    console.log(`📤 Google Sheets'e template gönderiliyor (${isUpdate ? 'GÜNCELLEME' : 'YENİ'})...`);
+                    console.log('📤 Google Sheets e template gönderiliyor (', isUpdate ? 'GÜNCELLEME' : 'YENİ', ')...');
                     
                     // Template'i imageData ile birlikte gönder (Drive'a yüklenecek)
                     const templateForSheets = {
@@ -2635,8 +2635,8 @@
                     });
                     
                     if (result && result.success) {
-                        console.log(`✅ Template Google Sheets'e ${isUpdate ? 'güncellendi' : 'kaydedildi'}: v${template.version}`);
-                        showToast(`✅ Template başarıyla ${isUpdate ? 'güncellendi' : 'kaydedildi'} (v${template.version})!`, 'success', 5000);
+                        console.log('✅ Template Google Sheets e', isUpdate ? 'güncellendi' : 'kaydedildi', ': v' + template.version);
+                        showToast('✅ Template başarıyla ' + (isUpdate ? 'güncellendi' : 'kaydedildi') + ' (v' + template.version + ')!', 'success', 5000);
                         
                         // Template listesini güncelle
                         await loadTemplatesFromGoogleSheets();
@@ -3186,7 +3186,7 @@
                 // FALLBACK: localStorage'dan yükle
                 const localCount = coaData.length;
                 if (localCount > 0) {
-                    console.log(`💾 FALLBACK: ${localCount} kayıt localStorage'dan kullanılıyor`);
+                    console.log('💾 FALLBACK:', localCount, 'kayıt localStorage dan kullanılıyor');
                     if (!silent) {
                         showToast(`⚠️ Sheets bağlantısı yok, ${localCount} yerel kayıt kullanılıyor`, 'warning', 5000);
                         showToast('💡 Apps Script deployment yapın', 'info', 5000);
@@ -6092,7 +6092,7 @@
                         const saveResult = await saveResponse.json();
                         
                         if (saveResult.success) {
-                            console.log(`✅ ${saveResult.recordCount} özellik COA_Records'a güncellendi`);
+                            console.log('✅', saveResult.recordCount, 'özellik COA_Records a güncellendi');
                         } else {
                             console.error('❌ COA_Records kayıt hatası:', saveResult.error);
                         }
@@ -7209,7 +7209,7 @@
                             location: record.location
                         });
                         
-                        console.log(`📊 [${fileNumber}] Batch'e eklendi: ${cleanMaterialCode} (${propertiesToSave.length} özellik)`);
+                        console.log('📊 [' + fileNumber + '] Batch e eklendi:', cleanMaterialCode, '(' + propertiesToSave.length + ' özellik)');
                     } else {
                         console.log('⚠️ TDS tanımlı değil:', cleanMaterialCode);
                     }
@@ -7262,7 +7262,7 @@
             if (coaRecordsBatchData.length > 0 && !bulkUploadCancelled) {
                 console.log('');
                 console.log('═══════════════════════════════════════════════════════');
-                console.log(`🚀 ${coaRecordsBatchData.length} COA'nın Records'ları TOPLU kaydediliyor...`);
+                console.log('🚀', coaRecordsBatchData.length, 'COA için Records TOPLU kaydediliyor...');
                 console.log('═══════════════════════════════════════════════════════');
                 
                 const batchStartTime = performance.now();
@@ -7282,7 +7282,7 @@
                     console.log('');
                     
                     if (result.success) {
-                        showToast(`✅ ${result.totalCOAs} COA için ${result.inserted + result.updated} satır kaydedildi`, 'success', 4000);
+                        showToast('✅ ' + result.totalCOAs + ' COA için ' + (result.inserted + result.updated) + ' satır kaydedildi', 'success', 4000);
                     } else {
                         showToast(`⚠️ COA_Records kaydetme hatası: ${result.error}`, 'warning', 4000);
                     }
@@ -8033,10 +8033,10 @@
                 const matchTime = performance.now() - matchStart;
                 console.log(`⏱️ [ENRICH] Matching: ${matchTime.toFixed(0)}ms`);
                 
-                console.log(`✅ Toplam ${enrichedCount} COA kaydına COA_Records'tan değerler eklendi`);
+                console.log('✅ Toplam', enrichedCount, 'COA kaydına COA_Records tan değerler eklendi');
                 const fromSheets = coaData.filter(c => c.ocrProperties && Object.keys(c.ocrProperties).length > 0).length - enrichedCount;
                 if (fromSheets > 0) {
-                    console.log(`📊 ${fromSheets} COA, Sheets'ten ocrProperties ile geldi`);
+                    console.log('📊', fromSheets, 'COA, Sheets ten ocrProperties ile geldi');
                 }
                 
                 // Toplam COA değeri olan kayıt sayısını göster
@@ -8047,7 +8047,7 @@
                     console.warn(`⚠️ Hiçbir COA'da değer yok! ${totalCOAs} COA var ama hepsinde ocrProperties boş`);
                     console.warn(`💡 Çözüm: Yeni COA ekleyin veya mevcut bir COA'yı düzenleyip tekrar kaydedin`);
                 } else if (totalWithValues > 0) {
-                    console.log(`✅ ${totalWithValues}/${totalCOAs} COA'da değerler mevcut`);
+                    console.log('✅', totalWithValues + '/' + totalCOAs, 'COA da değerler mevcut');
                 }
                 
                 const enrichTotal = performance.now() - enrichStart;
@@ -10620,7 +10620,7 @@
             }
             
             try {
-                console.log(`🚀 ${batchData.length} COA'nın Records'ı tek seferde gönderiliyor...`);
+                console.log('🚀', batchData.length, 'COA için Records tek seferde gönderiliyor...');
                 console.log('📦 Batch data preview:', batchData.slice(0, 2)); // İlk 2 kayıt
                 
                 const params = new URLSearchParams();
@@ -10646,7 +10646,7 @@
         async function saveCOARecordToSheets(materialCode, tdsProperties, recordData = null) {
             console.log('');
             console.log('═══════════════════════════════════════════════════════');
-            console.log('📊📊📊 SHEETS\'E KAYIT BAŞLIYOR! 📊📊📊');
+            console.log('📊📊📊 SHEETS E KAYIT BASLIYOR! 📊📊📊');
             console.log('═══════════════════════════════════════════════════════');
             console.log('🔑 Material Code:', materialCode);
             console.log('📋 TDS Properties Count:', tdsProperties.length);
