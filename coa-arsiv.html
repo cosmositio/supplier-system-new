@@ -15680,6 +15680,66 @@
                     return `${date} - ${r.deliveryNo || 'N/A'}`;
                 });
                 
+                // ---- Sözel / Kategorik değer tespiti ----
+                const rawTextValues = propData.map(r => String(r.coaValue || '').trim());
+                const numericCount = rawTextValues.filter(v => {
+                    const c = v.replace(/,/g, '.');
+                    return !isNaN(parseFloat(c)) && isFinite(parseFloat(c));
+                }).length;
+                const isTextChart = numericCount < rawTextValues.length * 0.3 && rawTextValues.some(v => v.length > 0);
+
+                if (isTextChart) {
+                    const PASS_KW = /^(uygun(?!\s*de)|pass|ok|geçti|geçer|conform|evet|yes|kabul|[✓✔√])/i;
+                    const FAIL_KW = /^(uygun\s*de|fail|hayır|red|reddedildi|non.conform|geçmedi|[✗✘×])/i;
+                    const statusList = rawTextValues.map(v => PASS_KW.test(v) ? 'pass' : FAIL_KW.test(v) ? 'fail' : v ? 'other' : 'empty');
+                    const passCount = statusList.filter(s => s === 'pass').length;
+                    const failCount = statusList.filter(s => s === 'fail').length;
+                    const otherCount = statusList.filter(s => s === 'other').length;
+                    const timelineData = statusList.map(s => s === 'pass' ? 1 : s === 'fail' ? 0 : null);
+                    const barColors = timelineData.map(v => v === 1 ? 'rgba(76,175,80,0.85)' : v === 0 ? 'rgba(244,67,54,0.85)' : 'rgba(158,158,158,0.45)');
+                    const textCtx = canvas.getContext('2d');
+                    const textChart = new Chart(textCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: property,
+                                data: timelineData.map(v => v !== null ? v : 0.5),
+                                backgroundColor: barColors,
+                                borderColor: barColors.map(c => c.replace('0.85','1').replace('0.45','0.7')),
+                                borderWidth: 1, borderRadius: 3
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: {
+                                title: { display: true, text: `${supplier} - ${material} - ${property}`, font: { size: 18, weight: 'bold' }, padding: { top: 10, bottom: 15 } },
+                                legend: { display: false },
+                                tooltip: { callbacks: { label: ctx => rawTextValues[ctx.dataIndex] || '—' } }
+                            },
+                            scales: {
+                                y: { min: -0.15, max: 1.25,
+                                    ticks: { stepSize: 1, callback: v => v === 1 ? '✅ Uygun' : v === 0 ? '❌ Uygun Değil' : '' },
+                                    grid: { color: 'rgba(0,0,0,0.06)' }
+                                },
+                                x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 12 } } }
+                            }
+                        }
+                    });
+                    analysisCharts.push(textChart);
+                    const totalFilled = rawTextValues.filter(v => v).length;
+                    document.getElementById(`stats_${propIndex}`).innerHTML = `
+                        <div style="text-align:center;font-weight:bold;color:#2d5a3d;border-bottom:2px solid #2d5a3d;padding-bottom:8px;margin-bottom:8px;">📊 İstatistikler</div>
+                        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #dee2e6;"><span style="color:#666;font-size:.9em;">🔢 Kayıt Sayısı:</span><span style="font-weight:600;">${totalFilled}</span></div>
+                        <div style="display:flex;justify-content:space-between;padding:8px;background:#e8f5e9;border-radius:6px;margin:4px 0;"><span style="color:#2e7d32;font-size:.9em;font-weight:600;">✅ Uygun:</span><span style="font-weight:700;color:#2e7d32;">${passCount}</span></div>
+                        <div style="display:flex;justify-content:space-between;padding:8px;background:${failCount>0?'#ffebee':'#f5f5f5'};border-radius:6px;margin:4px 0;"><span style="color:${failCount>0?'#c62828':'#666'};font-size:.9em;font-weight:600;">❌ Uygun Değil:</span><span style="font-weight:700;color:${failCount>0?'#c62828':'#666'};">${failCount}</span></div>
+                        ${otherCount>0?`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #dee2e6;"><span style="color:#666;font-size:.9em;">❓ Diğer / Belirsiz:</span><span style="font-weight:600;">${otherCount}</span></div>`:''}
+                        <div style="display:flex;justify-content:space-between;padding:10px 8px;background:${failCount>0?'#ffebee':'#e8f5e9'};margin:8px -8px -8px;border-radius:0 0 8px 8px;"><span style="color:#666;font-size:.9em;font-weight:600;">📈 Uyum Oranı:</span><span style="font-weight:700;color:${failCount>0?'#d32f2f':'#2e7d32'}">${totalFilled>0?Math.round(passCount/totalFilled*100):0}%</span></div>
+                    `;
+                    return; // Numerik grafik atla
+                }
+                // ---- Numerik grafik devam ediyor ----
+
                 // Değerleri ve renkleri hazırla
                 const values = [];
                 const backgroundColors = [];
@@ -15798,23 +15858,25 @@
                     
                     // Tolerans kontrolü
                     const operator = r.operator || 'range';
-                    const stdValue = parseFloat(r.standardValue);
-                    const minLimit = parseFloat(r.minLimit);
-                    const maxLimit = parseFloat(r.maxLimit);
+                    const stdValue = parseFloat(String(r.standardValue || '').replace(/,/g, '.'));
+                    const minLimit = parseFloat(String(r.minLimit || '').replace(/,/g, '.'));
+                    const maxLimit = parseFloat(String(r.maxLimit || '').replace(/,/g, '.'));
                     let isCompliant = false;
                     
                     if (operator === 'range') {
-                        isCompliant = val >= minLimit && val <= maxLimit;
+                        isCompliant = !isNaN(minLimit) && !isNaN(maxLimit) && val >= minLimit && val <= maxLimit;
                     } else if (operator === '>') {
-                        isCompliant = val > stdValue;
+                        isCompliant = !isNaN(stdValue) && val > stdValue;
                     } else if (operator === '<') {
-                        isCompliant = val < stdValue;
+                        isCompliant = !isNaN(stdValue) && val < stdValue;
                     } else if (operator === '>=') {
-                        isCompliant = val >= stdValue;
+                        isCompliant = !isNaN(stdValue) && val >= stdValue;
                     } else if (operator === '<=') {
-                        isCompliant = val <= stdValue;
+                        isCompliant = !isNaN(stdValue) && val <= stdValue;
                     } else if (operator === '=') {
-                        isCompliant = Math.abs(val - stdValue) < 0.01;
+                        isCompliant = !isNaN(stdValue) && Math.abs(val - stdValue) < 0.01;
+                    } else {
+                        isCompliant = true; // Limit bilgisi yok, nötr renk
                     }
                     
                     // Uygunluğa göre renk
@@ -15854,12 +15916,12 @@
                 if (chartType === 'line') {
                     // Range operatör - hem alt hem üst limit ekle
                     const minValues = propData.map(r => {
-                        const val = parseFloat(r.minLimit);
+                        const val = parseFloat(String(r.minLimit || '').replace(/,/g, '.'));
                         return isNaN(val) ? null : val;
                     });
                     
                     const maxValues = propData.map(r => {
-                        const val = parseFloat(r.maxLimit);
+                        const val = parseFloat(String(r.maxLimit || '').replace(/,/g, '.'));
                         return isNaN(val) ? null : val;
                     });
                     
@@ -15894,7 +15956,7 @@
                     if (operator === '<' || operator === '<=') {
                         // Üst limit var
                         const limitValues = propData.map(r => {
-                            const val = parseFloat(r.standardValue);
+                            const val = parseFloat(String(r.standardValue || '').replace(/,/g, '.'));
                             return isNaN(val) ? null : val;
                         });
                         
@@ -15912,7 +15974,7 @@
                     } else if (operator === '>' || operator === '>=') {
                         // Alt limit var
                         const limitValues = propData.map(r => {
-                            const val = parseFloat(r.standardValue);
+                            const val = parseFloat(String(r.standardValue || '').replace(/,/g, '.'));
                             return isNaN(val) ? null : val;
                         });
                         
@@ -15930,7 +15992,7 @@
                     } else if (operator === '=') {
                         // Hedef değer
                         const targetValues = propData.map(r => {
-                            const val = parseFloat(r.standardValue);
+                            const val = parseFloat(String(r.standardValue || '').replace(/,/g, '.'));
                             return isNaN(val) ? null : val;
                         });
                         
@@ -15967,15 +16029,23 @@
                     const dataMax = Math.max(...allYValues);
                     const range = dataMax - dataMin;
                     
-                    // Eğer veri aralığı çok küçükse (örn: 200-210), padding ekle
-                    if (range < (dataMax * 0.2)) {  // %20'den küçük aralık
-                        yMin = dataMin - (range * 0.3);
-                        yMax = dataMax + (range * 0.3);
+                    if (range === 0) {
+                        // Tüm değerler aynı → sabit mesafe ekle
+                        const absVal = Math.abs(dataMin) || 1;
+                        yMin = dataMin - absVal * 0.18;
+                        yMax = dataMax + absVal * 0.18;
+                    } else if (range < Math.abs(dataMax) * 0.05) {
+                        // Çok küçük aralık (%5'ten az) → %25 padding
+                        yMin = dataMin - range * 0.5;
+                        yMax = dataMax + range * 0.5;
+                    } else if (range < Math.abs(dataMax) * 0.2) {
+                        // Küçük aralık (%20'den az) → %30 padding
+                        yMin = dataMin - range * 0.3;
+                        yMax = dataMax + range * 0.3;
                     } else {
-                        yMin = dataMin - (range * 0.1);
-                        yMax = dataMax + (range * 0.1);
+                        yMin = dataMin - range * 0.1;
+                        yMax = dataMax + range * 0.1;
                     }
-                    
                     // Negatif değere inmemesi için kontrol
                     if (yMin < 0 && dataMin >= 0) {
                         yMin = 0;
@@ -16088,14 +16158,15 @@
                     return isNaN(parsed) ? '-' : parsed;
                 };
                 
+                const parseCommaFloat = v => { const p = parseFloat(String(v||'').replace(/,/g,'.')); return isNaN(p) ? '-' : p; };
                 const propStats = {
                     count: validValues.length,
                     min: actualMinValues.length > 0 ? Math.min(...actualMinValues) : 0,
                     max: actualMaxValues.length > 0 ? Math.max(...actualMaxValues) : 0,
                     avg: validValues.length > 0 ? validValues.reduce((a, b) => a + b, 0) / validValues.length : 0,
-                    target: parseValue(propData[0]?.standardValue),
-                    minLimit: parseValue(propData[0]?.minLimit),
-                    maxLimit: parseValue(propData[0]?.maxLimit),
+                    target: parseCommaFloat(propData[0]?.standardValue),
+                    minLimit: parseCommaFloat(propData[0]?.minLimit),
+                    maxLimit: parseCommaFloat(propData[0]?.maxLimit),
                     operator: propData[0]?.operator || 'range'
                 };
                 
@@ -16115,17 +16186,19 @@
                     let isCompliant = false;
                     
                     if (operator === 'range') {
-                        isCompliant = val >= minLimit && val <= maxLimit;
+                        isCompliant = !isNaN(minLimit) && !isNaN(maxLimit) && val >= minLimit && val <= maxLimit;
                     } else if (operator === '>') {
-                        isCompliant = val > stdValue;
+                        isCompliant = !isNaN(stdValue) && val > stdValue;
                     } else if (operator === '<') {
-                        isCompliant = val < stdValue;
+                        isCompliant = !isNaN(stdValue) && val < stdValue;
                     } else if (operator === '>=') {
-                        isCompliant = val >= stdValue;
+                        isCompliant = !isNaN(stdValue) && val >= stdValue;
                     } else if (operator === '<=') {
-                        isCompliant = val <= stdValue;
+                        isCompliant = !isNaN(stdValue) && val <= stdValue;
                     } else if (operator === '=') {
-                        isCompliant = Math.abs(val - stdValue) < 0.01;
+                        isCompliant = !isNaN(stdValue) && Math.abs(val - stdValue) < 0.01;
+                    } else {
+                        isCompliant = true; // Limit bilgisi yok, uygun say
                     }
                     
                     if (!isCompliant) outOfSpec++;
