@@ -6855,22 +6855,9 @@
                 // İptal kontrolü
                 if (bulkUploadCancelled) {
                     console.log('⚠️ İşlem kullanıcı tarafından iptal edildi');
-                    progressTitle.textContent = '🛑 İptal Edildi';
+                    progressTitle.textContent = '🛑 İptal Edildi - Kaydedilenler işleniyor...';
                     showToast(`⚠️ İşlem iptal edildi. ${successCount} COA kaydedildi, ${bulkFiles.length - i} atlandı.`, 'warning', 5000);
-                    
-                    // Başarılı kayıtları localStorage'a kaydet
-                    if (successCount > 0) {
-                        saveToLocalStorage();
-                        renderTable();
-                    }
-                    
-                    // Progress bar'ı gizle ve temizle
-                    setTimeout(() => {
-                        progressContainer.style.display = 'none';
-                        clearBulkUpload();
-                    }, 3000);
-                    
-                    return; // Fonksiyondan tamamen çık
+                    break; // Döngüden çık - batch ve cleanup kodu çalışmaya devam etsin
                 }
                 
                 const fileObj = bulkFiles[i];
@@ -7245,13 +7232,20 @@
             
             // Progress bar tamamlandı
             progressBar.style.width = '100%';
-            progressTitle.textContent = '✅ Dosyalar yüklendi, COA_Records bekleniyor...';
+            progressTitle.textContent = bulkUploadCancelled 
+                ? '⏳ İptal edildi - işlenenler kaydediliyor...' 
+                : '✅ Dosyalar yüklendi, COA_Records bekleniyor...';
             
             // ✅ Tüm COA_Records'ları TEK SEFERDE kaydet (BATCH)
-            if (coaRecordsBatchData.length > 0 && !bulkUploadCancelled) {
+            // Not: İptal edilse bile işlenmiş kayıtlar varsa batch gönderilmeli
+            if (coaRecordsBatchData.length > 0) {
                 console.log('');
                 console.log('═══════════════════════════════════════════════════════');
-                console.log('🚀', coaRecordsBatchData.length, 'COA için Records TOPLU kaydediliyor...');
+                if (bulkUploadCancelled) {
+                    console.log('⚠️ İşlem iptal edildi ama', coaRecordsBatchData.length, 'kayıt işlenmişti - bunlar kaydediliyor...');
+                } else {
+                    console.log('🚀', coaRecordsBatchData.length, 'COA için Records TOPLU kaydediliyor...');
+                }
                 console.log('═══════════════════════════════════════════════════════');
                 
                 const batchStartTime = performance.now();
@@ -7286,6 +7280,12 @@
             
             if (errorCount > 0) {
                 showToast(`⚠️ ${errorCount} COA kaydedilemedi!`, 'warning', 5000);
+            }
+            
+            // Başarılı kayıtları localStorage'a kaydet ve tabloyu güncelle
+            if (successCount > 0) {
+                saveToLocalStorage();
+                renderTable();
             }
             
             // Eksik COA kontrolü yap ve rapor göster
