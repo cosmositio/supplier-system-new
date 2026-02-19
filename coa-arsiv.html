@@ -14765,6 +14765,17 @@
                         ${uniqueCOAFiles < totalUploaded ? ' Bazı COA dosyaları birden fazla irsaliye için kullanılmıştır.' : ''}
                     </div>
                     
+                    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px;">
+                        <button onclick="expandAllDetails()" 
+                                style="padding: 7px 16px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 5px;">
+                            ▼ Tümünü Aç
+                        </button>
+                        <button onclick="collapseAllDetails()" 
+                                style="padding: 7px 16px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 5px;">
+                            ▶ Tümünü Kapat
+                        </button>
+                    </div>
+                    
                     <div style="overflow-x: auto;">
                         <table id="reportTable" style="width: 100%; border-collapse: collapse; background: white; font-size: 13px;">
                             <thead>
@@ -14958,6 +14969,33 @@
                 detailRow.style.display = 'none';
                 iconSpan.textContent = '▶';
             }
+        }
+        
+        // Tüm detayları aç
+        function expandAllDetails() {
+            const tbody = document.getElementById('reportTableBody');
+            if (!tbody) return;
+            tbody.querySelectorAll('tr[id^="material-detail-"]').forEach(detailRow => {
+                const visible = detailRow.closest('tr') && detailRow.closest('tr').previousElementSibling && detailRow.closest('tr').previousElementSibling.style.display === 'none';
+                // Sadece görünür satırların detaylarını aç
+                const parentRow = detailRow.previousElementSibling;
+                if (parentRow && parentRow.style.display !== 'none') {
+                    detailRow.style.display = 'table-row';
+                    const iconSpan = document.getElementById('icon-' + detailRow.id);
+                    if (iconSpan) iconSpan.textContent = '▼';
+                }
+            });
+        }
+        
+        // Tüm detayları kapat
+        function collapseAllDetails() {
+            const tbody = document.getElementById('reportTableBody');
+            if (!tbody) return;
+            tbody.querySelectorAll('tr[id^="material-detail-"]').forEach(detailRow => {
+                detailRow.style.display = 'none';
+                const iconSpan = document.getElementById('icon-' + detailRow.id);
+                if (iconSpan) iconSpan.textContent = '▶';
+            });
         }
         
         // Tüm COA listesini aç/kapat
