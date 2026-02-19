@@ -1616,6 +1616,7 @@
                                 <th>Dosya</th>
                                 <th>Tedarikçi</th>
                                 <th>Hammadde Kodu</th>
+                                <th>Hammadde Adı</th>
                                 <th>İrsaliye Tarihi</th>
                                 <th>İrsaliye No</th>
                                 <th>Lot No</th>
@@ -8616,9 +8617,7 @@
                         : (c.materialCode || '');
                 const matObj = materials.find(m => (m.code || m.stockCode || m.stokKodu || '') === matCodeOnly);
                 const matName = matObj ? (matObj.name || matObj.stockName || matObj.stokAdı || '') : '';
-                const materialCodeDisplay = matCodeOnly + (matName
-                    ? '<br><small style="color:#888;font-weight:normal;font-size:0.82em;">' + matName + '</small>'
-                    : '');
+
 
                 // COA Değerleri ve Durum
                 let coaValuesDisplay = '-';
@@ -8645,7 +8644,8 @@
                     '<td><input type="checkbox" class="row-checkbox" data-id="' + c.id + '" onchange="toggleRowSelection(\'' + c.id + '\')" ' + isChecked + ' style="cursor: pointer;"></td>' +
                     '<td>' + filePreview + '</td>' +
                     '<td><strong>' + c.supplier + '</strong>' + onlineIcon + '</td>' +
-                    '<td>' + materialCodeDisplay + '</td>' +
+                    '<td>' + matCodeOnly + '</td>' +
+                    '<td style="color:#555;">' + (matName || '-') + '</td>' +
                     '<td>' + formatDate(c.deliveryDate) + '</td>' +
                     '<td>' + (c.deliveryNo || '-') + '</td>' +
                     '<td>' + (c.lotNumber || '-') + '</td>' +
