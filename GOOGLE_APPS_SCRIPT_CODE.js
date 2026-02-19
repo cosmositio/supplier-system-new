@@ -1359,6 +1359,18 @@ function updateCOA(id, newData) {
           newData.ocrProperties = JSON.stringify(newData.ocrProperties);
         }
         
+        // Eksik header'ları otomatik ekle (addCOA ile aynı pattern)
+        const newDataKeys = Object.keys(newData);
+        const missingHeaders = newDataKeys.filter(key => !headers.includes(key));
+        if (missingHeaders.length > 0) {
+          Logger.log('🔧 updateCOA: Eksik kolonlar ekleniyor: ' + missingHeaders.join(', '));
+          const lastCol = headers.length;
+          missingHeaders.forEach((header, idx) => {
+            sheet.getRange(1, lastCol + idx + 1).setValue(header);
+            headers.push(header);
+          });
+        }
+        
         // Mevcut veriyi güncelle
         const row = headers.map((header, j) => {
           // fileData özel durumu: frontend'ten gelmemişse mevcut değeri koru
