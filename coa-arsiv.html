@@ -7594,23 +7594,32 @@
                                 .replace(/Ü/g,'u').replace(/Ş/g,'s').replace(/Ö/g,'o').replace(/Ç/g,'c')
                                 .toLowerCase().replace(/[\s\n]+/g,'').trim();
 
-                            const tdsNorm = normalize(tdsPropName); // parantezler DAHİL normalize
+                            const tdsNorm = normalize(tdsPropName);
+                            const allTdsProps = tdsData[cleanMaterialCode]?.properties || [];
 
-                            // 2. Parantezler dahil normalize eşleşme (güvenli – karışma yok)
+                            // 2. Parantezler dahil normalize eşleşme
                             for (const [ocrKey, ocrVal] of Object.entries(ocrProperties)) {
                                 if (normalize(ocrKey) === tdsNorm) return ocrVal;
                             }
 
-                            // 3. Her iki tarafın da parantezi yoksa, parantez çıkarılmış eşleşme
-                            // "GRAMAJ" ≠ "GRAMAJ (Liner)" kuralı burada sağlanıyor
+                            // 3. TDS adının base'i ile OCR key base'i aynıysa eşleş.
+                            // Kural: OCR key'in parantezli tam adı başka bir TDS özelliğine ait değilse izin ver.
+                            // Örnek: "KALINLIK (YAPISKAN)" → TDS'te "KALINLIK (YAPISKAN)" yok → "KALINLIK" ile eşleşir
+                            // "GRAMAJ (Liner)" → TDS'te "GRAMAJ (Liner)" var → "GRAMAJ" ile eşleşmez
                             const tdsHasParens = /\(/.test(tdsPropName);
-                            if (!tdsHasParens) {
-                                const tdsNormNoParens = normalize(tdsPropName.replace(/\s*\([^)]*\)/g, '').trim());
-                                for (const [ocrKey, ocrVal] of Object.entries(ocrProperties)) {
-                                    if (/\(/.test(ocrKey)) continue; // parantezli OCR key'i eşleme
-                                    const ocrNormNoParens = normalize(ocrKey.replace(/\s*\([^)]*\)/g, '').trim());
-                                    if (ocrNormNoParens === tdsNormNoParens) return ocrVal;
+                            const tdsBase = normalize(tdsPropName.replace(/\s*\([^)]*\)/g, '').trim());
+                            for (const [ocrKey, ocrVal] of Object.entries(ocrProperties)) {
+                                const ocrBase = normalize(ocrKey.replace(/\s*\([^)]*\)/g, '').trim());
+                                if (ocrBase !== tdsBase) continue;
+                                if (/\(/.test(ocrKey)) {
+                                    // OCR key parantezli: TDS'te bu eş isimde başka bir özellik var mı?
+                                    const claimedExactly = allTdsProps.some(p => normalize(p.name) === normalize(ocrKey));
+                                    if (claimedExactly) continue; // başka TDS özelliği daha iyi eşleşir
+                                } else {
+                                    // OCR key parantez yok: TDS adı parantezliyse eşleme
+                                    if (tdsHasParens) continue;
                                 }
+                                return ocrVal;
                             }
 
                             return null;
@@ -9458,8 +9467,13 @@
                     for (let i = 0; i < template.regions.length; i++) {
                         const region = template.regions[i];
                         
-                        if (region.type !== 'value' || !region.propertyName) {
-                            console.log(`⏭️ Bölge ${i+1} atlandı (label veya isim yok)`);
+                        // Hem 'value' hem 'propertyName' tipi bölgeleri işle (sıralı çiftleme için)
+                        if (!region.propertyName && region.type !== 'propertyName') {
+                            console.log(`⏭️ Bölge ${i+1} atlandı (isim yok)`);
+                            continue;
+                        }
+                        if (region.type !== 'value' && region.type !== 'propertyName') {
+                            console.log(`⏭️ Bölge ${i+1} atlandı (bilinmeyen tip: ${region.type})`);
                             continue;
                         }
                         
@@ -9469,7 +9483,7 @@
                         const width = Math.round(region.width * scaleX);
                         const height = Math.round(region.height * scaleY);
                         
-                        console.log(`📐 Bölge ${i+1}/${template.regions.length}: ${region.propertyName} (${x},${y},${width}x${height})`);
+                        console.log(`📐 Bölge ${i+1}/${template.regions.length}: [${region.type}] ${region.propertyName} (${x},${y},${width}x${height})`);
                         
                         // Minimum boyut kontrolü kaldırıldı - büyütme her durumda yapılacak
                         // Azure ve OCR.space için küçük bölgeler otomatik büyütülecek
@@ -9547,6 +9561,7 @@
                         
                         regionsToProcess.push({
                             propertyName: region.propertyName,
+                            regionType: region.type,   // 'value' veya 'propertyName'
                             imageData: finalImageData,
                             index: i + 1
                         });
@@ -9598,6 +9613,7 @@
                             
                             results.push({
                                 propertyName: region.propertyName,
+                                regionType: region.regionType,
                                 value: cleanText
                             });
                             
@@ -9631,6 +9647,7 @@
                             
                             results.push({
                                 propertyName: region.propertyName,
+                                regionType: region.regionType,
                                 value: '',
                                 error: true
                             });
@@ -9642,14 +9659,46 @@
                     let successCount = 0;
                     let errorCount = 0;
                     
-                    results.forEach(result => {
-                        if (result.value) {
-                            properties[result.propertyName] = result.value;
-                            successCount++;
-                        } else if (result.error) {
-                            errorCount++;
-                        }
-                    });
+                    // Template'de 'propertyName' tipi bölgeler var mı?
+                    const hasPropertyNameRegions = results.some(r => r.regionType === 'propertyName');
+                    
+                    if (hasPropertyNameRegions) {
+                        // Sıralı çiftleme: propertyName bölgesi → sonraki value bölgesi
+                        // Kullanıcı bölgeleri sırayla işaretliyor: özellik kutusu, değer kutusu, özellik, değer...
+                        let pendingPropName = null;
+                        
+                        results.forEach(result => {
+                            if (result.regionType === 'propertyName') {
+                                // OCR'dan okunan ad → sonraki value için anahtar
+                                // OCR başarısızsa dropdown'daki ismi geri dön (güvenli)
+                                pendingPropName = result.value || result.propertyName;
+                                console.log(`🏷️ Özellik adı okundu: "${pendingPropName}"`);
+                            } else if (result.regionType === 'value') {
+                                const key = pendingPropName || result.propertyName;
+                                if (result.value) {
+                                    properties[key] = result.value;
+                                    console.log(`✅ Çift oluşturuldu: "${key}" = "${result.value}"`);
+                                    successCount++;
+                                } else if (result.error) {
+                                    errorCount++;
+                                }
+                                pendingPropName = null; // çiftleme tamamlandı
+                            }
+                        });
+                        
+                        console.log(`📊 Sıralı çiftleme tamamlandı: ${Object.keys(properties).length} çift`);
+                    } else {
+                        // Sadece 'value' bölgeleri var (eski template'ler için geriye dönük uyumluluk)
+                        // region.propertyName (dropdown'dan seçilen) anahtar olarak kullanılır
+                        results.forEach(result => {
+                            if (result.value) {
+                                properties[result.propertyName] = result.value;
+                                successCount++;
+                            } else if (result.error) {
+                                errorCount++;
+                            }
+                        });
+                    }
                     
                     console.log(`\n✅ SEQUENTIAL OCR TAMAMLANDI: ${successCount} başarılı, ${errorCount} hata`);
                     showToast(`✅ ${successCount} özellik okundu ${errorCount > 0 ? `(${errorCount} hata)` : ''}`, 'success');
@@ -11947,14 +11996,29 @@
                         // Tam normalize eşleşme
                         if (normalizedTDS === normalizedProp) return true;
                         
-                        // Parantez çıkarılmış tam eşleşme – sadece her iki tarafın da parantezi yoksa
-                        // ("GRAMAJ" ≠ "GRAMAJ (Liner)" : parantezli özellikler karışmasın)
+                        // Parantez-akıllı eşleşme:
+                        // Kural: OCR adı parantezli, TDS parantez yoksaysa – TDS'te bu eş isimde
+                        // başka bir özellik yoksa eşleşmeye izin ver.
+                        // Örnek: "KALINLIK (YAPISKAN)" → TDS'de "KALINLIK (YAPISKAN)" yok → "KALINLIK" ile eşleşir
+                        // Örnek: "GRAMAJ (Liner)" → TDS'de "GRAMAJ (Liner)" var → "GRAMAJ" ile eşleşmez
                         const tdsHasParens = /\(/.test(p.name);
                         const propHasParens = /\(/.test(propertyName);
                         if (!tdsHasParens && !propHasParens) {
+                            // Her ikisi de parantez yok – basit base eşleşme
                             const tdsNoParens = normalizeText(p.name.replace(/\s*\([^)]*\)/g,'').trim());
                             const propNoParens = normalizeText(propertyName.replace(/\s*\([^)]*\)/g,'').trim());
                             if (tdsNoParens === propNoParens) return true;
+                        } else if (propHasParens && !tdsHasParens) {
+                            // OCR adı parantezli, TDS parantez yok
+                            const tdsBase = normalizeText(p.name.replace(/\s*\([^)]*\)/g,'').trim());
+                            const propBase = normalizeText(propertyName.replace(/\s*\([^)]*\)/g,'').trim());
+                            if (tdsBase === propBase) {
+                                // TDS'te tam adı eşleşen başka özellik yok mu?
+                                const exactTDSMatch = tdsProperties.find(tp =>
+                                    normalizeText(tp.name) === normalizeText(propertyName)
+                                );
+                                if (!exactTDSMatch) return true;
+                            }
                         }
                         
                         return false;
