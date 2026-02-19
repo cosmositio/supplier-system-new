@@ -15061,6 +15061,19 @@
             
             // Filtre özetini güncelle
             updateFilterSummary(searchValue, statusFilter, supplierFilter, selectedLocations, visibleCount, filteredTotalDeliveries, filteredUploadedDeliveries);
+            
+            // Üst lokasyon seçimini açık detay tablolarına yansıt
+            if (window.reportMaterialData) {
+                window.reportMaterialData.forEach((material, matIndex) => {
+                    const detailSelectEl = document.getElementById(`detail-loc-filter-${matIndex}`);
+                    if (!detailSelectEl) return;
+                    // Her seçeneği, üst filtre seçimine göre işaretle
+                    Array.from(detailSelectEl.options).forEach(opt => {
+                        opt.selected = selectedLocations.length > 0 && selectedLocations.includes(opt.value);
+                    });
+                    filterDetailDeliveries(matIndex);
+                });
+            }
         }
         
         // Filtre özetini güncelle
