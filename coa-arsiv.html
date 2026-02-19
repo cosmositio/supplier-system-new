@@ -7508,9 +7508,28 @@
                     // OCR properties varsa TDS ile merge et
                     if (Object.keys(ocrProperties).length > 0 && tdsData[cleanMaterialCode]) {
                         console.log('📊 OCR verileri var, TDS ile merge ediliyor...');
+                        
+                        // Fuzzy matching helper (aynı compareCOAValuesWithTDS mantığı)
+                        const findOcrPropFuzzy = (tdsPropName) => {
+                            const tdsClean = tdsPropName.toLowerCase().replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, '').trim();
+                            // 1. Tam eşleşme
+                            if (ocrProperties[tdsPropName]) return ocrProperties[tdsPropName];
+                            // 2. Fuzzy: OCR key'lerinde TDS adı geçiyor mu?
+                            for (const [ocrKey, ocrVal] of Object.entries(ocrProperties)) {
+                                const ocrClean = ocrKey.toLowerCase().replace(/\s*\([^)]*\)/g, '').replace(/[\s\n]+/g, '').trim();
+                                const tdsClean2 = tdsPropName.toLowerCase().replace(/\s*\([^)]*\)/g, '').replace(/[\s\n]+/g, '').trim();
+                                if (ocrClean === tdsClean2) return ocrVal;
+                                // Türkçe karakter normalize et
+                                const normalize = s => s.replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c').replace(/İ/g,'i').replace(/Ğ/g,'g').replace(/Ü/g,'u').replace(/Ş/g,'s').replace(/Ö/g,'o').replace(/Ç/g,'c').toLowerCase().replace(/[\s\n]+/g,'').trim();
+                                if (normalize(ocrKey).includes(normalize(tdsPropName)) || normalize(tdsPropName).includes(normalize(ocrKey).replace(/\(.*?\)/g,''))) return ocrVal;
+                            }
+                            return null;
+                        };
+                        
                         propertiesToSave = tdsData[cleanMaterialCode].properties.map(prop => {
-                            const ocrProp = ocrProperties[prop.name];
+                            const ocrProp = findOcrPropFuzzy(prop.name);
                             if (ocrProp) {
+                                console.log(`✅ OCR merge: "${prop.name}" = ${ocrProp.coaValue || ocrProp.value || ocrProp}`);
                                 // OCR'dan değer bulundu
                                 return {
                                     ...prop,
