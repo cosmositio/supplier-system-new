@@ -6242,6 +6242,15 @@
         }
         
         // ==================== CRUD Operations ====================
+
+        // Hammadde kodundan hammadde adını döndürür
+        function getMaterialName(code) {
+            const codeOnly = (code || '').includes(' | ') ? code.split(' | ')[0].trim()
+                : (code || '').includes(' - ') ? code.split(' - ')[0].trim() : (code || '');
+            const m = materials.find(m2 => (m2.code || m2.stockCode || m2.stokKodu || '') === codeOnly);
+            return m ? (m.name || m.stockName || m.stokAdı || '') : '';
+        }
+
         async function saveCOA() {
             console.log('');
             console.log('═══════════════════════════════════════════════════════');
@@ -6348,6 +6357,7 @@
                     id: editingId,
                     supplier: supplier,
                     materialCode: materialCode,
+                    materialName: getMaterialName(materialCode),
                     deliveryDate: deliveryDate,
                     deliveryNo: deliveryNo,
                     lotNumber: lotNumber,
@@ -6447,6 +6457,7 @@
                         deliveryNo: deliveryNo || '',
                         lotNumber: lotNumber || '',
                         materialCode: materialCode,  // ✅ Apps Script'in eşleştirme yapması için gerekli
+                        materialName: getMaterialName(materialCode),
                         supplier: supplier,
                         location: location || '',
                         properties: propertiesArray
@@ -6559,6 +6570,7 @@
                 id: 'coa_' + Date.now(),
                 supplier: supplier,
                 materialCode: materialCode,
+                materialName: getMaterialName(materialCode),
                 deliveryDate: deliveryDate,
                 deliveryNo: deliveryNo,
                 lotNumber: lotNumber,
@@ -7703,7 +7715,8 @@
                                 deliveryNo: fileObj.deliveryNo,
                                 lotNumber: record.lotNumber,
                                 supplier: fileObj.supplier,
-                                location: record.location
+                                location: record.location,
+                                materialName: getMaterialName(cleanMaterialCode)
                             });
                             console.log(`✅ [${fileNumber}] COA_Records kaydedildi: ${cleanMaterialCode} (LotNo: ${record.lotNumber})`);
                         } catch (recErr) {
@@ -8595,6 +8608,18 @@
                     fileSizeDisplay = sizeInMB + ' MB';
                 }
                 
+                // Hammadde adını materials listesinden bul
+                const matCodeOnly = (c.materialCode || '').includes(' | ')
+                    ? c.materialCode.split(' | ')[0].trim()
+                    : (c.materialCode || '').includes(' - ')
+                        ? c.materialCode.split(' - ')[0].trim()
+                        : (c.materialCode || '');
+                const matObj = materials.find(m => (m.code || m.stockCode || m.stokKodu || '') === matCodeOnly);
+                const matName = matObj ? (matObj.name || matObj.stockName || matObj.stokAdı || '') : '';
+                const materialCodeDisplay = matCodeOnly + (matName
+                    ? '<br><small style="color:#888;font-weight:normal;font-size:0.82em;">' + matName + '</small>'
+                    : '');
+
                 // COA Değerleri ve Durum
                 let coaValuesDisplay = '-';
                 if (c.ocrProperties && Object.keys(c.ocrProperties).length > 0) {
@@ -8620,7 +8645,7 @@
                     '<td><input type="checkbox" class="row-checkbox" data-id="' + c.id + '" onchange="toggleRowSelection(\'' + c.id + '\')" ' + isChecked + ' style="cursor: pointer;"></td>' +
                     '<td>' + filePreview + '</td>' +
                     '<td><strong>' + c.supplier + '</strong>' + onlineIcon + '</td>' +
-                    '<td>' + c.materialCode + '</td>' +
+                    '<td>' + materialCodeDisplay + '</td>' +
                     '<td>' + formatDate(c.deliveryDate) + '</td>' +
                     '<td>' + (c.deliveryNo || '-') + '</td>' +
                     '<td>' + (c.lotNumber || '-') + '</td>' +
@@ -11206,6 +11231,7 @@
                 const lotNumber = recordData?.lotNumber || document.getElementById('lotNumber').value.trim() || '-';
                 const supplier = recordData?.supplier || document.getElementById('supplierInput').value.trim() || '-';
                 const location = recordData?.location || document.getElementById('location').value.trim() || '';
+                const materialName = recordData?.materialName || getMaterialName(materialCode);
                 
                 // Properties array oluştur (COA değeri olan VE olmayan tüm özellikler)
                 const properties = tdsProperties
@@ -11499,6 +11525,7 @@
                     deliveryNo: deliveryNo,
                     lotNumber: lotNumber,
                     materialCode: materialCode,
+                    materialName: materialName,
                     supplier: supplier,
                     location: location,
                     properties: properties
@@ -13699,6 +13726,7 @@
                     deliveryNo: activeCOA.deliveryNo || '',
                     lotNumber: activeCOA.lotNumber || '',
                     materialCode: currentTDSMaterial,
+                    materialName: getMaterialName(currentTDSMaterial),
                     supplier: activeCOA.supplier,
                     location: activeCOA.location || '',  // ✅ Location eklendi
                     properties: allProps.map(prop => ({

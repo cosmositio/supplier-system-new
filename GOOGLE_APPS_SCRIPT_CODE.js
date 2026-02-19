@@ -1929,7 +1929,8 @@ function getCOARecordsSheet() {
       'Requirement',
       'COA Değeri',
       'Durum',
-      'Kayıt Zamanı'
+      'Kayıt Zamanı',
+      'Malzeme Adı'
     ];
     
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -1960,6 +1961,7 @@ function getCOARecordsSheet() {
     sheet.setColumnWidth(16, 80);  // COA Değeri
     sheet.setColumnWidth(17, 80);  // Durum
     sheet.setColumnWidth(18, 150); // Kayıt
+    sheet.setColumnWidth(19, 200); // Malzeme Adı
     
     // Freeze başlık
     sheet.setFrozenRows(1);
@@ -2006,6 +2008,17 @@ function getCOARecordsSheet() {
       
       sheet.setColumnWidth(1, 200); // ID sütunu genişliği
       Logger.log('✅ COA_Records\'a ID sütunu eklendi');
+    }
+    
+    // 'Malzeme Adı' kolonu kontrolü - yoksa son kolona ekle
+    const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const hasMalzemeAdi = headerRow.some(h => h && h.toString() === 'Malzeme Adı');
+    if (!hasMalzemeAdi) {
+      const lastCol = sheet.getLastColumn() + 1;
+      sheet.getRange(1, lastCol).setValue('Malzeme Adı');
+      sheet.getRange(1, lastCol).setBackground('#4285f4').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
+      sheet.setColumnWidth(lastCol, 200);
+      Logger.log('✅ COA_Records\'a Malzeme Adı sütunu eklendi (kolon ' + lastCol + ')');
     }
   }
   
@@ -2269,7 +2282,8 @@ function saveCOARecord(data) {
               newProp.requirement || '',
               coaValueFormatted,
               newProp.status || '',
-              now
+              now,
+              data.materialName || ''
             ];
             
             // Satırı güncelle
@@ -2372,7 +2386,8 @@ function saveCOARecord(data) {
               newProp.requirement || '',
               coaValueFormatted,
               newProp.status || '',
-              now
+              now,
+              data.materialName || ''
             ];
             
             // Satırı belirli pozisyona ekle
@@ -2475,14 +2490,15 @@ function saveCOARecord(data) {
         prop.requirement || '',  // Yeni: Compliance mode için
         coaValueFormatted,  // ✅ Boş olabilir artık
         prop.status || '',
-        now
+        now,
+        data.materialName || ''
       ]);
     });
     
     // Tüm satırları ekle
     if (rows.length > 0) {
       const startRow = sheet.getLastRow() + 1;
-      sheet.getRange(startRow, 1, rows.length, 18).setValues(rows);
+      sheet.getRange(startRow, 1, rows.length, 19).setValues(rows);
       
       // Numerik sütunları text formatına çevir (tüm yeni satırlar için)
       sheet.getRange(startRow, 12, rows.length, 1).setNumberFormat('@'); // standardValue
