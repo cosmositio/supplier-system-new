@@ -3650,6 +3650,7 @@
                     id: record.id,
                     supplier: record.supplier,
                     materialCode: record.materialCode,
+                    materialName: record.materialName || getMaterialName(record.materialCode),
                     deliveryDate: record.deliveryDate,
                     deliveryNo: record.deliveryNo || '',
                     lotNumber: record.lotNumber || '',
