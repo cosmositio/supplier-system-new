@@ -1308,6 +1308,18 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Giriş Depo - Excel'den otomatik -->
+                <div class="form-group" id="girisDepoGroup" style="display:none;">
+                    <label style="display:flex; align-items:center; gap:8px;">
+                        🏭 Giriş Depo
+                        <span style="font-size:0.8em; color:#2196F3; font-weight:400;">(Excel'den — tarih ve irsaliye bu depoya göre filtrelenir)</span>
+                    </label>
+                    <select id="girisDepoSelect" onchange="onGirisDepoChange()"
+                            style="width:100%; padding:10px; border:2px solid #2196F3; border-radius:5px; font-size:14px; background:#f0f8ff;">
+                        <option value="">Depo seçin...</option>
+                    </select>
+                </div>
                 
                 <div class="form-group">
                     <label>
@@ -5254,66 +5266,104 @@
         
         function updateDeliveryOptions(materialCode) {
             const autoFillDateCheckbox = document.getElementById('autoFillDeliveryDate');
-            const autoFillNoCheckbox = document.getElementById('autoFillDeliveryNo');
-            
-            console.log('🔍 updateDeliveryOptions çağrıldı:', 'Hammadde:', materialCode, 'Tarih CB:', autoFillDateCheckbox?.checked, 'No CB:', autoFillNoCheckbox?.checked);
-            
-            // Checkbox'lar işaretli değilse devam etme
+            const autoFillNoCheckbox  = document.getElementById('autoFillDeliveryNo');
+
+            // Her iki checkbox da kapalıysa temizle ve çık
             if (!autoFillDateCheckbox?.checked && !autoFillNoCheckbox?.checked) {
-                console.log('⚠️ Checkbox\'lar işaretli değil, dropdown oluşturulmayacak');
-                // Mevcut dropdown'ları temizle
                 document.getElementById('deliveryDateDropdown')?.remove();
                 document.getElementById('deliveryNoDropdown')?.remove();
+                const gg = document.getElementById('girisDepoGroup');
+                if (gg) gg.style.display = 'none';
                 return;
             }
-            
+
             // Hammaddeyi bul
-            const material = materials.find(m => 
+            const material = materials.find(m =>
                 (m.code || m.stockCode || m.stokKodu) === materialCode
             );
-            
-            console.log('🔍 Bulunan hammadde:', material ? material.code : 'YOK', 'Deliveries:', material?.deliveries?.length || 0);
-            
             if (!material || !material.deliveries || material.deliveries.length === 0) {
-                showToast('ℹ️ Bu hammadde için irsaliye bilgisi bulunamadı', 'info', 2000);
+                showToast('ℹ️ Bu hammadde için Excel\'de irsaliye bilgisi bulunamadı', 'info', 2000);
                 return;
             }
-            
-            // Seçili tedarikçiyi al
-            const selectedSupplier = document.getElementById('supplierInput')?.value?.trim();
-            
+
             // Tedarikçiye göre filtrele
-            let filteredDeliveries = material.deliveries;
+            const selectedSupplier = document.getElementById('supplierInput')?.value?.trim();
+            let filtered = material.deliveries;
             if (selectedSupplier) {
-                filteredDeliveries = material.deliveries.filter(d => d.supplier === selectedSupplier);
-                console.log('🔍 Tedarikçiye göre filtrelendi:', selectedSupplier, 'Sonuç:', filteredDeliveries.length, 'kayıt');
+                filtered = material.deliveries.filter(d => d.supplier === selectedSupplier);
             }
-            
-            if (filteredDeliveries.length === 0) {
-                showToast(`ℹ️ ${selectedSupplier} için irsaliye bilgisi bulunamadı`, 'info', 2000);
-                console.log('⚠️ Filtrelenmiş delivery yok');
-                // Mevcut dropdown'ları temizle
-                document.getElementById('deliveryDateDropdown')?.remove();
-                document.getElementById('deliveryNoDropdown')?.remove();
+            if (filtered.length === 0) {
+                showToast(`ℹ️ ${selectedSupplier} için Excel'de irsaliye bulunamadı`, 'info', 2000);
                 return;
             }
-            
-            console.log('✅ Dropdown\'lar oluşturulacak:', filteredDeliveries.length, 'kayıt');
-            console.log('📦 İlk 3 delivery:', filteredDeliveries.slice(0, 3));
-            
-            // İrsaliye tarihi dropdown'ını oluştur
-            if (autoFillDateCheckbox?.checked) {
-                console.log('📅 Tarih dropdown oluşturuluyor...');
-                createDeliveryDateDropdown(filteredDeliveries);
+
+            // Tarihleri formatla
+            filtered = filtered.map(d => ({
+                ...d,
+                date: d.date && d.date.includes('.') ? d.date : formatExcelDateToDisplay(d.date)
+            }));
+
+            // Global olarak sakla (onGirisDepoChange içinde kullanılır)
+            window.currentDeliveries = filtered;
+
+            // Benzersiz Giriş Depo listesi
+            const uniqueDepots = [...new Set(filtered.map(d => d.girisDepo).filter(Boolean))].sort();
+
+            // Mevcut date/no dropdown'larını temizle
+            document.getElementById('deliveryDateDropdown')?.remove();
+            document.getElementById('deliveryNoDropdown')?.remove();
+
+            const girisDepoGroup  = document.getElementById('girisDepoGroup');
+            const girisDepoSelect = document.getElementById('girisDepoSelect');
+
+            if (uniqueDepots.length > 0) {
+                // Depo dropdown'ını doldur
+                girisDepoSelect.innerHTML = '<option value="">Depo seçin...</option>';
+                uniqueDepots.forEach(dep => {
+                    const opt = document.createElement('option');
+                    opt.value = dep;
+                    opt.textContent = dep;
+                    girisDepoSelect.appendChild(opt);
+                });
+                girisDepoGroup.style.display = 'block';
+                showToast(`🏭 ${uniqueDepots.length} Giriş Depo bulundu — depo seçin`, 'info', 3000);
+            } else {
+                // Depo bilgisi yoksa eski davranış (doğrudan tarih dropdown)
+                girisDepoGroup.style.display = 'none';
+                if (autoFillDateCheckbox?.checked) createDeliveryDateDropdown(filtered);
+                if (autoFillNoCheckbox?.checked)  createDeliveryNoDropdown(filtered);
+                showToast(`📦 ${filtered.length} irsaliye kaydı bulundu`, 'success', 2000);
             }
-            
-            // İrsaliye no dropdown'ını oluştur
-            if (autoFillNoCheckbox?.checked) {
-                console.log('📝 No dropdown oluşturuluyor...');
-                createDeliveryNoDropdown(filteredDeliveries);
+        }
+
+        // Giriş Depo seçildiğinde çağrılır
+        function onGirisDepoChange() {
+            const selectedDepo = document.getElementById('girisDepoSelect')?.value;
+            const autoFillDateCheckbox = document.getElementById('autoFillDeliveryDate');
+            const autoFillNoCheckbox  = document.getElementById('autoFillDeliveryNo');
+
+            // Önceki date/no dropdown'larını temizle
+            document.getElementById('deliveryDateDropdown')?.remove();
+            document.getElementById('deliveryNoDropdown')?.remove();
+            document.getElementById('deliveryDate').value = '';
+            document.getElementById('deliveryNo').value = '';
+
+            if (!selectedDepo || !window.currentDeliveries) return;
+
+            const depoFiltered = window.currentDeliveries.filter(d => d.girisDepo === selectedDepo);
+
+            if (depoFiltered.length === 0) {
+                showToast('⚠️ Bu depo için irsaliye bulunamadı', 'warning', 2000);
+                return;
             }
-            
-            showToast(`📦 ${filteredDeliveries.length} irsaliye kaydı bulundu`, 'success', 2000);
+
+            // Seçilen depoyu global'e kaydet
+            window.currentGirisDepo = selectedDepo;
+
+            if (autoFillDateCheckbox?.checked) createDeliveryDateDropdown(depoFiltered);
+            if (autoFillNoCheckbox?.checked)  createDeliveryNoDropdown(depoFiltered);
+
+            showToast(`📦 ${depoFiltered.length} irsaliye — tarih seçin`, 'success', 2000);
         }
         
         function createDeliveryDateDropdown(deliveries) {
@@ -5384,15 +5434,17 @@
             // Seçim yapılınca input'u doldur
             dropdown.onchange = function() {
                 if (this.value) {
-                    // Value zaten YYYY-MM-DD formatında
                     deliveryDateInput.value = this.value;
-                    
-                    // Orijinal gg.aa.yyyy formatını al
+
                     const selectedOption = this.options[this.selectedIndex];
                     const displayDate = selectedOption.dataset.displayDate;
-                    
-                    // Aynı tarihteki irsaliye numaralarını göster (formatlanmış tarih ile filtrele)
-                    const sameDateDeliveries = formattedDeliveries.filter(d => d.date === displayDate);
+
+                    // Aynı tarih VE aynı Giriş Depo'ya ait irsaliyeleri filtrele
+                    const selectedDepo = window.currentGirisDepo || null;
+                    let sameDateDeliveries = formattedDeliveries.filter(d => d.date === displayDate);
+                    if (selectedDepo) {
+                        sameDateDeliveries = sameDateDeliveries.filter(d => d.girisDepo === selectedDepo);
+                    }
                     updateDeliveryNoForDate(sameDateDeliveries);
                 }
             };
@@ -5480,32 +5532,47 @@
         }
         
         function updateDeliveryNoForDate(deliveries) {
-            const deliveryNoDropdown = document.getElementById('deliveryNoDropdown');
-            if (!deliveryNoDropdown) return;
-            
-            // Dropdown'ı temizle ve yeniden doldur
+            const autoFillNoCheckbox = document.getElementById('autoFillDeliveryNo');
+
+            // No dropdown yoksa oluştur (checkbox işaretliyse)
+            let deliveryNoDropdown = document.getElementById('deliveryNoDropdown');
+            if (!deliveryNoDropdown) {
+                if (!autoFillNoCheckbox?.checked) return;
+                const deliveryNoInput = document.getElementById('deliveryNo');
+                if (!deliveryNoInput) return;
+                deliveryNoDropdown = document.createElement('select');
+                deliveryNoDropdown.id = 'deliveryNoDropdown';
+                deliveryNoDropdown.style.cssText = 'width:100%; padding:10px; margin-top:5px; border:1px solid #ddd; border-radius:5px; font-size:14px;';
+                deliveryNoInput.parentNode.insertBefore(deliveryNoDropdown, deliveryNoInput.nextSibling);
+            }
+
             deliveryNoDropdown.innerHTML = '';
-            
-            // Boş seçenek
             const emptyOption = document.createElement('option');
             emptyOption.value = '';
-            emptyOption.textContent = 'İrsaliye numarası seçin...';
+            emptyOption.textContent = deliveries.length === 0 ? 'Bu tarih/depo için irsaliye yok' : 'İrsaliye numarası seçin...';
             deliveryNoDropdown.appendChild(emptyOption);
-            
-            // Sadece bu tarihteki kayıtları göster
+
             deliveries.forEach(delivery => {
                 const option = document.createElement('option');
-                
-                // Seri ve numarayı birleştir (format: SERIE | NUMARA)
-                const displayText = delivery.serie && delivery.no 
+                const displayText = delivery.serie && delivery.no
                     ? `${delivery.serie} | ${delivery.no}`
                     : (delivery.no || delivery.serie || '');
-                
                 option.value = displayText;
                 option.dataset.date = delivery.date;
+                option.dataset.girisDepo = delivery.girisDepo || '';
                 option.textContent = displayText;
                 deliveryNoDropdown.appendChild(option);
             });
+
+            // Sadece 1 irsaliye varsa otomatik seç
+            if (deliveries.length === 1) {
+                deliveryNoDropdown.selectedIndex = 1;
+                document.getElementById('deliveryNo').value = deliveryNoDropdown.value;
+            }
+
+            deliveryNoDropdown.onchange = function() {
+                if (this.value) document.getElementById('deliveryNo').value = this.value;
+            };
         }
         
         function formatDateForDisplay(dateStr) {
@@ -6646,6 +6713,17 @@
             document.getElementById('uploadArea').classList.remove('has-file');
             selectedFile = null;
             selectedFileData = null;
+
+            // Giriş Depo dropdown'ını sıfırla
+            const girisDepoSelect = document.getElementById('girisDepoSelect');
+            if (girisDepoSelect) { girisDepoSelect.innerHTML = '<option value="">Depo seçin...</option>'; }
+            const girisDepoGroup = document.getElementById('girisDepoGroup');
+            if (girisDepoGroup) girisDepoGroup.style.display = 'none';
+            document.getElementById('deliveryDateDropdown')?.remove();
+            document.getElementById('deliveryNoDropdown')?.remove();
+            window.currentDeliveries = null;
+            window.currentGirisDepo  = null;
+
             editMode = false;
             editingId = null;
             unlockFileProcessing('Form temizlendi'); // ✅ Dosya işleme kilidini serbest bırak
@@ -6746,24 +6824,22 @@
             const [year, month, day] = deliveryDate.split('-');
             const searchDate = `${day}.${month}.${year}`;
             
-            // Aynı tarihe sahip TÜM delivery'leri bul
-            const deliveries = material.deliveries.filter(d => d.date === searchDate);
-            
+            // Aynı tarihe sahip delivery'leri bul — Giriş Depo da eşleştir
+            const selectedGirisDepo = window.currentGirisDepo || null;
+            let deliveries = material.deliveries.filter(d => d.date === searchDate);
+            if (selectedGirisDepo) {
+                const withDepo = deliveries.filter(d => d.girisDepo === selectedGirisDepo);
+                // Depo bilgisi eşleşen varsa kullan, yoksa tarih bazlı devam et
+                if (withDepo.length > 0) deliveries = withDepo;
+            }
+
             if (deliveries.length > 0) {
-                // Her irsaliye için numaralarını oluştur (Seri | No formatında)
                 const deliveryNumbers = deliveries.map(delivery => {
-                    let deliveryNo = '';
-                    if (delivery.serie && delivery.no) {
-                        deliveryNo = `${delivery.serie} | ${delivery.no}`;
-                    } else if (delivery.no) {
-                        deliveryNo = delivery.no;
-                    } else if (delivery.serie) {
-                        deliveryNo = delivery.serie;
-                    }
-                    return deliveryNo;
-                }).filter(no => no !== ''); // Boş olanları filtrele
-                
-                console.log(`✅ ${materialCode} - ${searchDate} için ${deliveryNumbers.length} irsaliye bulundu:`, deliveryNumbers);
+                    if (delivery.serie && delivery.no) return `${delivery.serie} | ${delivery.no}`;
+                    return delivery.no || delivery.serie || '';
+                }).filter(no => no !== '');
+
+                console.log(`✅ ${materialCode} - ${searchDate} (Depo: ${selectedGirisDepo || 'tümü'}) için ${deliveryNumbers.length} irsaliye:`, deliveryNumbers);
                 return deliveryNumbers;
             }
             
