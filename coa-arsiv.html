@@ -9467,13 +9467,12 @@
                     for (let i = 0; i < template.regions.length; i++) {
                         const region = template.regions[i];
                         
-                        // Hem 'value' hem 'propertyName' tipi bölgeleri işle (sıralı çiftleme için)
-                        if (!region.propertyName && region.type !== 'propertyName') {
-                            console.log(`⏭️ Bölge ${i+1} atlandı (isim yok)`);
-                            continue;
-                        }
-                        if (region.type !== 'value' && region.type !== 'propertyName') {
-                            console.log(`⏭️ Bölge ${i+1} atlandı (bilinmeyen tip: ${region.type})`);
+                        // Sadece değer (value) bölgeleri işle.
+                        // propertyName bölgeleri OCR'a gönderilmez – anahtar olarak her zaman
+                        // kullanıcının dropdown'dan girdiği region.propertyName kullanılır.
+                        // Bu sayede OCR kalitesinden bağımsız, gerçekten doğru TDS eşleşmesi sağlanır.
+                        if (region.type !== 'value' || !region.propertyName) {
+                            console.log(`⏭️ Bölge ${i+1} atlandı (propertyName tipi veya isim yok – OCR gerekmez)`);
                             continue;
                         }
                         
@@ -9579,6 +9578,12 @@
                     for (let i = 0; i < regionsToProcess.length; i++) {
                         const region = regionsToProcess[i];
                         
+                        // Toplu yükleme iptal edildiyse OCR döngüsünü hemen durdur
+                        if (typeof bulkUploadCancelled !== 'undefined' && bulkUploadCancelled) {
+                            console.log('🛑 OCR döngüsü iptal edildi (kullanıcı isteği)');
+                            break;
+                        }
+                        
                         // OCR rate limit varsa kalan bölgeleri atla
                         // Geçici rate limit (dakika bazlı) ise 65 saniye sonra sıfırla
                         if (window.ocrSpaceRateLimited) {
@@ -9655,50 +9660,24 @@
                     }
                     
                     // Sonuçları properties objesine dönüştür
+                    // Anahtar: her zaman template dropdown'dan seçilen region.propertyName kullanılır.
+                    // OCR sadece değer kutularına uygulanmıştır – OCR kalitesinden bağımsız.
                     const properties = {};
                     let successCount = 0;
                     let errorCount = 0;
                     
-                    // Template'de 'propertyName' tipi bölgeler var mı?
-                    const hasPropertyNameRegions = results.some(r => r.regionType === 'propertyName');
+                    results.forEach(result => {
+                        if (result.value) {
+                            // Her zaman template'deki ismi kullan (OCR bozuk okusa da güvenli)
+                            properties[result.propertyName] = result.value;
+                            successCount++;
+                            console.log(`✅ Kaydedildi: "${result.propertyName}" = "${result.value}"`);
+                        } else if (result.error) {
+                            errorCount++;
+                        }
+                    });
                     
-                    if (hasPropertyNameRegions) {
-                        // Sıralı çiftleme: propertyName bölgesi → sonraki value bölgesi
-                        // Kullanıcı bölgeleri sırayla işaretliyor: özellik kutusu, değer kutusu, özellik, değer...
-                        let pendingPropName = null;
-                        
-                        results.forEach(result => {
-                            if (result.regionType === 'propertyName') {
-                                // OCR'dan okunan ad → sonraki value için anahtar
-                                // OCR başarısızsa dropdown'daki ismi geri dön (güvenli)
-                                pendingPropName = result.value || result.propertyName;
-                                console.log(`🏷️ Özellik adı okundu: "${pendingPropName}"`);
-                            } else if (result.regionType === 'value') {
-                                const key = pendingPropName || result.propertyName;
-                                if (result.value) {
-                                    properties[key] = result.value;
-                                    console.log(`✅ Çift oluşturuldu: "${key}" = "${result.value}"`);
-                                    successCount++;
-                                } else if (result.error) {
-                                    errorCount++;
-                                }
-                                pendingPropName = null; // çiftleme tamamlandı
-                            }
-                        });
-                        
-                        console.log(`📊 Sıralı çiftleme tamamlandı: ${Object.keys(properties).length} çift`);
-                    } else {
-                        // Sadece 'value' bölgeleri var (eski template'ler için geriye dönük uyumluluk)
-                        // region.propertyName (dropdown'dan seçilen) anahtar olarak kullanılır
-                        results.forEach(result => {
-                            if (result.value) {
-                                properties[result.propertyName] = result.value;
-                                successCount++;
-                            } else if (result.error) {
-                                errorCount++;
-                            }
-                        });
-                    }
+                    console.log(`✔️ Template anahtar eşleştirme tamam: ${Object.keys(properties).length} değer`);
                     
                     console.log(`\n✅ SEQUENTIAL OCR TAMAMLANDI: ${successCount} başarılı, ${errorCount} hata`);
                     showToast(`✅ ${successCount} özellik okundu ${errorCount > 0 ? `(${errorCount} hata)` : ''}`, 'success');
