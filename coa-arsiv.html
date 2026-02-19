@@ -1344,20 +1344,8 @@
                     <input type="text" id="lotNumber" placeholder="Örn: 2I02618">
                 </div>
                 
-                <div class="form-group">
-                    <label>Lokasyon</label>
-                    <select id="location">
-                        <option value="">Lokasyon seçin...</option>
-                        <option value="Çerkezköy">Çerkezköy</option>
-                        <option value="Veliköy">Veliköy</option>
-                        <option value="Ankara">Ankara</option>
-                        <option value="Bursa">Bursa</option>
-                        <option value="Adana">Adana</option>
-                        <option value="Eskişehir">Eskişehir</option>
-                        <option value="Ultech1">Ultech1</option>
-                        <option value="Ultech2">Ultech2</option>
-                    </select>
-                </div>
+                <!-- Lokasyon artık Giriş Depo'dan otomatik geliyor -->
+                <input type="hidden" id="location">
                 
                 <div class="form-group">
                     <label>Sertifika Dosyası *</label>
@@ -5347,6 +5335,9 @@
             document.getElementById('deliveryNoDropdown')?.remove();
             document.getElementById('deliveryDate').value = '';
             document.getElementById('deliveryNo').value = '';
+
+            // Lokasyon alanını Giriş Depo değeriyle otomatik doldur
+            document.getElementById('location').value = selectedDepo || '';
 
             if (!selectedDepo || !window.currentDeliveries) return;
 
