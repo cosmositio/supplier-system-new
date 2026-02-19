@@ -14699,13 +14699,13 @@
                             
                             <!-- Lokasyon Filtresi -->
                             <div style="min-width: 180px;">
-                                <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 13px; color: #666;">📍 Lokasyon</label>
-                                <select id="reportLocationFilter" onchange="filterReportTable()" 
-                                        style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px;">
-                                    <option value="all">Tümü</option>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 13px; color: #666;">📍 Lokasyon <span style="font-size: 10px; color: #aaa;">(çoklu seçim)</span></label>
+                                <select id="reportLocationFilter" onchange="filterReportTable()" multiple
+                                        style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; min-height: 42px; max-height: 90px;">
                                     ${uniqueLocations.map(l => `<option value="${l}">${l}</option>`).join('')}
                                     ${uniqueLocations.length === 0 ? '<option value="empty" disabled style="color:#999">Lokasyon verisi yok</option>' : ''}
                                 </select>
+                                <div style="font-size: 10px; color: #999; margin-top: 2px;">Ctrl+tıkla ile çoklu seçim yapın</div>
                             </div>
                             
                             <!-- Temizle Butonu -->
@@ -14811,6 +14811,9 @@
                         </tr>
                     `;
                     
+                    // Bu hammadde için benzersiz lokasyonlar
+                    const materialLocations = [...new Set(material.deliveryDetails.map(d => d.location).filter(l => l))].sort();
+                    
                     // Detay satırları (başlangıçta gizli)
                     tableHTML += `
                         <tr id="${detailId}" style="display: none;">
@@ -14829,6 +14832,17 @@
                                             </button>
                                         </div>
                                     </div>
+                                    ${materialLocations.length > 0 ? `
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 14px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px;">
+                                        <span style="font-size: 12px; font-weight: 600; color: #4338ca; white-space: nowrap;">📍 Lokasyon Filtresi:</span>
+                                        <select id="detail-loc-filter-${index}" multiple onchange="filterDetailDeliveries(${index})"
+                                                style="padding: 4px 8px; border: 1px solid #a5b4fc; border-radius: 5px; font-size: 12px; min-height: 34px; max-height: 80px; background: white;">
+                                            ${materialLocations.map(l => `<option value="${l}">${l}</option>`).join('')}
+                                        </select>
+                                        <span style="font-size: 10px; color: #818cf8;">Ctrl+tıkla: çoklu seçim</span>
+                                        <button onclick="clearDetailFilter(${index})" style="padding: 4px 12px; background: white; border: 1px solid #a5b4fc; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500; color: #4338ca;">🔄 Temizle</button>
+                                    </div>
+                                    ` : ''}
                                     <table style="width: 100%; border-collapse: collapse; background: white; font-size: 12px;">
                                         <thead>
                                             <tr style="background: #e0e7ff;">
@@ -14840,7 +14854,7 @@
                                                 <th style="padding: 8px; border: 1px solid #ddd; text-align: left; width: 110px;">Lokasyon</th>
                                             </tr>
                                         </thead>
-                                        <tbody>
+                                        <tbody id="detail-tbody-${index}">
                     `;
                     
                     // İrsaliye detaylarını tarihe göre sırala (en yeni üstte)
@@ -14862,7 +14876,7 @@
                         }
                         
                         tableHTML += `
-                            <tr style="background: ${dIndex % 2 === 0 ? 'white' : '#fafafa'};">
+                            <tr data-dloc="${delivery.location || ''}" style="background: ${dIndex % 2 === 0 ? 'white' : '#fafafa'};">
                                 <td style="padding: 8px; border: 1px solid #ddd;">${dIndex + 1}</td>
                                 <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
                                     <div style="display: inline-block; padding: 4px 10px; background: ${statusColor}; color: white; border-radius: 15px; font-weight: bold; font-size: 10px;">
@@ -14983,7 +14997,8 @@
             const searchValue = document.getElementById('reportSearchInput').value.toLowerCase();
             const statusFilter = document.getElementById('reportStatusFilter').value;
             const supplierFilter = document.getElementById('reportSupplierFilter').value;
-            const locationFilter = document.getElementById('reportLocationFilter') ? document.getElementById('reportLocationFilter').value : 'all';
+            const locationEl = document.getElementById('reportLocationFilter');
+            const selectedLocations = locationEl ? Array.from(locationEl.selectedOptions).map(o => o.value).filter(v => v !== 'empty') : [];
             
             const tbody = document.getElementById('reportTableBody');
             const rows = tbody.querySelectorAll('tr[id^="material-row-"]');
@@ -15027,8 +15042,8 @@
                 
                 // Lokasyon filtresi (herhangi bir irsaliye bu lokasyona sahipse eşleşir)
                 let matchesLocation = true;
-                if (locationFilter !== 'all') {
-                    matchesLocation = material.deliveryDetails.some(d => d.location === locationFilter);
+                if (selectedLocations.length > 0) {
+                    matchesLocation = material.deliveryDetails.some(d => selectedLocations.includes(d.location));
                 }
                 
                 // Sonuç göster/gizle
@@ -15045,7 +15060,7 @@
             });
             
             // Filtre özetini güncelle
-            updateFilterSummary(searchValue, statusFilter, supplierFilter, locationFilter, visibleCount, filteredTotalDeliveries, filteredUploadedDeliveries);
+            updateFilterSummary(searchValue, statusFilter, supplierFilter, selectedLocations, visibleCount, filteredTotalDeliveries, filteredUploadedDeliveries);
         }
         
         // Filtre özetini güncelle
@@ -15060,7 +15075,8 @@
                 return;
             }
             
-            const hasFilters = search || status !== 'all' || supplier !== 'all' || location !== 'all';
+            const locationArr = Array.isArray(location) ? location : (location !== 'all' ? [location] : []);
+            const hasFilters = search || status !== 'all' || supplier !== 'all' || locationArr.length > 0;
             
             if (hasFilters) {
                 summaryDiv.style.display = 'block';
@@ -15077,7 +15093,7 @@
                     filters.push(`Durum: ${statusTexts[status]}`);
                 }
                 if (supplier !== 'all') filters.push(`Tedarikçi: ${supplier}`);
-                if (location !== 'all') filters.push(`Lokasyon: ${location}`);
+                if (locationArr.length > 0) filters.push(`Lokasyon: ${locationArr.join(', ')}`);
                 
                 summaryTextSpan.textContent = filters.join(' | ');
                 
@@ -15100,8 +15116,39 @@
             document.getElementById('reportStatusFilter').value = 'all';
             document.getElementById('reportSupplierFilter').value = 'all';
             const locEl = document.getElementById('reportLocationFilter');
-            if (locEl) locEl.value = 'all';
+            if (locEl) Array.from(locEl.options).forEach(opt => { opt.selected = false; });
             filterReportTable();
+        }
+        
+        // Detay tablosunda lokasyon filtrele
+        function filterDetailDeliveries(matIndex) {
+            const selectEl = document.getElementById(`detail-loc-filter-${matIndex}`);
+            if (!selectEl) return;
+            const selected = Array.from(selectEl.selectedOptions).map(o => o.value);
+            const filterAll = selected.length === 0;
+            
+            const tbody = document.getElementById(`detail-tbody-${matIndex}`);
+            if (!tbody) return;
+            
+            let visible = 0;
+            Array.from(tbody.querySelectorAll('tr[data-dloc]')).forEach(tr => {
+                const loc = tr.getAttribute('data-dloc');
+                const show = filterAll || selected.includes(loc);
+                tr.style.display = show ? '' : 'none';
+                if (show) {
+                    visible++;
+                    const numCell = tr.querySelector('td:first-child');
+                    if (numCell) numCell.textContent = visible;
+                }
+            });
+        }
+        
+        // Detay lokasyon filtresini temizle
+        function clearDetailFilter(matIndex) {
+            const selectEl = document.getElementById(`detail-loc-filter-${matIndex}`);
+            if (!selectEl) return;
+            Array.from(selectEl.options).forEach(opt => { opt.selected = false; });
+            filterDetailDeliveries(matIndex);
         }
         
         // Excel Export
