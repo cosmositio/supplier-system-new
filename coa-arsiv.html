@@ -7583,20 +7583,36 @@
                     if (Object.keys(ocrProperties).length > 0 && tdsData[cleanMaterialCode]) {
                         console.log('📊 OCR verileri var, TDS ile merge ediliyor...');
                         
-                        // Fuzzy matching helper (aynı compareCOAValuesWithTDS mantığı)
+                        // Fuzzy matching helper
                         const findOcrPropFuzzy = (tdsPropName) => {
-                            const tdsClean = tdsPropName.toLowerCase().replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, '').trim();
                             // 1. Tam eşleşme
                             if (ocrProperties[tdsPropName]) return ocrProperties[tdsPropName];
-                            // 2. Fuzzy: OCR key'lerinde TDS adı geçiyor mu?
+
+                            const normalize = s => s
+                                .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ı/g,'i')
+                                .replace(/ö/g,'o').replace(/ç/g,'c').replace(/İ/g,'i').replace(/Ğ/g,'g')
+                                .replace(/Ü/g,'u').replace(/Ş/g,'s').replace(/Ö/g,'o').replace(/Ç/g,'c')
+                                .toLowerCase().replace(/[\s\n]+/g,'').trim();
+
+                            const tdsNorm = normalize(tdsPropName); // parantezler DAHİL normalize
+
+                            // 2. Parantezler dahil normalize eşleşme (güvenli – karışma yok)
                             for (const [ocrKey, ocrVal] of Object.entries(ocrProperties)) {
-                                const ocrClean = ocrKey.toLowerCase().replace(/\s*\([^)]*\)/g, '').replace(/[\s\n]+/g, '').trim();
-                                const tdsClean2 = tdsPropName.toLowerCase().replace(/\s*\([^)]*\)/g, '').replace(/[\s\n]+/g, '').trim();
-                                if (ocrClean === tdsClean2) return ocrVal;
-                                // Türkçe karakter normalize et
-                                const normalize = s => s.replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c').replace(/İ/g,'i').replace(/Ğ/g,'g').replace(/Ü/g,'u').replace(/Ş/g,'s').replace(/Ö/g,'o').replace(/Ç/g,'c').toLowerCase().replace(/[\s\n]+/g,'').trim();
-                                if (normalize(ocrKey).includes(normalize(tdsPropName)) || normalize(tdsPropName).includes(normalize(ocrKey).replace(/\(.*?\)/g,''))) return ocrVal;
+                                if (normalize(ocrKey) === tdsNorm) return ocrVal;
                             }
+
+                            // 3. Her iki tarafın da parantezi yoksa, parantez çıkarılmış eşleşme
+                            // "GRAMAJ" ≠ "GRAMAJ (Liner)" kuralı burada sağlanıyor
+                            const tdsHasParens = /\(/.test(tdsPropName);
+                            if (!tdsHasParens) {
+                                const tdsNormNoParens = normalize(tdsPropName.replace(/\s*\([^)]*\)/g, '').trim());
+                                for (const [ocrKey, ocrVal] of Object.entries(ocrProperties)) {
+                                    if (/\(/.test(ocrKey)) continue; // parantezli OCR key'i eşleme
+                                    const ocrNormNoParens = normalize(ocrKey.replace(/\s*\([^)]*\)/g, '').trim());
+                                    if (ocrNormNoParens === tdsNormNoParens) return ocrVal;
+                                }
+                            }
+
                             return null;
                         };
                         
@@ -11931,15 +11947,15 @@
                         // Tam normalize eşleşme
                         if (normalizedTDS === normalizedProp) return true;
                         
-                        // Kelime bazlı eşleşme: "TASIYICI AGIRLIK" içinde "AGIRLIK" var mı?
-                        const tdsWords = normalizedTDS.split(' ');
-                        const propWords = normalizedProp.split(' ');
-                        
-                        // Eğer prop tek kelimeyse ve TDS içinde geçiyorsa eşleşir
-                        if (propWords.length === 1 && tdsWords.includes(propWords[0])) return true;
-                        
-                        // Tersi: TDS tek kelimeyse ve prop içinde geçiyorsa
-                        if (tdsWords.length === 1 && propWords.includes(tdsWords[0])) return true;
+                        // Parantez çıkarılmış tam eşleşme – sadece her iki tarafın da parantezi yoksa
+                        // ("GRAMAJ" ≠ "GRAMAJ (Liner)" : parantezli özellikler karışmasın)
+                        const tdsHasParens = /\(/.test(p.name);
+                        const propHasParens = /\(/.test(propertyName);
+                        if (!tdsHasParens && !propHasParens) {
+                            const tdsNoParens = normalizeText(p.name.replace(/\s*\([^)]*\)/g,'').trim());
+                            const propNoParens = normalizeText(propertyName.replace(/\s*\([^)]*\)/g,'').trim());
+                            if (tdsNoParens === propNoParens) return true;
+                        }
                         
                         return false;
                     });
