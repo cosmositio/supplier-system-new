@@ -7588,38 +7588,65 @@
                             // 1. Tam eşleşme
                             if (ocrProperties[tdsPropName]) return ocrProperties[tdsPropName];
 
-                            const normalize = s => s
+                            const normalizeStr = s => s
                                 .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ı/g,'i')
                                 .replace(/ö/g,'o').replace(/ç/g,'c').replace(/İ/g,'i').replace(/Ğ/g,'g')
                                 .replace(/Ü/g,'u').replace(/Ş/g,'s').replace(/Ö/g,'o').replace(/Ç/g,'c')
                                 .toLowerCase().replace(/[\s\n]+/g,'').trim();
 
-                            const tdsNorm = normalize(tdsPropName);
+                            // Kelime bazlı normalize (boşlukları korur, büyük→küçük)
+                            const normalizeWords = s => s
+                                .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ı/g,'i')
+                                .replace(/ö/g,'o').replace(/ç/g,'c').replace(/İ/g,'i').replace(/Ğ/g,'g')
+                                .replace(/Ü/g,'u').replace(/Ş/g,'s').replace(/Ö/g,'o').replace(/Ç/g,'c')
+                                .toLowerCase()
+                                .split(/[\s\n\r()\[\]]+/)
+                                .map(w => w.trim())
+                                .filter(Boolean);
+
+                            const tdsNorm = normalizeStr(tdsPropName);
                             const allTdsProps = tdsData[cleanMaterialCode]?.properties || [];
 
                             // 2. Parantezler dahil normalize eşleşme
                             for (const [ocrKey, ocrVal] of Object.entries(ocrProperties)) {
-                                if (normalize(ocrKey) === tdsNorm) return ocrVal;
+                                if (normalizeStr(ocrKey) === tdsNorm) return ocrVal;
                             }
 
-                            // 3. TDS adının base'i ile OCR key base'i aynıysa eşleş.
-                            // Kural: OCR key'in parantezli tam adı başka bir TDS özelliğine ait değilse izin ver.
-                            // Örnek: "KALINLIK (YAPISKAN)" → TDS'te "KALINLIK (YAPISKAN)" yok → "KALINLIK" ile eşleşir
-                            // "GRAMAJ (Liner)" → TDS'te "GRAMAJ (Liner)" var → "GRAMAJ" ile eşleşmez
                             const tdsHasParens = /\(/.test(tdsPropName);
-                            const tdsBase = normalize(tdsPropName.replace(/\s*\([^)]*\)/g, '').trim());
+                            const tdsBase = normalizeStr(tdsPropName.replace(/\s*\([^)]*\)/g, '').trim());
+
+                            // 3. Parantez-base eşleşme
                             for (const [ocrKey, ocrVal] of Object.entries(ocrProperties)) {
-                                const ocrBase = normalize(ocrKey.replace(/\s*\([^)]*\)/g, '').trim());
+                                const ocrBase = normalizeStr(ocrKey.replace(/\s*\([^)]*\)/g, '').trim());
                                 if (ocrBase !== tdsBase) continue;
                                 if (/\(/.test(ocrKey)) {
-                                    // OCR key parantezli: TDS'te bu eş isimde başka bir özellik var mı?
-                                    const claimedExactly = allTdsProps.some(p => normalize(p.name) === normalize(ocrKey));
-                                    if (claimedExactly) continue; // başka TDS özelliği daha iyi eşleşir
+                                    const claimedExactly = allTdsProps.some(p => normalizeStr(p.name) === normalizeStr(ocrKey));
+                                    if (claimedExactly) continue;
                                 } else {
-                                    // OCR key parantez yok: TDS adı parantezliyse eşleme
                                     if (tdsHasParens) continue;
                                 }
                                 return ocrVal;
+                            }
+
+                            // 4. Kelime-subset eşleşme: TDS'teki tüm kelimeler OCR key'de varsa eşleş
+                            // Örnek: TDS="AĞIRLIK" → words=["agirlik"]
+                            //        OCR="TASIYICI AGIRLIK" → words=["tasiyici","agirlik"]
+                            //        ["agirlik"].every(w => ["tasiyici","agirlik"].includes(w)) = true ✓
+                            // Parantezli TDS/OCR eşlemelerine izin vermez (çakışma önleme)
+                            if (!tdsHasParens) {
+                                const tdsWords = normalizeWords(tdsPropName.replace(/\s*\([^)]*\)/g,''));
+                                for (const [ocrKey, ocrVal] of Object.entries(ocrProperties)) {
+                                    if (/\(/.test(ocrKey)) {
+                                        // Parantezli OCR key: bu eşi başka TDS prop talep etmiyorsa izin ver
+                                        const claimedExactly = allTdsProps.some(p => normalizeStr(p.name) === normalizeStr(ocrKey));
+                                        if (claimedExactly) continue;
+                                    }
+                                    const ocrWords = normalizeWords(ocrKey.replace(/\s*\([^)]*\)/g,''));
+                                    if (tdsWords.length > 0 && tdsWords.every(w => ocrWords.includes(w))) {
+                                        console.log(`🔗 OCR merge kelime eşleşmesi: "${tdsPropName}" ← "${ocrKey}"`);
+                                        return ocrVal;
+                                    }
+                                }
                             }
 
                             return null;
