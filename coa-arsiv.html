@@ -7303,11 +7303,17 @@
                         console.log('📊 Template ile değerler çıkarılıyor...');
                         
                         try {
-                            // Tedarikçiye göre template bul - Fuzzy matching ile
+                            // Önce kullanıcının seçtiği template'i kullan (window.currentTemplate)
                             const templates = JSON.parse(localStorage.getItem('coaTemplates') || '[]');
                             console.log('🔍 Template arama:', fileObj.supplier, '| Mevcut template sayısı:', templates.length);
                             
-                            const matchedTemplate = templates.find(t => {
+                            // 0. Kullanıcı manuel template seçtiyse onu kullan
+                            let matchedTemplate = null;
+                            if (window.currentTemplate) {
+                                console.log('  ✅ Kullanıcının seçtiği template kullanılıyor:', window.currentTemplate.supplier || window.currentTemplate.name || 'Seçili Template');
+                                matchedTemplate = { template: window.currentTemplate };
+                            } else {
+                            matchedTemplate = templates.find(t => {
                                 const templateSupplier = (t.supplier || t.template?.supplier || '').toLowerCase();
                                 const fileSupplier = (fileObj.supplier || '').toLowerCase();
                                 
@@ -7338,10 +7344,11 @@
                                 
                                 return false;
                             });
+                            } // closes else
                             
                             if (matchedTemplate) {
-                                console.log('🎨 Template bulundu:', matchedTemplate.supplier || matchedTemplate.template?.supplier);
                                 const actualTemplate = matchedTemplate.template || matchedTemplate;
+                                console.log('🎨 Template bulundu:', actualTemplate.supplier || actualTemplate.name || 'Seçili Template');
                                 
                                 // OCR rate limit varsa, geçici mi kalıcı mı kontrol et
                                 if (window.ocrSpaceRateLimited) {
