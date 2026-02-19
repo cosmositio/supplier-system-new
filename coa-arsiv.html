@@ -14185,7 +14185,7 @@
                 
                 // Özellikleri tablo olarak göster
                 const properties = Object.entries(coa.ocrProperties);
-                // Durumu kayıtlı veriden + limitlerden yeniden hesapla (eski kayıtlardaki >= / <= hatalarını düzelt)
+                // Durumu kayıtlı veriden + limitlerden + requirement'tan yeniden hesapla
                 const recomputeStatus = (prop) => {
                     if (!prop.coaValue || !prop.coaValue.trim()) return (prop.status || '').toLowerCase();
                     const rawCOA = String(prop.coaValue).replace(/,/g, '.').replace(/^[≤≥<>=]+\s*/, '').trim();
@@ -14212,6 +14212,30 @@
                             } else return (prop.status || '').toLowerCase();
                         }
                         return pass ? 'uygun' : 'uygun değil';
+                    }
+                    // TDS limiti yoksa requirement'tan hesapla
+                    if (prop.requirement) {
+                        const reqStr = String(prop.requirement).replace(/,/g, '.');
+                        const coaNum = parseFloat(rawCOA);
+                        // Sayısal aralık: "7.5 - 10.5 kg/m3"
+                        const rangeReq = reqStr.match(/([0-9.]+)\s*[-–]\s*([0-9.]+)/);
+                        if (rangeReq && !isNaN(coaNum)) {
+                            const rLo = parseFloat(rangeReq[1]), rHi = parseFloat(rangeReq[2]);
+                            if (!isNaN(rLo) && !isNaN(rHi)) return (coaNum >= rLo && coaNum <= rHi) ? 'uygun' : 'uygun değil';
+                        }
+                        // Operatörlü sayısal: "≥ 45", "≤ 0.035"
+                        const opReq = reqStr.match(/^([≤≥<>]=?)\s*([0-9.]+)/);
+                        if (opReq && !isNaN(coaNum)) {
+                            const rOp = opReq[1], rLim = parseFloat(opReq[2]);
+                            if (rOp === '≤' || rOp === '<=') return coaNum <= rLim ? 'uygun' : 'uygun değil';
+                            if (rOp === '≥' || rOp === '>=') return coaNum >= rLim ? 'uygun' : 'uygun değil';
+                            if (rOp === '<') return coaNum < rLim ? 'uygun' : 'uygun değil';
+                            if (rOp === '>') return coaNum > rLim ? 'uygun' : 'uygun değil';
+                        }
+                        // Metin tabanlı
+                        const normalizeT = s => String(s).replace(/,/g, '.').toLowerCase().replace(/\s+/g, '').replace(/[ı]/g, 'i').replace(/[İ]/g, 'i').replace(/[ğ]/g, 'g').replace(/[ş]/g, 's').replace(/[ü]/g, 'u').replace(/[ö]/g, 'o').replace(/[ç]/g, 'c').replace(/[≤≥<>=]/g, '');
+                        const nc = normalizeT(prop.coaValue), nr = normalizeT(prop.requirement);
+                        if (nc && nr && !rangeReq && !opReq) return (nc === nr || nc.includes(nr) || nr.includes(nc)) ? 'uygun' : 'uygun değil';
                     }
                     return (prop.status || '').toLowerCase();
                 };
@@ -14274,16 +14298,8 @@
                     let statusBadge = '-';
                     let statusColor = '#6c757d';
                     
-                    // Durumu kayıtlı veriden al; limit bilgileri varsa yeniden hesapla (eski hatalı kayıtları düzelt)
-                    let computedStatus = recomputeStatus(prop);
-                    
-                    // Requirement karşılaştırması (metin tabanlı: Renk, Yüzey vb.)
-                    if (computedStatus === (prop.status || '').toLowerCase() && prop.requirement && prop.coaValue) {
-                        const normalize = s => String(s).toLowerCase().replace(/\s+/g, '').replace(/[ı]/g, 'i').replace(/[İ]/g, 'i').replace(/[ğ]/g, 'g').replace(/[ş]/g, 's').replace(/[ü]/g, 'u').replace(/[ö]/g, 'o').replace(/[ç]/g, 'c').replace(/[≤≥<>=]/g, '');
-                        const nc = normalize(prop.coaValue), nr = normalize(prop.requirement);
-                        if (nc && nr) computedStatus = (nc.includes(nr) || nr.includes(nc)) ? 'uygun' : 'uygun değil';
-                    }
-                    
+                    // Durumu recomputeStatus ile hesapla (TDS limitleri + requirement + metin karşılaştırması)
+                    const computedStatus = recomputeStatus(prop);
                     const statusLower = computedStatus;
                     
                     if (statusLower === 'pass' || statusLower === 'uygun') {
