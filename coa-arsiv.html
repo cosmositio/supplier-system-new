@@ -14437,6 +14437,7 @@
                             materialCode: materialCode,
                             materialName: materialName,
                             supplier: supplierName,
+                            location: (coaForThisMaterial && coaForThisMaterial.location) ? coaForThisMaterial.location : (material.location || material.lokasyon || ''),
                             totalDeliveries: 0,
                             uploadedDeliveries: 0,
                             notUploadedDeliveries: 0,
@@ -14465,6 +14466,10 @@
                             // Eğer COA varsa ve tedarikçi bilgisi henüz alınmamışsa, şimdi al
                             if (coaRecord && coaRecord.supplier && materialStats[materialCode].supplier === 'Belirtilmemiş') {
                                 materialStats[materialCode].supplier = coaRecord.supplier;
+                            }
+                            // Lokasyon bilgisini COA kaydından güncelle
+                            if (coaRecord && coaRecord.location && !materialStats[materialCode].location) {
+                                materialStats[materialCode].location = coaRecord.location;
                             }
                             
                             materialStats[materialCode].totalDeliveries++;
@@ -14539,6 +14544,9 @@
                 
                 // Benzersiz tedarikçi listesi
                 const uniqueSuppliers = [...new Set(materialArray.map(m => m.supplier))];
+                
+                // Benzersiz lokasyon listesi
+                const uniqueLocations = [...new Set(materialArray.map(m => m.location).filter(l => l))].sort();
                 
                 // Tablo oluştur
                 let tableHTML = `
@@ -14686,6 +14694,17 @@
                                 </select>
                             </div>
                             
+                            <!-- Lokasyon Filtresi -->
+                            <div style="min-width: 180px;">
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 13px; color: #666;">📍 Lokasyon</label>
+                                <select id="reportLocationFilter" onchange="filterReportTable()" 
+                                        style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px;">
+                                    <option value="all">Tümü</option>
+                                    ${uniqueLocations.map(l => `<option value="${l}">${l}</option>`).join('')}
+                                    ${uniqueLocations.length === 0 ? '<option value="empty" disabled style="color:#999">Lokasyon verisi yok</option>' : ''}
+                                </select>
+                            </div>
+                            
                             <!-- Temizle Butonu -->
                             <div>
                                 <button onclick="clearReportFilters()" 
@@ -14751,6 +14770,7 @@
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Hammadde Kodu</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Hammadde Adı</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Tedarikçi</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 110px;">Lokasyon</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 120px;">Toplam İrsaliye</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 120px;">✅ Yüklendi</th>
                                     <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 120px;">❌ Yüklenmedi</th>
@@ -14775,6 +14795,7 @@
                             <td style="padding: 10px; border: 1px solid #ddd; font-family: monospace; font-weight: bold;">${material.materialCode}</td>
                             <td style="padding: 10px; border: 1px solid #ddd;">${material.materialName}</td>
                             <td style="padding: 10px; border: 1px solid #ddd;">${material.supplier}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; font-size: 12px; color: #555;">${material.location || '-'}</td>
                             <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${material.totalDeliveries}</td>
                             <td style="padding: 10px; border: 1px solid #ddd; text-align: center; color: #4CAF50; font-weight: bold;">${material.uploadedDeliveries}</td>
                             <td style="padding: 10px; border: 1px solid #ddd; text-align: center; color: #f44336; font-weight: bold;">${material.notUploadedDeliveries}</td>
@@ -14792,7 +14813,7 @@
                     // Detay satırları (başlangıçta gizli)
                     tableHTML += `
                         <tr id="${detailId}" style="display: none;">
-                            <td colspan="9" style="padding: 0; border: 1px solid #ddd;">
+                            <td colspan="10" style="padding: 0; border: 1px solid #ddd;">
                                 <div style="background: #f5f5f5; padding: 15px;">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                                         <h4 style="margin: 0; color: #667eea;">📋 ${material.materialCode} - İrsaliye Detayları</h4>
@@ -14959,6 +14980,7 @@
             const searchValue = document.getElementById('reportSearchInput').value.toLowerCase();
             const statusFilter = document.getElementById('reportStatusFilter').value;
             const supplierFilter = document.getElementById('reportSupplierFilter').value;
+            const locationFilter = document.getElementById('reportLocationFilter') ? document.getElementById('reportLocationFilter').value : 'all';
             
             const tbody = document.getElementById('reportTableBody');
             const rows = tbody.querySelectorAll('tr[id^="material-row-"]');
@@ -14974,7 +14996,7 @@
                 // Arama filtresi
                 let matchesSearch = true;
                 if (searchValue) {
-                    const searchText = `${material.materialCode} ${material.materialName} ${material.supplier}`.toLowerCase();
+                    const searchText = `${material.materialCode} ${material.materialName} ${material.supplier} ${material.location || ''}`.toLowerCase();
                     const deliveryNos = material.deliveryDetails.map(d => d.deliveryNo.toLowerCase()).join(' ');
                     matchesSearch = searchText.includes(searchValue) || deliveryNos.includes(searchValue);
                 }
@@ -15000,9 +15022,15 @@
                     matchesSupplier = material.supplier === supplierFilter;
                 }
                 
+                // Lokasyon filtresi
+                let matchesLocation = true;
+                if (locationFilter !== 'all') {
+                    matchesLocation = (material.location || '') === locationFilter;
+                }
+                
                 // Sonuç göster/gizle
                 const detailRow = document.getElementById(`material-detail-${index}`);
-                if (matchesSearch && matchesStatus && matchesSupplier) {
+                if (matchesSearch && matchesStatus && matchesSupplier && matchesLocation) {
                     row.style.display = '';
                     visibleCount++;
                     filteredTotalDeliveries += material.totalDeliveries;
@@ -15014,11 +15042,11 @@
             });
             
             // Filtre özetini güncelle
-            updateFilterSummary(searchValue, statusFilter, supplierFilter, visibleCount, filteredTotalDeliveries, filteredUploadedDeliveries);
+            updateFilterSummary(searchValue, statusFilter, supplierFilter, locationFilter, visibleCount, filteredTotalDeliveries, filteredUploadedDeliveries);
         }
         
         // Filtre özetini güncelle
-        function updateFilterSummary(search, status, supplier, count, totalDel, uploadedDel) {
+        function updateFilterSummary(search, status, supplier, location, count, totalDel, uploadedDel) {
             const summaryDiv = document.getElementById('reportFilterSummary');
             const summaryTextSpan = document.getElementById('reportFilterText');
             const reportSummaryText = document.getElementById('reportSummaryText');
@@ -15029,7 +15057,7 @@
                 return;
             }
             
-            const hasFilters = search || status !== 'all' || supplier !== 'all';
+            const hasFilters = search || status !== 'all' || supplier !== 'all' || location !== 'all';
             
             if (hasFilters) {
                 summaryDiv.style.display = 'block';
@@ -15046,6 +15074,7 @@
                     filters.push(`Durum: ${statusTexts[status]}`);
                 }
                 if (supplier !== 'all') filters.push(`Tedarikçi: ${supplier}`);
+                if (location !== 'all') filters.push(`Lokasyon: ${location}`);
                 
                 summaryTextSpan.textContent = filters.join(' | ');
                 
@@ -15067,6 +15096,8 @@
             document.getElementById('reportSearchInput').value = '';
             document.getElementById('reportStatusFilter').value = 'all';
             document.getElementById('reportSupplierFilter').value = 'all';
+            const locEl = document.getElementById('reportLocationFilter');
+            if (locEl) locEl.value = 'all';
             filterReportTable();
         }
         
