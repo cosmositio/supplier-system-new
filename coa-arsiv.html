@@ -4595,6 +4595,7 @@
                     let irsaliyeTarihiIndex = -1;
                     let irsaliyeSeriIndex = -1;
                     let irsaliyeNoIndex = -1;
+                    let girisDepoIndex = -1;
                     
                     console.log('📋 Excel başlıkları:', headers);
                     
@@ -4623,6 +4624,9 @@
                         }
                         if (h === 'irsaliye evrak no' || h === 'irsaliye evrak sira no' || h === 'irsaliye evrak sıra no' || h === 'irsaliye evrak sira' || h === 'irsaliye evrak sıra') {
                             irsaliyeNoIndex = index;
+                        }
+                        if (h === 'giriş depo' || h === 'giris depo' || normalized === 'giris depo' || h === 'giriş deposu' || h === 'giris deposu') {
+                            girisDepoIndex = index;
                         }
                     });
                     
@@ -4691,6 +4695,9 @@
                                 }
                                 if (irsaliyeNoIndex >= 0 && row[irsaliyeNoIndex]) {
                                     delivery.no = String(row[irsaliyeNoIndex]).trim();
+                                }
+                                if (girisDepoIndex >= 0 && row[girisDepoIndex]) {
+                                    delivery.girisDepo = String(row[girisDepoIndex]).trim();
                                 }
                                 
                                 // Debug: İlk 3 irsaliye için konsola yazdır
@@ -14487,7 +14494,7 @@
                                 fileName: coaRecord?.fileName || '',
                                 fileType: coaRecord?.fileType || '',
                                 coaId: coaRecord?.id || '',
-                                location: coaRecord?.location || ''
+                                location: delivery.girisDepo || coaRecord?.location || ''
                             });
                         });
                     }
