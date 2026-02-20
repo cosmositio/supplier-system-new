@@ -1488,16 +1488,16 @@
                         <div id="bulkTabPaused" style="display:none; margin-bottom:10px; padding:8px 12px; background:#d1ecf1; border:1px solid #bee5eb; border-radius:6px; font-size:0.85em; color:#0c5460; text-align:center; font-weight:600;">
                             🔄 Arka planda işleniyor… Bu sekmeye geri döndüğünüzde işlem devam ediyor olacak.
                         </div>
-                        <h4 style="margin-bottom: 12px; color: #667eea; display: flex; align-items: center; gap: 8px; justify-content: space-between;">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span class="spinner" id="bulkSpinner" style="width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></span>
-                                <span id="bulkProgressTitle">COA'lar işleniyor...</span>
+                        <div style="margin-bottom: 12px; display: flex; align-items: flex-start; gap: 8px; justify-content: space-between; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+                                <span class="spinner" id="bulkSpinner" style="flex-shrink:0; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></span>
+                                <span id="bulkProgressTitle" style="color:#667eea; font-weight:600; font-size:1em; word-break:break-word;">COA'lar işleniyor...</span>
                             </div>
-                            <div style="display:flex; gap:6px;">
-                                <button id="bulkPauseBtn" onclick="pauseBulkUpload()" class="btn btn-sm" style="background: #fd7e14; color: white; padding: 5px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9em;" title="Duraklat">⏸️ Duraklat</button>
-                                <button onclick="cancelBulkUpload()" class="btn btn-sm" style="background: #dc3545; color: white; padding: 5px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9em;" title="İşlemi iptal et">🛑 İptal</button>
+                            <div style="display:flex; gap:6px; flex-shrink:0;">
+                                <button id="bulkPauseBtn" onclick="pauseBulkUpload()" class="btn btn-sm" style="background: #fd7e14; color: white; padding: 5px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em; white-space:nowrap;" title="Duraklat">⏸️ Duraklat</button>
+                                <button onclick="cancelBulkUpload()" class="btn btn-sm" style="background: #dc3545; color: white; padding: 5px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em; white-space:nowrap;" title="İşlemi iptal et">🛑 İptal</button>
                             </div>
-                        </h4>
+                        </div>
                         <div style="background: #f0f0f0; border-radius: 10px; height: 30px; overflow: hidden; margin-bottom: 12px;">
                             <div id="bulkProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.9em;"></div>
                         </div>
