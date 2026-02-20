@@ -8672,6 +8672,7 @@
                 const matchSearch = !search || 
                     String(c.supplier || '').toLowerCase().includes(search) ||
                     String(c.materialCode || '').toLowerCase().includes(search) ||
+                    String(c.materialName || getMaterialName(c.materialCode) || '').toLowerCase().includes(search) ||
                     String(c.deliveryNo || '').toLowerCase().includes(search) ||
                     String(c.lotNumber || '').toLowerCase().includes(search) ||
                     String(c.location || '').toLowerCase().includes(search);
