@@ -8221,6 +8221,7 @@
                 const searchMatch = !searchTerm || 
                     String(record.supplier || '').toLowerCase().includes(searchTerm) ||
                     String(record.materialCode || '').toLowerCase().includes(searchTerm) ||
+                    String(record.materialName || '').toLowerCase().includes(searchTerm) ||
                     String(record.lotNumber || '').toLowerCase().includes(searchTerm) ||
                     String(record.deliveryNo || '').toLowerCase().includes(searchTerm) ||
                     String(record.location || '').toLowerCase().includes(searchTerm);
