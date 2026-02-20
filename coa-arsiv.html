@@ -1500,10 +1500,11 @@
                         </div>
                         <div id="bulkProgressDetails" style="font-size: 0.9em; color: #666;">
                             <div id="bulkCurrentFile" style="margin-bottom: 6px;"></div>
-                            <div id="bulkProgressStats" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                            <div id="bulkProgressStats" style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
                                 <span>✅ Başarılı: <strong id="bulkSuccessCount">0</strong></span>
                                 <span>❌ Hata: <strong id="bulkErrorCount">0</strong></span>
                                 <span>📄 Toplam: <strong id="bulkTotalCount">0</strong></span>
+                                <span style="margin-left: auto; color: #667eea; font-weight: 600; font-size: 0.95em;">🕐 Kalan: <span id="bulkEtaSpan" style="font-variant-numeric: tabular-nums;">—</span></span>
                             </div>
                         </div>
                     </div>
@@ -7071,7 +7072,8 @@
                 const multipleIndicator = fileObj.isMultiple ? ` <span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75em;">(${fileObj.multipleIndex}/${fileObj.multipleTotal})</span>` : '';
                 
                 return `
-                <div style="background: ${bgColor}; border: 2px solid ${borderColor}; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: start;">
+                <div id="bulk-card-${fileObj.id}" style="position: relative; background: ${bgColor}; border: 2px solid ${borderColor}; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: start; transition: border-color 0.4s, background 0.4s;">
+                    <div id="bulk-card-done-${fileObj.id}" style="display:none; position:absolute; bottom:8px; right:48px; background:#28a745; color:white; border-radius:50%; width:28px; height:28px; font-size:17px; line-height:28px; text-align:center; font-weight:700; box-shadow:0 2px 8px rgba(40,167,69,0.5); z-index:2;">✓</div>
                     <div style="flex: 1;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">${fileIcon} ${fileObj.file.name}${fileObj.isMultiple ? ' <span style="color: #28a745;">📋 ×' + fileObj.multipleTotal + '</span>' : ''}</div>
                         <div style="font-size: 0.85em; color: #666; display: flex; gap: 15px; flex-wrap: wrap;">
@@ -7326,14 +7328,19 @@
                     
                     const progressPercent = Math.round((i / bulkFiles.length) * 100);
                     progressBar.style.width = progressPercent + '%';
+                    progressBar.textContent = progressPercent > 8 ? progressPercent + '%' : '';
                     
                     // Tahmini kalan süreyi hesapla
                     let timeEstimate = '';
+                    const etaSpan = document.getElementById('bulkEtaSpan');
                     if (fileTimes.length > 0) {
                         const avgTime = fileTimes.reduce((a, b) => a + b, 0) / fileTimes.length;
                         const remainingFiles = bulkFiles.length - i;
                         const estimatedSeconds = (avgTime * remainingFiles) / 1000;
                         timeEstimate = ` - ~${formatRemainingTime(estimatedSeconds)} kaldı`;
+                        if (etaSpan) etaSpan.textContent = formatRemainingTime(estimatedSeconds);
+                    } else {
+                        if (etaSpan) etaSpan.textContent = '—';
                     }
                     
                     progressTitle.textContent = `Dosya ${fileNumber}/${bulkFiles.length} işleniyor... (${progressPercent}%${timeEstimate})`;
@@ -7773,10 +7780,24 @@
                     successCountSpan.textContent = successCount;
                     console.log(`✅ [${fileNumber}/${bulkFiles.length}] Tamamlandı: ${fileObj.file.name}`);
                     
+                    // Kartı yeşil tik ile işaretle
+                    const doneEl = document.getElementById('bulk-card-done-' + fileObj.id);
+                    const cardEl = document.getElementById('bulk-card-' + fileObj.id);
+                    if (doneEl) doneEl.style.display = 'block';
+                    if (cardEl) {
+                        cardEl.style.borderColor = '#28a745';
+                        cardEl.style.background = '#f0fff4';
+                    }
+                    
                 } catch (error) {
                     console.error(`❌ [${fileNumber}/${bulkFiles.length}] Hata:`, fileObj.file.name, error);
                     errorCount++;
                     errorCountSpan.textContent = errorCount;
+                    // Kartı kırmızı ile işaretle
+                    const errCardEl = document.getElementById('bulk-card-' + fileObj.id);
+                    const errDoneEl = document.getElementById('bulk-card-done-' + fileObj.id);
+                    if (errCardEl) { errCardEl.style.borderColor = '#dc3545'; errCardEl.style.background = '#fff5f5'; }
+                    if (errDoneEl) { errDoneEl.textContent = '✕'; errDoneEl.style.background = '#dc3545'; errDoneEl.style.display = 'block'; }
                 }
                 
                 // Google Sheets ve UI'ı rahatlatmak için her dosya arasında kısa bekleme
@@ -7794,6 +7815,9 @@
 
             // Progress bar dosya yükleme bitti
             progressBar.style.width = '100%';
+            progressBar.textContent = '100%';
+            const finalEtaSpan = document.getElementById('bulkEtaSpan');
+            if (finalEtaSpan) finalEtaSpan.textContent = 'Tamamlandı ✓';
             
             if (errorCount > 0) {
                 showToast(`⚠️ ${errorCount} COA kaydedilemedi!`, 'warning', 5000);
