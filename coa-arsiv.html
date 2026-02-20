@@ -13671,13 +13671,10 @@
                 });
             }
             
-            // TDS Definitions'a kaydet (COA değerleri HARİÇ)
+            // TDS Definitions'a kaydet (COA_Records'a YAZMA)
             saveTDSData();
             
-            // 📊 COA değerleri varsa COA_Records'a da kaydet
-            await saveTDSCOAValuesToRecords();
-            
-            showToast('✅ TDS ve COA değerleri kaydedildi', 'success');
+            showToast('✅ TDS kaydedildi', 'success');
             closeTDSModal();
         }
         
