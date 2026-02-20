@@ -658,9 +658,10 @@
         }
         
         /* İşlem sütunu */
-        th:nth-child(9),
-        td:nth-child(9) {
-            min-width: 200px;
+        th:last-child,
+        td:last-child {
+            min-width: 160px;
+            white-space: nowrap;
             text-align: center;
         }
         
@@ -764,10 +765,12 @@
         }
         
         .actions {
-            display: flex;
+            white-space: nowrap;
+        }
+        .actions .action-btns {
+            display: inline-flex;
             gap: 5px;
             flex-wrap: nowrap;
-            white-space: nowrap;
         }
         
         /* Modal */
@@ -8674,10 +8677,12 @@
                     '<td>' + (c.location || '-') + '</td>' +
                     '<td>' + coaValuesDisplay + '</td>' +
                     '<td class="actions">' +
+                        '<div class="action-btns">' +
                         '<button class="btn btn-secondary btn-sm" onclick="viewFile(\'' + c.id + '\')" title="Görüntüle">👁</button>' +
                         '<button class="btn btn-secondary btn-sm" onclick="downloadFile(\'' + c.id + '\')" title="İndir">📥</button>' +
                         '<button class="btn btn-primary btn-sm" onclick="editCOA(\'' + c.id + '\')" title="Düzenle">✏️</button>' +
                         '<button class="btn btn-danger btn-sm" onclick="deleteCOA(\'' + c.id + '\')" title="Sil">🗑</button>' +
+                        '</div>' +
                     '</td>' +
                 '</tr>';
             }).join('');
