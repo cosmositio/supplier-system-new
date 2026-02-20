@@ -1729,41 +1729,7 @@
                     </div>
 
                     <script>
-                    function showOCRKeyPauseBanner() {
-            let banner = document.getElementById('ocrKeyPauseBanner');
-            if (!banner) {
-                banner = document.createElement('div');
-                banner.id = 'ocrKeyPauseBanner';
-                banner.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
-                banner.innerHTML = `
-                    <div style="background:#fff3cd;border:2px solid #ffc107;border-radius:14px;padding:32px 40px;max-width:500px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.35);">
-                        <div style="font-size:3em;margin-bottom:8px;">⏸️</div>
-                        <h3 style="margin:0 0 12px;color:#856404;font-size:1.3em;">OCR Duraklatıldı</h3>
-                        <p style="color:#856404;margin:0 0 8px;">Her iki OCR.space key de saatlik limite ulaştı <b>(180 istek/saat)</b>.</p>
-                        <p style="color:#856404;margin:0 0 20px;">Aşağıdaki seçeneklerden birini yapın ve <b>Devam Et</b>'e tıklayın:</p>
-                        <ul style="text-align:left;color:#856404;margin:0 0 20px;padding-left:20px;line-height:1.8;">
-                            <li>TDS Ayarları'nda <b>Key 1 veya Key 2'yi</b> yeni bir key ile güncelleyin</li>
-                            <li>Yeni key'i kaydedin, ardından aşağıdan devam edin</li>
-                        </ul>
-                        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-                            <button onclick="document.getElementById('tdsSettingsBtn')?.click?.(); setTimeout(()=>document.getElementById('ocrApiKeyInput')?.focus?.(),400);"
-                                style="padding:11px 22px;background:#667eea;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.95em;font-weight:600;">
-                                ⚙️ Ayarları Aç
-                            </button>
-                            <button onclick="continueOCRBulk()"
-                                style="padding:11px 22px;background:#28a745;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.95em;font-weight:600;">
-                                ▶️ Key Değiştirdim, Devam Et
-                            </button>
-                        </div>
-                    </div>`;
-                document.body.appendChild(banner);
-            } else {
-                banner.style.display = 'flex';
-            }
-        }
-
         function continueOCRBulk() {
-            // Tüm rate limit flaglerini sıfırla
             window.ocrSpaceRateLimited = false;
             window.ocrSpaceRateLimitTemp = false;
             window.ocrSpaceRateLimitedAt = 0;
@@ -1771,14 +1737,11 @@
             window.ocrSpacePausedForKeyChange = false;
             window.ocrSpaceActiveKeyIndex = 0;
             window.ocrSpace403ConsecutiveCount = 0;
-            // Manuel pause da aktifse kaldır
             window.bulkManualPaused = false;
             const pauseBtn = document.getElementById('bulkPauseBtn');
             if (pauseBtn) { pauseBtn.textContent = '⏸️ Duraklat'; pauseBtn.onclick = pauseBulkUpload; pauseBtn.style.background = '#fd7e14'; }
             const spinner = document.getElementById('bulkSpinner');
             if (spinner) spinner.style.animationPlayState = 'running';
-            const banner = document.getElementById('ocrKeyPauseBanner');
-            if (banner) banner.style.display = 'none';
             showToast('▶️ OCR devam ediyor...', 'success', 3000);
             if (window.ocrSpacePauseResolve) { window.ocrSpacePauseResolve(); window.ocrSpacePauseResolve = null; }
             if (window.bulkManualPauseResolve) { window.bulkManualPauseResolve(); window.bulkManualPauseResolve = null; }
@@ -7649,12 +7612,7 @@
                                 const actualTemplate = matchedTemplate.template || matchedTemplate;
                                 console.log('🎨 Template bulundu:', actualTemplate.supplier || actualTemplate.name || 'Seçili Template');
                                 
-                                // Pause kontrolü: her iki key de limitliyse kullanıcı key değiştirene kadar bekle
-                                if (window.ocrSpacePausedForKeyChange) {
-                                    progressTitle.textContent = '⏸️ OCR duraklatıldı – Ayarlar\'da key değiştirip Devam Et\'e tıklayın';
-                                    showOCRKeyPauseBanner();
-                                    await new Promise(resolve => { window.ocrSpacePauseResolve = resolve; });
-                                }
+                                // Pause kontrolü kaldırıldı – key geçişi otomatik
                                 
                                 // OCR rate limit varsa, geçici mi kalıcı mı kontrol et
                                 if (window.ocrSpaceRateLimited) {
@@ -10035,18 +9993,12 @@
                                         showToast(`🔄 ${_curKey?.label || 'Key'} limit aşıldı → ${_rotKeys[_nextIdx].label}'e geçildi!`, 'warning', 6000);
                                         // ocrSpaceRateLimited SETLEME – sonraki bölge yeni key ile devam etsin
                                     } else {
-                                        // Tüm keyler limitlendi
+                                        // Tüm keyler limitlendi – toast göster, OCR dur
                                         window.ocrSpaceRateLimited = true;
                                         window.ocrSpaceRateLimitTemp = true;
-                                        window.ocrSpacePausedForKeyChange = true;
-                                        if (_rotKeys.length > 1) {
-                                            console.warn('⏸️ Tüm OCR key\'ler limitlendi → Kullanıcı key değiştirene kadar duraklatılıyor');
-                                            showOCRKeyPauseBanner();
-                                        } else {
-                                            const waitDisplay = detectedWindowSec >= 60 ? `${Math.ceil(detectedWindowSec / 60)} dakika` : `${detectedWindowSec}s`;
-                                            console.warn(`⏳ OCR.space limit – ${waitDisplay} beklenecek. Ayarlar'dan yeni key ekleyebilirsiniz!`);
-                                            showToast(`⚠️ OCR.space limit aşıldı – Ayarlar'dan yeni key eklerseniz otomatik geçiş yapılır!`, 'warning', 15000);
-                                        }
+                                        const waitDisplay = detectedWindowSec >= 60 ? `${Math.ceil(detectedWindowSec / 60)} dakika` : `${detectedWindowSec}s`;
+                                        console.warn('🚫 Tüm OCR key\'ler limitlendi – OCR bu dosyalar için devre dışı.');
+                                        showToast(`🚫 Tüm OCR.space key'ler saatlik limite ulaştı! (${waitDisplay} sonra yenilenir) Ayarlar'dan yeni key ekleyebilirsiniz.`, 'error', 15000);
                                     }
                                 }
                             }
