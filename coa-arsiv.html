@@ -7623,34 +7623,54 @@
                                 
                                 // Pause kontrolü kaldırıldı – key geçişi otomatik
                                 
-                                // OCR rate limit varsa, geçici mi kalıcı mı kontrol et
+                                // OCR rate limit varsa: kalıcı mı yoksa geçici (saatlik) mi?
                                 if (window.ocrSpaceRateLimited) {
-                                    const elapsed = Date.now() - (window.ocrSpaceRateLimitedAt || 0);
-                                    const rlWindow2 = window.ocrSpaceRateLimitWindow || 3600000;
-                                if (window.ocrSpaceRateLimitTemp && elapsed > rlWindow2) {
-                                        window.ocrSpace403ResetCount = (window.ocrSpace403ResetCount || 0) + 1;
-                                        if (window.ocrSpace403ResetCount >= 2) {
-                                            // 2 kez reset → hala 403: plan dolmuş, kalıcı olarak kapat
-                                            console.warn('🚫 OCR.space 2x reset sonrası hala 403 – API key planı dolmuş. OCR bu oturumda devre dışı.');
-                                            showToast('🚫 OCR.space API key planı dolmuş! Yeni key alın.', 'error', 10000);
-                                            window.ocrSpaceRateLimitTemp = false; // kalıcı (reset olmaz)
-                                            // ocrSpaceRateLimited = true kalır
-                                        } else {
-                                            const waitMin2 = Math.round(rlWindow2 / 60000);
-                                            console.log(`⏰ OCR rate limit süresi doldu (${waitMin2}dk geçti), bu dosya için yeniden deneniyor...`);
+                                    if (!window.ocrSpaceRateLimitTemp) {
+                                        // Kalıcı limit (aylık kota/geçersiz key) → atla
+                                        console.warn('🚫 OCR kalıcı limit aktif - bu dosya için OCR atlanıyor:', fileObj.file.name);
+                                    } else {
+                                        // Saatlik limit → kalan süre hesapla
+                                        const rlWindow2 = window.ocrSpaceRateLimitWindow || 3600000;
+                                        const waitUntil = (window.ocrSpaceRateLimitedAt || 0) + rlWindow2 + 2000;
+                                        const remaining = waitUntil - Date.now();
+                                        if (remaining <= 0) {
+                                            // Süre zaten dolmuş → sıfırla
                                             window.ocrSpaceRateLimited = false;
                                             window.ocrSpaceRateLimitTemp = false;
+                                            window.ocrSpaceLimitedKeys = new Set();
+                                            window.ocrSpaceActiveKeyIndex = 0;
+                                            window.ocrSpace403ResetCount = 0;
+                                            console.log('⏰ Rate limit süresi dolmuş, keyler sıfırlandı, OCR devam ediyor...');
+                                            showToast('✅ OCR rate limit sıfırlandı, devam ediliyor!', 'success', 3000);
+                                        } else {
+                                            // Henüz dolmadı → UI'da geri sayım göstererek bekle
+                                            const waitSec = Math.ceil(remaining / 1000);
+                                            const waitMin = Math.ceil(waitSec / 60);
+                                            console.log(`⏳ OCR rate limit aktif — ${waitSec}s bekleniyor...`);
+                                            showToast(`⏳ OCR rate limit — ${waitMin} dakika bekleniyor, otomatik devam edecek`, 'warning', 6000);
+                                            const _titleEl = document.getElementById('bulkProgressTitle');
+                                            // 5s aralıklarla bekle, iptal/pause destekli
+                                            while (Date.now() < waitUntil && !bulkUploadCancelled) {
+                                                if (window.bulkManualPaused) {
+                                                    await new Promise(resolve => { window.bulkManualPauseResolve = resolve; });
+                                                    if (bulkUploadCancelled) break;
+                                                }
+                                                const _rem = Math.max(0, Math.ceil((waitUntil - Date.now()) / 1000));
+                                                const _m = Math.floor(_rem / 60), _s = _rem % 60;
+                                                if (_titleEl) _titleEl.textContent = `⏳ OCR rate limit — ${_m > 0 ? _m + 'dk ' : ''}${_s}s sonra devam edecek...`;
+                                                await new Promise(r => setTimeout(r, 5000));
+                                            }
+                                            if (!bulkUploadCancelled) {
+                                                // Keyleri sıfırla ve devam et
+                                                window.ocrSpaceRateLimited = false;
+                                                window.ocrSpaceRateLimitTemp = false;
+                                                window.ocrSpaceLimitedKeys = new Set();
+                                                window.ocrSpaceActiveKeyIndex = 0;
+                                                window.ocrSpace403ResetCount = 0;
+                                                console.log('✅ Rate limit bekleme tamamlandı, keyler sıfırlandı!');
+                                                showToast('✅ OCR rate limit sıfırlandı, devam ediliyor!', 'success', 4000);
+                                            }
                                         }
-                                    } else {
-                                        const remainingSec = window.ocrSpaceRateLimitTemp ? Math.max(0, Math.ceil((rlWindow2 - elapsed) / 1000)) : 0;
-                                        const remainingMin = Math.ceil(remainingSec / 60);
-                                        const remainingDisplay = remainingSec >= 60 ? `${remainingMin} dakika` : `${remainingSec}s`;
-                                        const msg = window.ocrSpaceRateLimitTemp
-                                            ? `⚠️ OCR saatlik limit aktif (${remainingDisplay} kaldı) - dosya kaydedildi, OCR atlandı`
-                                            : '🚫 OCR kota doldu - dosya kaydedildi, OCR atlandı';
-                                        console.warn('🚫 OCR.space rate limit aktif - bu dosya için OCR atlanıyor:', fileObj.file.name);
-                                        showToast(msg, 'warning', 3000);
-                                        // extractedProperties boş bırak, devam et
                                     }
                                 }
                                 if (!window.ocrSpaceRateLimited) {
