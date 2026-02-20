@@ -1708,6 +1708,7 @@
                             <option value="K89284221488957">Key 2 — K89284221488957</option>
                             <option value="__manual__">✏️ Yeni key gir...</option>
                         </select>
+                        <button onclick="deleteOcrKey()" title="Seçili key'i sil" style="padding: 7px 10px; background: #dc3545; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em; flex-shrink:0;">🗑️ Sil</button>
                         <a href="https://ocr.space/ocrapi" target="_blank" style="font-size: 0.85em; color: #2196F3; text-decoration: none; white-space: nowrap;">🔗 Key Al</a>
                     </div>
                     <div id="ocrManualKeyRow" style="display: none; align-items: center; gap: 10px; margin-top: 6px; padding-left: 130px;">
@@ -1783,26 +1784,89 @@
             }
         }
 
+        // ── OCR Key listesi yönetimi ──────────────────────────────────────────
+        function getOcrKeysList() {
+            try {
+                const raw = localStorage.getItem('ocrspace_keys_list');
+                if (raw) return JSON.parse(raw);
+            } catch(e) {}
+            return [
+                { value: 'K82811583888957', label: 'Key 1 — K82811583888957' },
+                { value: 'K89284221488957', label: 'Key 2 — K89284221488957' }
+            ];
+        }
+
+        function saveOcrKeysList(list) {
+            localStorage.setItem('ocrspace_keys_list', JSON.stringify(list));
+        }
+
+        function refreshOcrKeyDropdown(selectValue) {
+            const select = document.getElementById('ocrApiKeyInput');
+            if (!select) return;
+            const keys = getOcrKeysList();
+            const manualOpt = select.querySelector('option[value="__manual__"]');
+            // Mevcut dinamik seçenekleri temizle
+            Array.from(select.options).forEach(o => { if (o.value !== '__manual__') o.remove(); });
+            // Listeden yeniden ekle
+            keys.forEach(k => {
+                const opt = new Option(k.label, k.value);
+                select.insertBefore(opt, manualOpt);
+            });
+            const toSelect = selectValue || localStorage.getItem('ocrspace_api_key') || (keys[0]?.value || '');
+            select.value = toSelect;
+            if (!select.value && keys.length) select.value = keys[0].value;
+        }
+
         function saveOcrManualKey() {
-                        const input = document.getElementById('ocrManualKeyInput');
-                        const newKey = input.value.trim();
-                        if (!newKey) { showToast('⚠️ Key boş olamaz!', 'warning'); return; }
-                        const select = document.getElementById('ocrApiKeyInput');
-                        // Zaten listede var mı?
-                        let existing = Array.from(select.options).find(o => o.value === newKey);
-                        if (!existing) {
-                            const label = 'Key ' + (select.options.length) + ' — ' + newKey;
-                            const opt = new Option(label, newKey);
-                            // "Yeni key gir..." seçeneğinden önce ekle
-                            select.insertBefore(opt, select.querySelector('option[value="__manual__"]'));
-                            existing = opt;
-                        }
-                        select.value = newKey;
-                        localStorage.setItem('ocrspace_api_key', newKey);
-                        document.getElementById('ocrManualKeyRow').style.display = 'none';
-                        input.value = '';
-                        showToast('✅ Yeni OCR.space key kaydedildi: ' + newKey.substring(0,6) + '...', 'success');
-                    }
+            const input = document.getElementById('ocrManualKeyInput');
+            const newKey = input.value.trim();
+            if (!newKey) { showToast('⚠️ Key boş olamaz!', 'warning'); return; }
+            const keys = getOcrKeysList();
+            if (keys.find(k => k.value === newKey)) {
+                showToast('ℹ️ Bu key zaten listede', 'info');
+                document.getElementById('ocrApiKeyInput').value = newKey;
+                localStorage.setItem('ocrspace_api_key', newKey);
+                document.getElementById('ocrManualKeyRow').style.display = 'none';
+                return;
+            }
+            const label = 'Key ' + (keys.length + 1) + ' — ' + newKey;
+            keys.push({ value: newKey, label });
+            saveOcrKeysList(keys);
+            refreshOcrKeyDropdown(newKey);
+            localStorage.setItem('ocrspace_api_key', newKey);
+            document.getElementById('ocrManualKeyRow').style.display = 'none';
+            input.value = '';
+            showToast('✅ Yeni OCR.space key kaydedildi: ' + newKey.substring(0,6) + '...', 'success');
+        }
+
+        function deleteOcrKey() {
+            const select = document.getElementById('ocrApiKeyInput');
+            const val = select.value;
+            if (!val || val === '__manual__') { showToast('⚠️ Silinecek key seçili değil', 'warning'); return; }
+            const keys = getOcrKeysList();
+            if (keys.length <= 1) { showToast('⚠️ En az 1 key kalmalı, önce yeni key ekleyin!', 'warning'); return; }
+            const idx = keys.findIndex(k => k.value === val);
+            if (idx === -1) { showToast('⚠️ Key listede bulunamadı', 'warning'); return; }
+            const deletedLabel = keys[idx].label;
+            keys.splice(idx, 1);
+            // Etiketleri yeniden numaralandır
+            keys.forEach((k, i) => { k.label = 'Key ' + (i + 1) + ' — ' + k.value; });
+            saveOcrKeysList(keys);
+            // Silinen key aktif keydeyse başkasına geç
+            const currentKey = localStorage.getItem('ocrspace_api_key') || '';
+            const newActive = (currentKey === val) ? keys[0].value : currentKey;
+            if (currentKey === val) localStorage.setItem('ocrspace_api_key', newActive);
+            refreshOcrKeyDropdown(newActive);
+            // Yedek key de silindiyse temizle
+            if (localStorage.getItem('ocrspace_api_key2') === val) {
+                localStorage.removeItem('ocrspace_api_key2');
+                const k2 = document.getElementById('ocrApiKey2Input');
+                if (k2) k2.value = '';
+                showToast('🗑️ ' + deletedLabel + ' silindi (yedek key de temizlendi).', 'info');
+            } else {
+                showToast('🗑️ ' + deletedLabel + ' silindi.', 'info');
+            }
+        }
                     </script>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <label style="font-size: 0.9em; color: #666; width: 120px;">🔑 Azure Key:</label>
@@ -12692,19 +12756,8 @@
             if (key2Input) {
                 key2Input.value = localStorage.getItem('ocrspace_api_key2') || '';
             }
-            const apiKeyInput = document.getElementById('ocrApiKeyInput');
-            if (apiKeyInput) {
-                const savedKey = localStorage.getItem('ocrspace_api_key') || 'K82811583888957';
-                let opt = Array.from(apiKeyInput.options).find(o => o.value === savedKey);
-                if (!opt && savedKey !== '__manual__') {
-                    // Kayıtlı key listede yok → dinamik olarak ekle
-                    const label = 'Key ' + (apiKeyInput.options.length) + ' — ' + savedKey;
-                    const newOpt = new Option(label, savedKey);
-                    apiKeyInput.insertBefore(newOpt, apiKeyInput.querySelector('option[value="__manual__"]'));
-                    opt = newOpt;
-                }
-                if (opt) apiKeyInput.value = savedKey;
-                else apiKeyInput.value = apiKeyInput.options[0]?.value || 'K82811583888957';
+            if (document.getElementById('ocrApiKeyInput')) {
+                refreshOcrKeyDropdown();
             }
             
             const azureKeyInput = document.getElementById('azureApiKeyInput');
