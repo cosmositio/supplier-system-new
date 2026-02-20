@@ -1490,10 +1490,13 @@
                         </div>
                         <h4 style="margin-bottom: 12px; color: #667eea; display: flex; align-items: center; gap: 8px; justify-content: space-between;">
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span class="spinner" style="width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></span>
+                                <span class="spinner" id="bulkSpinner" style="width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></span>
                                 <span id="bulkProgressTitle">COA'lar işleniyor...</span>
                             </div>
-                            <button onclick="cancelBulkUpload()" class="btn btn-sm" style="background: #dc3545; color: white; padding: 5px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9em;" title="İşlemi iptal et">🛑 İptal</button>
+                            <div style="display:flex; gap:6px;">
+                                <button id="bulkPauseBtn" onclick="pauseBulkUpload()" class="btn btn-sm" style="background: #fd7e14; color: white; padding: 5px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9em;" title="Duraklat">⏸️ Duraklat</button>
+                                <button onclick="cancelBulkUpload()" class="btn btn-sm" style="background: #dc3545; color: white; padding: 5px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9em;" title="İşlemi iptal et">🛑 İptal</button>
+                            </div>
                         </h4>
                         <div style="background: #f0f0f0; border-radius: 10px; height: 30px; overflow: hidden; margin-bottom: 12px;">
                             <div id="bulkProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.9em;"></div>
@@ -1505,6 +1508,9 @@
                                 <span>❌ Hata: <strong id="bulkErrorCount">0</strong></span>
                                 <span>📄 Toplam: <strong id="bulkTotalCount">0</strong></span>
                                 <span style="margin-left: auto; color: #667eea; font-weight: 600; font-size: 0.95em;">🕐 Kalan: <span id="bulkEtaSpan" style="font-variant-numeric: tabular-nums;">—</span></span>
+                            </div>
+                            <div id="bulkActiveKeyRow" style="margin-top:8px; font-size:0.82em; color:#555; display:none; align-items:center; gap:6px;">
+                                🔑 <span id="bulkActiveKeyLabel" style="font-family:monospace; font-weight:600; color:#667eea;"></span>
                             </div>
                         </div>
                     </div>
@@ -1763,15 +1769,19 @@
             window.ocrSpaceRateLimitedAt = 0;
             window.ocrSpaceLimitedKeys = new Set();
             window.ocrSpacePausedForKeyChange = false;
-            window.ocrSpaceActiveKeyIndex = 0; // İlk key ile başlat
+            window.ocrSpaceActiveKeyIndex = 0;
             window.ocrSpace403ConsecutiveCount = 0;
+            // Manuel pause da aktifse kaldır
+            window.bulkManualPaused = false;
+            const pauseBtn = document.getElementById('bulkPauseBtn');
+            if (pauseBtn) { pauseBtn.textContent = '⏸️ Duraklat'; pauseBtn.onclick = pauseBulkUpload; pauseBtn.style.background = '#fd7e14'; }
+            const spinner = document.getElementById('bulkSpinner');
+            if (spinner) spinner.style.animationPlayState = 'running';
             const banner = document.getElementById('ocrKeyPauseBanner');
             if (banner) banner.style.display = 'none';
             showToast('▶️ OCR devam ediyor...', 'success', 3000);
-            if (window.ocrSpacePauseResolve) {
-                window.ocrSpacePauseResolve();
-                window.ocrSpacePauseResolve = null;
-            }
+            if (window.ocrSpacePauseResolve) { window.ocrSpacePauseResolve(); window.ocrSpacePauseResolve = null; }
+            if (window.bulkManualPauseResolve) { window.bulkManualPauseResolve(); window.bulkManualPauseResolve = null; }
         }
 
         // ── OCR Key listesi yönetimi ──────────────────────────────────────────
@@ -7215,8 +7225,33 @@
         function cancelBulkUpload() {
             if (confirm('⚠️ Yükleme işlemini iptal etmek istediğinizden emin misiniz?')) {
                 bulkUploadCancelled = true;
+                // Pause durumdaysa resolve et ki döngü iptalı görebilsin
+                if (window.bulkManualPauseResolve) { window.bulkManualPauseResolve(); window.bulkManualPauseResolve = null; }
+                if (window.ocrSpacePauseResolve) { window.ocrSpacePauseResolve(); window.ocrSpacePauseResolve = null; }
                 showToast('⚠️ İşlem iptal ediliyor...', 'warning');
             }
+        }
+
+        function pauseBulkUpload() {
+            window.bulkManualPaused = true;
+            window.bulkManualPauseResolve = null;
+            const btn = document.getElementById('bulkPauseBtn');
+            if (btn) { btn.textContent = '▶️ Devam Et'; btn.onclick = resumeBulkUpload; btn.style.background = '#28a745'; }
+            const spinner = document.getElementById('bulkSpinner');
+            if (spinner) spinner.style.animationPlayState = 'paused';
+            const title = document.getElementById('bulkProgressTitle');
+            if (title) title.textContent = '⏸️ Duraklatıldı – Devam Et\'e basın';
+            showToast('⏸️ Duraklatıldı. Hazır olduğunuzda Devam Et\'e basın.', 'info', 5000);
+        }
+
+        function resumeBulkUpload() {
+            window.bulkManualPaused = false;
+            const btn = document.getElementById('bulkPauseBtn');
+            if (btn) { btn.textContent = '⏸️ Duraklat'; btn.onclick = pauseBulkUpload; btn.style.background = '#fd7e14'; }
+            const spinner = document.getElementById('bulkSpinner');
+            if (spinner) spinner.style.animationPlayState = 'running';
+            showToast('▶️ Devam ediyor...', 'success', 3000);
+            if (window.bulkManualPauseResolve) { window.bulkManualPauseResolve(); window.bulkManualPauseResolve = null; }
         }
         
         // Kalan süreyi formatla (saniye -> "2dk 30sn" formatı)
@@ -7415,6 +7450,10 @@
             window.ocrSpaceLimitedKeys = new Set(); // Saatlik limit aşan key değerleri
             window.ocrSpacePausedForKeyChange = false; // Tüm keyler limitlenince duraklatma
             window.ocrSpacePauseResolve = null; // Pause promise resolver
+            window.bulkManualPaused = false; // Manuel pause flag
+            window.bulkManualPauseResolve = null;
+            // Pause butonu sıfırla
+            (function(){ const b = document.getElementById('bulkPauseBtn'); if(b){ b.textContent='⏸️ Duraklat'; b.onclick=pauseBulkUpload; b.style.background='#fd7e14'; } const sp = document.getElementById('bulkSpinner'); if(sp) sp.style.animationPlayState='running'; })();
             for (let i = 0; i < bulkFiles.length; i++) {
                 // UI'ın nefes alması için her dosya başında event loop'a dön
                 await new Promise(resolve => setTimeout(resolve, 0));
@@ -7426,6 +7465,34 @@
                     showToast(`⚠️ İşlem iptal edildi. ${successCount} COA kaydedildi, ${bulkFiles.length - i} atlandı.`, 'warning', 5000);
                     break; // Döngüden çık - batch ve cleanup kodu çalışmaya devam etsin
                 }
+
+                // Manuel pause kontrolü
+                if (window.bulkManualPaused) {
+                    await new Promise(resolve => { window.bulkManualPauseResolve = resolve; });
+                    if (bulkUploadCancelled) break;
+                }
+
+                // Aktif OCR key göstergesi güncelle
+                (function() {
+                    const motor = localStorage.getItem('ocr_engine') || 'ocrspace';
+                    const row = document.getElementById('bulkActiveKeyRow');
+                    const lbl = document.getElementById('bulkActiveKeyLabel');
+                    if (!row || !lbl) return;
+                    row.style.display = 'flex';
+                    if (motor === 'azure') {
+                        lbl.textContent = '🌐 Azure Computer Vision aktif';
+                    } else {
+                        const _ks = (typeof getOcrKeysList === 'function') ? getOcrKeysList() : [];
+                        const _idx = Math.min(window.ocrSpaceActiveKeyIndex || 0, _ks.length - 1);
+                        const _entry = _ks[_idx];
+                        const keyLabel = _entry ? _entry.label : 'OCR.space Key 1';
+                        if (motor === 'both') {
+                            lbl.textContent = `OCR.space ${keyLabel} + Azure`;
+                        } else {
+                            lbl.textContent = `OCR.space • ${keyLabel}`;
+                        }
+                    }
+                })();
                 
                 const fileObj = bulkFiles[i];
                 const fileNumber = i + 1;
