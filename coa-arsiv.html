@@ -7299,6 +7299,7 @@
             window.ocrSpaceRateLimitTemp = false;
             window.ocrSpaceRateLimitedAt = 0;
             window.ocrSpace403ResetCount = 0; // 403 reset sayacı - kalıcı kota tespiti için
+            window.ocrSpace403ConsecutiveCount = 0; // Ardarda 403 sayacı - key hata tespiti için
             for (let i = 0; i < bulkFiles.length; i++) {
                 // UI'ın nefes alması için her dosya başında event loop'a dön
                 await new Promise(resolve => setTimeout(resolve, 0));
@@ -8937,9 +8938,9 @@
             console.log('🟢 OCR.space API isteği hazırlanıyor...');
             showToast('🔍 OCR işlemi başladı (OCR.space)', 'info', 3000);
             
-            // API key al
-            const apiKey = localStorage.getItem('ocrspace_api_key') || 'K82811583888957';
-            console.log('🔑 API Key:', apiKey.substring(0, 5) + '...');
+            // API key al (.trim() önemli - copy-paste boşluk sorununu önler)
+            const apiKey = (localStorage.getItem('ocrspace_api_key') || 'K82811583888957').trim();
+            console.log('🔑 API Key:', apiKey.substring(0, 8) + '...' + ' (uzunluk: ' + apiKey.length + ')');
             
             // Base64'ü blob'a çevir
             console.log('📦 Blob oluşturuluyor...');
@@ -8968,8 +8969,13 @@
                 console.log(`🌐 OCR.space Engine ${engineNum} (lang=${lang}) isteği gönderiliyor...`);
                 const resp = await fetch('https://api.ocr.space/parse/image', { method: 'POST', body: fd });
                 if (!resp.ok) {
+                    // Önce raw text oku (403/429 body HTML veya JSON olabilir)
+                    let rawBody = '';
+                    try { rawBody = await resp.text(); } catch(e) {}
+                    console.error(`❌ OCR.space ${resp.status} hata body:`, rawBody.substring(0, 300));
                     let detail = '';
-                    try { const errJson = await resp.json(); detail = errJson.ErrorMessage || errJson.OCRExitCode || ''; } catch(e) {}
+                    try { const errJson = JSON.parse(rawBody); detail = errJson.ErrorMessage || errJson.OCRExitCode || ''; } catch(e) {}
+                    if (!detail && rawBody) detail = rawBody.replace(/<[^>]+>/g, '').trim().substring(0, 150);
                     const msg = `OCR API HTTP hatası: ${resp.status}${detail ? ' – ' + detail : ''}`;
                     throw new Error(msg);
                 }
@@ -9714,6 +9720,9 @@
                             
                             console.log(`✅ [${region.index}/${regionsToProcess.length}] ${region.propertyName}: "${cleanText}"`);
                             
+                            // Başarılı OCR → ardarda 403 sayacını sıfırla
+                            window.ocrSpace403ConsecutiveCount = 0;
+                            
                             results.push({
                                 propertyName: region.propertyName,
                                 regionType: region.regionType,
@@ -9754,22 +9763,34 @@
                                 }
                             }
                             
-                            // 403/429 = rate limit veya kota aşımı
+                            // 403/429 = rate limit, kota aşımı VEYA geçersiz API key
                             const is403 = error.message && error.message.includes('403');
                             const is429 = error.message && error.message.includes('429');
                             if (is403 || is429) {
                                 window.ocrSpaceRateLimited = true;
                                 window.ocrSpaceRateLimitedAt = Date.now();
-                                // Hata mesajında kota/quota söz konusuysa kalıcı, değilse geçici
+                                window.ocrSpace403ConsecutiveCount = (window.ocrSpace403ConsecutiveCount || 0) + 1;
+
+                                // Hata mesajında kota/quota söz konusuysa kalıcı
                                 const isPermQuota = error.message && /quota|exceeded|exhausted|limit.*month|limit.*day/i.test(error.message);
-                                window.ocrSpaceRateLimitTemp = !isPermQuota;
+                                // Geçersiz key işaretleri
+                                const isInvalidKey = error.message && /invalid.*key|unauthorized|forbidden|key.*invalid|apikey.*invalid|not.*found/i.test(error.message);
+
                                 if (isPermQuota) {
+                                    window.ocrSpaceRateLimitTemp = false;
                                     console.warn('🚫 OCR.space KOTA DOLDU (kalıcı) - Kalan bölgeler atlanıyor. Key değiştirin.');
-                                    showToast('🚫 OCR.space kota doldu! Lütfen farklı bir API key seçin.', 'error', 8000);
+                                    showToast('🚫 OCR.space aylık kota doldu! Ayarlardan yeni API key girin.', 'error', 10000);
+                                } else if (isInvalidKey || window.ocrSpace403ConsecutiveCount >= 3) {
+                                    // 3 ardarda 403 veya key hata mesajı → key sorunu olması kuvvetle muhtemel
+                                    window.ocrSpaceRateLimitTemp = false;
+                                    const rawErr = error.message.substring(0, 200);
+                                    console.error('🔑 OCR.space API key sorunu! Ard arda 403: ' + window.ocrSpace403ConsecutiveCount + 'x | Hata:', rawErr);
+                                    showToast('🔑 OCR.space API key hatası! Ayarlar → API Key kontrol edin. (Hata: ' + (rawErr || '403') + ')', 'error', 15000);
                                 } else {
+                                    window.ocrSpaceRateLimitTemp = true;
                                     const waitSec = is429 ? 60 : 65;
-                                    console.warn(`⏳ OCR.space geçici rate limit (${is429 ? 429 : 403}) - ${waitSec}s sonra otomatik sıfırlanacak.`);
-                                    showToast(`⚠️ OCR.space dakika limiti aşıldı – ${waitSec} saniye sonra otomatik devam eder.`, 'warning', waitSec * 1000);
+                                    console.warn(`⏳ OCR.space geçici limit (${is429 ? 429 : 403}) [${window.ocrSpace403ConsecutiveCount}x] - ${waitSec}s sonra tekrar denenecek.`);
+                                    showToast(`⚠️ OCR.space limit – ${waitSec}s bekleyip devam ediyor. (${window.ocrSpace403ConsecutiveCount}. kez)`, 'warning', waitSec * 1000);
                                 }
                             }
                             
