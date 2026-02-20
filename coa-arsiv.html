@@ -1720,8 +1720,70 @@
                         <button onclick="saveOcrManualKey()" style="padding: 8px 14px; background: #4CAF50; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em; white-space: nowrap;">💾 Kaydet</button>
                         <button onclick="document.getElementById('ocrManualKeyRow').style.display='none'; document.getElementById('ocrApiKeyInput').value=localStorage.getItem('ocrspace_api_key')||'K82811583888957';" style="padding: 8px 10px; background: #e0e0e0; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em;">✕</button>
                     </div>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <label style="font-size: 0.9em; color: #666; width: 120px;">🔑 OCR Key 2 <span style="font-size:0.8em;color:#28a745;font-weight:600;">(Yedek)</span>:</label>
+                        <input
+                            id="ocrApiKey2Input"
+                            type="text"
+                            placeholder="İkinci OCR.space API key (oto-geçiş için)"
+                            style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 0.85em; flex: 1; min-width: 200px;"
+                            onchange="localStorage.setItem('ocrspace_api_key2', this.value.trim()); showToast('✅ OCR Key 2 kaydedildi – Key 1 limitlenince otomatik geçiş yapılacak', 'success');">
+                        <span style="font-size:0.8em; color:#28a745; white-space:nowrap;">✅ Limit → oto-geçiş</span>
+                    </div>
                     <script>
-                    function saveOcrManualKey() {
+                    function showOCRKeyPauseBanner() {
+            let banner = document.getElementById('ocrKeyPauseBanner');
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.id = 'ocrKeyPauseBanner';
+                banner.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+                banner.innerHTML = `
+                    <div style="background:#fff3cd;border:2px solid #ffc107;border-radius:14px;padding:32px 40px;max-width:500px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.35);">
+                        <div style="font-size:3em;margin-bottom:8px;">⏸️</div>
+                        <h3 style="margin:0 0 12px;color:#856404;font-size:1.3em;">OCR Duraklatıldı</h3>
+                        <p style="color:#856404;margin:0 0 8px;">Her iki OCR.space key de saatlik limite ulaştı <b>(180 istek/saat)</b>.</p>
+                        <p style="color:#856404;margin:0 0 20px;">Aşağıdaki seçeneklerden birini yapın ve <b>Devam Et</b>'e tıklayın:</p>
+                        <ul style="text-align:left;color:#856404;margin:0 0 20px;padding-left:20px;line-height:1.8;">
+                            <li>TDS Ayarları'nda <b>Key 1 veya Key 2'yi</b> yeni bir key ile güncelleyin</li>
+                            <li>Yeni key'i kaydedin, ardından aşağıdan devam edin</li>
+                        </ul>
+                        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                            <button onclick="document.getElementById('tdsSettingsBtn')?.click?.(); setTimeout(()=>document.getElementById('ocrApiKeyInput')?.focus?.(),400);"
+                                style="padding:11px 22px;background:#667eea;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.95em;font-weight:600;">
+                                ⚙️ Ayarları Aç
+                            </button>
+                            <button onclick="continueOCRBulk()"
+                                style="padding:11px 22px;background:#28a745;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.95em;font-weight:600;">
+                                ▶️ Key Değiştirdim, Devam Et
+                            </button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(banner);
+            } else {
+                banner.style.display = 'flex';
+            }
+        }
+
+        function continueOCRBulk() {
+            // Tüm rate limit flaglerini sıfırla
+            window.ocrSpaceRateLimited = false;
+            window.ocrSpaceRateLimitTemp = false;
+            window.ocrSpaceRateLimitedAt = 0;
+            window.ocrSpaceKey1Limited = false;
+            window.ocrSpaceKey2Limited = false;
+            window.ocrSpacePausedForKeyChange = false;
+            window.ocrSpaceActiveKeyIndex = 0; // Yeni key'i Key1 slot'undan başlat
+            window.ocrSpace403ConsecutiveCount = 0;
+            const banner = document.getElementById('ocrKeyPauseBanner');
+            if (banner) banner.style.display = 'none';
+            showToast('▶️ OCR devam ediyor...', 'success', 3000);
+            if (window.ocrSpacePauseResolve) {
+                window.ocrSpacePauseResolve();
+                window.ocrSpacePauseResolve = null;
+            }
+        }
+
+        function saveOcrManualKey() {
                         const input = document.getElementById('ocrManualKeyInput');
                         const newKey = input.value.trim();
                         if (!newKey) { showToast('⚠️ Key boş olamaz!', 'warning'); return; }
@@ -7303,6 +7365,11 @@
             window.ocrSpaceRateLimitWindow = 0; // Gerçek pencere süresi (ms) - hata mesajından alınır
             window.ocrSpace403ResetCount = 0; // 403 reset sayacı - kalıcı kota tespiti için
             window.ocrSpace403ConsecutiveCount = 0; // Ardarda 403 sayacı - key hata tespiti için
+            window.ocrSpaceActiveKeyIndex = 0; // 0=Key1, 1=Key2
+            window.ocrSpaceKey1Limited = false; // Key1 saatlik limit aşıldı mı
+            window.ocrSpaceKey2Limited = false; // Key2 saatlik limit aşıldı mı
+            window.ocrSpacePausedForKeyChange = false; // Her iki key de limitlenince duraklatma
+            window.ocrSpacePauseResolve = null; // Pause promise resolver
             for (let i = 0; i < bulkFiles.length; i++) {
                 // UI'ın nefes alması için her dosya başında event loop'a dön
                 await new Promise(resolve => setTimeout(resolve, 0));
@@ -7469,6 +7536,13 @@
                             if (matchedTemplate) {
                                 const actualTemplate = matchedTemplate.template || matchedTemplate;
                                 console.log('🎨 Template bulundu:', actualTemplate.supplier || actualTemplate.name || 'Seçili Template');
+                                
+                                // Pause kontrolü: her iki key de limitliyse kullanıcı key değiştirene kadar bekle
+                                if (window.ocrSpacePausedForKeyChange) {
+                                    progressTitle.textContent = '⏸️ OCR duraklatıldı – Ayarlar\'da key değiştirip Devam Et\'e tıklayın';
+                                    showOCRKeyPauseBanner();
+                                    await new Promise(resolve => { window.ocrSpacePauseResolve = resolve; });
+                                }
                                 
                                 // OCR rate limit varsa, geçici mi kalıcı mı kontrol et
                                 if (window.ocrSpaceRateLimited) {
@@ -8969,9 +9043,13 @@
             console.log('🟢 OCR.space API isteği hazırlanıyor...');
             showToast('🔍 OCR işlemi başladı (OCR.space)', 'info', 3000);
             
-            // API key al (.trim() önemli - copy-paste boşluk sorununu önler)
-            const apiKey = (localStorage.getItem('ocrspace_api_key') || 'K82811583888957').trim();
-            console.log('🔑 API Key:', apiKey.substring(0, 8) + '...' + ' (uzunluk: ' + apiKey.length + ')');
+            // Aktif key seçimi – key rotation için
+            const key1 = (localStorage.getItem('ocrspace_api_key') || 'K82811583888957').trim();
+            const key2 = (localStorage.getItem('ocrspace_api_key2') || '').trim();
+            const useKey2 = (window.ocrSpaceActiveKeyIndex === 1 && key2);
+            const apiKey = useKey2 ? key2 : key1;
+            const activeKeyLabel = useKey2 ? 'Key 2' : 'Key 1';
+            console.log(`🔑 API Key [${activeKeyLabel}]:`, apiKey.substring(0, 8) + '...' + ' (uzunluk: ' + apiKey.length + ')');
             
             // Base64'ü blob'a çevir
             console.log('📦 Blob oluşturuluyor...');
@@ -9800,34 +9878,63 @@
                             const is403 = error.message && error.message.includes('403');
                             const is429 = error.message && error.message.includes('429');
                             if (is403 || is429) {
-                                window.ocrSpaceRateLimited = true;
                                 window.ocrSpaceRateLimitedAt = Date.now();
                                 window.ocrSpace403ConsecutiveCount = (window.ocrSpace403ConsecutiveCount || 0) + 1;
 
-                                // Hata mesajında kota/quota söz konusuysa kalıcı
                                 const isPermQuota = error.message && /quota|exceeded|exhausted|limit.*month|limit.*day/i.test(error.message);
-                                // Geçersiz key işaretleri
                                 const isInvalidKey = error.message && /invalid.*key|unauthorized|forbidden|key.*invalid|apikey.*invalid|not.*found/i.test(error.message);
 
                                 if (isPermQuota) {
+                                    window.ocrSpaceRateLimited = true;
                                     window.ocrSpaceRateLimitTemp = false;
-                                    console.warn('🚫 OCR.space KOTA DOLDU (kalıcı) - Kalan bölgeler atlanıyor. Key değiştirin.');
+                                    console.warn('🚫 OCR.space KOTA DOLDU (kalıcı)');
                                     showToast('🚫 OCR.space aylık kota doldu! Ayarlardan yeni API key girin.', 'error', 10000);
-                                } else if (isInvalidKey || window.ocrSpace403ConsecutiveCount >= 3) {
-                                    // 3 ardarda 403 veya key hata mesajı → key sorunu olması kuvvetle muhtemel
+                                } else if (isInvalidKey) {
+                                    window.ocrSpaceRateLimited = true;
                                     window.ocrSpaceRateLimitTemp = false;
                                     const rawErr = error.message.substring(0, 200);
-                                    console.error('🔑 OCR.space API key sorunu! Ard arda 403: ' + window.ocrSpace403ConsecutiveCount + 'x | Hata:', rawErr);
-                                    showToast('🔑 OCR.space API key hatası! Ayarlar → API Key kontrol edin. (Hata: ' + (rawErr || '403') + ')', 'error', 15000);
+                                    console.error('🔑 OCR.space API key geçersiz:', rawErr);
+                                    showToast('🔑 OCR.space API key hatası! Ayarlar → API Key kontrol edin.', 'error', 15000);
                                 } else {
-                                    window.ocrSpaceRateLimitTemp = true;
-                                    // Hata mesajından pencere süresini çıkar: "within 3600 seconds"
+                                    // Saatlik limit → Key Rotation dene
                                     const windowMatch = error.message && error.message.match(/within\s+(\d+)\s+second/i);
                                     const detectedWindowSec = windowMatch ? parseInt(windowMatch[1]) : (is429 ? 60 : 3600);
-                                    window.ocrSpaceRateLimitWindow = detectedWindowSec * 1000; // ms cinsinden kaydet
-                                    const waitDisplay = detectedWindowSec >= 60 ? `${Math.ceil(detectedWindowSec / 60)} dakika` : `${detectedWindowSec}s`;
-                                    console.warn(`⏳ OCR.space saatlik limit (${is429 ? 429 : 403}) [${window.ocrSpace403ConsecutiveCount}x] - Pencere: ${detectedWindowSec}s | ${waitDisplay} sonra tekrar denenecek.`);
-                                    showToast(`⚠️ OCR.space saatlik limit aşıldı (180/saat) – ${waitDisplay} bekleyip devam edecek. (${window.ocrSpace403ConsecutiveCount}. kez)`, 'warning', 15000);
+                                    window.ocrSpaceRateLimitWindow = detectedWindowSec * 1000;
+
+                                    const key1 = (localStorage.getItem('ocrspace_api_key') || '').trim();
+                                    const key2 = (localStorage.getItem('ocrspace_api_key2') || '').trim();
+
+                                    if (window.ocrSpaceActiveKeyIndex === 0 && key2 && !window.ocrSpaceKey2Limited) {
+                                        // Key 1 limitlendi → Key 2'ye geç
+                                        window.ocrSpaceKey1Limited = true;
+                                        window.ocrSpaceActiveKeyIndex = 1;
+                                        window.ocrSpace403ConsecutiveCount = 0;
+                                        console.warn('🔄 OCR.space Key 1 limit aşıldı → Key 2\'ye otomatik geçiş!');
+                                        showToast('🔄 Key 1 limit aşıldı → Key 2\'ye geçildi! Sonraki bölgeler Key 2 ile denenecek.', 'warning', 6000);
+                                        // ocrSpaceRateLimited SETLEME - sonraki bölge Key2 ile devam etsin
+                                    } else if (window.ocrSpaceActiveKeyIndex === 1 && key1 && !window.ocrSpaceKey1Limited) {
+                                        // Key 2 limitlendi → Key 1'e dön
+                                        window.ocrSpaceKey2Limited = true;
+                                        window.ocrSpaceActiveKeyIndex = 0;
+                                        window.ocrSpace403ConsecutiveCount = 0;
+                                        console.warn('🔄 OCR.space Key 2 limit aşıldı → Key 1\'e geri dönüş!');
+                                        showToast('🔄 Key 2 limit aşıldı → Key 1\'e dönüldü!', 'warning', 6000);
+                                    } else {
+                                        // Her iki key de limitlendi (veya Key2 yoksa)
+                                        window.ocrSpaceRateLimited = true;
+                                        window.ocrSpaceRateLimitTemp = true;
+                                        if (key2) {
+                                            // Key2 tanımlı ama her ikisi de limit → Pause
+                                            window.ocrSpacePausedForKeyChange = true;
+                                            console.warn('⏸️ Her iki OCR key de limitlendi → Kullanıcı key değiştirene kadar duraklatılıyor');
+                                            showOCRKeyPauseBanner();
+                                        } else {
+                                            // Key2 yok → eski davranış (60dk bekle)
+                                            const waitDisplay = detectedWindowSec >= 60 ? `${Math.ceil(detectedWindowSec / 60)} dakika` : `${detectedWindowSec}s`;
+                                            console.warn(`⏳ OCR.space saatlik limit [${window.ocrSpace403ConsecutiveCount}x] – ${waitDisplay} beklenecek. Key 2 ekleyerek oto-geçiş yapabilirsiniz!`);
+                                            showToast(`⚠️ OCR.space limit aşıldı – TDS Ayarları\'na Key 2 eklerseniz otomatik geçiş yapılır!`, 'warning', 15000);
+                                        }
+                                    }
                                 }
                             }
                             
@@ -12580,6 +12687,11 @@
             await loadTDSFromGoogleSheets();
             
             // API key'leri ve OCR engine'i input'lara yükle
+            // Key 2 alanını doldur
+            const key2Input = document.getElementById('ocrApiKey2Input');
+            if (key2Input) {
+                key2Input.value = localStorage.getItem('ocrspace_api_key2') || '';
+            }
             const apiKeyInput = document.getElementById('ocrApiKeyInput');
             if (apiKeyInput) {
                 const savedKey = localStorage.getItem('ocrspace_api_key') || 'K82811583888957';
