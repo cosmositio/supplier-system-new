@@ -1868,6 +1868,11 @@
                     <input type="text" id="templateSupplierName" placeholder="Örn: BASF" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; width: 200px;">
                 </div>
                 <button class="btn btn-danger btn-sm" onclick="clearTemplateRegions()">🗑️ Tümünü Temizle</button>
+                <div id="templatePageNav" style="display:none; align-items:center; gap:8px; padding:5px 12px; background:#e8f4fd; border:1px solid #b3d8f5; border-radius:6px;">
+                    <button id="templatePrevPageBtn" onclick="goToTemplatePage(currentTemplatePage - 1)" style="padding:4px 10px; background:#0066cc; color:white; border:none; border-radius:4px; cursor:pointer; font-size:14px;">◀</button>
+                    <span style="font-size:13px; font-weight:600;">Sayfa <span id="templateCurrentPageLabel">1</span> / <span id="templateTotalPagesLabel">1</span></span>
+                    <button id="templateNextPageBtn" onclick="goToTemplatePage(currentTemplatePage + 1)" style="padding:4px 10px; background:#0066cc; color:white; border:none; border-radius:4px; cursor:pointer; font-size:14px;">▶</button>
+                </div>
             </div>
             
             <div style="display: flex; gap: 15px; flex: 1; overflow: hidden;">
@@ -2105,6 +2110,9 @@
         let currentTDSMaterial = null; // Şu an düzenlenen TDS hammaddesi
         let lastOCRMaterialCode = null; // Son OCR yapılan hammadde (modal açılışta değerleri korumak için)
         let currentRenderTask = null; // Aktif PDF render işlemi
+        let templatePdfDoc = null;       // Yüklü PDF objesi (template editor)
+        let currentTemplatePage = 1;     // Template editor aktif sayfa
+        let totalTemplatePages = 1;      // Template editor toplam sayfa
         let isProcessingFile = false; // Dosya işleme kilidi
         let fileProcessingTimeout = null; // Dosya işleme timeout'u
         let currentPage = 1; // Aktif sayfa numarası
@@ -16952,42 +16960,13 @@
                 
                 console.log('📄 PDF dosyası okunuyor...');
                 const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-                const page = await pdf.getPage(1);
-                console.log('✅ PDF sayfa 1 alındı');
+                templatePdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+                totalTemplatePages = templatePdfDoc.numPages;
+                currentTemplatePage = 1;
+                console.log(`📄 PDF yüklendi: ${totalTemplatePages} sayfa`);
                 
-                const viewport = page.getViewport({ scale: 2.0 });
-                
-                // Canvas'ı temizle ve yeniden boyutlandır
-                templateCanvas.width = viewport.width;
-                templateCanvas.height = viewport.height;
-                templateCtx.clearRect(0, 0, templateCanvas.width, templateCanvas.height);
-                console.log('🎨 Canvas hazırlandı:', viewport.width, 'x', viewport.height);
-                
-                const renderContext = {
-                    canvasContext: templateCtx,
-                    viewport: viewport
-                };
-                
-                // Render task'ı kaydet
-                console.log('🔄 PDF render başlatılıyor...');
-                currentRenderTask = page.render(renderContext);
-                
-                await currentRenderTask.promise;
-                console.log('✅ PDF render tamamlandı');
-                
-                templateImageObj = new Image();
-                templateImageObj.onload = function() {
-                    console.log('✅ Template image yüklendi');
-                    // Canvas'ı yeniden çiz (bölgeler varsa göster)
-                    redrawTemplateCanvas();
-                    console.log('🖱️ HAZIR: Şimdi canvas üzerinde mouse ile sürükleyerek bölgeler çizebilirsiniz!');
-                    console.log('   📍 Yeni bölge çizmek için: Boş bir alandan başlayıp sürükleyin');
-                    console.log('   ✏️ Bölge düzenlemek için: Mevcut bölgenin üzerine tıklayın');
-                    console.log('   🔧 Bölge boyutlandırmak için: Köşe veya kenar handle\'larını sürükleyin');
-                };
-                templateImageObj.src = templateCanvas.toDataURL();
-                templateScaleFactor = 1;
+                await renderTemplatePDFPage(1);
+                updateTemplatePageNav();
             } catch (error) {
                 if (error.name === 'RenderingCancelledException') {
                     console.log('⚠️ Render işlemi iptal edildi');
@@ -16996,9 +16975,74 @@
                 console.error('❌ PDF yükleme hatası:', error);
                 showToast('❌ PDF yüklenemedi', 'error');
                 throw error;
+            }
+        }
+        
+        async function renderTemplatePDFPage(pageNum) {
+            if (!templatePdfDoc) return;
+            // Önceki render işlemini iptal et
+            if (currentRenderTask) {
+                try { await currentRenderTask.cancel(); } catch (e) {}
+                currentRenderTask = null;
+            }
+            try {
+                const page = await templatePdfDoc.getPage(pageNum);
+                console.log(`✅ PDF sayfa ${pageNum} alındı`);
+                
+                const viewport = page.getViewport({ scale: 2.0 });
+                templateCanvas.width = viewport.width;
+                templateCanvas.height = viewport.height;
+                templateCtx.clearRect(0, 0, templateCanvas.width, templateCanvas.height);
+                console.log('🎨 Canvas hazırlandı:', viewport.width, 'x', viewport.height);
+                
+                const renderContext = { canvasContext: templateCtx, viewport: viewport };
+                console.log('🔄 PDF render başlatılıyor...');
+                currentRenderTask = page.render(renderContext);
+                await currentRenderTask.promise;
+                console.log('✅ PDF render tamamlandı');
+                
+                templateImageObj = new Image();
+                templateImageObj.onload = function() {
+                    console.log('✅ Template image yüklendi');
+                    redrawTemplateCanvas();
+                    console.log('🖱️ HAZIR: Şimdi canvas üzerinde mouse ile sürükleyerek bölgeler çizebilirsiniz!');
+                };
+                templateImageObj.src = templateCanvas.toDataURL();
+                templateScaleFactor = 1;
+            } catch (error) {
+                if (error.name === 'RenderingCancelledException') {
+                    console.log('⚠️ Render işlemi iptal edildi');
+                    return;
+                }
+                throw error;
             } finally {
                 currentRenderTask = null;
             }
+        }
+        
+        async function goToTemplatePage(pageNum) {
+            if (!templatePdfDoc) return;
+            if (pageNum < 1 || pageNum > totalTemplatePages) return;
+            currentTemplatePage = pageNum;
+            await renderTemplatePDFPage(pageNum);
+            updateTemplatePageNav();
+        }
+        
+        function updateTemplatePageNav() {
+            const nav = document.getElementById('templatePageNav');
+            if (!nav) return;
+            if (totalTemplatePages <= 1) {
+                nav.style.display = 'none';
+                return;
+            }
+            nav.style.display = 'flex';
+            document.getElementById('templateCurrentPageLabel').textContent = currentTemplatePage;
+            document.getElementById('templateTotalPagesLabel').textContent = totalTemplatePages;
+            document.getElementById('templatePrevPageBtn').disabled = currentTemplatePage <= 1;
+            document.getElementById('templateNextPageBtn').disabled = currentTemplatePage >= totalTemplatePages;
+            // Disabled style
+            document.getElementById('templatePrevPageBtn').style.opacity = currentTemplatePage <= 1 ? '0.4' : '1';
+            document.getElementById('templateNextPageBtn').style.opacity = currentTemplatePage >= totalTemplatePages ? '0.4' : '1';
         }
         
         async function loadTemplateExcel(file) {
