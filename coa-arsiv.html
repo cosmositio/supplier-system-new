@@ -8219,6 +8219,7 @@
                     'Sıra': index + 1,
                     'Tedarikçi': record.supplier || '',
                     'Hammadde Kodu': record.materialCode || '',
+                    'Hammadde Adı': record.materialName || getMaterialName(record.materialCode) || '',
                     'İrsaliye Tarihi': deliveryDate,
                     'İrsaliye No': record.deliveryNo || '',
                     'Parti/Lot No': lotNumber,
@@ -8237,7 +8238,7 @@
             // Parti/Lot No sütununu text formatında zorla (üstel notasyonu önle)
             const range = XLSX.utils.decode_range(ws['!ref']);
             for (let row = range.s.r + 1; row <= range.e.r; row++) {
-                const cellAddress = XLSX.utils.encode_cell({ r: row, c: 5 }); // 5. sütun = Parti/Lot No
+                const cellAddress = XLSX.utils.encode_cell({ r: row, c: 6 }); // 6. sütun = Parti/Lot No (Hammadde Adı eklendi)
                 if (ws[cellAddress]) {
                     ws[cellAddress].t = 's'; // String olarak işaretle
                     ws[cellAddress].z = '@'; // Text format
@@ -8248,7 +8249,8 @@
             ws['!cols'] = [
                 { wch: 6 },  // Sıra
                 { wch: 35 }, // Tedarikçi
-                { wch: 50 }, // Hammadde Kodu
+                { wch: 20 }, // Hammadde Kodu
+                { wch: 45 }, // Hammadde Adı
                 { wch: 15 }, // İrsaliye Tarihi
                 { wch: 20 }, // İrsaliye No
                 { wch: 20 }, // Lot No
