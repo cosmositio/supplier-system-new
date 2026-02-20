@@ -1512,6 +1512,13 @@
                             <div id="bulkActiveKeyRow" style="margin-top:8px; font-size:0.82em; color:#555; display:none; align-items:center; gap:6px;">
                                 🔑 <span id="bulkActiveKeyLabel" style="font-family:monospace; font-weight:600; color:#667eea;"></span>
                             </div>
+                            <div id="bulkErrorLog" style="display:none; margin-top:10px; background:#fff3f3; border:1px solid #f5c6cb; border-radius:6px; padding:8px 12px; font-size:0.83em; color:#721c24; max-height:130px; overflow-y:auto;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                    <strong>⚠️ Kayıt Hataları</strong>
+                                    <span onclick="document.getElementById('bulkErrorLog').style.display='none'" style="cursor:pointer; font-size:1.1em; line-height:1; padding:0 4px;" title="Kapat">✕</span>
+                                </div>
+                                <ul id="bulkErrorList" style="margin:0; padding-left:16px; line-height:1.8;"></ul>
+                            </div>
                         </div>
                     </div>
                     
@@ -7412,6 +7419,8 @@
             window.ocrSpaceActiveKeyIndex = 0; // Aktif key indeksi (dropdown listesinde)
             window.ocrSpaceLimitedKeys = new Set(); // Saatlik limit aşan key değerleri
             window.ocrSpacePausedForKeyChange = false; // Tüm keyler limitlenince duraklatma
+            // Hata log alanını sıfırla
+            (function(){ const el = document.getElementById('bulkErrorLog'); const ul = document.getElementById('bulkErrorList'); if(el) el.style.display='none'; if(ul) ul.innerHTML=''; })();
             window.ocrSpacePauseResolve = null; // Pause promise resolver
             window.bulkManualPaused = false; // Manuel pause flag
             window.bulkManualPauseResolve = null;
@@ -7942,6 +7951,18 @@
                     console.error(`❌ [${fileNumber}/${bulkFiles.length}] Hata:`, fileObj.file.name, error);
                     errorCount++;
                     errorCountSpan.textContent = errorCount;
+                    // Hata log paneline ekle
+                    (function(){
+                        const errLog = document.getElementById('bulkErrorLog');
+                        const errList = document.getElementById('bulkErrorList');
+                        if (errLog && errList) {
+                            const li = document.createElement('li');
+                            const errMsg = error && error.message ? error.message : String(error);
+                            li.textContent = `[${fileNumber}] ${fileObj.file.name} — ${errMsg}`;
+                            errList.appendChild(li);
+                            errLog.style.display = 'block';
+                        }
+                    })();
                     // Kartı kırmızı ile işaretle
                     const errCardEl = document.getElementById('bulk-card-' + fileObj.id);
                     const errDoneEl = document.getElementById('bulk-card-done-' + fileObj.id);
