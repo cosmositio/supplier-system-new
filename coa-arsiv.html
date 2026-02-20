@@ -7300,6 +7300,7 @@
             window.ocrSpaceRateLimited = false; // Yeni oturum başlıyor, flag sıfırla
             window.ocrSpaceRateLimitTemp = false;
             window.ocrSpaceRateLimitedAt = 0;
+            window.ocrSpaceRateLimitWindow = 0; // Gerçek pencere süresi (ms) - hata mesajından alınır
             window.ocrSpace403ResetCount = 0; // 403 reset sayacı - kalıcı kota tespiti için
             window.ocrSpace403ConsecutiveCount = 0; // Ardarda 403 sayacı - key hata tespiti için
             for (let i = 0; i < bulkFiles.length; i++) {
@@ -7472,7 +7473,8 @@
                                 // OCR rate limit varsa, geçici mi kalıcı mı kontrol et
                                 if (window.ocrSpaceRateLimited) {
                                     const elapsed = Date.now() - (window.ocrSpaceRateLimitedAt || 0);
-                                    if (window.ocrSpaceRateLimitTemp && elapsed > 65000) {
+                                    const rlWindow2 = window.ocrSpaceRateLimitWindow || 3600000;
+                                if (window.ocrSpaceRateLimitTemp && elapsed > rlWindow2) {
                                         window.ocrSpace403ResetCount = (window.ocrSpace403ResetCount || 0) + 1;
                                         if (window.ocrSpace403ResetCount >= 2) {
                                             // 2 kez reset → hala 403: plan dolmuş, kalıcı olarak kapat
@@ -7481,14 +7483,17 @@
                                             window.ocrSpaceRateLimitTemp = false; // kalıcı (reset olmaz)
                                             // ocrSpaceRateLimited = true kalır
                                         } else {
-                                            console.log('⏰ OCR rate limit süresi doldu (65s geçti), bu dosya için yeniden deneniyor...');
+                                            const waitMin2 = Math.round(rlWindow2 / 60000);
+                                            console.log(`⏰ OCR rate limit süresi doldu (${waitMin2}dk geçti), bu dosya için yeniden deneniyor...`);
                                             window.ocrSpaceRateLimited = false;
                                             window.ocrSpaceRateLimitTemp = false;
                                         }
                                     } else {
-                                        const remaining = window.ocrSpaceRateLimitTemp ? Math.max(0, Math.ceil((65000 - elapsed) / 1000)) : 0;
+                                        const remainingSec = window.ocrSpaceRateLimitTemp ? Math.max(0, Math.ceil((rlWindow2 - elapsed) / 1000)) : 0;
+                                        const remainingMin = Math.ceil(remainingSec / 60);
+                                        const remainingDisplay = remainingSec >= 60 ? `${remainingMin} dakika` : `${remainingSec}s`;
                                         const msg = window.ocrSpaceRateLimitTemp
-                                            ? `⚠️ OCR limiti aktif (${remaining}s kaldı) - dosya kaydedildi, OCR atlandı`
+                                            ? `⚠️ OCR saatlik limit aktif (${remainingDisplay} kaldı) - dosya kaydedildi, OCR atlandı`
                                             : '🚫 OCR kota doldu - dosya kaydedildi, OCR atlandı';
                                         console.warn('🚫 OCR.space rate limit aktif - bu dosya için OCR atlanıyor:', fileObj.file.name);
                                         showToast(msg, 'warning', 3000);
@@ -9713,11 +9718,13 @@
                         }
                         
                         // OCR rate limit varsa kalan bölgeleri atla
-                        // Geçici rate limit (dakika bazlı) ise 65 saniye sonra sıfırla
+                        // Geçici rate limit => hata mesajından alınan pencere süresi (varsayılan 3600s)
                         if (window.ocrSpaceRateLimited) {
                             const elapsed = Date.now() - (window.ocrSpaceRateLimitedAt || 0);
-                            if (window.ocrSpaceRateLimitTemp && elapsed > 65000) {
-                                console.log('⏰ OCR rate limit süresi doldu (65s), yeniden deneniyor...');
+                            const rlWindow = window.ocrSpaceRateLimitWindow || 3600000;
+                            if (window.ocrSpaceRateLimitTemp && elapsed > rlWindow) {
+                                const waitMin = Math.round(rlWindow / 60000);
+                                console.log(`⏰ OCR rate limit süresi doldu (${waitMin}dk), yeniden deneniyor...`);
                                 window.ocrSpaceRateLimited = false;
                                 window.ocrSpaceRateLimitTemp = false;
                             } else {
@@ -9812,9 +9819,13 @@
                                     showToast('🔑 OCR.space API key hatası! Ayarlar → API Key kontrol edin. (Hata: ' + (rawErr || '403') + ')', 'error', 15000);
                                 } else {
                                     window.ocrSpaceRateLimitTemp = true;
-                                    const waitSec = is429 ? 60 : 65;
-                                    console.warn(`⏳ OCR.space geçici limit (${is429 ? 429 : 403}) [${window.ocrSpace403ConsecutiveCount}x] - ${waitSec}s sonra tekrar denenecek.`);
-                                    showToast(`⚠️ OCR.space limit – ${waitSec}s bekleyip devam ediyor. (${window.ocrSpace403ConsecutiveCount}. kez)`, 'warning', waitSec * 1000);
+                                    // Hata mesajından pencere süresini çıkar: "within 3600 seconds"
+                                    const windowMatch = error.message && error.message.match(/within\s+(\d+)\s+second/i);
+                                    const detectedWindowSec = windowMatch ? parseInt(windowMatch[1]) : (is429 ? 60 : 3600);
+                                    window.ocrSpaceRateLimitWindow = detectedWindowSec * 1000; // ms cinsinden kaydet
+                                    const waitDisplay = detectedWindowSec >= 60 ? `${Math.ceil(detectedWindowSec / 60)} dakika` : `${detectedWindowSec}s`;
+                                    console.warn(`⏳ OCR.space saatlik limit (${is429 ? 429 : 403}) [${window.ocrSpace403ConsecutiveCount}x] - Pencere: ${detectedWindowSec}s | ${waitDisplay} sonra tekrar denenecek.`);
+                                    showToast(`⚠️ OCR.space saatlik limit aşıldı (180/saat) – ${waitDisplay} bekleyip devam edecek. (${window.ocrSpace403ConsecutiveCount}. kez)`, 'warning', 15000);
                                 }
                             }
                             
