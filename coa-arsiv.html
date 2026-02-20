@@ -9693,6 +9693,31 @@
                         } catch (error) {
                             console.error(`❌ [${region.index}] ${region.propertyName} OCR hatası:`, error.message);
                             
+                            // E101 = API Timeout → 4 saniye bekle ve bir kez daha dene
+                            const isTimeout = error.message && (error.message.includes('E101') || /timed? ?out/i.test(error.message));
+                            if (isTimeout) {
+                                console.warn(`⏳ [${region.propertyName}] Timeout (E101) – 4 saniye bekleniyor, yeniden deneniyor...`);
+                                showToast(`⏳ OCR timeout – ${region.propertyName} yeniden deneniyor...`, 'warning', 4000);
+                                await new Promise(resolve => setTimeout(resolve, 4000));
+                                try {
+                                    let retryText = '';
+                                    if (ocrEngine === 'azure') {
+                                        const azureResult = await performAzureOCR(region.imageData);
+                                        retryText = azureResult?.text || '';
+                                    } else {
+                                        retryText = await performOCRSpaceOCR(region.imageData);
+                                    }
+                                    let cleanRetry = retryText.trim().replace(/\s+/g, ' ');
+                                    cleanRetry = cleanRetry.replace(/(\d+)\.\s+(\d+)/g, '$1.$2');
+                                    console.log(`✅ [${region.propertyName}] Yeniden deneme başarılı: "${cleanRetry}"`);
+                                    results.push({ propertyName: region.propertyName, regionType: region.regionType, value: cleanRetry });
+                                    if (i < regionsToProcess.length - 1) await new Promise(resolve => setTimeout(resolve, 600));
+                                    continue;
+                                } catch (retryErr) {
+                                    console.error(`❌ [${region.propertyName}] Yeniden deneme de başarısız:`, retryErr.message);
+                                }
+                            }
+                            
                             // 403/429 = rate limit veya kota aşımı
                             const is403 = error.message && error.message.includes('403');
                             const is429 = error.message && error.message.includes('429');
