@@ -1744,6 +1744,7 @@
             window.ocrSpacePausedForKeyChange = false;
             window.ocrSpaceActiveKeyIndex = 0;
             window.ocrSpace403ConsecutiveCount = 0;
+            window.ocrSpaceFallbackToTesseract = false;
             window.bulkManualPaused = false;
             const pauseBtn = document.getElementById('bulkPauseBtn');
             if (pauseBtn) { pauseBtn.textContent = '⏸️ Duraklat'; pauseBtn.onclick = pauseBulkUpload; pauseBtn.style.background = '#fd7e14'; }
@@ -7419,6 +7420,7 @@
             window.ocrSpaceActiveKeyIndex = 0; // Aktif key indeksi (dropdown listesinde)
             window.ocrSpaceLimitedKeys = new Set(); // Saatlik limit aşan key değerleri
             window.ocrSpacePausedForKeyChange = false; // Tüm keyler limitlenince duraklatma
+            window.ocrSpaceFallbackToTesseract = false; // Tesseract fallback modu
             // Hata log alanını sıfırla
             (function(){ const el = document.getElementById('bulkErrorLog'); const ul = document.getElementById('bulkErrorList'); if(el) el.style.display='none'; if(ul) ul.innerHTML=''; })();
             window.ocrSpacePauseResolve = null; // Pause promise resolver
@@ -7623,8 +7625,8 @@
                                 
                                 // Pause kontrolü kaldırıldı – key geçişi otomatik
                                 
-                                // OCR rate limit varsa: kalıcı mı yoksa geçici (saatlik) mi?
-                                if (window.ocrSpaceRateLimited) {
+                                // OCR rate limit varsa: kalıcı mı yoksa Tesseract fallback mı?
+                                if (window.ocrSpaceRateLimited && !window.ocrSpaceFallbackToTesseract) {
                                     if (!window.ocrSpaceRateLimitTemp) {
                                         // Kalıcı limit (aylık kota/geçersiz key) → atla
                                         console.warn('🚫 OCR kalıcı limit aktif - bu dosya için OCR atlanıyor:', fileObj.file.name);
@@ -9298,6 +9300,15 @@
             return enhancedCanvas;
         }
         
+        // Tesseract.js yerel OCR (API limiti yok)
+        async function performTesseractOCR(imageData) {
+            if (typeof Tesseract === 'undefined') throw new Error('Tesseract.js yüklenmedi');
+            const result = await Tesseract.recognize(imageData, 'tur+eng', { logger: () => {} });
+            const text = (result.data.text || '').trim();
+            if (!text) throw new Error('Tesseract boş sonuç döndürdü');
+            return text;
+        }
+        
         async function performAzureOCR(imageData) {
             console.log('🔵 Azure Computer Vision OCR başlatılıyor...');
             
@@ -9908,20 +9919,10 @@
                             break;
                         }
                         
-                        // OCR rate limit varsa kalan bölgeleri atla
-                        // Geçici rate limit => hata mesajından alınan pencere süresi (varsayılan 3600s)
-                        if (window.ocrSpaceRateLimited) {
-                            const elapsed = Date.now() - (window.ocrSpaceRateLimitedAt || 0);
-                            const rlWindow = window.ocrSpaceRateLimitWindow || 3600000;
-                            if (window.ocrSpaceRateLimitTemp && elapsed > rlWindow) {
-                                const waitMin = Math.round(rlWindow / 60000);
-                                console.log(`⏰ OCR rate limit süresi doldu (${waitMin}dk), yeniden deneniyor...`);
-                                window.ocrSpaceRateLimited = false;
-                                window.ocrSpaceRateLimitTemp = false;
-                            } else {
-                                results.push({ propertyName: region.propertyName, value: '', error: true });
-                                continue;
-                            }
+                        // OCR rate limit varsa kalan bölgeleri atla (Tesseract fallback aktifse atla)
+                        if (window.ocrSpaceRateLimited && !window.ocrSpaceFallbackToTesseract) {
+                            results.push({ propertyName: region.propertyName, value: '', error: true });
+                            continue;
                         }
                         
                         try {
@@ -9931,6 +9932,9 @@
                                 console.log(`🔵 [${region.index}] ${region.propertyName} - Azure OCR başlatıldı`);
                                 const azureResult = await performAzureOCR(region.imageData);
                                 ocrText = azureResult?.text || '';
+                            } else if (window.ocrSpaceFallbackToTesseract) {
+                                console.log(`🟡 [${region.index}/${regionsToProcess.length}] ${region.propertyName} - Tesseract.js (yerel) başlatıldı`);
+                                ocrText = await performTesseractOCR(region.imageData);
                             } else {
                                 console.log(`🟢 [${region.index}/${regionsToProcess.length}] ${region.propertyName} - OCR.space başlatıldı`);
                                 ocrText = await performOCRSpaceOCR(region.imageData);
@@ -10048,12 +10052,23 @@
                                             // Yeni key de 403 aldıysa tekrar rotation tetiklenecek (sonraki catch döngüsünde değil ama en azından kaydı boş bırak)
                                         }
                                     } else {
-                                        // Tüm keyler limitlendi – toast göster, OCR dur
-                                        window.ocrSpaceRateLimited = true;
-                                        window.ocrSpaceRateLimitTemp = true;
-                                        const waitDisplay = detectedWindowSec >= 60 ? `${Math.ceil(detectedWindowSec / 60)} dakika` : `${detectedWindowSec}s`;
-                                        console.warn('🚫 Tüm OCR key\'ler limitlendi – OCR bu dosyalar için devre dışı.');
-                                        showToast(`🚫 Tüm OCR.space key'ler saatlik limite ulaştı! (${waitDisplay} sonra yenilenir) Ayarlar'dan yeni key ekleyebilirsiniz.`, 'error', 15000);
+                                        // Tüm keyler limitlendi → Tesseract.js'e geç (bekleme yok!)
+                                        window.ocrSpaceFallbackToTesseract = true;
+                                        window.ocrSpaceRateLimited = false;
+                                        window.ocrSpaceLimitedKeys = new Set();
+                                        window.ocrSpaceActiveKeyIndex = 0;
+                                        console.warn('🔄 Tüm OCR.space key\'ler limitlendi → Tesseract.js yerel moduna geçiliyor!');
+                                        showToast('🔄 OCR.space limit doldu → Tesseract.js yerel mod aktif! Bekleme yok, devam ediyor...', 'warning', 7000);
+                                        // Mevcut bölgeyi Tesseract ile hemen dene
+                                        try {
+                                            const _tText = await performTesseractOCR(region.imageData);
+                                            let _tClean = _tText.trim().replace(/\s+/g, ' ').replace(/(\d+)\.\s+(\d+)/g, '$1.$2');
+                                            console.log(`✅ [${region.propertyName}] Tesseract fallback başarılı: "${_tClean}"`);
+                                            results.push({ propertyName: region.propertyName, regionType: region.regionType, value: _tClean });
+                                            continue;
+                                        } catch (_tErr) {
+                                            console.error(`❌ [${region.propertyName}] Tesseract da başarısız:`, _tErr.message);
+                                        }
                                     }
                                 }
                             }
