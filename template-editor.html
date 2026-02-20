@@ -268,6 +268,33 @@
         .instructions li {
             margin-bottom: 5px;
         }
+
+        .page-nav {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            background: #e8f4fd;
+            border: 1px solid #b3d8f5;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #0066cc;
+        }
+
+        .page-nav button {
+            padding: 5px 12px;
+            font-size: 13px;
+            background: #0066cc;
+            color: white;
+            border-radius: 4px;
+            min-width: 32px;
+        }
+
+        .page-nav button:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -306,6 +333,13 @@
             
             <div class="control-group" style="align-self: flex-end;">
                 <button class="btn-danger" onclick="clearRegions()">🗑️ Tümünü Temizle</button>
+            </div>
+
+            <!-- Çok sayfalı PDF için sayfa navigasyonu -->
+            <div class="control-group page-nav" id="pageNav" style="align-self: flex-end;">
+                <button onclick="goToPage(currentPage - 1)" id="prevPageBtn">◀</button>
+                <span>Sayfa <span id="currentPageLabel">1</span> / <span id="totalPagesLabel">1</span></span>
+                <button onclick="goToPage(currentPage + 1)" id="nextPageBtn">▶</button>
             </div>
         </div>
         
@@ -367,6 +401,9 @@
         
         let canvas, ctx;
         let regions = [];
+        let pdfDoc = null;       // Yüklü PDF nesnesi (çok sayfa desteği)
+        let currentPage = 1;     // Aktif sayfa numarası
+        let totalPages = 1;      // Toplam sayfa sayısı
         let currentRegion = null;
         let isDrawing = false;
         let startX, startY;
@@ -407,25 +444,48 @@
         
         async function loadPDF(file) {
             const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-            const page = await pdf.getPage(1);
+            pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+            totalPages = pdfDoc.numPages;
+            currentPage = 1;
+            await renderPDFPage(currentPage);
+            updatePageNav();
+        }
+
+        async function renderPDFPage(pageNum) {
+            if (!pdfDoc) return;
+            const page = await pdfDoc.getPage(pageNum);
             
             const viewport = page.getViewport({ scale: 2.0 });
             canvas.width = viewport.width;
             canvas.height = viewport.height;
             
-            const renderContext = {
-                canvasContext: ctx,
-                viewport: viewport
-            };
+            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
             
-            await page.render(renderContext).promise;
-            
-            // Save as image for drawing
             imageObj = new Image();
             imageObj.src = canvas.toDataURL();
-            currentImageData = canvas.toDataURL('image/png'); // Görseli sakla
+            currentImageData = canvas.toDataURL('image/png');
             scaleFactor = 1;
+
+            // Bölgeleri yeniden çiz
+            redrawCanvas();
+        }
+
+        async function goToPage(pageNum) {
+            if (!pdfDoc || pageNum < 1 || pageNum > totalPages) return;
+            currentPage = pageNum;
+            await renderPDFPage(currentPage);
+            updatePageNav();
+        }
+
+        function updatePageNav() {
+            const nav = document.getElementById('pageNav');
+            const prevBtn = document.getElementById('prevPageBtn');
+            const nextBtn = document.getElementById('nextPageBtn');
+            document.getElementById('currentPageLabel').textContent = currentPage;
+            document.getElementById('totalPagesLabel').textContent = totalPages;
+            nav.style.display = totalPages > 1 ? 'flex' : 'none';
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = currentPage >= totalPages;
         }
         
         function loadImage(file) {
