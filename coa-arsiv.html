@@ -7298,6 +7298,7 @@
             window.ocrSpaceRateLimited = false; // Yeni oturum başlıyor, flag sıfırla
             window.ocrSpaceRateLimitTemp = false;
             window.ocrSpaceRateLimitedAt = 0;
+            window.ocrSpace403ResetCount = 0; // 403 reset sayacı - kalıcı kota tespiti için
             for (let i = 0; i < bulkFiles.length; i++) {
                 // UI'ın nefes alması için her dosya başında event loop'a dön
                 await new Promise(resolve => setTimeout(resolve, 0));
@@ -7464,9 +7465,18 @@
                                 if (window.ocrSpaceRateLimited) {
                                     const elapsed = Date.now() - (window.ocrSpaceRateLimitedAt || 0);
                                     if (window.ocrSpaceRateLimitTemp && elapsed > 65000) {
-                                        console.log('⏰ OCR rate limit süresi doldu (65s geçti), bu dosya için yeniden deneniyor...');
-                                        window.ocrSpaceRateLimited = false;
-                                        window.ocrSpaceRateLimitTemp = false;
+                                        window.ocrSpace403ResetCount = (window.ocrSpace403ResetCount || 0) + 1;
+                                        if (window.ocrSpace403ResetCount >= 2) {
+                                            // 2 kez reset → hala 403: plan dolmuş, kalıcı olarak kapat
+                                            console.warn('🚫 OCR.space 2x reset sonrası hala 403 – API key planı dolmuş. OCR bu oturumda devre dışı.');
+                                            showToast('🚫 OCR.space API key planı dolmuş! Yeni key alın.', 'error', 10000);
+                                            window.ocrSpaceRateLimitTemp = false; // kalıcı (reset olmaz)
+                                            // ocrSpaceRateLimited = true kalır
+                                        } else {
+                                            console.log('⏰ OCR rate limit süresi doldu (65s geçti), bu dosya için yeniden deneniyor...');
+                                            window.ocrSpaceRateLimited = false;
+                                            window.ocrSpaceRateLimitTemp = false;
+                                        }
                                     } else {
                                         const remaining = window.ocrSpaceRateLimitTemp ? Math.max(0, Math.ceil((65000 - elapsed) / 1000)) : 0;
                                         const msg = window.ocrSpaceRateLimitTemp
@@ -8973,6 +8983,10 @@
                 console.log('🔍 OCR.space Engine 2 (tur) Response:', result);
             } catch (e2err) {
                 console.warn('⚠️ Engine 2/tur HTTP hatası:', e2err.message);
+                // 403/429 = yetki/kota hatası → diğer engine'leri deneme, aynı sonuç alınır
+                if (e2err.message && (e2err.message.includes('403') || e2err.message.includes('429'))) {
+                    throw e2err;
+                }
             }
 
             // Engine 2 boş/hatalı döndü veya exception attıysa → Engine 1 + eng dene (ücretsiz key fallback)
@@ -8984,6 +8998,10 @@
                     console.log('🔍 OCR.space Engine 1 (eng) Response:', result);
                 } catch (e1err) {
                     console.warn('⚠️ Engine 1/eng HTTP hatası:', e1err.message);
+                    // 403/429 = yetki/kota hatası → son denemeyi de atla
+                    if (e1err.message && (e1err.message.includes('403') || e1err.message.includes('429'))) {
+                        throw e1err;
+                    }
                     // Son çare: Engine 1 + tur
                     console.warn('⚠️ Son deneme: Engine 1 (tur)...');
                     result = await doOCRRequest(1, 'tur');
