@@ -2682,6 +2682,7 @@
                 canvasWidth: templateCanvas.width,
                 canvasHeight: templateCanvas.height,
                 scaleFactor: templateScaleFactor,
+                pdfPage: currentTemplatePage || 1, // Hangi PDF sayfasında bölgeler çizildi
                 imageData: originalImageData || templateCanvas.toDataURL('image/png', 1.0), // Orijinal görsel (bölgeler olmadan)
                 regions: templateRegions.map(r => ({
                     propertyName: r.propertyName,
@@ -9475,7 +9476,8 @@
                         canvasHeight = canvas.height;
                         console.log('✅ Word canvas\'a çevrildi:', canvasWidth, 'x', canvasHeight);
                     } else if (fileData.startsWith('data:application/pdf')) {
-                        console.log('📄 PDF canvas\'a çeviriliyor...');
+                        const pdfPageNum = template.pdfPage || 1;
+                        console.log('📄 PDF canvas\'a çeviriliyor (sayfa ' + pdfPageNum + ')...');
                         const base64Data = fileData.split(',')[1];
                         const binaryData = atob(base64Data);
                         const uint8Array = new Uint8Array(binaryData.length);
@@ -9485,7 +9487,7 @@
                         
                         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                         const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
-                        const page = await pdf.getPage(1);
+                        const page = await pdf.getPage(pdfPageNum);
                         
                         const viewport = page.getViewport({ scale: 2.0 });
                         canvas = document.createElement('canvas');
