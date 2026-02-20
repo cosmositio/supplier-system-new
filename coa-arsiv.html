@@ -9986,12 +9986,26 @@
                                     }
 
                                     if (_nextIdx !== -1) {
-                                        // Başka kullanılabilir key var → geç
+                                        // Başka kullanılabilir key var → geç ve bu bölgeyi YENİDEN DENE
                                         window.ocrSpaceActiveKeyIndex = _nextIdx;
                                         window.ocrSpace403ConsecutiveCount = 0;
-                                        console.warn(`🔄 OCR.space ${_curKey?.label || 'Key'} limit aşıldı → ${_rotKeys[_nextIdx].label}'e otomatik geçiş!`);
-                                        showToast(`🔄 ${_curKey?.label || 'Key'} limit aşıldı → ${_rotKeys[_nextIdx].label}'e geçildi!`, 'warning', 6000);
-                                        // ocrSpaceRateLimited SETLEME – sonraki bölge yeni key ile devam etsin
+                                        console.warn(`🔄 OCR.space ${_curKey?.label || 'Key'} limit aşıldı → ${_rotKeys[_nextIdx].label}'e otomatik geçiş! [${region.propertyName}] yeniden deneniyor...`);
+                                        showToast(`🔄 ${_curKey?.label || 'Key'} → ${_rotKeys[_nextIdx].label}'e geçildi, ${region.propertyName} tekrar deneniyor...`, 'warning', 5000);
+                                        // Yeni key ile aynı bölgeyi hemen yeniden dene
+                                        try {
+                                            await new Promise(resolve => setTimeout(resolve, 500));
+                                            const retryText = await performOCRSpaceOCR(region.imageData);
+                                            let cleanRetry = retryText.trim().replace(/\s+/g, ' ');
+                                            cleanRetry = cleanRetry.replace(/(\d+)\.\s+(\d+)/g, '$1.$2');
+                                            console.log(`✅ [${region.propertyName}] Yeni key ile başarılı: "${cleanRetry}"`);
+                                            window.ocrSpace403ConsecutiveCount = 0;
+                                            results.push({ propertyName: region.propertyName, regionType: region.regionType, value: cleanRetry });
+                                            if (i < regionsToProcess.length - 1) await new Promise(resolve => setTimeout(resolve, 600));
+                                            continue; // Bu bölge başarılı, sonraki bölgeye geç
+                                        } catch (retryErr) {
+                                            console.error(`❌ [${region.propertyName}] Yeni key ile de başarısız:`, retryErr.message);
+                                            // Yeni key de 403 aldıysa tekrar rotation tetiklenecek (sonraki catch döngüsünde değil ama en azından kaydı boş bırak)
+                                        }
                                     } else {
                                         // Tüm keyler limitlendi – toast göster, OCR dur
                                         window.ocrSpaceRateLimited = true;
