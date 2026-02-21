@@ -14875,17 +14875,17 @@
                 `;
                 
                 let tableHTML = `
-                    <div>
-                        <table style="width: 100%; border-collapse: collapse; background: white; font-size: 13px;">
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; background: white; font-size: 13px; min-width: 700px;">
                             <thead>
                                 <tr style="background: #667eea; color: white;">
-                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: left; width: 35px; font-size: 0.9em;">#</th>
-                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: left; font-size: 0.9em;">Özellik Adı</th>
-                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: center; width: 120px; font-size: 0.9em;">TDS Limit</th>
-                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: center; width: 120px; font-size: 0.9em;">Requirement</th>
-                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: center; width: 100px; font-size: 0.9em;">COA Değeri</th>
-                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: center; width: 70px; font-size: 0.9em;">Birim</th>
-                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: center; width: 140px; font-size: 0.9em;">Durum</th>
+                                    <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: left; width: 35px; font-size: 0.9em;">#</th>
+                                    <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: left; font-size: 0.9em;">Özellik Adı</th>
+                                    <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; width: 130px; font-size: 0.9em;">TDS Limit</th>
+                                    <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; width: 130px; font-size: 0.9em;">Requirement</th>
+                                    <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; width: 110px; font-size: 0.9em;">COA Değeri</th>
+                                    <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; width: 80px; font-size: 0.9em;">Birim</th>
+                                    <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; width: 140px; font-size: 0.9em;">Durum</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -14938,13 +14938,13 @@
                     
                     tableHTML += `
                         <tr style="background: ${index % 2 === 0 ? 'white' : '#f9f9f9'};">
-                            <td style="padding: 8px; border: 1px solid #ddd; font-size: 0.9em;">${index + 1}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd; font-weight: 600; font-size: 0.9em;">${propName}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #0066cc; font-size: 0.85em;">${tdsLimitDisplay}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #ff6600; font-size: 0.85em;">${prop.requirement || '-'}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold; color: #667eea; font-size: 0.85em;">${prop.coaValue || '-'}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-size: 0.85em;">${prop.unit || '-'}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${statusBadge}</td>
+                            <td style="padding: 10px 8px; border: 1px solid #ddd; font-size: 0.9em;">${index + 1}</td>
+                            <td style="padding: 10px 8px; border: 1px solid #ddd; font-weight: 600; font-size: 0.9em;">${propName}</td>
+                            <td style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; color: #0066cc; font-size: 0.85em;">${tdsLimitDisplay}</td>
+                            <td style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; color: #ff6600; font-size: 0.85em;">${prop.requirement || '-'}</td>
+                            <td style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; font-weight: bold; color: #667eea; font-size: 0.85em;">${prop.coaValue || '-'}</td>
+                            <td style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; font-size: 0.85em;">${prop.unit || '-'}</td>
+                            <td style="padding: 10px 8px; border: 1px solid #ddd; text-align: center;">${statusBadge}</td>
                         </tr>
                     `;
                 });
@@ -18470,7 +18470,7 @@
     <!-- COA Properties Modal -->
     <div class="modal" id="coaPropertiesModal">
         <span class="modal-close" onclick="closeCoaPropertiesModal()">&times;</span>
-        <div class="modal-content" style="max-width: 900px; width: 90%; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-content" style="max-width: 1100px; width: 95%; max-height: 90vh; overflow-y: auto; overflow-x: hidden;">
             <h2 style="margin-bottom: 20px;">📊 COA Analiz Değerleri</h2>
             
             <div id="coaPropertiesContent">
