@@ -7456,6 +7456,8 @@
                     row.style.display = 'flex';
                     if (motor === 'azure') {
                         lbl.textContent = '🌐 Azure Computer Vision aktif';
+                    } else if (motor === 'tesseract') {
+                        lbl.textContent = '🖥️ Tesseract.js — Yerel motor (API key gerekmez)';
                     } else {
                         const _ks = (typeof getOcrKeysList === 'function') ? getOcrKeysList() : [];
                         const _idx = Math.min(window.ocrSpaceActiveKeyIndex || 0, _ks.length - 1);
@@ -9947,6 +9949,8 @@
                             // Temizle
                             let cleanText = ocrText.trim().replace(/\s+/g, ' ');
                             cleanText = cleanText.replace(/(\d+)\.\s+(\d+)/g, '$1.$2');
+                            // Tesseract bazen başa apostrof/tırnak ekler ('> 150 m → > 150 m)
+                            cleanText = cleanText.replace(/^['"''""\u2018\u2019\u201C\u201D]+/, '').trim();
                             
                             console.log(`✅ [${region.index}/${regionsToProcess.length}] ${region.propertyName}: "${cleanText}"`);
                             
@@ -11661,7 +11665,8 @@
                         console.log(`  📋 Orijinal prop:`, { coaValue: prop.coaValue, unit: prop.unit, min: prop.min, max: prop.max });
                         console.log(`  🔢 prop.coaValue RAW type: ${typeof prop.coaValue}, RAW value:`, prop.coaValue);
                         
-                        // Operatör sembollerini temizle (≤, ≥, <, >, =)
+                        // Operatör sembollerini temizle (≤, ≥, <, >, =) ve başındaki tırnak/apostrof
+                        coaValue = coaValue.replace(/^['"''""\u2018\u2019\u201C\u201D]+/, '').trim();
                         coaValue = coaValue.replace(/^[≤≥<>=]+\s*/, '');
                         
                         // TÜM virgülleri noktaya çevir (Türkçe ondalık ayırıcısı)
@@ -12373,6 +12378,8 @@
                 if (!coaValue || coaValue.trim() === '') continue;
                 
                 let cleanedCoaValue = coaValue.trim();
+                // Tesseract'ın eklediği başındaki apostrof/tırnak karakterlerini temizle
+                cleanedCoaValue = cleanedCoaValue.replace(/^['"''""\u2018\u2019\u201C\u201D]+/, '').trim();
                 
                 // COA değerinden birim ve operatör sembolleri parse et
                 let extractedUnit = '';
