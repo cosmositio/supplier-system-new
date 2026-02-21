@@ -11703,9 +11703,10 @@
                             console.log(`  🌡️ Thermal conductivity özel düzeltme: "${coaValue}"`);
                         }
                         
-                        // ÖNCE: Range değer kontrolü (örn: "100 - 110" veya "29.8-30.3")
+                        // ÖNCE: Range değer kontrolü (örn: "100 - 110", "100 – 110", "100 — 110", "29.8-30.3")
+                        // Tesseract bazen kısa çizgi yerine em dash (—) veya en dash (–) okuyabilir.
                         // Bu değerler unit olarak ALGILANMAMALI!
-                        const isRangeValue = /^[\d.]+\s*-\s*[\d.]+$/.test(coaValue);
+                        const isRangeValue = /^[\d.]+\s*[-\u2013\u2014]\s*[\d.]+$/.test(coaValue);
                         
                         // Eğer COA değeri içinde boşluk ve birim varsa ayır (örn: "14.38 kg/m3")
                         // ANCAK range değer değilse!
@@ -11843,8 +11844,9 @@
                         // (Google Sheets'in "5.5" gibi değerleri tarih olarak yorumlamasını önle)
                         let finalCoaValue = coaValue || '';
                         if (finalCoaValue && typeof finalCoaValue === 'string') {
-                            // Range değer kontrolü (örn: "100 - 110")
-                            const isRangeValue = /^[\d.]+\s*-\s*[\d.]+$/.test(finalCoaValue);
+                            // Range değer kontrolü (örn: "100 - 110", "100 – 110", "100 — 110")
+                            // Tesseract bazen kısa çizgi yerine em dash (—) veya en dash (–) okuyabilir.
+                            const isRangeValue = /^[\d.]+\s*[-\u2013\u2014]\s*[\d.]+$/.test(finalCoaValue);
                             
                             if (!isRangeValue) {
                                 // Tek sayısal değer - Number'a çevir
