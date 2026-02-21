@@ -1700,6 +1700,7 @@
                             <option value="ocrspace">OCR.space (Hızlı)</option>
                             <option value="azure">Microsoft Azure (Taranmış için güçlü)</option>
                             <option value="both">İkisini de dene (En iyi sonucu seç)</option>
+                            <option value="tesseract">Tesseract.js (Yerel — API gerekmez)</option>
                         </select>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -9919,8 +9920,8 @@
                             break;
                         }
                         
-                        // OCR rate limit varsa kalan bölgeleri atla (Tesseract fallback aktifse atla)
-                        if (window.ocrSpaceRateLimited && !window.ocrSpaceFallbackToTesseract) {
+                        // OCR rate limit varsa kalan bölgeleri atla (Tesseract fallback veya Tesseract motoru aktifse atla)
+                        if (window.ocrSpaceRateLimited && !window.ocrSpaceFallbackToTesseract && ocrEngine !== 'tesseract') {
                             results.push({ propertyName: region.propertyName, value: '', error: true });
                             continue;
                         }
@@ -9932,8 +9933,11 @@
                                 console.log(`🔵 [${region.index}] ${region.propertyName} - Azure OCR başlatıldı`);
                                 const azureResult = await performAzureOCR(region.imageData);
                                 ocrText = azureResult?.text || '';
-                            } else if (window.ocrSpaceFallbackToTesseract) {
+                            } else if (ocrEngine === 'tesseract') {
                                 console.log(`🟡 [${region.index}/${regionsToProcess.length}] ${region.propertyName} - Tesseract.js (yerel) başlatıldı`);
+                                ocrText = await performTesseractOCR(region.imageData);
+                            } else if (window.ocrSpaceFallbackToTesseract) {
+                                console.log(`🟡 [${region.index}/${regionsToProcess.length}] ${region.propertyName} - Tesseract.js (fallback) başlatıldı`);
                                 ocrText = await performTesseractOCR(region.imageData);
                             } else {
                                 console.log(`🟢 [${region.index}/${regionsToProcess.length}] ${region.propertyName} - OCR.space başlatıldı`);
@@ -10254,6 +10258,19 @@
                             ocrSuccess = true;
                         } else {
                             throw new Error('Her iki OCR motoru da başarısız oldu');
+                        }
+                    } else if (ocrEngine === 'tesseract') {
+                        // Tesseract.js yerel motor
+                        try {
+                            console.log('🟡 Tesseract.js kullanılıyor (yerel)...');
+                            text = await performTesseractOCR(imageData);
+                            lines = [];
+                            ocrSuccess = true;
+                        } catch (tessError) {
+                            console.error('❌ Tesseract.js hatası:', tessError);
+                            showToast('❌ Tesseract.js hatası: ' + tessError.message, 'error');
+                            reject(tessError);
+                            return;
                         }
                     } else {
                         // Varsayılan: OCR.space kullan
