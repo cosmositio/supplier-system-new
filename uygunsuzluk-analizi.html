@@ -296,6 +296,41 @@
         .bi-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
         .bi-checkbox { width: 17px; height: 17px; accent-color: #b94fc4; cursor: pointer; flex-shrink: 0; margin-top: 1px; }
 
+        /* Custom Cari Dropdown */
+        .cari-dropdown { position: relative; }
+        .cari-selected {
+            border: 1px solid #d0b0e0; border-radius: 8px; padding: 7px 12px;
+            background: white; cursor: pointer; font-size: 0.88em; color: #333;
+            display: flex; justify-content: space-between; align-items: center;
+            min-height: 36px; gap: 6px; user-select: none;
+        }
+        .cari-selected:hover { border-color: #b94fc4; }
+        .cari-selected .cari-sel-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .cari-panel {
+            position: absolute; top: calc(100% + 4px); left: 0; width: 440px;
+            background: white; border: 1px solid #d0b0e0; border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 9999; overflow: hidden;
+        }
+        .cari-panel-header { padding: 8px 10px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 6px; }
+        .cari-search-input {
+            flex: 1; border: 1px solid #e0c0f0; border-radius: 6px; padding: 6px 10px;
+            font-size: 0.85em; outline: none;
+        }
+        .cari-search-input:focus { border-color: #b94fc4; }
+        .cari-legend { font-size: 0.72em; color: #888; white-space: nowrap; }
+        .cari-list { max-height: 300px; overflow-y: auto; }
+        .cari-list-item {
+            display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+            cursor: pointer; font-size: 0.83em; color: #333; transition: background 0.12s;
+        }
+        .cari-list-item:hover { background: #fdf5ff; }
+        .cari-list-item.selected { background: #f0e0ff; }
+        .cari-list-item.selected .cari-item-name { font-weight: 700; color: #4a0a6b; }
+        .cari-musteri-chk { width: 14px; height: 14px; accent-color: #e07000; cursor: pointer; flex-shrink: 0; }
+        .cari-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cari-badge { font-size: 0.70em; background: #e07000; color: white; border-radius: 4px; padding: 1px 5px; flex-shrink: 0; }
+        .cari-clear-btn { font-size: 0.75em; border: none; background: #f3e0ff; color: #7b2d8b; border-radius: 5px; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
+
         /* Empty state */
         .empty-state {
             text-align: center;
@@ -474,8 +509,29 @@
                 <select id="fTespitYeri"><option value="">Tümü</option></select>
             </div>
             <div class="filter-group">
-                <label>Cari (Tedarikçi)</label>
-                <select id="fCari"><option value="">Tümü</option></select>
+                <label>Cari Tipi</label>
+                <select id="fCariTip">
+                    <option value="">Tümü</option>
+                    <option value="musteri">★ Müşteri</option>
+                    <option value="tedarikci">Tedarikçi</option>
+                </select>
+            </div>
+            <div class="filter-group" style="position:relative;">
+                <label>Cari (Tedarikçi / Müşteri)</label>
+                <div class="cari-dropdown" id="cariDropdown">
+                    <div class="cari-selected" onclick="toggleCariDropdown()">
+                        <span class="cari-sel-text" id="cariSelectedText">Tümü</span>
+                        <span style="color:#b94fc4;font-size:0.85em;">&#9660;</span>
+                    </div>
+                    <div class="cari-panel" id="cariPanel" style="display:none;">
+                        <div class="cari-panel-header">
+                            <input class="cari-search-input" id="cariSearch" placeholder="🔍 Cari ara..." oninput="filterCariList()" autocomplete="off">
+                            <span class="cari-legend">★ = Müşteri</span>
+                            <button class="cari-clear-btn" onclick="selectCari('')">Temizle</button>
+                        </div>
+                        <div class="cari-list" id="cariList"></div>
+                    </div>
+                </div>
             </div>
             <div class="filter-group">
                 <label>Stok Kodu</label>
@@ -591,6 +647,9 @@ let sortCol = -1;
 let sortAsc = true;
 let paretoChartInst = null;
 let excludedHataTipleri = new Set(); // breakdown'dan dışlananlar
+let selectedCari = '';            // custom cari dropdown seçili değer
+let musteriSet = new Set();       // müşteri olarak işaretlenmiş cariler
+let _cariAllList = [];            // cari dropdown listesi
 
 // Column map: internal key → possible Excel header variants (case-insensitive)
 const COL_MAP = {
@@ -764,7 +823,6 @@ function populateFilters() {
         fHataKaynagi: 'hataKaynagi',
         fUygunsuzlukTuru: 'uygunsuzlukTuru',
         fTespitYeri: 'tespitYeri',
-        fCari: 'cariAdi',
         fStokKodu: 'stokKodu',
     };
     for (const [selId, field] of Object.entries(selFields)) {
@@ -774,6 +832,7 @@ function populateFilters() {
         sel.innerHTML = '<option value="">Tümü</option>' + vals.map(v => `<option value="${v}">${v}</option>`).join('');
         if (vals.includes(current)) sel.value = current;
     }
+    populateCariDropdown();
     // Date range
     const dates = allData.map(r => r.uygunsuzlukTarih).filter(Boolean).sort();
     if (dates.length) {
@@ -789,10 +848,10 @@ function applyFilters() {
     const hataKaynagi   = document.getElementById('fHataKaynagi').value;
     const uyTuru        = document.getElementById('fUygunsuzlukTuru').value;
     const tespitYeri    = document.getElementById('fTespitYeri').value;
-    const cari          = document.getElementById('fCari').value;
     const stokKodu      = document.getElementById('fStokKodu').value;
     const dateStart     = document.getElementById('fDateStart').value;
     const dateEnd       = document.getElementById('fDateEnd').value;
+    const cariTip       = document.getElementById('fCariTip').value;
 
     filteredData = allData.filter(r => {
         if (tipi        && r.tipi        !== tipi)        return false;
@@ -800,7 +859,9 @@ function applyFilters() {
         if (hataKaynagi && r.hataKaynagi !== hataKaynagi) return false;
         if (uyTuru      && r.uygunsuzlukTuru !== uyTuru)  return false;
         if (tespitYeri  && r.tespitYeri  !== tespitYeri)  return false;
-        if (cari        && r.cariAdi     !== cari)        return false;
+        if (selectedCari && r.cariAdi    !== selectedCari) return false;
+        if (cariTip === 'musteri'   && !musteriSet.has(r.cariAdi)) return false;
+        if (cariTip === 'tedarikci' &&  musteriSet.has(r.cariAdi)) return false;
         if (stokKodu    && r.stokKodu    !== stokKodu)    return false;
         if (dateStart || dateEnd) {
             const d = parseDateStr(r.uygunsuzlukTarih);
@@ -822,10 +883,11 @@ function resetFilters() {
     document.getElementById('fHataKaynagi').value = '';
     document.getElementById('fUygunsuzlukTuru').value = '';
     document.getElementById('fTespitYeri').value = '';
-    document.getElementById('fCari').value = '';
+    document.getElementById('fCariTip').value = '';
     document.getElementById('fStokKodu').value = '';
     document.getElementById('fDateStart').value = '';
     document.getElementById('fDateEnd').value = '';
+    selectCari('');
     filteredData = [...allData];
     updateStats();
     renderPareto();
@@ -833,6 +895,106 @@ function resetFilters() {
     renderTable();
     showToast('Filtreler sıfırlandı');
 }
+
+// ─── Custom Cari Dropdown ─────────────────────────────────────────────────
+function populateCariDropdown() {
+    _cariAllList = [...new Set(allData.map(r => r.cariAdi).filter(v => v))].sort();
+    _buildCariItems(_cariAllList);
+}
+
+function filterCariList() {
+    const q = (document.getElementById('cariSearch').value || '').toLowerCase();
+    const filtered = q ? _cariAllList.filter(c => c.toLowerCase().includes(q)) : _cariAllList;
+    _buildCariItems(filtered);
+}
+
+function _buildCariItems(list) {
+    const container = document.getElementById('cariList');
+    container.innerHTML = '';
+    if (!list.length) {
+        container.innerHTML = '<div style="padding:12px;color:#aaa;text-align:center;font-size:0.85em;">Sonuç yok</div>';
+        return;
+    }
+    list.forEach(c => {
+        const isMusteri = musteriSet.has(c);
+        const isSelected = selectedCari === c;
+        const row = document.createElement('div');
+        row.className = 'cari-list-item' + (isSelected ? ' selected' : '');
+
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.className = 'cari-musteri-chk';
+        chk.title = 'Müşteri olarak işaretle';
+        chk.checked = isMusteri;
+        chk.addEventListener('change', e => { e.stopPropagation(); toggleMusteriMark(c, e.target.checked); });
+
+        const star = document.createElement('span');
+        star.style.cssText = 'font-size:0.78em;color:#e07000;flex-shrink:0;';
+        star.textContent = '★';
+        star.title = 'Müşteri olarak işaretle';
+        star.style.cursor = 'pointer';
+        star.addEventListener('click', e => { e.stopPropagation(); chk.click(); });
+
+        const nameSp = document.createElement('span');
+        nameSp.className = 'cari-item-name';
+        nameSp.textContent = c;
+        nameSp.addEventListener('click', () => {
+            selectCari(selectedCari === c ? '' : c);
+            document.getElementById('cariPanel').style.display = 'none';
+        });
+
+        row.appendChild(chk);
+        row.appendChild(star);
+        row.appendChild(nameSp);
+
+        if (isMusteri) {
+            const badge = document.createElement('span');
+            badge.className = 'cari-badge';
+            badge.textContent = 'Müşteri';
+            row.appendChild(badge);
+        }
+        container.appendChild(row);
+    });
+}
+
+function toggleCariDropdown() {
+    const panel = document.getElementById('cariPanel');
+    if (panel.style.display === 'block') {
+        panel.style.display = 'none';
+    } else {
+        panel.style.display = 'block';
+        document.getElementById('cariSearch').value = '';
+        document.getElementById('cariSearch').focus();
+        _buildCariItems(_cariAllList);
+    }
+}
+
+function selectCari(val) {
+    selectedCari = val;
+    document.getElementById('cariSelectedText').textContent = val || 'Tümü';
+    // Rebuild visible list to update selected highlight
+    const q = (document.getElementById('cariSearch')?.value || '').toLowerCase();
+    const filtered = q ? _cariAllList.filter(c => c.toLowerCase().includes(q)) : _cariAllList;
+    _buildCariItems(filtered);
+}
+
+function toggleMusteriMark(cariAdi, isMus) {
+    if (isMus) musteriSet.add(cariAdi);
+    else musteriSet.delete(cariAdi);
+    dbSet('musteriSet', [...musteriSet]);
+    const q = (document.getElementById('cariSearch')?.value || '').toLowerCase();
+    const filtered = q ? _cariAllList.filter(c => c.toLowerCase().includes(q)) : _cariAllList;
+    _buildCariItems(filtered);
+}
+
+// Dropdown dışına tıklayınca kapat
+document.addEventListener('click', e => {
+    const dd = document.getElementById('cariDropdown');
+    if (dd && !dd.contains(e.target)) {
+        const panel = document.getElementById('cariPanel');
+        if (panel) panel.style.display = 'none';
+    }
+});
 
 function parseDateStr(val) {
     if (!val) return null;
@@ -1266,7 +1428,8 @@ function saveToStorage(fileName, sheetName) {
 }
 
 function loadFromStorage() {
-    Promise.all([dbGet('meta'), dbGet('data')]).then(([meta, data]) => {
+    Promise.all([dbGet('meta'), dbGet('data'), dbGet('musteriSet')]).then(([meta, data, mSet]) => {
+        if (mSet && Array.isArray(mSet)) musteriSet = new Set(mSet);
         if (!meta || !data || !data.length) return;
         allData       = data;
         filteredData  = [...allData];
