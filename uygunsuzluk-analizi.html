@@ -305,6 +305,43 @@
         }
         .bi-fishbone-btn:hover { background: #1a6b5a; color: white; border-color: #1a6b5a; }
         .breakdown-item.excluded .bi-fishbone-btn { display: none; }
+        /* Akşiyon badge — breakdown kartta */
+        .bi-aksiyon-badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            background: #d1fae5; color: #065f46; font-size: 0.68em;
+            font-weight: 700; padding: 2px 6px; border-radius: 10px;
+            margin-left: 5px; vertical-align: middle; white-space: nowrap;
+        }
+        /* Çoklu seçim */
+        .breakdown-item.selected-for-multi {
+            border-left-color: #1a6b5a; outline: 2px solid #2ea88a;
+            background: #e8f5f1;
+        }
+        .multi-analyze-bar {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999;
+            background: linear-gradient(135deg, #1a6b5a, #2ea88a);
+            color: white; padding: 12px 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.2); font-weight: 600;
+        }
+        .multi-analyze-bar button {
+            background: white; color: #1a6b5a; border: none;
+            border-radius: 8px; padding: 8px 18px; font-weight: 700;
+            cursor: pointer; font-size: 0.9em;
+        }
+        .multi-analyze-bar button:hover { background: #d1fae5; }
+        .multi-cancel-btn { background: transparent !important; color: white !important; font-size: 0.82em !important; opacity: 0.8; }
+        .multi-cancel-btn:hover { opacity: 1 !important; }
+        /* Tedarikçi analiz butonu */
+        .cari-fishbone-btn {
+            margin-top: 6px; width: 100%; padding: 5px 8px;
+            font-size: 0.73em; font-weight: 600;
+            background: #e8f5f1; color: #1a6b5a;
+            border: 1px solid #a8d8cc; border-radius: 6px;
+            cursor: pointer; transition: background 0.2s, color 0.2s;
+            display: none; align-items: center; justify-content: center; gap: 5px;
+        }
+        .cari-fishbone-btn:hover { background: #1a6b5a; color: white; border-color: #1a6b5a; }
 
         /* Custom Cari Dropdown */
         .cari-dropdown { position: relative; }
@@ -542,6 +579,7 @@
                         <div class="cari-list" id="cariList"></div>
                     </div>
                 </div>
+                <button id="cariAnalyzeBtn" class="cari-fishbone-btn" onclick="openFishboneTedarikci()">🐟 Bu Tedarikçiyi Analiz Et</button>
             </div>
             <div class="filter-group">
                 <label>Stok Kodu</label>
@@ -615,7 +653,10 @@
 
         <!-- Breakdown Tab -->
         <div class="tab-panel" id="tab-breakdown">
-            <div class="section-title">📋 Hata Tipi Bazında Hatalı Miktar Dağılımı</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <div class="section-title" style="margin-bottom:0;">📋 Hata Tipi Bazında Hatalı Miktar Dağılımı</div>
+                <button id="multiAnalyzeToggleBtn" onclick="toggleMultiAnalyze()" style="background:#e8f5f1;color:#1a6b5a;border:1px solid #a8d8cc;border-radius:8px;padding:6px 14px;font-size:0.82em;font-weight:600;cursor:pointer;">📊 Çoklu Analiz</button>
+            </div>
             <div class="breakdown-grid" id="breakdownGrid"></div>
         </div>
 
@@ -660,6 +701,8 @@ let excludedHataTipleri = new Set(); // breakdown'dan dışlananlar
 let selectedCari = '';            // custom cari dropdown seçili değer
 let musteriSet = new Set();       // müşteri olarak işaretlenmiş cariler
 let _cariAllList = [];            // cari dropdown listesi
+let multiAnalyzeMode = false;    // çoklu analiz modu
+let selectedForMulti = new Set(); // çoklu analiz seçilenleri
 
 // Column map: internal key → possible Excel header variants (case-insensitive)
 const COL_MAP = {
@@ -982,6 +1025,9 @@ function toggleCariDropdown() {
 function selectCari(val) {
     selectedCari = val;
     document.getElementById('cariSelectedText').textContent = val || 'Tümü';
+    // Tedarikçi analiz butonunu göster/gizle
+    const ab = document.getElementById('cariAnalyzeBtn');
+    if (ab) ab.style.display = val ? 'flex' : 'none';
     // Rebuild visible list to update selected highlight
     const q = (document.getElementById('cariSearch')?.value || '').toLowerCase();
     const filtered = q ? _cariAllList.filter(c => c.toLowerCase().includes(q)) : _cariAllList;
@@ -1247,6 +1293,9 @@ function renderBreakdown() {
     });
     const sorted = Object.entries(agg).sort((a, b) => b[1].hatali - a[1].hatali);
     const maxHatali = sorted[0] ? sorted[0][1].hatali : 1;
+    // Özellik 3: Aksiyon geri besleme
+    let aksiyonlar = {};
+    try { aksiyonlar = JSON.parse(localStorage.getItem('fishbone_aksiyonlar') || '{}'); } catch(e) {}
 
     const grid = document.getElementById('breakdownGrid');
     if (!sorted.length) { grid.innerHTML = '<p style="color:#aaa;font-size:0.9em;">Veri yok</p>'; return; }
@@ -1254,11 +1303,15 @@ function renderBreakdown() {
         const pct = totalHatali > 0 ? (v.hatali / totalHatali * 100).toFixed(1) : 0;
         const barW = maxHatali > 0 ? (v.hatali / maxHatali * 100).toFixed(1) : 0;
         const isExcluded = excludedHataTipleri.has(k);
+        const isSelectedMulti = selectedForMulti.has(k);
         const safeKey = k.replace(/"/g, '&quot;');
-        return `<div class="breakdown-item${isExcluded ? ' excluded' : ''}" id="bdi-${btoa(encodeURIComponent(k)).replace(/=/g,'')}">
+        const aksiyon = aksiyonlar[k] || 0;
+        const aksiyonBadge = aksiyon > 0 ? `<span class="bi-aksiyon-badge">📋 ${aksiyon} aksiyon</span>` : '';
+        const multiAttr = multiAnalyzeMode ? `onclick="toggleMultiSelect('${safeKey}')" style="cursor:pointer;"` : '';
+        return `<div class="breakdown-item${isExcluded ? ' excluded' : ''}${isSelectedMulti ? ' selected-for-multi' : ''}" id="bdi-${btoa(encodeURIComponent(k)).replace(/=/g,'')}" ${multiAttr}>
             <div class="bi-header">
-                <div class="bi-name">${k}</div>
-                <input type="checkbox" class="bi-checkbox" title="Paretoya dahil et" ${isExcluded ? '' : 'checked'} onchange="toggleHataTipi('${safeKey}', this.checked)">
+                <div class="bi-name">${k}${aksiyonBadge}</div>
+                <input type="checkbox" class="bi-checkbox" title="Paretoya dahil et" ${isExcluded ? '' : 'checked'} onchange="toggleHataTipi('${safeKey}', this.checked)" ${multiAnalyzeMode ? 'style="pointer-events:none;"' : ''}>
             </div>
             <div class="bi-count">${v.hatali.toLocaleString('tr', {maximumFractionDigits:1})}</div>
             <div class="bi-pct">%${pct} · ${v.count} kayıt</div>
@@ -1282,21 +1335,99 @@ function toggleHataTipi(key, checked) {
     renderPareto();
 }
 
+// ─── Yardımcı: bir alan için en sık N değeri döndür ───────────────────────────
+function topNField(rows, field, n = 5) {
+    const cnt = {};
+    rows.forEach(r => { const v = (r[field] || '').trim(); if (v) cnt[v] = (cnt[v] || 0) + 1; });
+    return Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, n).map(e => e[0]);
+}
+
 function openFishbone(hataTipi, count, hatali, pct) {
-    // Aktif filtreleri özetle
     const fTarih1 = (document.getElementById('fDateStart') || {}).value || '';
     const fTarih2 = (document.getElementById('fDateEnd')   || {}).value || '';
     const fCariTip = (document.getElementById('fCariTip')  || {}).value || '';
     const tarihBilgi = (fTarih1 || fTarih2) ? `\n• Tarih aralığı: ${fTarih1 || '—'} / ${fTarih2 || '—'}` : '';
     const cariBilgi = fCariTip && fCariTip !== 'tumu' ? `\n• Cari tipi: ${fCariTip}` : '';
-    const desc = `Uygunsuzluk Analizi verilerinden aktarıldı.\n• Hatalı miktar: ${Number(hatali).toLocaleString('tr', {maximumFractionDigits:1})} adet (%${pct})\n• Kayıt sayısı: ${count}${tarihBilgi}${cariBilgi}`;
-    const payload = {
-        problem: hataTipi,
-        problemDesc: desc,
+
+    // Özellik 4: Trend tespiti (son 90 gün vs önceki 90 gün)
+    const relRows = filteredData.filter(r => r.hataTipi === hataTipi);
+    const now = new Date();
+    const d90  = new Date(now.getTime() - 90  * 86400000);
+    const d180 = new Date(now.getTime() - 180 * 86400000);
+    let trendBilgi = '';
+    try {
+        const currH = relRows.filter(r => { const d = parseDateStr(r.uygunsuzlukTarih); return d && d >= d90; })
+                             .reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
+        const prevH = relRows.filter(r => { const d = parseDateStr(r.uygunsuzlukTarih); return d && d >= d180 && d < d90; })
+                             .reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
+        if (prevH > 0 && currH > 0) {
+            const delta = Math.round((currH - prevH) / prevH * 100);
+            if (delta >= 20)  trendBilgi = `\n⚠️ Yükselen trend: son 90 günde +%${delta} artış`;
+            else if (delta <= -20) trendBilgi = `\n📉 Düşen trend: son 90 günde %${Math.abs(delta)} azalış`;
+        }
+    } catch(e) {}
+
+    const desc = `Uygunsuzluk Analizi verilerinden aktarıldı.\n• Hatalı miktar: ${Number(hatali).toLocaleString('tr', {maximumFractionDigits:1})} adet (%${pct})\n• Kayıt sayısı: ${count}${tarihBilgi}${cariBilgi}${trendBilgi}`;
+
+    // Özellik 2: 6M kemikleri — veri kaynaklı otomatik doldurma
+    const BONE_COLORS = ['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#06b6d4','#22c55e'];
+    let _nid = 1; const mkId = () => _nid++;
+    const mkChildren = (vals, color) => vals.map(v => ({id:mkId(),name:v,color,children:[],collapsed:false,offsetX:0,offsetY:0}));
+    const bonesConfig = [
+        {name:'👤 İnsan',    desc:'Hata kaynağı analizi',    color:BONE_COLORS[0], side:'top',    field:'hataKaynagi'},
+        {name:'⚙️ Makine',   desc:'Tespit yeri / süreç',  color:BONE_COLORS[1], side:'bottom', field:'tespitYeri'},
+        {name:'📦 Malzeme',  desc:'Tedarikçi / cari',       color:BONE_COLORS[2], side:'top',    field:'cariAdi'},
+        {name:'📋 Metot',    desc:'Uygunsuzluk türü',      color:BONE_COLORS[3], side:'bottom', field:'uygunsuzlukTuru'},
+        {name:'📐 Ölçüm',   desc:'Uygunsuzluk tipi',      color:BONE_COLORS[4], side:'top',    field:'tipi'},
+        {name:'🌡️ Ortam',   desc:'(Manuel doldurun)',     color:BONE_COLORS[5], side:'bottom', field:null},
+    ];
+    const causes = bonesConfig.map(b => ({
+        id:mkId(), name:b.name, description:b.desc,
+        color:b.color, side:b.side, collapsed:false,
+        children: b.field ? mkChildren(topNField(relRows, b.field), b.color) : [],
+        offsetX:0, offsetY:0, baseOffsetX:0, baseOffsetY:0
+    }));
+
+    localStorage.setItem('fishbone_incoming', JSON.stringify({
+        problem: hataTipi, problemDesc: desc,
         source: 'uygunsuzluk-analizi',
+        causes, nextId: _nid,
         meta: { hataTipi, count, hatali, pct }
-    };
-    localStorage.setItem('fishbone_incoming', JSON.stringify(payload));
+    }));
+    window.open('balik-kilcigi.html', '_blank');
+}
+
+// Özellik 1: Tedarikçi bazında Fishbone
+function openFishboneTedarikci() {
+    if (!selectedCari) return;
+    const cariRows = filteredData.filter(r => r.cariAdi === selectedCari);
+    if (!cariRows.length) { showToast('Bu cari için veri bulunamadı.', 'error'); return; }
+    const BONE_COLORS = ['#3b82f6','#8b5cf6','#ec4899','#ef4444','#f59e0b','#22c55e'];
+    let _nid = 1; const mkId = () => _nid++;
+    // Top hata tipleri → ana kemikler
+    const htCnt = {};
+    cariRows.forEach(r => { const v=(r.hataTipi||'(Belirtilmemiş)').trim(); htCnt[v]=(htCnt[v]||0)+(Number(r.hataliMiktar)||1); });
+    const topHT = Object.entries(htCnt).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    const causes = topHT.map(([ht, miktar], i) => {
+        const htRows = cariRows.filter(r => r.hataTipi === ht);
+        const children = topNField(htRows,'hataKaynagi',4).map(v => ({
+            id:mkId(),name:v,color:BONE_COLORS[i%6],children:[],collapsed:false,offsetX:0,offsetY:0
+        }));
+        return {
+            id:mkId(), name:ht,
+            description:`Hatalı miktar: ${Number(miktar).toLocaleString('tr',{maximumFractionDigits:1})}`,
+            color:BONE_COLORS[i%6], side:i%2===0?'top':'bottom',
+            collapsed:false, children,
+            offsetX:0,offsetY:0,baseOffsetX:0,baseOffsetY:0
+        };
+    });
+    const total = cariRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
+    const desc = `Tedarikçi kalite analizi.\n• Toplam hatalı miktar: ${total.toLocaleString('tr',{maximumFractionDigits:1})}\n• Toplam kayıt: ${cariRows.length}\nKaynak: Uygunsuzluk Analizi`;
+    localStorage.setItem('fishbone_incoming', JSON.stringify({
+        problem: `${selectedCari} ― Kalite Problemleri`,
+        problemDesc: desc, source: 'uygunsuzluk-analizi',
+        causes, nextId: _nid
+    }));
     window.open('balik-kilcigi.html', '_blank');
 }
 
@@ -1520,6 +1651,71 @@ function showToast(msg, type) {
     clearTimeout(el._t);
     el._t = setTimeout(() => el.classList.remove('show'), 3200);
 }
+
+// ─── Çoklu Analiz ───────────────────────────────────────────────────────────
+function toggleMultiAnalyze() {
+    multiAnalyzeMode = !multiAnalyzeMode;
+    selectedForMulti.clear();
+    const btn = document.getElementById('multiAnalyzeToggleBtn');
+    const bar = document.getElementById('multiAnalyzeBar');
+    if (multiAnalyzeMode) {
+        btn.style.background = '#1a6b5a'; btn.style.color = 'white';
+        btn.textContent = '✖ Kapat';
+        if (bar) bar.style.display = 'flex';
+    } else {
+        btn.style.background = '#e8f5f1'; btn.style.color = '#1a6b5a';
+        btn.textContent = '📊 Çoklu Analiz';
+        if (bar) bar.style.display = 'none';
+    }
+    renderBreakdown();
+}
+
+function toggleMultiSelect(hataTipi) {
+    if (!multiAnalyzeMode) return;
+    if (selectedForMulti.has(hataTipi)) selectedForMulti.delete(hataTipi);
+    else selectedForMulti.add(hataTipi);
+    const safeId = 'bdi-' + btoa(encodeURIComponent(hataTipi)).replace(/=/g,'');
+    const card = document.getElementById(safeId);
+    if (card) card.classList.toggle('selected-for-multi', selectedForMulti.has(hataTipi));
+    const cnt = document.getElementById('multiAnalyzeCount');
+    if (cnt) cnt.textContent = selectedForMulti.size;
+}
+
+function openFishboneMulti() {
+    if (!selectedForMulti.size) { showToast('En az 1 hata tipi seçin', 'error'); return; }
+    const BONE_COLORS = ['#3b82f6','#8b5cf6','#ec4899','#ef4444','#f59e0b','#22c55e','#06b6d4','#f97316'];
+    let _nid = 1; const mkId = () => _nid++;
+    const selected = [...selectedForMulti];
+    const causes = selected.map((ht, i) => {
+        const relRows = filteredData.filter(r => r.hataTipi === ht);
+        const total = relRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
+        const children = topNField(relRows,'hataKaynagi',4).map(v => ({
+            id:mkId(),name:v,color:BONE_COLORS[i%8],children:[],collapsed:false,offsetX:0,offsetY:0
+        }));
+        return {
+            id:mkId(), name:ht,
+            description:`Hatalı miktar: ${total.toLocaleString('tr',{maximumFractionDigits:1})}`,
+            color:BONE_COLORS[i%8], side:i%2===0?'top':'bottom',
+            collapsed:false, children,
+            offsetX:0,offsetY:0,baseOffsetX:0,baseOffsetY:0
+        };
+    });
+    localStorage.setItem('fishbone_incoming', JSON.stringify({
+        problem: `Çoklu Hata Analizi (${selected.length} tip)`,
+        problemDesc: `Seçili hata tipleri: ${selected.join(', ')}\nKaynak: Uygunsuzluk Analizi`,
+        source:'uygunsuzluk-analizi', causes, nextId:_nid
+    }));
+    window.open('balik-kilcigi.html','_blank');
+}
 </script>
+
+<!-- Çoklu Analiz Alt Barı -->
+<div id="multiAnalyzeBar" class="multi-analyze-bar" style="display:none;">
+    <div><span id="multiAnalyzeCount">0</span> hata tipi seçildi &mdash; kartlara tıklayarak seçin</div>
+    <div style="display:flex;gap:10px;">
+        <button onclick="openFishboneMulti()">🐟 Fishbone'a Gönder</button>
+        <button class="multi-cancel-btn" onclick="toggleMultiAnalyze()">İptal</button>
+    </div>
+</div>
 </body>
 </html>

@@ -1715,8 +1715,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const inData = JSON.parse(_rawIncoming);
             state.problem     = inData.problem     || 'Ana Problem';
             state.problemDesc = inData.problemDesc || '';
-            state.causes      = [];
-            state.nextId      = 1;
+            // Özellik 2: 6M kemikleri geliyorsa yükle
+            state.causes  = (inData.causes && inData.causes.length) ? JSON.parse(JSON.stringify(inData.causes)) : [];
+            state.nextId  = inData.nextId || 1;
             _fromUygunsuzluk  = true;
         } catch(e) {}
     }
@@ -4208,6 +4209,14 @@ function addMainCause() {
 // ===== SAVE / LOAD / EXPORT =====
 function autoSave() {
     localStorage.setItem('fishbone_state', JSON.stringify(state));
+    // Özellik 3: Akşiyon özeti — Uygunsuzluk Analizi'ne geri besleme
+    if (state.problem && state.problem !== 'Ana Problem') {
+        try {
+            const aksiyonlar = JSON.parse(localStorage.getItem('fishbone_aksiyonlar') || '{}');
+            aksiyonlar[state.problem] = state.actionPlan ? state.actionPlan.rows.length : 0;
+            localStorage.setItem('fishbone_aksiyonlar', JSON.stringify(aksiyonlar));
+        } catch(e) {}
+    }
 }
 
 function saveDiagram() {
