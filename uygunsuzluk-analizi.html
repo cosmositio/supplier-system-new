@@ -1398,31 +1398,29 @@ function openFishbone(hataTipi, count, hatali, pct) {
     window.open('balik-kilcigi.html', '_blank');
 }
 
-// Özellik 1: Tedarikçi bazında Fishbone
+// Özellik 1: Tedarikçi bazında Fishbone — 6M yapısı
 function openFishboneTedarikci() {
     if (!selectedCari) return;
     const cariRows = filteredData.filter(r => r.cariAdi === selectedCari);
     if (!cariRows.length) { showToast('Bu cari için veri bulunamadı.', 'error'); return; }
-    const BONE_COLORS = ['#3b82f6','#8b5cf6','#ec4899','#ef4444','#f59e0b','#22c55e'];
+    const BONE_COLORS = ['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#06b6d4','#22c55e'];
     let _nid = 1; const mkId = () => _nid++;
-    // Top hata tipleri → ana kemikler
-    const htCnt = {};
-    cariRows.forEach(r => { const v=(r.hataTipi||'(Belirtilmemiş)').trim(); htCnt[v]=(htCnt[v]||0)+(Number(r.hataliMiktar)||1); });
-    const topHT = Object.entries(htCnt).sort((a,b)=>b[1]-a[1]).slice(0,6);
-    const causes = topHT.map(([ht, miktar], i) => {
-        const parentId = mkId(); // önce parent ID al
-        const htRows = cariRows.filter(r => (r.hataTipi||'').trim() === ht);
-        const children = topNField(htRows,'hataKaynagi',4).map(v => ({
-            id:mkId(),name:v,color:BONE_COLORS[i%6],children:[],collapsed:false,offsetX:0,offsetY:0
-        }));
-        return {
-            id:parentId, name:ht,
-            description:`Hatalı miktar: ${Number(miktar).toLocaleString('tr',{maximumFractionDigits:1})}`,
-            color:BONE_COLORS[i%6], side:i%2===0?'top':'bottom',
-            collapsed:false, children,
-            offsetX:0,offsetY:0,baseOffsetX:0,baseOffsetY:0
-        };
-    });
+    const mkChildren = (vals, color) => vals.map(v => ({id:mkId(),name:v,color,children:[],collapsed:false,offsetX:0,offsetY:0}));
+    // 6M ana kemikler — veriler cariRows'dan
+    const bonesConfig = [
+        {name:'👤 İnsan',    desc:'Hata kaynağı analizi',    color:BONE_COLORS[0], side:'top',    field:'hataKaynagi'},
+        {name:'⚙️ Makine',   desc:'Tespit yeri / süreç',     color:BONE_COLORS[1], side:'bottom', field:'tespitYeri'},
+        {name:'📦 Malzeme',  desc:'Tedarikçi hata tipleri',  color:BONE_COLORS[2], side:'top',    field:'hataTipi'},
+        {name:'📋 Metot',    desc:'Uygunsuzluk türü',        color:BONE_COLORS[3], side:'bottom', field:'uygunsuzlukTuru'},
+        {name:'📐 Ölçüm',   desc:'Uygunsuzluk tipi',        color:BONE_COLORS[4], side:'top',    field:'tipi'},
+        {name:'🌡️ Ortam',   desc:'(Manuel doldurun)',       color:BONE_COLORS[5], side:'bottom', field:null},
+    ];
+    const causes = bonesConfig.map(b => ({
+        id:mkId(), name:b.name, description:b.desc,
+        color:b.color, side:b.side, collapsed:false,
+        children: b.field ? mkChildren(topNField(cariRows, b.field, 5), b.color) : [],
+        offsetX:0, offsetY:0, baseOffsetX:0, baseOffsetY:0
+    }));
     const total = cariRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
     const desc = `Tedarikçi kalite analizi.\n• Toplam hatalı miktar: ${total.toLocaleString('tr',{maximumFractionDigits:1})}\n• Toplam kayıt: ${cariRows.length}\nKaynak: Uygunsuzluk Analizi`;
     localStorage.setItem('fishbone_incoming', JSON.stringify({
@@ -1686,26 +1684,30 @@ function toggleMultiSelect(hataTipi) {
 
 function openFishboneMulti() {
     if (!selectedForMulti.size) { showToast('En az 1 hata tipi seçin', 'error'); return; }
-    const BONE_COLORS = ['#3b82f6','#8b5cf6','#ec4899','#ef4444','#f59e0b','#22c55e','#06b6d4','#f97316'];
-    let _nid = 1; const mkId = () => _nid++;
     const selected = [...selectedForMulti];
-    const causes = selected.map((ht, i) => {
-        const relRows = filteredData.filter(r => r.hataTipi === ht);
-        const total = relRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
-        const children = topNField(relRows,'hataKaynagi',4).map(v => ({
-            id:mkId(),name:v,color:BONE_COLORS[i%8],children:[],collapsed:false,offsetX:0,offsetY:0
-        }));
-        return {
-            id:mkId(), name:ht,
-            description:`Hatalı miktar: ${total.toLocaleString('tr',{maximumFractionDigits:1})}`,
-            color:BONE_COLORS[i%8], side:i%2===0?'top':'bottom',
-            collapsed:false, children,
-            offsetX:0,offsetY:0,baseOffsetX:0,baseOffsetY:0
-        };
-    });
+    const relRows = filteredData.filter(r => selected.includes(r.hataTipi));
+    const BONE_COLORS = ['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#06b6d4','#22c55e'];
+    let _nid = 1; const mkId = () => _nid++;
+    const mkChildren = (vals, color) => vals.map(v => ({id:mkId(),name:v,color,children:[],collapsed:false,offsetX:0,offsetY:0}));
+    // 6M ana kemikler — seçili hata tiplerinin toplu verisi
+    const bonesConfig = [
+        {name:'👤 İnsan',    desc:'Hata kaynağı analizi',        color:BONE_COLORS[0], side:'top',    field:'hataKaynagi'},
+        {name:'⚙️ Makine',   desc:'Tespit yeri / süreç',         color:BONE_COLORS[1], side:'bottom', field:'tespitYeri'},
+        {name:'📦 Malzeme',  desc:`Hata tipleri: ${selected.join(', ')}`, color:BONE_COLORS[2], side:'top', field:'hataTipi'},
+        {name:'📋 Metot',    desc:'Uygunsuzluk türü',            color:BONE_COLORS[3], side:'bottom', field:'uygunsuzlukTuru'},
+        {name:'📐 Ölçüm',   desc:'Uygunsuzluk tipi',            color:BONE_COLORS[4], side:'top',    field:'tipi'},
+        {name:'🌡️ Ortam',   desc:'(Manuel doldurun)',           color:BONE_COLORS[5], side:'bottom', field:null},
+    ];
+    const causes = bonesConfig.map(b => ({
+        id:mkId(), name:b.name, description:b.desc,
+        color:b.color, side:b.side, collapsed:false,
+        children: b.field ? mkChildren(topNField(relRows, b.field, 5), b.color) : [],
+        offsetX:0, offsetY:0, baseOffsetX:0, baseOffsetY:0
+    }));
+    const total = relRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
     localStorage.setItem('fishbone_incoming', JSON.stringify({
         problem: `Çoklu Hata Analizi (${selected.length} tip)`,
-        problemDesc: `Seçili hata tipleri: ${selected.join(', ')}\nKaynak: Uygunsuzluk Analizi`,
+        problemDesc: `Seçili hata tipleri: ${selected.join(', ')}\n• Toplam hatalı: ${total.toLocaleString('tr',{maximumFractionDigits:1})}\nKaynak: Uygunsuzluk Analizi`,
         source:'uygunsuzluk-analizi', causes, nextId:_nid
     }));
     localStorage.setItem('fishbone_source', 'uygunsuzluk-analizi');
