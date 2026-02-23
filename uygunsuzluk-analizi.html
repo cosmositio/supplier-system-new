@@ -556,6 +556,10 @@
                 <select id="fTespitYeri"><option value="">Tümü</option></select>
             </div>
             <div class="filter-group">
+                <label>Makine</label>
+                <select id="fMakine"><option value="">Tümü</option></select>
+            </div>
+            <div class="filter-group">
                 <label>Cari Tipi</label>
                 <select id="fCariTip">
                     <option value="">Tümü</option>
@@ -876,6 +880,7 @@ function populateFilters() {
         fHataKaynagi: 'hataKaynagi',
         fUygunsuzlukTuru: 'uygunsuzlukTuru',
         fTespitYeri: 'tespitYeri',
+        fMakine: 'makine',
         fStokKodu: 'stokKodu',
     };
     for (const [selId, field] of Object.entries(selFields)) {
@@ -901,6 +906,7 @@ function applyFilters() {
     const hataKaynagi   = document.getElementById('fHataKaynagi').value;
     const uyTuru        = document.getElementById('fUygunsuzlukTuru').value;
     const tespitYeri    = document.getElementById('fTespitYeri').value;
+    const makine        = document.getElementById('fMakine').value;
     const stokKodu      = document.getElementById('fStokKodu').value;
     const dateStart     = document.getElementById('fDateStart').value;
     const dateEnd       = document.getElementById('fDateEnd').value;
@@ -912,6 +918,7 @@ function applyFilters() {
         if (hataKaynagi && r.hataKaynagi !== hataKaynagi) return false;
         if (uyTuru      && r.uygunsuzlukTuru !== uyTuru)  return false;
         if (tespitYeri  && r.tespitYeri  !== tespitYeri)  return false;
+        if (makine      && r.makine      !== makine)       return false;
         if (selectedCari && r.cariAdi    !== selectedCari) return false;
         if (cariTip === 'musteri'   && !musteriSet.has(r.cariAdi)) return false;
         if (cariTip === 'tedarikci' &&  musteriSet.has(r.cariAdi)) return false;
@@ -936,6 +943,7 @@ function resetFilters() {
     document.getElementById('fHataKaynagi').value = '';
     document.getElementById('fUygunsuzlukTuru').value = '';
     document.getElementById('fTespitYeri').value = '';
+    document.getElementById('fMakine').value = '';
     document.getElementById('fCariTip').value = '';
     document.getElementById('fStokKodu').value = '';
     document.getElementById('fDateStart').value = '';
@@ -1375,7 +1383,7 @@ function openFishbone(hataTipi, count, hatali, pct) {
     const mkChildren = (vals, color) => vals.map(v => ({id:mkId(),name:v,color,children:[],collapsed:false,offsetX:0,offsetY:0}));
     const bonesConfig = [
         {name:'👤 İnsan',    desc:'Hata kaynağı analizi',    color:BONE_COLORS[0], side:'top',    field:'hataKaynagi'},
-        {name:'⚙️ Makine',   desc:'Tespit yeri / süreç',  color:BONE_COLORS[1], side:'bottom', field:'tespitYeri'},
+        {name:'⚙️ Makine',   desc:'Makine / ekipman',      color:BONE_COLORS[1], side:'bottom', field:'makine'},
         {name:'📦 Malzeme',  desc:'Tedarikçi / cari',       color:BONE_COLORS[2], side:'top',    field:'cariAdi'},
         {name:'📋 Metot',    desc:'Uygunsuzluk türü',      color:BONE_COLORS[3], side:'bottom', field:'uygunsuzlukTuru'},
         {name:'📐 Ölçüm',   desc:'Uygunsuzluk tipi',      color:BONE_COLORS[4], side:'top',    field:'tipi'},
@@ -1409,7 +1417,7 @@ function openFishboneTedarikci() {
     // 6M ana kemikler — veriler cariRows'dan
     const bonesConfig = [
         {name:'👤 İnsan',    desc:'Hata kaynağı analizi',    color:BONE_COLORS[0], side:'top',    field:'hataKaynagi'},
-        {name:'⚙️ Makine',   desc:'Tespit yeri / süreç',     color:BONE_COLORS[1], side:'bottom', field:'tespitYeri'},
+        {name:'⚙️ Makine',   desc:'Makine / ekipman',         color:BONE_COLORS[1], side:'bottom', field:'makine'},
         {name:'📦 Malzeme',  desc:'Tedarikçi hata tipleri',  color:BONE_COLORS[2], side:'top',    field:'hataTipi'},
         {name:'📋 Metot',    desc:'Uygunsuzluk türü',        color:BONE_COLORS[3], side:'bottom', field:'uygunsuzlukTuru'},
         {name:'📐 Ölçüm',   desc:'Uygunsuzluk tipi',        color:BONE_COLORS[4], side:'top',    field:'tipi'},
@@ -1692,7 +1700,7 @@ function openFishboneMulti() {
     // 6M ana kemikler — seçili hata tiplerinin toplu verisi
     const bonesConfig = [
         {name:'👤 İnsan',    desc:'Hata kaynağı analizi',        color:BONE_COLORS[0], side:'top',    field:'hataKaynagi'},
-        {name:'⚙️ Makine',   desc:'Tespit yeri / süreç',         color:BONE_COLORS[1], side:'bottom', field:'tespitYeri'},
+        {name:'⚙️ Makine',   desc:'Makine / ekipman',             color:BONE_COLORS[1], side:'bottom', field:'makine'},
         {name:'📦 Malzeme',  desc:`Hata tipleri: ${selected.join(', ')}`, color:BONE_COLORS[2], side:'top', field:'hataTipi'},
         {name:'📋 Metot',    desc:'Uygunsuzluk türü',            color:BONE_COLORS[3], side:'bottom', field:'uygunsuzlukTuru'},
         {name:'📐 Ölçüm',   desc:'Uygunsuzluk tipi',            color:BONE_COLORS[4], side:'top',    field:'tipi'},
