@@ -516,6 +516,15 @@
                     </select>
                 </div>
                 <div>
+                    <label>Eşik: </label>
+                    <select id="paretoThreshold" onchange="renderPareto()">
+                        <option value="60">60/40</option>
+                        <option value="70">70/30</option>
+                        <option value="80" selected>80/20</option>
+                        <option value="90">90/10</option>
+                    </select>
+                </div>
+                <div>
                     <label>Grupla: </label>
                     <select id="paretoGroup" onchange="renderPareto()">
                         <option value="hataTipi">Hata Tipi</option>
@@ -525,6 +534,10 @@
                         <option value="cariAdi">Cari Adı</option>
                         <option value="stokAdi">Stok Adı</option>
                     </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <input type="checkbox" id="paretoGroupOthers" onchange="renderPareto()" style="width:16px;height:16px;accent-color:#b94fc4;cursor:pointer;">
+                    <label for="paretoGroupOthers" style="cursor:pointer;font-size:0.88em;color:#4a0a6b;white-space:nowrap;">Eşiküstü 'Diğer'</label>
                 </div>
                 <button class="export-btn" onclick="downloadChartPNG()">⬇ PNG İndir</button>
             </div>
@@ -847,9 +860,11 @@ function updateStats() {
 
 // ─── Pareto ───────────────────────────────────────────────────────────────────
 function renderPareto() {
-    const metric   = document.getElementById('paretoMetric').value;
-    const topN     = parseInt(document.getElementById('paretoTop').value);
-    const groupKey = document.getElementById('paretoGroup').value;
+    const metric      = document.getElementById('paretoMetric').value;
+    const topN        = parseInt(document.getElementById('paretoTop').value);
+    const groupKey    = document.getElementById('paretoGroup').value;
+    const threshold   = parseInt(document.getElementById('paretoThreshold').value);
+    const groupOthers = document.getElementById('paretoGroupOthers').checked;
 
     // Aggregate (excluded hataTipleri hariç)
     const paretoSource = excludedHataTipleri.size > 0
@@ -864,24 +879,43 @@ function renderPareto() {
         agg[key].hatali += Number(r.hataliMiktar) || 0;
     });
 
-    let entries = Object.entries(agg).map(([k, v]) => ({
+    let allEntries = Object.entries(agg).map(([k, v]) => ({
         label: k,
         value: metric === 'hataliMiktar' ? v.hatali : v.count,
         count: v.count,
         hatali: v.hatali,
     })).sort((a, b) => b.value - a.value);
 
-    if (topN < entries.length) entries = entries.slice(0, topN);
+    let entries;
+    if (groupOthers) {
+        // Eşik altındaki kategorileri tek 'Diğer' çubuğunda topla
+        const grandTotal = allEntries.reduce((s, e) => s + e.value, 0);
+        let cum2 = 0, cutIdx = allEntries.length - 1;
+        for (let i = 0; i < allEntries.length; i++) {
+            cum2 += allEntries[i].value;
+            if (cum2 / grandTotal * 100 >= threshold) { cutIdx = i; break; }
+        }
+        const mainEntries = allEntries.slice(0, cutIdx + 1);
+        const restEntries = allEntries.slice(cutIdx + 1);
+        if (restEntries.length > 0) {
+            const restVal = restEntries.reduce((s, e) => s + e.value, 0);
+            mainEntries.push({ label: `Diğer (${restEntries.length} kategori)`, value: restVal, count: restEntries.reduce((s,e)=>s+e.count,0), hatali: restEntries.reduce((s,e)=>s+e.hatali,0), isOther: true });
+        }
+        entries = mainEntries;
+    } else {
+        entries = topN < allEntries.length ? allEntries.slice(0, topN) : allEntries;
+    }
 
     const total = entries.reduce((s, e) => s + e.value, 0);
     let cum = 0;
     const cumPct = entries.map(e => { cum += e.value; return +(cum / total * 100).toFixed(1); });
 
-    // Pareto 80% rule insight
-    const eightyIdx = cumPct.findIndex(p => p >= 80);
+    // Insight
+    const threshIdx = cumPct.findIndex(p => p >= threshold);
     const insightEl = document.getElementById('paretoInsight');
-    if (eightyIdx >= 0 && entries.length > 0) {
-        insightEl.innerHTML = `📌 <strong>Pareto Kuralı:</strong> İlk <strong>${eightyIdx + 1}</strong> hata tipi (toplam ${entries.length} içinden), tüm ${metric === 'hataliMiktar' ? 'hatalı miktarın' : 'kaydın'} <strong>%80</strong>'ini oluşturmaktadır. Bu kategorilere odaklanmak en büyük iyileştirmeyi sağlar.`;
+    if (threshIdx >= 0 && entries.length > 0) {
+        const mainCount = entries[threshIdx].isOther ? threshIdx : threshIdx + 1;
+        insightEl.innerHTML = `📌 <strong>Pareto Kuralı:</strong> İlk <strong>${mainCount}</strong> kategori (toplam ${entries.filter(e=>!e.isOther).length} içinden), tüm ${metric === 'hataliMiktar' ? 'hatalı miktarın' : 'kaydın'} <strong>%${threshold}</strong>'${threshold===80?'i':threshold===70?'i':threshold===60?'sı':'u'} oluşturmaktadır. Bu kategorilere odaklanmak en büyük iyileştirmeyi sağlar.`;
     } else {
         insightEl.innerHTML = '';
     }
@@ -889,8 +923,9 @@ function renderPareto() {
     const labels = entries.map(e => e.label);
     const values = entries.map(e => e.value);
 
-    // Colors: bars are red gradient, cumulative line is dark purple
-    const barColors = entries.map((_, i) => {
+    // Colors: normal bars = mor/pembe gradient, 'Diğer' bar = gri
+    const barColors = entries.map((e, i) => {
+        if (e.isOther) return 'rgba(160,160,160,0.65)';
         const r = Math.max(60, 185 - i * 8);
         return `rgba(${r}, 50, ${Math.min(180, 100 + i * 6)}, 0.82)`;
     });
@@ -984,13 +1019,14 @@ function renderPareto() {
         },
     });
 
-    // Draw 80% reference line
+    // Draw threshold reference line
+    const thresholdVal = threshold;
     const plugin80 = {
         id: 'line80',
         afterDraw(chart) {
             const { ctx, scales } = chart;
             if (!scales.y2) return;
-            const y = scales.y2.getPixelForValue(80);
+            const y = scales.y2.getPixelForValue(thresholdVal);
             ctx.save();
             ctx.setLineDash([6, 4]);
             ctx.strokeStyle = 'rgba(185,79,196,0.55)';
