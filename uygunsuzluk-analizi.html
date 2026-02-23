@@ -981,7 +981,11 @@ function selectCari(val) {
 function toggleMusteriMark(cariAdi, isMus) {
     if (isMus) musteriSet.add(cariAdi);
     else musteriSet.delete(cariAdi);
-    dbSet('musteriSet', [...musteriSet]);
+    const arr = [...musteriSet];
+    // localStorage (birincil - hızlı ve güvenilir)
+    try { localStorage.setItem('uyg_musteriSet', JSON.stringify(arr)); } catch(e) {}
+    // IndexedDB (yedek)
+    dbSet('musteriSet', arr);
     const q = (document.getElementById('cariSearch')?.value || '').toLowerCase();
     const filtered = q ? _cariAllList.filter(c => c.toLowerCase().includes(q)) : _cariAllList;
     _buildCariItems(filtered);
@@ -1429,8 +1433,18 @@ function saveToStorage(fileName, sheetName) {
 }
 
 function loadFromStorage() {
+    // Önce localStorage'dan musteriSet yükle (hızlı)
+    try {
+        const ls = localStorage.getItem('uyg_musteriSet');
+        if (ls) musteriSet = new Set(JSON.parse(ls));
+    } catch(e) {}
+
     Promise.all([dbGet('meta'), dbGet('data'), dbGet('musteriSet')]).then(([meta, data, mSet]) => {
-        if (mSet && Array.isArray(mSet)) musteriSet = new Set(mSet);
+        // IndexedDB'de varsa ve localStorage'dan daha büyükse onu kullan
+        if (mSet && Array.isArray(mSet) && mSet.length > musteriSet.size) {
+            musteriSet = new Set(mSet);
+            try { localStorage.setItem('uyg_musteriSet', JSON.stringify(mSet)); } catch(e) {}
+        }
         if (!meta || !data || !data.length) return;
         allData       = data;
         filteredData  = [...allData];
