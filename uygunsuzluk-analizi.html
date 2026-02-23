@@ -1285,9 +1285,9 @@ function toggleHataTipi(key, checked) {
 
 function openFishbone(hataTipi, count, hatali, pct) {
     // Aktif filtreleri özetle
-    const fTarih1 = document.getElementById('fTarih1').value;
-    const fTarih2 = document.getElementById('fTarih2').value;
-    const fCariTip = document.getElementById('fCariTip').value;
+    const fTarih1 = (document.getElementById('fDateStart') || {}).value || '';
+    const fTarih2 = (document.getElementById('fDateEnd')   || {}).value || '';
+    const fCariTip = (document.getElementById('fCariTip')  || {}).value || '';
     const tarihBilgi = (fTarih1 || fTarih2) ? `\n• Tarih aralığı: ${fTarih1 || '—'} / ${fTarih2 || '—'}` : '';
     const cariBilgi = fCariTip && fCariTip !== 'tumu' ? `\n• Cari tipi: ${fCariTip}` : '';
     const desc = `Uygunsuzluk Analizi verilerinden aktarıldı.\n• Hatalı miktar: ${Number(hatali).toLocaleString('tr', {maximumFractionDigits:1})} adet (%${pct})\n• Kayıt sayısı: ${count}${tarihBilgi}${cariBilgi}`;
