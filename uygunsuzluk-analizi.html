@@ -454,6 +454,10 @@
                 <input type="date" id="fDateEnd">
             </div>
             <div class="filter-group">
+                <label>Tipi</label>
+                <select id="fTipi"><option value="">Tümü</option></select>
+            </div>
+            <div class="filter-group">
                 <label>Hata Tipi</label>
                 <select id="fHataTipi"><option value="">Tümü</option></select>
             </div>
@@ -742,6 +746,7 @@ function initUI() {
 
 function populateFilters() {
     const selFields = {
+        fTipi: 'tipi',
         fHataTipi: 'hataTipi',
         fHataKaynagi: 'hataKaynagi',
         fUygunsuzlukTuru: 'uygunsuzlukTuru',
@@ -766,6 +771,7 @@ function populateFilters() {
 
 // ─── Filters ─────────────────────────────────────────────────────────────────
 function applyFilters() {
+    const tipi          = document.getElementById('fTipi').value;
     const hataTipi      = document.getElementById('fHataTipi').value;
     const hataKaynagi   = document.getElementById('fHataKaynagi').value;
     const uyTuru        = document.getElementById('fUygunsuzlukTuru').value;
@@ -776,6 +782,7 @@ function applyFilters() {
     const dateEnd       = document.getElementById('fDateEnd').value;
 
     filteredData = allData.filter(r => {
+        if (tipi        && r.tipi        !== tipi)        return false;
         if (hataTipi    && r.hataTipi    !== hataTipi)    return false;
         if (hataKaynagi && r.hataKaynagi !== hataKaynagi) return false;
         if (uyTuru      && r.uygunsuzlukTuru !== uyTuru)  return false;
@@ -797,6 +804,7 @@ function applyFilters() {
 }
 
 function resetFilters() {
+    document.getElementById('fTipi').value = '';
     document.getElementById('fHataTipi').value = '';
     document.getElementById('fHataKaynagi').value = '';
     document.getElementById('fUygunsuzlukTuru').value = '';
