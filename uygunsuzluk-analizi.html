@@ -1109,8 +1109,29 @@ function renderPareto() {
 
     if (paretoChartInst) { paretoChartInst.destroy(); paretoChartInst = null; }
 
+    // Threshold reference line — inline plugin (closure captures current threshold)
+    const _thresholdVal = threshold;
+    const plugin80 = {
+        id: 'line80',
+        afterDraw(chart) {
+            const { ctx, scales } = chart;
+            if (!scales.y2) return;
+            const y = scales.y2.getPixelForValue(_thresholdVal);
+            ctx.save();
+            ctx.setLineDash([6, 4]);
+            ctx.strokeStyle = 'rgba(185,79,196,0.55)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(scales.x.left, y);
+            ctx.lineTo(scales.x.right, y);
+            ctx.stroke();
+            ctx.restore();
+        }
+    };
+
     const ctx = document.getElementById('paretoChart').getContext('2d');
     paretoChartInst = new Chart(ctx, {
+        plugins: [plugin80],
         data: {
             labels,
             datasets: [
@@ -1196,28 +1217,6 @@ function renderPareto() {
         },
     });
 
-    // Draw threshold reference line
-    const thresholdVal = threshold;
-    const plugin80 = {
-        id: 'line80',
-        afterDraw(chart) {
-            const { ctx, scales } = chart;
-            if (!scales.y2) return;
-            const y = scales.y2.getPixelForValue(thresholdVal);
-            ctx.save();
-            ctx.setLineDash([6, 4]);
-            ctx.strokeStyle = 'rgba(185,79,196,0.55)';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(scales.x.left, y);
-            ctx.lineTo(scales.x.right, y);
-            ctx.stroke();
-            ctx.restore();
-        }
-    };
-    paretoChartInst.options.plugins['line80'] = true;
-    Chart.register(plugin80);
-    paretoChartInst.update();
 }
 
 function downloadChartPNG() {
