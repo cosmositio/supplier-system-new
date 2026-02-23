@@ -1130,43 +1130,87 @@ function switchTab(name) {
 }
 
 // ─── LocalStorage Persistence ───────────────────────────────────────────────
-const LS_KEY  = 'uygunsuzluk_data';
-const LS_META = 'uygunsuzluk_meta';
+// ─── IndexedDB Persistence (localStorage'dan çok daha büyük limit) ─────────────
+const DB_NAME    = 'UygunsuzlukDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'cache';
+let _db = null;
+
+function openDB() {
+    return new Promise((resolve, reject) => {
+        if (_db) { resolve(_db); return; }
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = e => {
+            e.target.result.createObjectStore(STORE_NAME);
+        };
+        req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+        req.onerror   = e => reject(e.target.error);
+    });
+}
+
+function dbSet(key, value) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+        const tx  = db.transaction(STORE_NAME, 'readwrite');
+        const req = tx.objectStore(STORE_NAME).put(value, key);
+        req.onsuccess = () => resolve();
+        req.onerror   = e => reject(e.target.error);
+    }));
+}
+
+function dbGet(key) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+        const tx  = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).get(key);
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror   = e => reject(e.target.error);
+    }));
+}
+
+function dbDelete(key) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+        const tx  = db.transaction(STORE_NAME, 'readwrite');
+        const req = tx.objectStore(STORE_NAME).delete(key);
+        req.onsuccess = () => resolve();
+        req.onerror   = e => reject(e.target.error);
+    }));
+}
 
 function saveToStorage(fileName, sheetName) {
-    try {
-        localStorage.setItem(LS_KEY,  JSON.stringify(allData));
-        localStorage.setItem(LS_META, JSON.stringify({ fileName, sheetName, savedAt: new Date().toISOString() }));
-    } catch(e) {
-        showToast('Veri hafızaya kaydedilemedi (dosya çok büyük olabilir).', 'error');
-    }
+    showLoading(true);
+    Promise.all([
+        dbSet('data', allData),
+        dbSet('meta', { fileName, sheetName, savedAt: new Date().toISOString() })
+    ]).then(() => {
+        showLoading(false);
+    }).catch(err => {
+        showLoading(false);
+        showToast('Veri hafızaya kaydedilemedi: ' + err.message, 'error');
+    });
 }
 
 function loadFromStorage() {
-    try {
-        const meta = JSON.parse(localStorage.getItem(LS_META));
-        const data = JSON.parse(localStorage.getItem(LS_KEY));
+    Promise.all([dbGet('meta'), dbGet('data')]).then(([meta, data]) => {
         if (!meta || !data || !data.length) return;
-        allData = data;
-        filteredData = [...allData];
+        allData       = data;
+        filteredData  = [...allData];
         const savedAt = new Date(meta.savedAt).toLocaleString('tr-TR');
         showFileInfo(meta.fileName, meta.sheetName, allData.length, savedAt);
         initUI();
         showToast(`Hafızadan yüklendi: ${allData.length} kayıt`, 'success');
-    } catch(e) { /* nothing saved */ }
+    }).catch(() => { /* hiç kayıt yok */ });
 }
 
 function clearStorage() {
-    localStorage.removeItem(LS_KEY);
-    localStorage.removeItem(LS_META);
-    allData = []; filteredData = []; tableSearchData = [];
-    document.getElementById('fileInfo').style.display = 'none';
-    document.getElementById('statsRow').style.display = 'none';
-    document.getElementById('filterCard').style.display = 'none';
-    document.getElementById('mainContent').style.display = 'none';
-    document.getElementById('emptyState').style.display = 'block';
-    if (paretoChartInst) { paretoChartInst.destroy(); paretoChartInst = null; }
-    showToast('Hafıza temizlendi. Yeni dosya yükleyebilirsiniz.');
+    Promise.all([dbDelete('data'), dbDelete('meta')]).then(() => {
+        allData = []; filteredData = []; tableSearchData = [];
+        document.getElementById('fileInfo').style.display = 'none';
+        document.getElementById('statsRow').style.display = 'none';
+        document.getElementById('filterCard').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'block';
+        if (paretoChartInst) { paretoChartInst.destroy(); paretoChartInst = null; }
+        showToast('Hafıza temizlendi. Yeni dosya yükleyebilirsiniz.');
+    });
 }
 
 function showFileInfo(fileName, sheetName, count, fromCache) {
