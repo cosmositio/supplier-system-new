@@ -1271,7 +1271,7 @@
         </div>
     </div>
     <div class="header-actions">
-        <a href="index.html" class="btn" title="Ana Sayfaya Dön" style="text-decoration:none;">
+        <a id="backBtn" href="index.html" class="btn" title="Geri Dön" style="text-decoration:none;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
             Ana Sayfa
         </a>
@@ -1753,6 +1753,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!state.causes || state.causes.length === 0) {
             state.causes = _incomingCauses;
             render();
+        }
+    }
+
+    // Geri butonunu düzenle
+    const _src = localStorage.getItem('fishbone_source');
+    localStorage.removeItem('fishbone_source'); // tek seferlik
+    if (_fromUygunsuzluk || _src === 'uygunsuzluk-analizi') {
+        const backBtn = document.getElementById('backBtn');
+        if (backBtn) {
+            backBtn.href = 'uygunsuzluk-analizi.html';
+            backBtn.title = 'Uygunsuzluk Analizi\'ne Dön';
+            backBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg> Uygunsuzluk Analizi';
         }
     }
 

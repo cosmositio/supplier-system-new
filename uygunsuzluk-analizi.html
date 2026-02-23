@@ -1394,6 +1394,7 @@ function openFishbone(hataTipi, count, hatali, pct) {
         causes, nextId: _nid,
         meta: { hataTipi, count, hatali, pct }
     }));
+    localStorage.setItem('fishbone_source', 'uygunsuzluk-analizi');
     window.open('balik-kilcigi.html', '_blank');
 }
 
@@ -1429,6 +1430,7 @@ function openFishboneTedarikci() {
         problemDesc: desc, source: 'uygunsuzluk-analizi',
         causes, nextId: _nid
     }));
+    localStorage.setItem('fishbone_source', 'uygunsuzluk-analizi');
     window.open('balik-kilcigi.html', '_blank');
 }
 
@@ -1706,6 +1708,7 @@ function openFishboneMulti() {
         problemDesc: `Seçili hata tipleri: ${selected.join(', ')}\nKaynak: Uygunsuzluk Analizi`,
         source:'uygunsuzluk-analizi', causes, nextId:_nid
     }));
+    localStorage.setItem('fishbone_source', 'uygunsuzluk-analizi');
     window.open('balik-kilcigi.html','_blank');
 }
 </script>
