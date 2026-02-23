@@ -434,7 +434,7 @@
         </div>
         <div class="stat-card" style="border-top-color:#b71c1c;">
             <div class="val" id="statPPM">0</div>
-            <div class="lbl">PPM (Hatalı/Kontrol)</div>
+            <div class="lbl">PPM (Hatalı/Parti Hacmi)</div>
         </div>
     </div>
 
@@ -822,10 +822,10 @@ function parseDateStr(val) {
 function updateStats() {
     const total = filteredData.length;
     const hatali = filteredData.reduce((s, r) => s + (Number(r.hataliMiktar) || 0), 0);
-    const kontrol = filteredData.reduce((s, r) => s + (Number(r.kontrolMiktar) || 0), 0);
+    const partiHacmi = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
     const hataTipleri = new Set(filteredData.map(r => r.hataTipi).filter(Boolean)).size;
     const cariler = new Set(filteredData.map(r => r.cariAdi).filter(Boolean)).size;
-    const ppm = kontrol > 0 ? Math.round((hatali / kontrol) * 1_000_000) : 0;
+    const ppm = partiHacmi > 0 ? Math.round((hatali / partiHacmi) * 1_000_000) : 0;
     document.getElementById('statTotal').textContent = total.toLocaleString('tr');
     document.getElementById('statHataliMiktar').textContent = hatali.toLocaleString('tr', {maximumFractionDigits:1});
     document.getElementById('statHataTipi').textContent = hataTipleri;
