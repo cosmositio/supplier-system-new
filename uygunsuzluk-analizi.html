@@ -1050,18 +1050,19 @@ function renderPareto() {
 
     let entries;
     if (groupOthers) {
-        // Eşik altındaki kategorileri tek 'Diğer' çubuğunda topla
-        const grandTotal = allEntries.reduce((s, e) => s + e.value, 0);
-        let cum2 = 0, cutIdx = allEntries.length - 1;
-        for (let i = 0; i < allEntries.length; i++) {
-            cum2 += allEntries[i].value;
-            if (cum2 / grandTotal * 100 >= threshold) { cutIdx = i; break; }
-        }
-        const mainEntries = allEntries.slice(0, cutIdx + 1);
-        const restEntries = allEntries.slice(cutIdx + 1);
+        // topN kadar bireysel çubuk göster, geri kalanı 'Diğer' olarak grupla
+        const cut = topN < allEntries.length ? topN : allEntries.length;
+        const mainEntries = allEntries.slice(0, cut);
+        const restEntries = allEntries.slice(cut);
         if (restEntries.length > 0) {
-            const restVal = restEntries.reduce((s, e) => s + e.value, 0);
-            mainEntries.push({ label: `Diğer (${restEntries.length} kategori)`, value: restVal, count: restEntries.reduce((s,e)=>s+e.count,0), hatali: restEntries.reduce((s,e)=>s+e.hatali,0), isOther: true });
+            const restVal   = restEntries.reduce((s, e) => s + e.value, 0);
+            mainEntries.push({
+                label: `Diğer (${restEntries.length} kategori)`,
+                value: restVal,
+                count: restEntries.reduce((s, e) => s + e.count, 0),
+                hatali: restEntries.reduce((s, e) => s + e.hatali, 0),
+                isOther: true,
+            });
         }
         entries = mainEntries;
     } else {
