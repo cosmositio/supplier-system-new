@@ -295,6 +295,16 @@
         .breakdown-item.excluded { opacity: 0.38; border-left-color: #ccc; }
         .bi-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
         .bi-checkbox { width: 17px; height: 17px; accent-color: #b94fc4; cursor: pointer; flex-shrink: 0; margin-top: 1px; }
+        .bi-fishbone-btn {
+            margin-top: 10px; width: 100%; padding: 5px 8px;
+            font-size: 0.73em; font-weight: 600;
+            background: #e8f5f1; color: #1a6b5a;
+            border: 1px solid #a8d8cc; border-radius: 6px;
+            cursor: pointer; transition: background 0.2s, color 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 5px;
+        }
+        .bi-fishbone-btn:hover { background: #1a6b5a; color: white; border-color: #1a6b5a; }
+        .breakdown-item.excluded .bi-fishbone-btn { display: none; }
 
         /* Custom Cari Dropdown */
         .cari-dropdown { position: relative; }
@@ -1254,6 +1264,7 @@ function renderBreakdown() {
             <div class="bi-count">${v.hatali.toLocaleString('tr', {maximumFractionDigits:1})}</div>
             <div class="bi-pct">%${pct} · ${v.count} kayıt</div>
             <div class="bi-bar"><div class="bi-bar-fill" style="width:${barW}%"></div></div>
+            <button class="bi-fishbone-btn" onclick="openFishbone('${safeKey}', ${v.count}, ${v.hatali}, '${pct}')" title="Bu hatayı balık kılçığı diyagramında analiz et">🐟 Balık Kılçığı'nda Analiz Et</button>
         </div>`;
     }).join('');
 }
@@ -1270,6 +1281,24 @@ function toggleHataTipi(key, checked) {
     if (card) card.classList.toggle('excluded', !checked);
     // Sadece Pareto grafiğini güncelle
     renderPareto();
+}
+
+function openFishbone(hataTipi, count, hatali, pct) {
+    // Aktif filtreleri özetle
+    const fTarih1 = document.getElementById('fTarih1').value;
+    const fTarih2 = document.getElementById('fTarih2').value;
+    const fCariTip = document.getElementById('fCariTip').value;
+    const tarihBilgi = (fTarih1 || fTarih2) ? `\n• Tarih aralığı: ${fTarih1 || '—'} / ${fTarih2 || '—'}` : '';
+    const cariBilgi = fCariTip && fCariTip !== 'tumu' ? `\n• Cari tipi: ${fCariTip}` : '';
+    const desc = `Uygunsuzluk Analizi verilerinden aktarıldı.\n• Hatalı miktar: ${Number(hatali).toLocaleString('tr', {maximumFractionDigits:1})} adet (%${pct})\n• Kayıt sayısı: ${count}${tarihBilgi}${cariBilgi}`;
+    const payload = {
+        problem: hataTipi,
+        problemDesc: desc,
+        source: 'uygunsuzluk-analizi',
+        meta: { hataTipi, count, hatali, pct }
+    };
+    localStorage.setItem('fishbone_incoming', JSON.stringify(payload));
+    window.open('balik-kilcigi.html', '_blank');
 }
 
 // ─── Table ────────────────────────────────────────────────────────────────────

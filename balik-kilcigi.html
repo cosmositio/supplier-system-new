@@ -1706,22 +1706,44 @@ function _updateUndoRedoBtns() {
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
-    // Load saved state
-    const saved = localStorage.getItem('fishbone_state');
-    if (saved) {
+    // Uygunsuzluk Analizi'nden gelen veri var mı?
+    let _fromUygunsuzluk = false;
+    const _rawIncoming = localStorage.getItem('fishbone_incoming');
+    if (_rawIncoming) {
+        localStorage.removeItem('fishbone_incoming');
         try {
-            const parsed = JSON.parse(saved);
-            Object.assign(state, parsed);
-            document.getElementById('problemTitle').value = state.problem;
-            document.getElementById('problemDesc').value = state.problemDesc || '';
+            const inData = JSON.parse(_rawIncoming);
+            state.problem     = inData.problem     || 'Ana Problem';
+            state.problemDesc = inData.problemDesc || '';
+            state.causes      = [];
+            state.nextId      = 1;
+            _fromUygunsuzluk  = true;
         } catch(e) {}
     }
+
+    // Kayıtlı durumu yükle (gelen veri yoksa)
+    if (!_fromUygunsuzluk) {
+        const saved = localStorage.getItem('fishbone_state');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                Object.assign(state, parsed);
+            } catch(e) {}
+        }
+    }
+    document.getElementById('problemTitle').value = state.problem;
+    document.getElementById('problemDesc').value  = state.problemDesc || '';
 
     setupColorPicker();
     setupCanvasInteractions();
     setupKeyboardShortcuts();
     initActionPlan();
     render();
+
+    // Uygunsuzluk analizinden gelindiyse bildirim göster
+    if (_fromUygunsuzluk) {
+        setTimeout(() => showNotification('Uygunsuzluk Analizi\'nden problem aktarıldı 🐟', 'success'), 600);
+    }
 
     // Problem input listener
     document.getElementById('problemTitle').addEventListener('input', (e) => {
