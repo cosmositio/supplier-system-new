@@ -1409,12 +1409,13 @@ function openFishboneTedarikci() {
     cariRows.forEach(r => { const v=(r.hataTipi||'(Belirtilmemiş)').trim(); htCnt[v]=(htCnt[v]||0)+(Number(r.hataliMiktar)||1); });
     const topHT = Object.entries(htCnt).sort((a,b)=>b[1]-a[1]).slice(0,6);
     const causes = topHT.map(([ht, miktar], i) => {
-        const htRows = cariRows.filter(r => r.hataTipi === ht);
+        const parentId = mkId(); // önce parent ID al
+        const htRows = cariRows.filter(r => (r.hataTipi||'').trim() === ht);
         const children = topNField(htRows,'hataKaynagi',4).map(v => ({
             id:mkId(),name:v,color:BONE_COLORS[i%6],children:[],collapsed:false,offsetX:0,offsetY:0
         }));
         return {
-            id:mkId(), name:ht,
+            id:parentId, name:ht,
             description:`Hatalı miktar: ${Number(miktar).toLocaleString('tr',{maximumFractionDigits:1})}`,
             color:BONE_COLORS[i%6], side:i%2===0?'top':'bottom',
             collapsed:false, children,

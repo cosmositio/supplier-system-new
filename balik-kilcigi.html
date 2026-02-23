@@ -1708,6 +1708,7 @@ function _updateUndoRedoBtns() {
 document.addEventListener('DOMContentLoaded', () => {
     // Uygunsuzluk Analizi'nden gelen veri var mı?
     let _fromUygunsuzluk = false;
+    let _incomingCauses = null;
     const _rawIncoming = localStorage.getItem('fishbone_incoming');
     if (_rawIncoming) {
         localStorage.removeItem('fishbone_incoming');
@@ -1715,11 +1716,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const inData = JSON.parse(_rawIncoming);
             state.problem     = inData.problem     || 'Ana Problem';
             state.problemDesc = inData.problemDesc || '';
-            // Özellik 2: 6M kemikleri geliyorsa yükle
-            state.causes  = (inData.causes && inData.causes.length) ? JSON.parse(JSON.stringify(inData.causes)) : [];
-            state.nextId  = inData.nextId || 1;
-            _fromUygunsuzluk  = true;
-        } catch(e) {}
+            state.nextId      = (inData.nextId > 1) ? inData.nextId : 1;
+            state.selectedCauseId = null;
+            // Cause'ları geç uygula (render sonrası güvenli)
+            if (Array.isArray(inData.causes) && inData.causes.length > 0) {
+                state.causes     = inData.causes;
+                _incomingCauses  = inData.causes;
+            } else {
+                state.causes = [];
+            }
+            _fromUygunsuzluk = true;
+        } catch(e) { console.error('fishbone_incoming parse hatası:', e); }
     }
 
     // Kayıtlı durumu yükle (gelen veri yoksa)
@@ -1740,6 +1747,14 @@ document.addEventListener('DOMContentLoaded', () => {
     setupKeyboardShortcuts();
     initActionPlan();
     render();
+
+    // Güvenlik: gelen cause'lar render sonrası da state'de olduğunu garantile
+    if (_incomingCauses && _incomingCauses.length > 0) {
+        if (!state.causes || state.causes.length === 0) {
+            state.causes = _incomingCauses;
+            render();
+        }
+    }
 
     // Uygunsuzluk analizinden gelindiyse bildirim göster
     if (_fromUygunsuzluk) {
