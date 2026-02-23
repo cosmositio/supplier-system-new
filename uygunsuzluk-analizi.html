@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uygunsuzluk Analizi</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #4a0a6b 0%, #7b2d8b 50%, #b94fc4 100%);
+            color: white;
+            padding: 20px 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .header-left { display: flex; flex-direction: column; gap: 4px; }
+        .header h1 { font-size: 1.8em; display: flex; align-items: center; gap: 12px; }
+        .header p { opacity: 0.85; font-size: 0.9em; margin-left: 4px; margin-top: 4px; }
+        .back-btn {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(255,255,255,0.3);
+            transition: all 0.3s;
+            font-size: 0.95em;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.04); }
+
+        .container { max-width: 1600px; margin: 0 auto; padding: 24px 20px; }
+
+        /* Upload Area */
+        .upload-card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+        }
+        .upload-card h2 { font-size: 1.1em; color: #4a0a6b; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .drop-zone {
+            border: 2.5px dashed #b94fc4;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fdf5ff;
+        }
+        .drop-zone:hover, .drop-zone.dragover { background: #f3e0ff; border-color: #7b2d8b; }
+        .drop-zone .icon { font-size: 2.5em; margin-bottom: 12px; }
+        .drop-zone p { color: #555; font-size: 1em; }
+        .drop-zone .hint { color: #999; font-size: 0.82em; margin-top: 6px; }
+        #fileInput { display: none; }
+
+        /* Stats Row */
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            flex: 1;
+            min-width: 150px;
+            background: white;
+            border-radius: 14px;
+            padding: 20px 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+            text-align: center;
+            border-top: 4px solid #b94fc4;
+        }
+        .stat-card .val { font-size: 2em; font-weight: 800; color: #4a0a6b; }
+        .stat-card .lbl { font-size: 0.8em; color: #666; margin-top: 4px; }
+
+        /* Filters */
+        .filter-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+        }
+        .filter-card h2 { font-size: 1em; color: #4a0a6b; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .filter-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; min-width: 150px; }
+        .filter-group label { font-size: 0.78em; font-weight: 600; color: #555; }
+        .filter-group select, .filter-group input {
+            padding: 8px 10px;
+            border: 1.5px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.9em;
+            background: #fafafa;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .filter-group select:focus, .filter-group input:focus { border-color: #b94fc4; }
+        .filter-btn {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+        .btn-apply { background: linear-gradient(135deg, #7b2d8b, #b94fc4); color: white; }
+        .btn-apply:hover { opacity: 0.9; }
+        .btn-reset { background: #f0f0f0; color: #444; }
+        .btn-reset:hover { background: #e0e0e0; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 0;
+            background: white;
+            border-radius: 12px 12px 0 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            overflow: hidden;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 14px;
+            background: transparent;
+            border: none;
+            font-size: 0.95em;
+            font-weight: 600;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-btn.active { color: #7b2d8b; border-bottom-color: #b94fc4; background: #fdf5ff; }
+        .tab-btn:hover:not(.active) { background: #f8f8f8; color: #555; }
+
+        /* Tab Panels */
+        .tab-panel {
+            background: white;
+            border-radius: 0 0 16px 16px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+            display: none;
+        }
+        .tab-panel.active { display: block; }
+
+        /* Pareto Chart */
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            height: 420px;
+        }
+        .pareto-options {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .pareto-options label { font-size: 0.82em; font-weight: 600; color: #555; }
+        .pareto-options select {
+            padding: 7px 10px;
+            border: 1.5px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.88em;
+            background: #fafafa;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .pareto-options select:focus { border-color: #b94fc4; }
+
+        /* Data Table */
+        .table-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .table-search {
+            padding: 8px 12px;
+            border: 1.5px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.9em;
+            min-width: 220px;
+            outline: none;
+        }
+        .table-search:focus { border-color: #b94fc4; }
+        .table-info { font-size: 0.82em; color: #666; }
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 10px;
+            border: 1px solid #eee;
+            max-height: 480px;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82em;
+            min-width: 900px;
+        }
+        thead th {
+            background: linear-gradient(135deg, #4a0a6b, #7b2d8b);
+            color: white;
+            padding: 10px 12px;
+            text-align: left;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            cursor: pointer;
+            user-select: none;
+        }
+        thead th:hover { background: linear-gradient(135deg, #5e1280, #9b3dab); }
+        thead th .sort-icon { opacity: 0.6; margin-left: 4px; }
+        tbody tr:nth-child(even) { background: #fdf5ff; }
+        tbody tr:hover { background: #f0d9ff; }
+        tbody td { padding: 8px 12px; border-bottom: 1px solid #eee; white-space: nowrap; vertical-align: middle; }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.78em;
+            font-weight: 600;
+        }
+        .badge-red { background: #ffe0e0; color: #b71c1c; }
+        .badge-orange { background: #fff3e0; color: #e65100; }
+        .badge-blue { background: #e3f2fd; color: #0d47a1; }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+        .page-btn {
+            padding: 6px 12px;
+            border: 1.5px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+        .page-btn:hover { border-color: #b94fc4; color: #7b2d8b; }
+        .page-btn.active { background: #b94fc4; color: white; border-color: #b94fc4; }
+
+        /* Hata Tipi Breakdown */
+        .breakdown-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 14px;
+            margin-top: 16px;
+        }
+        .breakdown-item {
+            background: #fdf5ff;
+            border-radius: 10px;
+            padding: 14px 16px;
+            border-left: 4px solid #b94fc4;
+        }
+        .breakdown-item .bi-name { font-weight: 700; color: #4a0a6b; font-size: 0.9em; margin-bottom: 6px; }
+        .breakdown-item .bi-count { font-size: 1.3em; font-weight: 800; color: #7b2d8b; }
+        .breakdown-item .bi-pct { font-size: 0.78em; color: #888; margin-top: 2px; }
+        .bi-bar { height: 5px; border-radius: 3px; margin-top: 8px; background: #e0c0f0; }
+        .bi-bar-fill { height: 5px; border-radius: 3px; background: linear-gradient(90deg, #b94fc4, #7b2d8b); }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #aaa;
+        }
+        .empty-state .icon { font-size: 3em; margin-bottom: 12px; }
+        .empty-state p { font-size: 1em; }
+
+        /* Export btn */
+        .export-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+            background: linear-gradient(135deg, #7b2d8b, #b94fc4);
+            color: white;
+        }
+        .export-btn:hover { opacity: 0.9; }
+
+        .section-title {
+            font-size: 1em;
+            font-weight: 700;
+            color: #4a0a6b;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Loading */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.35);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .loading-overlay.show { display: flex; }
+        .loading-box {
+            background: white;
+            border-radius: 16px;
+            padding: 36px 48px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .spinner {
+            width: 48px; height: 48px;
+            border: 5px solid #f0d9ff;
+            border-top-color: #b94fc4;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px; right: 24px;
+            background: #4a0a6b;
+            color: white;
+            padding: 14px 22px;
+            border-radius: 10px;
+            font-size: 0.9em;
+            font-weight: 600;
+            z-index: 10000;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            transform: translateY(80px);
+            opacity: 0;
+            transition: all 0.35s;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.error { background: #b71c1c; }
+        .toast.success { background: #2d5a3d; }
+
+        @media(max-width: 700px) {
+            .header { padding: 16px 18px; }
+            .header h1 { font-size: 1.3em; }
+            .container { padding: 14px 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <h1>🔍 Uygunsuzluk Analizi</h1>
+        <p>Excel yükle · Pareto Analizi · Hata Tipi Dağılımı</p>
+    </div>
+    <a href="index.html" class="back-btn">← Ana Sayfa</a>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-box">
+        <div class="spinner"></div>
+        <p style="color:#4a0a6b;font-weight:700;">Excel Yükleniyor...</p>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="container">
+
+    <!-- Upload -->
+    <div class="upload-card">
+        <h2>📂 Excel Dosyası Yükle</h2>
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <div class="icon">📊</div>
+            <p><strong>Excel dosyanızı sürükleyip bırakın veya tıklayın</strong></p>
+            <p class="hint">Desteklenen formatlar: .xlsx, .xls</p>
+        </div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls">
+        <div id="fileInfo" style="margin-top:12px;font-size:0.88em;color:#555;display:none;"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="statsRow" style="display:none;">
+        <div class="stat-card">
+            <div class="val" id="statTotal">0</div>
+            <div class="lbl">Toplam Kayıt</div>
+        </div>
+        <div class="stat-card" style="border-top-color:#e65100;">
+            <div class="val" id="statHataliMiktar">0</div>
+            <div class="lbl">Toplam Hatalı Miktar</div>
+        </div>
+        <div class="stat-card" style="border-top-color:#0d47a1;">
+            <div class="val" id="statHataTipi">0</div>
+            <div class="lbl">Farklı Hata Tipi</div>
+        </div>
+        <div class="stat-card" style="border-top-color:#2d5a3d;">
+            <div class="val" id="statCari">0</div>
+            <div class="lbl">Farklı Tedarikçi</div>
+        </div>
+        <div class="stat-card" style="border-top-color:#b71c1c;">
+            <div class="val" id="statPPM">0</div>
+            <div class="lbl">PPM (Hatalı/Kontrol)</div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-card" id="filterCard" style="display:none;">
+        <h2>🔎 Filtreler</h2>
+        <div class="filter-grid">
+            <div class="filter-group">
+                <label>Tarih Başlangıç</label>
+                <input type="date" id="fDateStart">
+            </div>
+            <div class="filter-group">
+                <label>Tarih Bitiş</label>
+                <input type="date" id="fDateEnd">
+            </div>
+            <div class="filter-group">
+                <label>Hata Tipi</label>
+                <select id="fHataTipi"><option value="">Tümü</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Hata Kaynağı</label>
+                <select id="fHataKaynagi"><option value="">Tümü</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Uygunsuzluk Türü</label>
+                <select id="fUygunsuzlukTuru"><option value="">Tümü</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Tespit Yeri</label>
+                <select id="fTespitYeri"><option value="">Tümü</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Cari (Tedarikçi)</label>
+                <select id="fCari"><option value="">Tümü</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Stok Kodu</label>
+                <select id="fStokKodu"><option value="">Tümü</option></select>
+            </div>
+            <div class="filter-group" style="flex-direction: row; gap: 8px; align-items: flex-end;">
+                <button class="filter-btn btn-apply" onclick="applyFilters()">✔ Uygula</button>
+                <button class="filter-btn btn-reset" onclick="resetFilters()">↺ Sıfırla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div id="mainContent" style="display:none;">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('pareto')">📊 Pareto Analizi</button>
+            <button class="tab-btn" onclick="switchTab('breakdown')">📋 Hata Tipi Dağılımı</button>
+            <button class="tab-btn" onclick="switchTab('table')">📄 Veri Tablosu</button>
+        </div>
+
+        <!-- Pareto Tab -->
+        <div class="tab-panel active" id="tab-pareto">
+            <div class="pareto-options">
+                <div>
+                    <label>Analiz Kriteri: </label>
+                    <select id="paretoMetric" onchange="renderPareto()">
+                        <option value="hataliMiktar">Hatalı Miktar</option>
+                        <option value="kayitSayisi">Kayıt Sayısı</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Göster (Top): </label>
+                    <select id="paretoTop" onchange="renderPareto()">
+                        <option value="15" selected>İlk 15</option>
+                        <option value="20">İlk 20</option>
+                        <option value="999">Tümü</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Grupla: </label>
+                    <select id="paretoGroup" onchange="renderPareto()">
+                        <option value="hataTipi">Hata Tipi</option>
+                        <option value="hataKaynagi">Hata Kaynağı</option>
+                        <option value="uygunsuzlukTuru">Uygunsuzluk Türü</option>
+                        <option value="tespitYeri">Tespit Yeri</option>
+                        <option value="cariAdi">Cari Adı</option>
+                        <option value="stokAdi">Stok Adı</option>
+                    </select>
+                </div>
+                <button class="export-btn" onclick="downloadChartPNG()">⬇ PNG İndir</button>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="paretoChart"></canvas>
+            </div>
+            <div id="paretoInsight" style="margin-top:14px;padding:12px 16px;background:#fdf5ff;border-radius:10px;font-size:0.85em;color:#4a0a6b;border-left:4px solid #b94fc4;"></div>
+        </div>
+
+        <!-- Breakdown Tab -->
+        <div class="tab-panel" id="tab-breakdown">
+            <div class="section-title">📋 Hata Tipi Bazında Hatalı Miktar Dağılımı</div>
+            <div class="breakdown-grid" id="breakdownGrid"></div>
+        </div>
+
+        <!-- Table Tab -->
+        <div class="tab-panel" id="tab-table">
+            <div class="table-controls">
+                <input type="text" class="table-search" id="tableSearch" placeholder="🔍 Tabloda ara..." oninput="onTableSearch()">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <span class="table-info" id="tableInfo"></span>
+                    <button class="export-btn" onclick="exportTableExcel()">⬇ Excel İndir</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table id="dataTable">
+                    <thead id="tableHead"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="emptyState">
+        <div class="icon">📥</div>
+        <p>Henüz dosya yüklenmedi. Yukarıdan bir Excel dosyası seçin.</p>
+    </div>
+
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let allData = [];         // raw parsed rows
+let filteredData = [];    // after filters
+let tableSearchData = []; // after table search
+let currentPage = 1;
+const PAGE_SIZE = 50;
+let sortCol = -1;
+let sortAsc = true;
+let paretoChartInst = null;
+
+// Column map: internal key → possible Excel header variants (case-insensitive)
+const COL_MAP = {
+    uygunsuzlukSeri:    ['uygunsuzluk seri', 'uyg seri', 'seri'],
+    uygunsuzlukSira:    ['uygunsuzluk sira', 'uyg sira', 'sıra', 'sira'],
+    uygunsuzlukTarih:   ['uygunsuzluk tarih', 'tarih', 'date'],
+    tipi:               ['tipi', 'tip'],
+    tespitYeri:         ['tespit yeri', 'tespityeri'],
+    makine:             ['makine'],
+    stokKodu:           ['stok kodu', 'stokkodu', 'stok_kodu'],
+    stokAdi:            ['stok adı', 'stok adi', 'stokadi', 'stok_adi'],
+    yarimamulKodu:      ['yarimamul kodu', 'yarı mamul kodu', 'yarimamulkodu'],
+    yarimamulAdi:       ['yarimamul adi', 'yarı mamul adı', 'yarimamuladi'],
+    cariKodu:           ['cari kodu', 'carikodu', 'cari_kodu'],
+    cariAdi:            ['cari adı', 'cari adi', 'cariadi', 'cari_adi'],
+    partiHacmi:         ['parti hacmi', 'partihacmi'],
+    kontrolMiktar:      ['kontrol miktar', 'kontrol miktarı', 'kontrolmiktar'],
+    hataliMiktar:       ['hatali miktar', 'hatalı miktar', 'hatalimiktar', 'hata miktar'],
+    birim:              ['birim'],
+    uygunsuzlukTuru:    ['uygunsuzluk turu', 'uygunsuzluk türü', 'uygunsuzlukturu'],
+    hataTipi:           ['hata tipi', 'hatatp', 'hata_tipi'],
+    hataKaynagi:        ['hata kaynagi', 'hata kaynağı', 'hatakaynagi'],
+    tarif:              ['tarif'],
+    karar:              ['karar'],
+    kapatmaTarihi:      ['kapatma tarihi', 'kapatmatarihi'],
+    sonuc:              ['sonuç', 'sonuc'],
+    stokHarSeri:        ['stok hareketi seri', 'stokhar seri'],
+    stokHarSira:        ['stok hareketi sıra', 'stok hareketi sira', 'stokhar sira'],
+    isEmriKodu:         ['iş emri kodu', 'is emri kodu', 'isemrikodu'],
+    uretimKaydi:        ['üretim kaydı', 'uretim kaydi', 'üretimkaydı'],
+};
+
+const COL_LABELS = {
+    uygunsuzlukSeri: 'Uyg. Seri',
+    uygunsuzlukSira: 'Uyg. Sıra',
+    uygunsuzlukTarih: 'Tarih',
+    tipi: 'Tipi',
+    tespitYeri: 'Tespit Yeri',
+    makine: 'Makine',
+    stokKodu: 'Stok Kodu',
+    stokAdi: 'Stok Adı',
+    yarimamulKodu: 'Yarımamul Kodu',
+    yarimamulAdi: 'Yarımamul Adı',
+    cariKodu: 'Cari Kodu',
+    cariAdi: 'Cari Adı',
+    partiHacmi: 'Parti Hacmi',
+    kontrolMiktar: 'Kontrol Miktar',
+    hataliMiktar: 'Hatalı Miktar',
+    birim: 'Birim',
+    uygunsuzlukTuru: 'Uyg. Türü',
+    hataTipi: 'Hata Tipi',
+    hataKaynagi: 'Hata Kaynağı',
+    tarif: 'Tarif',
+    karar: 'Karar',
+    kapatmaTarihi: 'Kapatma Tarihi',
+    sonuc: 'Sonuç',
+    stokHarSeri: 'Stok Har. Seri',
+    stokHarSira: 'Stok Har. Sıra',
+    isEmriKodu: 'İş Emri Kodu',
+    uretimKaydi: 'Üretim Kaydı',
+};
+
+const TABLE_COLS = Object.keys(COL_MAP);
+
+// ─── Drop Zone ───────────────────────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+// ─── File Processing ──────────────────────────────────────────────────────────
+function processFile(file) {
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+        showToast('Lütfen .xlsx veya .xls dosyası seçin!', 'error'); return;
+    }
+    showLoading(true);
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+            allData = mapColumns(raw);
+            filteredData = [...allData];
+            document.getElementById('fileInfo').style.display = 'block';
+            document.getElementById('fileInfo').innerHTML =
+                `✅ <strong>${file.name}</strong> yüklendi — <strong>${allData.length}</strong> kayıt, <strong>${wb.SheetNames[0]}</strong> sayfası`;
+            initUI();
+            showLoading(false);
+            showToast(`${allData.length} kayıt başarıyla yüklendi!`, 'success');
+        } catch(err) {
+            showLoading(false);
+            showToast('Excel okuma hatası: ' + err.message, 'error');
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function normalizeHeader(h) {
+    return String(h).toLowerCase().trim()
+        .replace(/[_\-]/g, ' ')
+        .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s')
+        .replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c');
+}
+
+function mapColumns(raw) {
+    if (!raw.length) return [];
+    const headers = Object.keys(raw[0]);
+    // Build lookup: normalized header → original key
+    const normToOrig = {};
+    headers.forEach(h => { normToOrig[normalizeHeader(h)] = h; });
+
+    // For each internal key, find the matching column
+    const keyMap = {};
+    for (const [intKey, variants] of Object.entries(COL_MAP)) {
+        for (const v of variants) {
+            const norm = normalizeHeader(v);
+            if (normToOrig[norm]) { keyMap[intKey] = normToOrig[norm]; break; }
+        }
+        // fuzzy: try contains
+        if (!keyMap[intKey]) {
+            for (const v of variants) {
+                const norm = normalizeHeader(v);
+                const found = Object.keys(normToOrig).find(h => h.includes(norm) || norm.includes(h));
+                if (found) { keyMap[intKey] = normToOrig[found]; break; }
+            }
+        }
+    }
+
+    return raw.map(row => {
+        const obj = {};
+        for (const intKey of TABLE_COLS) {
+            const origCol = keyMap[intKey];
+            let val = origCol ? row[origCol] : '';
+            if (val === null || val === undefined) val = '';
+            // Parse numeric fields
+            if (intKey === 'hataliMiktar' || intKey === 'kontrolMiktar' || intKey === 'partiHacmi') {
+                const n = parseFloat(String(val).replace(',', '.'));
+                val = isNaN(n) ? 0 : n;
+            }
+            obj[intKey] = val;
+        }
+        return obj;
+    }).filter(r => r.hataTipi !== '' || r.uygunsuzlukSeri !== '' || r.stokKodu !== '');
+}
+
+// ─── Init UI ───────────────────────────────────────────────────────────────
+function initUI() {
+    populateFilters();
+    updateStats();
+    renderPareto();
+    renderBreakdown();
+    renderTable();
+    document.getElementById('statsRow').style.display = 'flex';
+    document.getElementById('filterCard').style.display = 'block';
+    document.getElementById('mainContent').style.display = 'block';
+    document.getElementById('emptyState').style.display = 'none';
+}
+
+function populateFilters() {
+    const selFields = {
+        fHataTipi: 'hataTipi',
+        fHataKaynagi: 'hataKaynagi',
+        fUygunsuzlukTuru: 'uygunsuzlukTuru',
+        fTespitYeri: 'tespitYeri',
+        fCari: 'cariAdi',
+        fStokKodu: 'stokKodu',
+    };
+    for (const [selId, field] of Object.entries(selFields)) {
+        const sel = document.getElementById(selId);
+        const current = sel.value;
+        const vals = [...new Set(allData.map(r => r[field]).filter(v => v !== '' && v !== 0))].sort();
+        sel.innerHTML = '<option value="">Tümü</option>' + vals.map(v => `<option value="${v}">${v}</option>`).join('');
+        if (vals.includes(current)) sel.value = current;
+    }
+    // Date range
+    const dates = allData.map(r => r.uygunsuzlukTarih).filter(Boolean).sort();
+    if (dates.length) {
+        document.getElementById('fDateStart').value = '';
+        document.getElementById('fDateEnd').value = '';
+    }
+}
+
+// ─── Filters ─────────────────────────────────────────────────────────────────
+function applyFilters() {
+    const hataTipi      = document.getElementById('fHataTipi').value;
+    const hataKaynagi   = document.getElementById('fHataKaynagi').value;
+    const uyTuru        = document.getElementById('fUygunsuzlukTuru').value;
+    const tespitYeri    = document.getElementById('fTespitYeri').value;
+    const cari          = document.getElementById('fCari').value;
+    const stokKodu      = document.getElementById('fStokKodu').value;
+    const dateStart     = document.getElementById('fDateStart').value;
+    const dateEnd       = document.getElementById('fDateEnd').value;
+
+    filteredData = allData.filter(r => {
+        if (hataTipi    && r.hataTipi    !== hataTipi)    return false;
+        if (hataKaynagi && r.hataKaynagi !== hataKaynagi) return false;
+        if (uyTuru      && r.uygunsuzlukTuru !== uyTuru)  return false;
+        if (tespitYeri  && r.tespitYeri  !== tespitYeri)  return false;
+        if (cari        && r.cariAdi     !== cari)        return false;
+        if (stokKodu    && r.stokKodu    !== stokKodu)    return false;
+        if (dateStart || dateEnd) {
+            const d = parseDateStr(r.uygunsuzlukTarih);
+            if (dateStart && d && d < dateStart) return false;
+            if (dateEnd   && d && d > dateEnd)   return false;
+        }
+        return true;
+    });
+    updateStats();
+    renderPareto();
+    renderBreakdown();
+    renderTable();
+    showToast(`${filteredData.length} kayıt filtrelendi`, 'success');
+}
+
+function resetFilters() {
+    document.getElementById('fHataTipi').value = '';
+    document.getElementById('fHataKaynagi').value = '';
+    document.getElementById('fUygunsuzlukTuru').value = '';
+    document.getElementById('fTespitYeri').value = '';
+    document.getElementById('fCari').value = '';
+    document.getElementById('fStokKodu').value = '';
+    document.getElementById('fDateStart').value = '';
+    document.getElementById('fDateEnd').value = '';
+    filteredData = [...allData];
+    updateStats();
+    renderPareto();
+    renderBreakdown();
+    renderTable();
+    showToast('Filtreler sıfırlandı');
+}
+
+function parseDateStr(val) {
+    if (!val) return null;
+    // Try yyyy-mm-dd or dd.mm.yyyy or dd/mm/yyyy
+    let m;
+    if ((m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})/))) return `${m[1]}-${m[2]}-${m[3]}`;
+    if ((m = String(val).match(/^(\d{2})[.\/](\d{2})[.\/](\d{4})/))) return `${m[3]}-${m[2]}-${m[1]}`;
+    return null;
+}
+
+// ─── Stats ───────────────────────────────────────────────────────────────────
+function updateStats() {
+    const total = filteredData.length;
+    const hatali = filteredData.reduce((s, r) => s + (Number(r.hataliMiktar) || 0), 0);
+    const kontrol = filteredData.reduce((s, r) => s + (Number(r.kontrolMiktar) || 0), 0);
+    const hataTipleri = new Set(filteredData.map(r => r.hataTipi).filter(Boolean)).size;
+    const cariler = new Set(filteredData.map(r => r.cariAdi).filter(Boolean)).size;
+    const ppm = kontrol > 0 ? Math.round((hatali / kontrol) * 1_000_000) : 0;
+    document.getElementById('statTotal').textContent = total.toLocaleString('tr');
+    document.getElementById('statHataliMiktar').textContent = hatali.toLocaleString('tr', {maximumFractionDigits:1});
+    document.getElementById('statHataTipi').textContent = hataTipleri;
+    document.getElementById('statCari').textContent = cariler;
+    document.getElementById('statPPM').textContent = ppm.toLocaleString('tr');
+}
+
+// ─── Pareto ───────────────────────────────────────────────────────────────────
+function renderPareto() {
+    const metric   = document.getElementById('paretoMetric').value;
+    const topN     = parseInt(document.getElementById('paretoTop').value);
+    const groupKey = document.getElementById('paretoGroup').value;
+
+    // Aggregate
+    const agg = {};
+    filteredData.forEach(r => {
+        const key = r[groupKey] || '(Belirtilmemiş)';
+        if (!agg[key]) agg[key] = { count: 0, hatali: 0 };
+        agg[key].count++;
+        agg[key].hatali += Number(r.hataliMiktar) || 0;
+    });
+
+    let entries = Object.entries(agg).map(([k, v]) => ({
+        label: k,
+        value: metric === 'hataliMiktar' ? v.hatali : v.count,
+        count: v.count,
+        hatali: v.hatali,
+    })).sort((a, b) => b.value - a.value);
+
+    if (topN < entries.length) entries = entries.slice(0, topN);
+
+    const total = entries.reduce((s, e) => s + e.value, 0);
+    let cum = 0;
+    const cumPct = entries.map(e => { cum += e.value; return +(cum / total * 100).toFixed(1); });
+
+    // Pareto 80% rule insight
+    const eightyIdx = cumPct.findIndex(p => p >= 80);
+    const insightEl = document.getElementById('paretoInsight');
+    if (eightyIdx >= 0 && entries.length > 0) {
+        insightEl.innerHTML = `📌 <strong>Pareto Kuralı:</strong> İlk <strong>${eightyIdx + 1}</strong> hata tipi (toplam ${entries.length} içinden), tüm ${metric === 'hataliMiktar' ? 'hatalı miktarın' : 'kaydın'} <strong>%80</strong>'ini oluşturmaktadır. Bu kategorilere odaklanmak en büyük iyileştirmeyi sağlar.`;
+    } else {
+        insightEl.innerHTML = '';
+    }
+
+    const labels = entries.map(e => e.label);
+    const values = entries.map(e => e.value);
+
+    // Colors: bars are red gradient, cumulative line is dark purple
+    const barColors = entries.map((_, i) => {
+        const r = Math.max(60, 185 - i * 8);
+        return `rgba(${r}, 50, ${Math.min(180, 100 + i * 6)}, 0.82)`;
+    });
+
+    if (paretoChartInst) { paretoChartInst.destroy(); paretoChartInst = null; }
+
+    const ctx = document.getElementById('paretoChart').getContext('2d');
+    paretoChartInst = new Chart(ctx, {
+        data: {
+            labels,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: metric === 'hataliMiktar' ? 'Hatalı Miktar' : 'Kayıt Sayısı',
+                    data: values,
+                    backgroundColor: barColors,
+                    borderColor: barColors.map(c => c.replace('0.82', '1')),
+                    borderWidth: 1,
+                    yAxisID: 'y',
+                    order: 2,
+                },
+                {
+                    type: 'line',
+                    label: 'Kümülatif %',
+                    data: cumPct,
+                    borderColor: '#4a0a6b',
+                    backgroundColor: 'rgba(74,10,107,0.08)',
+                    borderWidth: 2.5,
+                    pointBackgroundColor: '#b94fc4',
+                    pointRadius: 4,
+                    tension: 0.3,
+                    yAxisID: 'y2',
+                    fill: false,
+                    order: 1,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top', labels: { font: { size: 12 }, color: '#333' } },
+                tooltip: {
+                    callbacks: {
+                        afterBody: (ctx) => {
+                            const idx = ctx[0].dataIndex;
+                            return [`Kümülatif: %${cumPct[idx]}`];
+                        }
+                    }
+                },
+                annotation: {
+                    // 80% line approximation via dataset
+                },
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 30,
+                        font: { size: 11 },
+                        callback: function(val, idx) {
+                            const lbl = labels[idx];
+                            return lbl.length > 22 ? lbl.substring(0, 20) + '…' : lbl;
+                        }
+                    },
+                    grid: { display: false },
+                },
+                y: {
+                    type: 'linear',
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: metric === 'hataliMiktar' ? 'Hatalı Miktar' : 'Kayıt Sayısı',
+                        color: '#555',
+                    },
+                    grid: { color: '#eee' },
+                },
+                y2: {
+                    type: 'linear',
+                    position: 'right',
+                    min: 0, max: 100,
+                    title: { display: true, text: 'Kümülatif (%)', color: '#4a0a6b' },
+                    grid: { display: false },
+                    ticks: {
+                        callback: v => v + '%',
+                        color: '#4a0a6b',
+                    },
+                },
+            },
+        },
+    });
+
+    // Draw 80% reference line
+    const plugin80 = {
+        id: 'line80',
+        afterDraw(chart) {
+            const { ctx, scales } = chart;
+            if (!scales.y2) return;
+            const y = scales.y2.getPixelForValue(80);
+            ctx.save();
+            ctx.setLineDash([6, 4]);
+            ctx.strokeStyle = 'rgba(185,79,196,0.55)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(scales.x.left, y);
+            ctx.lineTo(scales.x.right, y);
+            ctx.stroke();
+            ctx.fillStyle = '#b94fc4';
+            ctx.font = '11px Segoe UI';
+            ctx.fillText('%80', scales.x.right + 4, y + 4);
+            ctx.restore();
+        }
+    };
+    paretoChartInst.options.plugins['line80'] = true;
+    Chart.register(plugin80);
+    paretoChartInst.update();
+}
+
+function downloadChartPNG() {
+    if (!paretoChartInst) return;
+    const a = document.createElement('a');
+    a.href = paretoChartInst.toBase64Image('image/png', 1);
+    a.download = 'pareto-analizi.png';
+    a.click();
+}
+
+// ─── Breakdown ────────────────────────────────────────────────────────────────
+function renderBreakdown() {
+    const agg = {};
+    const totalHatali = filteredData.reduce((s, r) => s + (Number(r.hataliMiktar) || 0), 0);
+    filteredData.forEach(r => {
+        const k = r.hataTipi || '(Belirtilmemiş)';
+        if (!agg[k]) agg[k] = { count: 0, hatali: 0 };
+        agg[k].count++;
+        agg[k].hatali += Number(r.hataliMiktar) || 0;
+    });
+    const sorted = Object.entries(agg).sort((a, b) => b[1].hatali - a[1].hatali);
+    const maxHatali = sorted[0] ? sorted[0][1].hatali : 1;
+
+    const grid = document.getElementById('breakdownGrid');
+    if (!sorted.length) { grid.innerHTML = '<p style="color:#aaa;font-size:0.9em;">Veri yok</p>'; return; }
+    grid.innerHTML = sorted.map(([k, v]) => {
+        const pct = totalHatali > 0 ? (v.hatali / totalHatali * 100).toFixed(1) : 0;
+        const barW = maxHatali > 0 ? (v.hatali / maxHatali * 100).toFixed(1) : 0;
+        return `<div class="breakdown-item">
+            <div class="bi-name">${k}</div>
+            <div class="bi-count">${v.hatali.toLocaleString('tr', {maximumFractionDigits:1})}</div>
+            <div class="bi-pct">%${pct} · ${v.count} kayıt</div>
+            <div class="bi-bar"><div class="bi-bar-fill" style="width:${barW}%"></div></div>
+        </div>`;
+    }).join('');
+}
+
+// ─── Table ────────────────────────────────────────────────────────────────────
+function renderTable(data) {
+    if (data === undefined) {
+        tableSearchData = [...filteredData];
+        currentPage = 1;
+    }
+    const search = document.getElementById('tableSearch').value.toLowerCase();
+    let display = tableSearchData.filter(r => {
+        if (!search) return true;
+        return TABLE_COLS.some(k => String(r[k]).toLowerCase().includes(search));
+    });
+
+    // Sort
+    if (sortCol >= 0) {
+        const key = TABLE_COLS[sortCol];
+        display.sort((a, b) => {
+            const av = a[key], bv = b[key];
+            const an = parseFloat(av), bn = parseFloat(bv);
+            if (!isNaN(an) && !isNaN(bn)) return sortAsc ? an - bn : bn - an;
+            return sortAsc ? String(av).localeCompare(String(bv), 'tr') : String(bv).localeCompare(String(av), 'tr');
+        });
+    }
+
+    const total = display.length;
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (currentPage > pages) currentPage = pages;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const slice = display.slice(start, start + PAGE_SIZE);
+
+    document.getElementById('tableInfo').textContent = `${total.toLocaleString('tr')} kayıt · Sayfa ${currentPage}/${pages}`;
+
+    // Header
+    document.getElementById('tableHead').innerHTML = `<tr>${TABLE_COLS.map((k, i) => {
+        const icon = sortCol === i ? (sortAsc ? ' ▲' : ' ▼') : '';
+        return `<th onclick="sortTable(${i})">${COL_LABELS[k]}${icon}</th>`;
+    }).join('')}</tr>`;
+
+    // Body
+    document.getElementById('tableBody').innerHTML = slice.map(r => `<tr>${
+        TABLE_COLS.map(k => {
+            let v = r[k];
+            if (k === 'hataliMiktar' && v > 0) return `<td><span class="badge badge-red">${Number(v).toLocaleString('tr', {maximumFractionDigits:2})}</span></td>`;
+            if (k === 'kontrolMiktar' && v > 0) return `<td><span class="badge badge-blue">${Number(v).toLocaleString('tr', {maximumFractionDigits:2})}</span></td>`;
+            return `<td>${v}</td>`;
+        }).join('')
+    }</tr>`).join('') || '<tr><td colspan="' + TABLE_COLS.length + '" style="text-align:center;color:#aaa;padding:30px;">Kayıt bulunamadı</td></tr>';
+
+    renderPagination(pages, display);
+}
+
+function sortTable(idx) {
+    if (sortCol === idx) sortAsc = !sortAsc;
+    else { sortCol = idx; sortAsc = true; }
+    renderTable();
+}
+
+function onTableSearch() {
+    currentPage = 1;
+    renderTable();
+}
+
+function renderPagination(pages, display) {
+    const pg = document.getElementById('pagination');
+    if (pages <= 1) { pg.innerHTML = ''; return; }
+    const btns = [];
+    btns.push(`<button class="page-btn" onclick="goPage(1)">«</button>`);
+    const from = Math.max(1, currentPage - 2);
+    const to   = Math.min(pages, currentPage + 2);
+    if (from > 1) btns.push('<span style="padding:6px 4px;color:#aaa">…</span>');
+    for (let i = from; i <= to; i++) {
+        btns.push(`<button class="page-btn${i === currentPage ? ' active' : ''}" onclick="goPage(${i})">${i}</button>`);
+    }
+    if (to < pages) btns.push('<span style="padding:6px 4px;color:#aaa">…</span>');
+    btns.push(`<button class="page-btn" onclick="goPage(${pages})">»</button>`);
+    pg.innerHTML = btns.join('');
+}
+
+function goPage(p) { currentPage = p; renderTable(); }
+
+// ─── Export Table ─────────────────────────────────────────────────────────────
+function exportTableExcel() {
+    const header = TABLE_COLS.map(k => COL_LABELS[k]);
+    const rows   = filteredData.map(r => TABLE_COLS.map(k => r[k]));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Uygunsuzluk');
+    XLSX.writeFile(wb, 'uygunsuzluk-analizi.xlsx');
+    showToast('Excel indirildi!', 'success');
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        const names = ['pareto', 'breakdown', 'table'];
+        b.classList.toggle('active', names[i] === name);
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'pareto' && paretoChartInst) paretoChartInst.resize();
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function showLoading(show) {
+    document.getElementById('loadingOverlay').classList.toggle('show', show);
+}
+
+function showToast(msg, type) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? ' ' + type : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>
