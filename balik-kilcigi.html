@@ -2715,13 +2715,32 @@ function renderFishbone() {
         class="spine-line"/>`;
 
     // ── PROBLEM BOX (fish head) ──
-    const headX = spineEndX + 12, headW = 160, headH = 64;
+    const headX = spineEndX + 12, headW = 160;
+    // Word-wrap problem text inside the head box
+    const headFontSize = 14;
+    const headChPerLine = Math.max(8, Math.floor((headW - 16) / (headFontSize * 0.62)));
+    const headWordsList = state.problem.split(' ');
+    const headLinesList = [];
+    let headCurLine = '';
+    for (const w of headWordsList) {
+        const test = headCurLine ? headCurLine + ' ' + w : w;
+        if (test.length > headChPerLine && headCurLine) { headLinesList.push(headCurLine); headCurLine = w; }
+        else { headCurLine = test; }
+    }
+    if (headCurLine) headLinesList.push(headCurLine);
+    const headLineH = headFontSize + 4;
+    const headH = Math.max(52, headLinesList.length * headLineH + 16);
+    const headCX = headX + headW / 2;
+    const headTY = centerY - ((headLinesList.length - 1) * headLineH) / 2;
+    const headTspans = headLinesList.map((ln, li) =>
+        `<tspan x="${headCX}" dy="${li === 0 ? 0 : headLineH}">${escapeHtml(ln)}</tspan>`
+    ).join('');
     svgContent += `
         <rect x="${headX}" y="${centerY - headH/2}" width="${headW}" height="${headH}" rx="8"
               fill="var(--accent)" opacity="0.15" stroke="var(--accent)" stroke-width="2.5"/>
-        <text x="${headX + headW/2}" y="${centerY}" text-anchor="middle" dominant-baseline="central"
-              fill="var(--accent)" font-size="16" font-weight="700">
-            ${escapeHtml(truncateText(state.problem, 18))}
+        <text x="${headCX}" y="${headTY}" text-anchor="middle" dominant-baseline="central"
+              fill="var(--accent)" font-size="${headFontSize}" font-weight="700">
+            ${headTspans}
         </text>`;
 
     // ── FISH TAIL + SPINE RESIZE HANDLE ──
@@ -2792,21 +2811,36 @@ function renderFishbone() {
                     style="pointer-events:none"/>`;
             }
 
-            // Category label box
+            // Category label box (with word-wrap)
             const sel = state.selectedCauseId === cause.id;
-            const lblW = Math.max(90, cause.name.length * (baseFontMain * 0.64) + 24);
-            const lblH = 34;
+            const lblMaxW = 140;
+            const lblChPerLine = Math.max(8, Math.floor(lblMaxW / (baseFontMain * 0.62)));
+            const lblWords = cause.name.split(' ');
+            const lblLines = [];
+            let lblCur = '';
+            for (const w of lblWords) {
+                const test = lblCur ? lblCur + ' ' + w : w;
+                if (test.length > lblChPerLine && lblCur) { lblLines.push(lblCur); lblCur = w; }
+                else { lblCur = test; }
+            }
+            if (lblCur) lblLines.push(lblCur);
+            const lblLineH = baseFontMain + 4;
+            const lblW = lblMaxW;
+            const lblH = Math.max(34, lblLines.length * lblLineH + 12);
             const lblX = tipX - lblW / 2;
             const lblY = isTop ? tipY - lblH - 10 : tipY + 10;
+            const lblTspans = lblLines.map((ln, li) =>
+                `<tspan x="${tipX}" dy="${li === 0 ? lblLineH : lblLineH}">${escapeHtml(ln)}</tspan>`
+            ).join('');
 
             svgContent += `
                 <g data-cause-id="${cause.id}" style="cursor:grab">
                 <rect x="${lblX}" y="${lblY}" width="${lblW}" height="${lblH}" rx="6"
                       fill="${cause.color}" opacity="${sel ? 0.35 : 0.15}"
                       stroke="${cause.color}" stroke-width="${sel ? 2.5 : 1.5}"/>
-                <text x="${tipX}" y="${lblY + lblH/2}" text-anchor="middle" dominant-baseline="central"
+                <text x="${tipX}" y="${lblY + 4}" text-anchor="middle"
                       fill="${cause.color}" font-size="${baseFontMain}" font-weight="700" style="pointer-events:none">
-                    ${escapeHtml(truncateText(cause.name, 18))}
+                    ${lblTspans}
                 </text>
                 </g>`;
 
