@@ -158,6 +158,31 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .m6-card .m6-val { font-size:1.4rem; font-weight:800; margin-bottom:4px; }
 .m6-card .m6-list { font-size:.75rem; color:var(--c-sub); }
 
+/* ── AKSIYON EDIT BUTTONS ── */
+.ap-btn { border:none; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:.75rem; font-weight:600; line-height:1; transition:opacity .15s; }
+.ap-btn:hover { opacity:.8; }
+.ap-btn-edit { background:#e0f2fe; color:#0369a1; }
+.ap-btn-del  { background:#fee2e2; color:#b91c1c; }
+.ap-btn-add  { background:#dcfce7; color:#166534; }
+.ap-actions-col { white-space:nowrap; display:flex; gap:5px; }
+.ap-table th:last-child, .ap-table td:last-child { text-align:center; }
+
+/* ── MODAL ── */
+#apModal { display:none; position:fixed; inset:0; z-index:9999; background:rgba(10,15,30,.55); align-items:center; justify-content:center; }
+#apModal.open { display:flex; }
+#apModalBox { background:#fff; border-radius:14px; padding:28px 28px 20px; width:min(560px,95vw); box-shadow:0 20px 60px rgba(0,0,0,.22); max-height:90vh; overflow-y:auto; }
+#apModalBox h3 { margin:0 0 18px; font-size:1rem; color:#1e2535; }
+.ap-field { margin-bottom:14px; }
+.ap-field label { display:block; font-size:.75rem; font-weight:700; color:#475569; margin-bottom:4px; text-transform:uppercase; letter-spacing:.4px; }
+.ap-field input, .ap-field textarea, .ap-field select { width:100%; box-sizing:border-box; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:.85rem; font-family:inherit; color:#1e2535; outline:none; transition:border-color .15s; resize:vertical; }
+.ap-field input:focus, .ap-field textarea:focus, .ap-field select:focus { border-color:#3b82f6; }
+.ap-modal-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.ap-modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; border-top:1px solid #f1f5f9; padding-top:16px; }
+.ap-modal-save { background:linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; border:none; border-radius:8px; padding:9px 22px; font-size:.85rem; font-weight:700; cursor:pointer; }
+.ap-modal-save:hover { opacity:.9; }
+.ap-modal-cancel { background:#f1f5f9; color:#475569; border:none; border-radius:8px; padding:9px 18px; font-size:.85rem; font-weight:600; cursor:pointer; }
+.ap-section-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+
 /* ── PRINT ── */
 @media print {
     .topbar, .sidebar, .topbar-right, .no-print { display:none !important; }
@@ -344,7 +369,10 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
             <span class="hint">Veriye dayalı otomatik oluşturuldu</span>
         </div>
         <div class="section-body">
-            <p style="color:var(--c-sub);font-size:.8rem;margin-bottom:16px;">Bu aksiyon planı analiz bulgularına göre otomatik oluşturulmuştur. Sorumlu atama ve tarihleri düzenleyiniz.</p>
+            <div class="ap-section-toolbar">
+                <p style="color:var(--c-sub);font-size:.8rem;margin:0;flex:1;">Analiz bulgularına göre otomatik oluşturulmuştur. Düzenleyebilir, silebilir veya yeni satır ekleyebilirsiniz.</p>
+                <button class="ap-btn ap-btn-add no-print" onclick="apOpenAdd()">＋ Satır Ekle</button>
+            </div>
             <table class="ap-table">
                 <thead>
                     <tr>
@@ -354,10 +382,57 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
                         <th>Önerilen Aksiyon</th>
                         <th>Öncelik</th>
                         <th>Hedef Süre</th>
+                        <th class="no-print"></th>
                     </tr>
                 </thead>
                 <tbody id="aksiyonBody"></tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- EDIT MODAL -->
+    <div id="apModal">
+        <div id="apModalBox">
+            <h3 id="apModalTitle">Satırı Düzenle</h3>
+            <div class="ap-field">
+                <label>Bulgu / Problem</label>
+                <textarea id="apFBulgu" rows="2"></textarea>
+            </div>
+            <div class="ap-modal-row">
+                <div class="ap-field">
+                    <label>Kategori</label>
+                    <select id="apFKat">
+                        <option value="Hata Tipi|badge-red">Hata Tipi</option>
+                        <option value="Tedarikçi|badge-purple">Tedarikçi</option>
+                        <option value="Malzeme|badge-yellow">Malzeme</option>
+                        <option value="İç Başarısızlık|badge-blue">İç Başarısızlık</option>
+                        <option value="Dış Başarısızlık|badge-red">Dış Başarısızlık</option>
+                        <option value="6M Analizi|badge-green">6M Analizi</option>
+                        <option value="Sistem|badge-gray">Sistem</option>
+                        <option value="Diğer|badge-gray">Diğer</option>
+                    </select>
+                </div>
+                <div class="ap-field">
+                    <label>Öncelik</label>
+                    <select id="apFOncelik">
+                        <option value="Yüksek">Yüksek</option>
+                        <option value="Orta">Orta</option>
+                        <option value="Düşük">Düşük</option>
+                    </select>
+                </div>
+            </div>
+            <div class="ap-field">
+                <label>Önerilen Aksiyon</label>
+                <textarea id="apFAksiyon" rows="3"></textarea>
+            </div>
+            <div class="ap-field">
+                <label>Hedef Süre</label>
+                <input type="text" id="apFSure" placeholder="örn: 2 hafta, 1 ay">
+            </div>
+            <div class="ap-modal-footer">
+                <button class="ap-modal-cancel" onclick="apCloseModal()">İptal</button>
+                <button class="ap-modal-save" onclick="apSaveModal()">Kaydet</button>
+            </div>
         </div>
     </div>
 
@@ -733,6 +808,109 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
 }
 
 // ─────────────────────────────────────────────
+// AKSIYON PLAN EDIT LOGIC
+// ─────────────────────────────────────────────
+const _PRI_COLOR = { 'Yüksek':'pri-yuksek', 'Orta':'pri-orta', 'Düşük':'pri-dusuk' };
+const _KAT_BADGE_MAP = {
+    'Hata Tipi':'badge-red','Tedarikçi':'badge-purple','Malzeme':'badge-yellow',
+    'İç Başarısızlık':'badge-blue','Dış Başarısızlık':'badge-red',
+    '6M Analizi':'badge-green','Sistem':'badge-gray','Diğer':'badge-gray'
+};
+
+function renderAksiyonTablosu() {
+    const list = window._aksiyonlar || [];
+    document.getElementById('aksiyonBody').innerHTML = list.map((a, i) => `
+        <tr>
+            <td style="color:var(--c-sub);font-size:.78rem;">${i+1}</td>
+            <td>${esc(a.bulgu)}</td>
+            <td><span class="badge ${esc(a.katBadge)}">${esc(a.kat)}</span></td>
+            <td style="max-width:320px;">${esc(a.aksiyon)}</td>
+            <td><span class="pri ${_PRI_COLOR[a.oncelik]||''}">${esc(a.oncelik)}</span></td>
+            <td style="color:var(--c-sub);white-space:nowrap;">${esc(a.sure)}</td>
+            <td class="no-print"><div class="ap-actions-col">
+                <button class="ap-btn ap-btn-edit" onclick="apOpenEdit(${i})">✏️ Düzenle</button>
+                <button class="ap-btn ap-btn-del"  onclick="apDelete(${i})">🗑️</button>
+            </div></td>
+        </tr>`).join('');
+}
+
+function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let _apEditIdx = -1; // -1 = new row
+
+function _apKatVal(name, badge) {
+    return `${name}|${badge}`;
+}
+
+function apOpenEdit(idx) {
+    _apEditIdx = idx;
+    const a = window._aksiyonlar[idx];
+    document.getElementById('apModalTitle').textContent = 'Satırı Düzenle';
+    document.getElementById('apFBulgu').value   = a.bulgu   || '';
+    document.getElementById('apFAksiyon').value = a.aksiyon || '';
+    document.getElementById('apFOncelik').value = a.oncelik || 'Orta';
+    document.getElementById('apFSure').value    = a.sure    || '';
+    const katSel = document.getElementById('apFKat');
+    const katVal = `${a.kat}|${a.katBadge}`;
+    // Try to find matching option
+    let found = false;
+    for (const opt of katSel.options) { if (opt.value === katVal) { katSel.value = opt.value; found = true; break; } }
+    if (!found) katSel.value = 'Diğer|badge-gray';
+    document.getElementById('apModal').classList.add('open');
+}
+
+function apOpenAdd() {
+    _apEditIdx = -1;
+    document.getElementById('apModalTitle').textContent = 'Yeni Satır Ekle';
+    document.getElementById('apFBulgu').value   = '';
+    document.getElementById('apFAksiyon').value = '';
+    document.getElementById('apFOncelik').value = 'Orta';
+    document.getElementById('apFSure').value    = '';
+    document.getElementById('apFKat').value     = 'Diğer|badge-gray';
+    document.getElementById('apModal').classList.add('open');
+    setTimeout(() => document.getElementById('apFBulgu').focus(), 50);
+}
+
+function apCloseModal() {
+    document.getElementById('apModal').classList.remove('open');
+}
+
+function apSaveModal() {
+    const bulgu   = document.getElementById('apFBulgu').value.trim();
+    const aksiyon = document.getElementById('apFAksiyon').value.trim();
+    const oncelik = document.getElementById('apFOncelik').value;
+    const sure    = document.getElementById('apFSure').value.trim();
+    const katRaw  = document.getElementById('apFKat').value; // "Name|badge-x"
+    const [kat, katBadge] = katRaw.split('|');
+
+    if (!bulgu) { document.getElementById('apFBulgu').focus(); return; }
+
+    const entry = { bulgu, kat, katBadge, aksiyon, oncelik, sure };
+
+    if (_apEditIdx === -1) {
+        window._aksiyonlar.push(entry);
+    } else {
+        window._aksiyonlar[_apEditIdx] = entry;
+    }
+    renderAksiyonTablosu();
+    apCloseModal();
+}
+
+function apDelete(idx) {
+    if (!confirm('Bu satırı silmek istediğinizden emin misiniz?')) return;
+    window._aksiyonlar.splice(idx, 1);
+    renderAksiyonTablosu();
+}
+
+// Close modal on backdrop click
+document.addEventListener('click', e => {
+    if (e.target.id === 'apModal') apCloseModal();
+});
+
+// ─────────────────────────────────────────────
 // MAIN RENDER
 // ─────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -1026,16 +1204,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // ── AKSİYON PLANI ──
     const actions = generateActionPlan(rows, htData, tedData, malData, icDis, m6);
-    const priColor = { 'Yüksek':'pri-yuksek', 'Orta':'pri-orta', 'Düşük':'pri-dusuk' };
-    document.getElementById('aksiyonBody').innerHTML = actions.map((a,i) => `
-        <tr>
-            <td style="color:var(--c-sub);font-size:.78rem;">${i+1}</td>
-            <td>${a.bulgu}</td>
-            <td><span class="badge ${a.katBadge}">${a.kat}</span></td>
-            <td style="max-width:320px;">${a.aksiyon}</td>
-            <td><span class="pri ${priColor[a.oncelik]||''}">${a.oncelik}</span></td>
-            <td style="color:var(--c-sub);white-space:nowrap;">${a.sure}</td>
-        </tr>`).join('');
+    window._aksiyonlar = actions;
+    renderAksiyonTablosu();
     }).catch(e => {
         document.getElementById('loadingState').innerHTML = `<div class="empty-state"><div class="emo">❌</div><p>Veri okunamadı: ${e.message}</p></div>`;
     });
