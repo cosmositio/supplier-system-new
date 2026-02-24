@@ -378,6 +378,31 @@
         .cari-badge { font-size: 0.70em; background: #e07000; color: white; border-radius: 4px; padding: 1px 5px; flex-shrink: 0; }
         .cari-clear-btn { font-size: 0.75em; border: none; background: #f3e0ff; color: #7b2d8b; border-radius: 5px; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
 
+        /* Custom Tespit Yeri Multi-Select */
+        .tespit-dropdown { position: relative; }
+        .tespit-selected {
+            border: 1px solid #d0b0e0; border-radius: 8px; padding: 7px 12px;
+            background: white; cursor: pointer; font-size: 0.88em; color: #333;
+            display: flex; justify-content: space-between; align-items: center;
+            min-height: 36px; gap: 6px; user-select: none;
+        }
+        .tespit-selected:hover { border-color: #b94fc4; }
+        .tespit-sel-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .tespit-panel {
+            position: absolute; top: calc(100% + 4px); left: 0; min-width: 220px; width: max-content; max-width: 320px;
+            background: white; border: 1px solid #d0b0e0; border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 9999; overflow: hidden;
+        }
+        .tespit-panel-header { padding: 6px 10px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+        .tespit-list { max-height: 260px; overflow-y: auto; }
+        .tespit-list-item {
+            display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+            cursor: pointer; font-size: 0.84em; color: #333; transition: background 0.12s;
+        }
+        .tespit-list-item:hover { background: #fdf5ff; }
+        .tespit-list-item.ty-selected { background: #f0e0ff; font-weight: 600; color: #4a0a6b; }
+        .tespit-chk { width: 15px; height: 15px; accent-color: #b94fc4; cursor: pointer; flex-shrink: 0; }
+
         /* Empty state */
         .empty-state {
             text-align: center;
@@ -551,9 +576,21 @@
                 <label>Uygunsuzluk Türü</label>
                 <select id="fUygunsuzlukTuru"><option value="">Tümü</option></select>
             </div>
-            <div class="filter-group">
+            <div class="filter-group" style="position:relative;">
                 <label>Tespit Yeri</label>
-                <select id="fTespitYeri"><option value="">Tümü</option></select>
+                <div class="tespit-dropdown" id="tespitDropdown">
+                    <div class="tespit-selected" onclick="toggleTespitDropdown()">
+                        <span class="tespit-sel-text" id="tespitSelectedText">Tümü</span>
+                        <span style="color:#b94fc4;font-size:0.85em;">&#9660;</span>
+                    </div>
+                    <div class="tespit-panel" id="tespitPanel" style="display:none;">
+                        <div class="tespit-panel-header">
+                            <span style="font-size:0.78em;color:#888;">Çoklu seçim yapılabilir</span>
+                            <button onclick="resetTespitYeri()" style="font-size:0.75em;border:none;background:#f3e0ff;color:#7b2d8b;border-radius:5px;padding:2px 8px;cursor:pointer;">Temizle</button>
+                        </div>
+                        <div class="tespit-list" id="tespitList"></div>
+                    </div>
+                </div>
             </div>
             <div class="filter-group">
                 <label>Makine</label>
@@ -705,6 +742,8 @@ let excludedHataTipleri = new Set(); // breakdown'dan dışlananlar
 let selectedCari = '';            // custom cari dropdown seçili değer
 let musteriSet = new Set();       // müşteri olarak işaretlenmiş cariler
 let _cariAllList = [];            // cari dropdown listesi
+let selectedTespitYeriSet = new Set(); // tespit yeri çoklu seçim
+let _tespitYeriAllList = [];      // tespit yeri dropdown listesi
 let multiAnalyzeMode = false;    // çoklu analiz modu
 let selectedForMulti = new Set(); // çoklu analiz seçilenleri
 
@@ -879,7 +918,6 @@ function populateFilters() {
         fHataTipi: 'hataTipi',
         fHataKaynagi: 'hataKaynagi',
         fUygunsuzlukTuru: 'uygunsuzlukTuru',
-        fTespitYeri: 'tespitYeri',
         fMakine: 'makine',
         fStokKodu: 'stokKodu',
     };
@@ -890,6 +928,7 @@ function populateFilters() {
         sel.innerHTML = '<option value="">Tümü</option>' + vals.map(v => `<option value="${v}">${v}</option>`).join('');
         if (vals.includes(current)) sel.value = current;
     }
+    populateTespitYeriDropdown();
     populateCariDropdown();
     // Date range
     const dates = allData.map(r => r.uygunsuzlukTarih).filter(Boolean).sort();
@@ -905,7 +944,6 @@ function applyFilters() {
     const hataTipi      = document.getElementById('fHataTipi').value;
     const hataKaynagi   = document.getElementById('fHataKaynagi').value;
     const uyTuru        = document.getElementById('fUygunsuzlukTuru').value;
-    const tespitYeri    = document.getElementById('fTespitYeri').value;
     const makine        = document.getElementById('fMakine').value;
     const stokKodu      = document.getElementById('fStokKodu').value;
     const dateStart     = document.getElementById('fDateStart').value;
@@ -917,7 +955,7 @@ function applyFilters() {
         if (hataTipi    && r.hataTipi    !== hataTipi)    return false;
         if (hataKaynagi && r.hataKaynagi !== hataKaynagi) return false;
         if (uyTuru      && r.uygunsuzlukTuru !== uyTuru)  return false;
-        if (tespitYeri  && r.tespitYeri  !== tespitYeri)  return false;
+        if (selectedTespitYeriSet.size > 0 && !selectedTespitYeriSet.has(r.tespitYeri)) return false;
         if (makine      && r.makine      !== makine)       return false;
         if (selectedCari && r.cariAdi    !== selectedCari) return false;
         if (cariTip === 'musteri'   && !musteriSet.has(r.cariAdi)) return false;
@@ -942,7 +980,7 @@ function resetFilters() {
     document.getElementById('fHataTipi').value = '';
     document.getElementById('fHataKaynagi').value = '';
     document.getElementById('fUygunsuzlukTuru').value = '';
-    document.getElementById('fTespitYeri').value = '';
+    resetTespitYeri();
     document.getElementById('fMakine').value = '';
     document.getElementById('fCariTip').value = '';
     document.getElementById('fStokKodu').value = '';
@@ -955,6 +993,75 @@ function resetFilters() {
     renderBreakdown();
     renderTable();
     showToast('Filtreler sıfırlandı');
+}
+
+// ─── Custom Tespit Yeri Multi-Select ─────────────────────────────────────
+function populateTespitYeriDropdown() {
+    _tespitYeriAllList = [...new Set(allData.map(r => r.tespitYeri).filter(v => v !== '' && v !== undefined && v !== null))].sort();
+    _buildTespitYeriItems();
+}
+
+function _buildTespitYeriItems() {
+    const container = document.getElementById('tespitList');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!_tespitYeriAllList.length) {
+        container.innerHTML = '<div style="padding:10px 12px;color:#aaa;font-size:0.83em;">Veri yok</div>';
+        return;
+    }
+    _tespitYeriAllList.forEach(val => {
+        const isSelected = selectedTespitYeriSet.has(val);
+        const row = document.createElement('div');
+        row.className = 'tespit-list-item' + (isSelected ? ' ty-selected' : '');
+        row.onclick = () => toggleTespitYeriItem(val);
+
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.className = 'tespit-chk';
+        chk.checked = isSelected;
+        chk.addEventListener('click', e => e.stopPropagation());
+        chk.addEventListener('change', () => toggleTespitYeriItem(val));
+
+        const lbl = document.createElement('span');
+        lbl.style.flex = '1';
+        lbl.textContent = val;
+
+        row.appendChild(chk);
+        row.appendChild(lbl);
+        container.appendChild(row);
+    });
+}
+
+function toggleTespitYeriItem(val) {
+    if (selectedTespitYeriSet.has(val)) selectedTespitYeriSet.delete(val);
+    else selectedTespitYeriSet.add(val);
+    _updateTespitYeriLabel();
+    _buildTespitYeriItems();
+}
+
+function _updateTespitYeriLabel() {
+    const el = document.getElementById('tespitSelectedText');
+    if (!el) return;
+    if (selectedTespitYeriSet.size === 0) {
+        el.textContent = 'Tümü';
+    } else if (selectedTespitYeriSet.size === 1) {
+        el.textContent = [...selectedTespitYeriSet][0];
+    } else {
+        el.textContent = `${selectedTespitYeriSet.size} seçili`;
+    }
+}
+
+function toggleTespitDropdown() {
+    const panel = document.getElementById('tespitPanel');
+    if (!panel) return;
+    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    if (panel.style.display === 'block') _buildTespitYeriItems();
+}
+
+function resetTespitYeri() {
+    selectedTespitYeriSet.clear();
+    _updateTespitYeriLabel();
+    _buildTespitYeriItems();
 }
 
 // ─── Custom Cari Dropdown ─────────────────────────────────────────────────
@@ -1061,6 +1168,11 @@ document.addEventListener('click', e => {
     if (dd && !dd.contains(e.target)) {
         const panel = document.getElementById('cariPanel');
         if (panel) panel.style.display = 'none';
+    }
+    const tdd = document.getElementById('tespitDropdown');
+    if (tdd && !tdd.contains(e.target)) {
+        const tpanel = document.getElementById('tespitPanel');
+        if (tpanel) tpanel.style.display = 'none';
     }
 });
 
