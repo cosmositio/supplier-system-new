@@ -971,6 +971,7 @@ function applyFilters() {
     updateStats();
     renderPareto();
     renderBreakdown();
+    currentPage = 1;
     renderTable();
     showToast(`${filteredData.length} kayıt filtrelendi`, 'success');
 }
@@ -991,6 +992,7 @@ function resetFilters() {
     updateStats();
     renderPareto();
     renderBreakdown();
+    currentPage = 1;
     renderTable();
     showToast('Filtreler sıfırlandı');
 }
@@ -1556,7 +1558,6 @@ function openFishboneTedarikci() {
 function renderTable(data) {
     if (data === undefined) {
         tableSearchData = [...filteredData];
-        currentPage = 1;
     }
     const search = document.getElementById('tableSearch').value.toLowerCase();
     let display = tableSearchData.filter(r => {
@@ -1605,6 +1606,7 @@ function renderTable(data) {
 function sortTable(idx) {
     if (sortCol === idx) sortAsc = !sortAsc;
     else { sortCol = idx; sortAsc = true; }
+    currentPage = 1;
     renderTable();
 }
 
