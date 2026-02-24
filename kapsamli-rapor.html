@@ -315,7 +315,7 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
         <div class="section-body">
             <div class="m6-grid" id="m6Grid" style="margin-bottom:24px;"></div>
             <div class="two-col">
-                <div class="chart-wrap"><canvas id="c6M"></canvas></div>
+                <div class="chart-wrap" style="min-height:260px;"><canvas id="c6M" height="260"></canvas></div>
                 <div id="m6Detail"></div>
             </div>
         </div>
@@ -899,16 +899,60 @@ window.addEventListener('DOMContentLoaded', () => {
         </div>`;
     }).join('');
 
+    const m6Values   = m6Order.map(k => m6[k].reduce((s,e)=>s+e.h, 0));
+    const m6Total6M  = m6Values.reduce((s,v)=>s+v, 0) || 1;
+    const m6Pcts     = m6Values.map(v => +(v / m6Total6M * 100).toFixed(1));
+
     new Chart(document.getElementById('c6M'), {
-        type:'polarArea',
-        data:{
-            labels: m6Order.map(k=>M6_META[k].label),
-            datasets:[{ data: m6Order.map(k=>m6[k].reduce((s,e)=>s+e.h,0)), backgroundColor: m6Order.map(k=>M6_META[k].color+'cc'), borderWidth:0 }]
+        type: 'bar',
+        data: {
+            labels: m6Order.map(k => M6_META[k].label),
+            datasets: [{
+                label: 'Hatalı Miktar',
+                data: m6Values,
+                backgroundColor: m6Order.map(k => M6_META[k].color + 'cc'),
+                borderColor:     m6Order.map(k => M6_META[k].color),
+                borderWidth: 2,
+                borderRadius: 6,
+                borderSkipped: false
+            }]
         },
-        options:{
-            responsive:true, maintainAspectRatio:true,
-            plugins:{ legend:{ position:'bottom', labels:{font:{size:10}} }, tooltip:{ callbacks:{ label: c=>`${c.label}: ${fmtN(c.raw)}` }}}
-        }
+        options: {
+            indexAxis: 'y',
+            responsive: true, maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: {
+                    label: c => ` ${fmtN(c.raw)} adet  (%${m6Pcts[c.dataIndex]})`
+                }},
+                // inline data labels
+                afterDraw: undefined
+            },
+            scales: {
+                x: { ticks: { font:{size:10}, callback: v => fmtN(v) }, grid: { color:'#f1f5f9' } },
+                y: { ticks: { font:{size:12} } }
+            }
+        },
+        plugins: [{
+            id: 'm6Labels',
+            afterDatasetDraw(chart) {
+                const { ctx, data, scales } = chart;
+                ctx.save();
+                chart.getDatasetMeta(0).data.forEach((bar, i) => {
+                    const val  = data.datasets[0].data[i];
+                    const pct  = m6Pcts[i];
+                    if (!val) return;
+                    const x = bar.x + 6;
+                    const y = bar.y;
+                    ctx.fillStyle = '#374151';
+                    ctx.font = 'bold 11px Segoe UI, sans-serif';
+                    ctx.textBaseline = 'middle';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(`${fmtN(val)}  (%${pct})`, x, y);
+                });
+                ctx.restore();
+            }
+        }]
     });
 
     // 6M detail list
