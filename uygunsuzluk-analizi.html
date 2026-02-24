@@ -1636,10 +1636,11 @@ function classify6M(rows) {
     const result = { insan: [], malzeme: [], metot: [], makine: [], olcum: [], ortam: [] };
     Object.entries(agg).forEach(([name, v]) => {
         const lower = name.toLowerCase();
-        let bone = 'insan'; // eşleşme yoksa İnsan'a at
+        let bone = null; // eşleşme yoksa null — sınıflandırılamayan
         for (const rule of RULES) {
             if (rule.kws.some(kw => lower.includes(kw))) { bone = rule.bone; break; }
         }
+        if (!bone) return; // sınıflandırılamayanları atlıyoruz (diyagramı kirletmesin)
         const pct = (v.hatali / totalHatali * 100).toFixed(1);
         result[bone].push({ name, displayName: `${name} (%${pct})`, pct: Number(pct), count: v.count, hatali: v.hatali });
     });
@@ -1692,28 +1693,23 @@ function openFishbone(hataTipi, count, hatali, pct) {
     const causes = [
         { name:'👤 İnsan',   desc:'Hata kaynağı → insan kaynaklı',        color:BONE_COLORS[0], side:'top',
           children: mkChildren(cls.insan, BONE_COLORS[0]) },
-        { name:'⚙️ Makine',  desc:'Makine/ekipman kaynaklı + veri',  color:BONE_COLORS[1], side:'bottom',
-          children: [
-            ...mkChildren(topNFieldWithContrib(relRows,'makine',4), BONE_COLORS[1]),
-            ...mkChildren(cls.makine, BONE_COLORS[1])
-          ].slice(0,6) },
+        { name:'⚙️ Makine',  desc:'Makine/ekipman kaynaklı',         color:BONE_COLORS[1], side:'bottom',
+          children: mkChildren(cls.makine, BONE_COLORS[1]) },
         { name:'📦 Malzeme', desc:'Etkilenen stoklar + malzeme kaynaklı', color:BONE_COLORS[2], side:'top',
           children: [
             ...mkChildren(topNFieldWithContrib(relRows,'stokAdi',3), BONE_COLORS[2]),
+            ...mkChildren(topNFieldWithContrib(relRows,'cariAdi',2), BONE_COLORS[2]),
             ...mkChildren(cls.malzeme, BONE_COLORS[2])
           ].slice(0,6) },
-        { name:'📋 Metot',   desc:'Uygunsuzluk türü + metot kaynaklı',  color:BONE_COLORS[3], side:'bottom',
+        { name:'📋 Metot',   desc:'Metot / süreç kaynaklı',            color:BONE_COLORS[3], side:'bottom',
+          children: mkChildren(cls.metot, BONE_COLORS[3]) },
+        { name:'📐 Ölçüm',  desc:'Ölçüm / muayene kaynaklı',          color:BONE_COLORS[4], side:'top',
+          children: mkChildren(cls.olcum, BONE_COLORS[4]) },
+        { name:'🌡️ Ortam',  desc:'Tespit yeri + ortam kaynaklı',      color:BONE_COLORS[5], side:'bottom',
           children: [
-            ...mkChildren(topNFieldWithContrib(relRows,'uygunsuzlukTuru',3), BONE_COLORS[3]),
-            ...mkChildren(cls.metot, BONE_COLORS[3])
+            ...mkChildren(topNFieldWithContrib(relRows,'tespitYeri',3), BONE_COLORS[5]),
+            ...mkChildren(cls.ortam, BONE_COLORS[5])
           ].slice(0,6) },
-        { name:'📐 Ölçüm',  desc:'Tespit yeri + ölçüm kaynaklı',      color:BONE_COLORS[4], side:'top',
-          children: [
-            ...mkChildren(topNFieldWithContrib(relRows,'tespitYeri',3), BONE_COLORS[4]),
-            ...mkChildren(cls.olcum, BONE_COLORS[4])
-          ].slice(0,6) },
-        { name:'🌡️ Ortam',  desc:'Ortam / lojistik kaynaklı',        color:BONE_COLORS[5], side:'bottom',
-          children: mkChildren(cls.ortam, BONE_COLORS[5]) },
     ].map(b => ({ ...b, id:mkId(), collapsed:false, offsetX:0, offsetY:0, baseOffsetX:0, baseOffsetY:0 }));
 
     localStorage.setItem('fishbone_incoming', JSON.stringify({
@@ -1746,21 +1742,15 @@ function openFishboneTedarikci() {
     const causes = [
         { name:'👤 İnsan',   desc:'Hata kaynağı → insan kaynaklı',           color:BONE_COLORS[0], side:'top',
           children: mkChildren(cls.insan, BONE_COLORS[0]) },
-        { name:'⚙️ Makine',  desc:'Makine/ekipman kaynaklı + veri',     color:BONE_COLORS[1], side:'bottom',
-          children: [
-            ...mkChildren(topNFieldWithContrib(cariRows,'makine',4), BONE_COLORS[1]),
-            ...mkChildren(cls.makine, BONE_COLORS[1])
-          ].slice(0,6) },
+        { name:'⚙️ Makine',  desc:'Makine/ekipman kaynaklı',            color:BONE_COLORS[1], side:'bottom',
+          children: mkChildren(cls.makine, BONE_COLORS[1]) },
         { name:'📦 Malzeme', desc:'Etkilenen stoklar + malzeme kaynaklı',  color:BONE_COLORS[2], side:'top',
           children: [
             ...mkChildren(topNFieldWithContrib(cariRows,'stokAdi',3), BONE_COLORS[2]),
             ...mkChildren(cls.malzeme, BONE_COLORS[2])
           ].slice(0,6) },
-        { name:'📋 Metot',   desc:'Uygunsuzluk türü + metot kaynaklı',     color:BONE_COLORS[3], side:'bottom',
-          children: [
-            ...mkChildren(topNFieldWithContrib(cariRows,'uygunsuzlukTuru',3), BONE_COLORS[3]),
-            ...mkChildren(cls.metot, BONE_COLORS[3])
-          ].slice(0,6) },
+        { name:'📋 Metot',   desc:'Metot / süreç kaynaklı',               color:BONE_COLORS[3], side:'bottom',
+          children: mkChildren(cls.metot, BONE_COLORS[3]) },
         { name:'📐 Ölçüm',  desc:'Hata tipi + ölçüm kaynaklı',            color:BONE_COLORS[4], side:'top',
           children: [
             ...mkChildren(topNFieldWithContrib(cariRows,'hataTipi',3), BONE_COLORS[4]),
