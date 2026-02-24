@@ -1232,12 +1232,27 @@ function renderPareto() {
 
     let entries;
     if (groupOthers) {
-        // topN kadar bireysel çubuk göster, geri kalanı 'Diğer' olarak grupla
-        const cut = topN < allEntries.length ? topN : allEntries.length;
-        const mainEntries = allEntries.slice(0, cut);
-        const restEntries = allEntries.slice(cut);
+        // Önce topN uygula (Tümü = 999 ise tüm liste)
+        const topSlice = topN < allEntries.length ? allEntries.slice(0, topN) : allEntries;
+        // Eşik yüzdesine göre kesim noktası bul
+        const totalVal = topSlice.reduce((s, e) => s + e.value, 0);
+        let cum2 = 0;
+        let threshCut = topSlice.length; // varsayılan: hepsi ana
+        for (let i = 0; i < topSlice.length; i++) {
+            cum2 += topSlice[i].value;
+            if ((cum2 / (totalVal || 1)) * 100 >= threshold) {
+                threshCut = i + 1;
+                break;
+            }
+        }
+        const mainEntries = topSlice.slice(0, threshCut);
+        // topN sınırı dışındaki + eşik üstündeki tüm girişleri "Diğer"e ekle
+        const restEntries = [
+            ...topSlice.slice(threshCut),
+            ...(topN < allEntries.length ? allEntries.slice(topN) : []),
+        ];
         if (restEntries.length > 0) {
-            const restVal   = restEntries.reduce((s, e) => s + e.value, 0);
+            const restVal = restEntries.reduce((s, e) => s + e.value, 0);
             mainEntries.push({
                 label: `Diğer (${restEntries.length} kategori)`,
                 value: restVal,
