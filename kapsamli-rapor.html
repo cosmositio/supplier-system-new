@@ -551,24 +551,50 @@ function classify6M(rows) {
 
 // ── IC/DIS CLASSIFIER ──
 function classifyIcDis(rows) {
-    const ic = [], dis = [];
-    const IC_KWS  = ['teknik','fabrika','atölye','boya','boyahane','kesim','montaj','depo','ambar','muayene','kalite','üretim','imalat','iç','ic','dahili','çerkezköy teknik'];
-    const DIS_KWS = ['şube','subesi','sube','müşteri','musteri','saha','servis','nakliye','kargo','şantiye','santiye','markt','market','market','plaza','dağıtım','dagitim'];
+    const ic = [], dis = [], belirsiz = [];
+
+    // tipi alanı için IC / DIŞ anahtar kelimeleri
+    const IC_TIPI  = ['iç','ic','dahili','internal','iç ','in-house','üretim','imalat','fabrika'];
+    const DIS_TIPI = ['dış','dis','external','müşteri','şikay','kargo','saha','servis','şube','nakliye','iade'];
+
+    // uygunsuzlukTuru alanı için sinyal kelimeleri
+    const IC_URU   = ['iç','ic','dahili','iç kontrol','iç üretim','üretim'];
+    const DIS_URU  = ['dış','müşteri','şikay','saha','iade','kargo'];
+
+    function matchesAny(str, kwList) {
+        const s = (str||'').toLowerCase().trim();
+        return kwList.some(kw => s.includes(kw));
+    }
+
     rows.forEach(r => {
         const tipi = (r.tipi||'').toLowerCase().trim();
-        // tipi field directly — most reliable
-        if (tipi.includes('iç') || tipi === 'ic' || tipi.includes('dahili') || tipi.includes('internal')) { ic.push(r); return; }
-        if (tipi.includes('dış') || tipi === 'dis' || tipi.includes('external')) { dis.push(r); return; }
-        // fallback: tespitYeri keyword
-        const ty = (r.tespitYeri||'').toLowerCase();
-        const isIC  = IC_KWS.some(kw => ty.includes(kw));
-        const isDIS = DIS_KWS.some(kw => ty.includes(kw));
-        if (isIC && !isDIS) { ic.push(r); return; }
-        if (isDIS)          { dis.push(r); return; }
-        // unclassified → put in ic by default
-        ic.push(r);
+        const tur  = (r.uygunsuzlukTuru||'').toLowerCase().trim();
+
+        // 1. Önce tipi alanına bak
+        if (tipi && matchesAny(tipi, IC_TIPI))  { ic.push(r);       return; }
+        if (tipi && matchesAny(tipi, DIS_TIPI)) { dis.push(r);      return; }
+
+        // 2. uygunsuzlukTuru alanına bak
+        if (tur  && matchesAny(tur,  IC_URU))   { ic.push(r);       return; }
+        if (tur  && matchesAny(tur,  DIS_URU))  { dis.push(r);      return; }
+
+        // 3. Hala eşleşmediyse — belirsiz olarak işaretle (hatalı İç'e atmayız)
+        belirsiz.push(r);
     });
-    return { ic, dis };
+
+    return { ic, dis, belirsiz };
+}
+
+// tipi ve uygunsuzlukTuru değerlerinin benzersiz listesini ve sayımlarını döndür
+function getIcDisDiagnostic(rows) {
+    const tipiCount = {}, turCount = {};
+    rows.forEach(r => {
+        const t = (r.tipi||'(boş)').trim();
+        const u = (r.uygunsuzlukTuru||'(boş)').trim();
+        tipiCount[t] = (tipiCount[t]||0) + 1;
+        turCount[u]  = (turCount[u] ||0) + 1;
+    });
+    return { tipiCount, turCount };
 }
 
 // ── SAFE PARSE DATE ──
@@ -756,8 +782,13 @@ window.addEventListener('DOMContentLoaded', () => {
     const icDis = classifyIcDis(rows);
     const icH   = icDis.ic.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
     const disH  = icDis.dis.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
-    const icPct  = totalH ? (icH/totalH*100).toFixed(1) : 0;
+    const belH  = icDis.belirsiz.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
+    const icPct  = totalH ? (icH /totalH*100).toFixed(1) : 0;
     const disPct = totalH ? (disH/totalH*100).toFixed(1) : 0;
+    const belPct = totalH ? (belH/totalH*100).toFixed(1) : 0;
+
+    // Tanı verisi — hangi tipi/uygunsuzlukTuru değerleri var
+    const diag = getIcDisDiagnostic(rows);
 
     // ── UNIQUE COUNTS ──
     const uTedarikci = new Set(rows.map(r=>r.cariAdi).filter(Boolean)).size;
@@ -782,12 +813,20 @@ window.addEventListener('DOMContentLoaded', () => {
         </div>`).join('');
 
     // ── İÇ / DIŞ CARDS ──
+    const belNote = icDis.belirsiz.length
+        ? `<div style="margin-top:10px;padding:8px 12px;background:#fef9c3;border-radius:8px;border-left:3px solid #d97706;font-size:.75rem;color:#78350f;">
+            <strong>⚠️ ${icDis.belirsiz.length} kayıt sınıflandırılamadı</strong> (%${belPct}) —<br>
+            <em>tipi</em> değerleri: ${Object.entries(diag.tipiCount).map(([k,v])=>`<strong>${k}</strong>(${v})`).join(', ')}<br>
+            <em>uygunsuzlukTuru</em>: ${Object.entries(diag.turCount).slice(0,5).map(([k,v])=>`<strong>${k}</strong>(${v})`).join(', ')}
+           </div>`
+        : '';
     document.getElementById('icDisCards').innerHTML = `
         <div class="ic-card ic">
-            <h3>🏭 İç Başarısızlık</h3>
+            <h3>🏢 İç Başarısızlık</h3>
             <div class="ic-val">${fmtN(icH)}</div>
             <div style="color:#1d4ed8;font-weight:700;font-size:1.1rem;">%${icPct}</div>
-            <div style="color:#5a6478;font-size:.78rem;margin-top:6px;">${icDis.ic.length} kayıt — Fabrika/Tesis içinde tespit edilen</div>
+            <div style="color:#5a6478;font-size:.78rem;margin-top:6px;">${icDis.ic.length} kayıt — İç süreçte tespit edilen</div>
+            ${belNote}
         </div>
         <div class="ic-card dis">
             <h3>🚚 Dış Başarısızlık</h3>
