@@ -392,6 +392,23 @@ function fmtN(n, d=0) {
 function fmtPct(p) { return '%' + Number(p).toFixed(1); }
 function truncate(s, n=40) { return s && s.length > n ? s.slice(0, n) + '…' : (s || ''); }
 
+// ── IndexedDB yardımcı ──
+const _IDB = { name:'KaliteRaporDB', store:'payloads', key:'rapor_payload', ver:1 };
+function idbLoadRapor() {
+    return new Promise((res, rej) => {
+        const r = indexedDB.open(_IDB.name, _IDB.ver);
+        r.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
+        r.onsuccess = e => {
+            const db = e.target.result;
+            const tx = db.transaction(_IDB.store, 'readonly');
+            const g  = tx.objectStore(_IDB.store).get(_IDB.key);
+            g.onsuccess = () => res(g.result);
+            g.onerror   = () => rej(g.error);
+        };
+        r.onerror = () => rej(r.error);
+    });
+}
+
 // ── Color palettes ──
 const PAL_BLUE   = ['#1d4ed8','#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe'];
 const PAL_MIXED  = ['#2563eb','#7c3aed','#db2777','#dc2626','#d97706','#16a34a','#0891b2','#1d4ed8'];
@@ -693,24 +710,18 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
 // MAIN RENDER
 // ─────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-    const raw = localStorage.getItem('rapor_payload');
-    if (!raw) {
-        document.getElementById('loadingState').innerHTML = `
-            <div class="empty-state">
-                <div class="emo">⚠️</div>
-                <p style="font-size:1rem;font-weight:600;">Rapor verisi bulunamadı</p>
-                <p style="color:var(--c-sub);margin-top:8px;">Lütfen Uygunsuzluk Analizi sayfasından "Kapsamlı Rapor Oluştur" butonuna tıklayın.</p>
-            </div>`;
-        return;
-    }
+    idbLoadRapor().then(payload => {
+        if (!payload) {
+            document.getElementById('loadingState').innerHTML = `
+                <div class="empty-state">
+                    <div class="emo">⚠️</div>
+                    <p style="font-size:1rem;font-weight:600;">Rapor verisi bulunamadı</p>
+                    <p style="color:var(--c-sub);margin-top:8px;">Lütfen Uygunsuzluk Analizi sayfasından "Kapsamlı Rapor Oluştur" butonuna tıklayın.</p>
+                </div>`;
+            return;
+        }
 
-    let payload;
-    try { payload = JSON.parse(raw); } catch(e) {
-        document.getElementById('loadingState').innerHTML = '<div class="empty-state"><div class="emo">❌</div><p>Veri okunamadı.</p></div>';
-        return;
-    }
-
-    const rows = payload.rows || [];
+        const rows = payload.rows || [];
     if (!rows.length) {
         document.getElementById('loadingState').innerHTML = '<div class="empty-state"><div class="emo">📭</div><p>Filtrelenmiş veri boş — lütfen filtreleri kontrol edin.</p></div>';
         return;
@@ -942,6 +953,9 @@ window.addEventListener('DOMContentLoaded', () => {
             <td><span class="pri ${priColor[a.oncelik]||''}">${a.oncelik}</span></td>
             <td style="color:var(--c-sub);white-space:nowrap;">${a.sure}</td>
         </tr>`).join('');
+    }).catch(e => {
+        document.getElementById('loadingState').innerHTML = `<div class="empty-state"><div class="emo">❌</div><p>Veri okunamadı: ${e.message}</p></div>`;
+    });
 });
 </script>
 </body>
