@@ -1729,22 +1729,31 @@ function openKapsamliRapor() {
         showToast('Rapor oluşturmak için önce veri yükleyin ve filtreleyin.', 'error');
         return;
     }
-    const fTarih1  = (document.getElementById('fDateStart') || {}).value || '';
-    const fTarih2  = (document.getElementById('fDateEnd')   || {}).value || '';
-    const fHataTipi = (document.getElementById('fHataTipi') || {}).value || '';
+    const fTarih1   = (document.getElementById('fDateStart') || {}).value || '';
+    const fTarih2   = (document.getElementById('fDateEnd')   || {}).value || '';
+    const fHataTipi = (document.getElementById('fHataTipi')  || {}).value || '';
     const tespitList = [...selectedTespitYeriSet];
 
     // Rapor başlığı — cari ve/veya tespit yeri seçiliyse özelleştirilir
     let titleParts = [];
-    if (selectedCari) titleParts.push(selectedCari);
+    if (selectedCari)        titleParts.push(selectedCari);
     if (tespitList.length === 1) titleParts.push(tespitList[0]);
-    if (fHataTipi) titleParts.push(fHataTipi);
+    if (fHataTipi)           titleParts.push(fHataTipi);
     const title = titleParts.length
         ? titleParts.join(' · ') + ' — Kalite Raporu'
         : 'Kalite Uygunsuzluk Raporu';
 
+    // Yalnızca raporda kullanılan alanları gönder — localStorage limitini aşmamak için
+    const RAPOR_FIELDS = ['hataliMiktar','hataTipi','hataKaynagi','cariAdi','stokAdi',
+                          'tespitYeri','tipi','uygunsuzlukTarih','uygunsuzlukTuru','partiHacmi'];
+    const slimRows = filteredData.map(r => {
+        const o = {};
+        RAPOR_FIELDS.forEach(f => { if (r[f] !== undefined) o[f] = r[f]; });
+        return o;
+    });
+
     const payload = {
-        rows: filteredData,
+        rows: slimRows,
         title,
         generatedAt: new Date().toISOString(),
         filters: {
@@ -1755,7 +1764,27 @@ function openKapsamliRapor() {
             hataTipi:   fHataTipi
         }
     };
-    localStorage.setItem('rapor_payload', JSON.stringify(payload));
+
+    const json = JSON.stringify(payload);
+    // Limit control — ~4.5 MB güvenli üst sınır
+    if (json.length > 4_500_000) {
+        // Son çare: sadece ilk 15.000 satır al
+        const trimmed = { ...payload, rows: slimRows.slice(0, 15000), _trimmed: true };
+        try {
+            localStorage.setItem('rapor_payload', JSON.stringify(trimmed));
+            showToast(`Veri çok büyük — rapor ilk 15.000 kayıtla oluşturuldu (toplam: ${filteredData.length})`, 'warn');
+        } catch(e) {
+            showToast('Veri localStorage\'a sığmıyor. Lütfen filtre uygulayarak veri setini küçültün.', 'error');
+            return;
+        }
+    } else {
+        try {
+            localStorage.setItem('rapor_payload', json);
+        } catch(e) {
+            showToast('Veri localStorage\'a sığmıyor. Lütfen filtre uygulayarak veri setini küçültün.', 'error');
+            return;
+        }
+    }
     window.open('kapsamli-rapor.html', '_blank');
 }
 
