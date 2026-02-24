@@ -197,15 +197,15 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 <!-- SIDEBAR NAV -->
 <nav class="sidebar no-print">
     <h3>İçindekiler</h3>
-    <div class="nav-item active" onclick="scrollTo('s-ozet')"><span class="nav-ico">📋</span> Özet</div>
-    <div class="nav-item" onclick="scrollTo('s-icdis')"><span class="nav-ico">⚖️</span> İç / Dış Başarısızlık</div>
-    <div class="nav-item" onclick="scrollTo('s-tedarikci')"><span class="nav-ico">🏭</span> Tedarikçi Kaynaklı</div>
-    <div class="nav-item" onclick="scrollTo('s-malzeme')"><span class="nav-ico">📦</span> Malzeme Bazlı</div>
-    <div class="nav-item" onclick="scrollTo('s-musteri')"><span class="nav-ico">👥</span> Müşteri / Şube Bazlı</div>
-    <div class="nav-item" onclick="scrollTo('s-hatatipi')"><span class="nav-ico">🔍</span> Hata Tipi Dağılımı</div>
-    <div class="nav-item" onclick="scrollTo('s-6m')"><span class="nav-ico">🔧</span> 6M Kaynak Analizi</div>
-    <div class="nav-item" onclick="scrollTo('s-trend')"><span class="nav-ico">📈</span> Aylık Trend</div>
-    <div class="nav-item" onclick="scrollTo('s-aksiyon')"><span class="nav-ico">✅</span> Aksiyon Planı</div>
+    <div class="nav-item active" onclick="navScrollTo('s-ozet')"><span class="nav-ico">📋</span> Özet</div>
+    <div class="nav-item" onclick="navScrollTo('s-icdis')"><span class="nav-ico">⚖️</span> İç / Dış Başarısızlık</div>
+    <div class="nav-item" onclick="navScrollTo('s-tedarikci')"><span class="nav-ico">🏭</span> Tedarikçi Kaynaklı</div>
+    <div class="nav-item" onclick="navScrollTo('s-malzeme')"><span class="nav-ico">📦</span> Malzeme Bazlı</div>
+    <div class="nav-item" onclick="navScrollTo('s-musteri')"><span class="nav-ico">👥</span> Müşteri / Şube Bazlı</div>
+    <div class="nav-item" onclick="navScrollTo('s-hatatipi')"><span class="nav-ico">🔍</span> Hata Tipi Dağılımı</div>
+    <div class="nav-item" onclick="navScrollTo('s-6m')"><span class="nav-ico">🔧</span> 6M Kaynak Analizi</div>
+    <div class="nav-item" onclick="navScrollTo('s-trend')"><span class="nav-ico">📈</span> Aylık Trend</div>
+    <div class="nav-item" onclick="navScrollTo('s-aksiyon')"><span class="nav-ico">✅</span> Aksiyon Planı</div>
 </nav>
 
 <!-- MAIN CONTENT -->
@@ -379,7 +379,7 @@ window.addEventListener('scroll', () => {
 });
 
 // ── Nav active ──
-function scrollTo(id) {
+function navScrollTo(id) {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
 }

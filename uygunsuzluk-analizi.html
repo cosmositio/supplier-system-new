@@ -1723,6 +1723,25 @@ function openFishbone(hataTipi, count, hatali, pct) {
     window.open('balik-kilcigi.html', '_blank');
 }
 
+// Kapsamlı Rapor — IndexedDB üzerinden iletim
+const _RIDB = { name:'KaliteRaporDB', store:'payloads', key:'rapor_payload', ver:1 };
+function _rIdbOpen() {
+    return new Promise((res, rej) => {
+        const r = indexedDB.open(_RIDB.name, _RIDB.ver);
+        r.onupgradeneeded = e => e.target.result.createObjectStore(_RIDB.store);
+        r.onsuccess = e => res(e.target.result);
+        r.onerror   = () => rej(r.error);
+    });
+}
+function _rIdbSave(data) {
+    return _rIdbOpen().then(db => new Promise((res, rej) => {
+        const tx = db.transaction(_RIDB.store, 'readwrite');
+        tx.objectStore(_RIDB.store).put(data, _RIDB.key);
+        tx.oncomplete = () => { db.close(); res(); };
+        tx.onerror    = () => { db.close(); rej(tx.error); };
+    }));
+}
+
 // Kapsamlı Rapor — tüm filtrelenmiş veriyi paketleyip rapor sayfasına gönderir
 function openKapsamliRapor() {
     if (!filteredData || !filteredData.length) {
@@ -1765,27 +1784,9 @@ function openKapsamliRapor() {
         }
     };
 
-    const json = JSON.stringify(payload);
-    // Limit control — ~4.5 MB güvenli üst sınır
-    if (json.length > 4_500_000) {
-        // Son çare: sadece ilk 15.000 satır al
-        const trimmed = { ...payload, rows: slimRows.slice(0, 15000), _trimmed: true };
-        try {
-            localStorage.setItem('rapor_payload', JSON.stringify(trimmed));
-            showToast(`Veri çok büyük — rapor ilk 15.000 kayıtla oluşturuldu (toplam: ${filteredData.length})`, 'warn');
-        } catch(e) {
-            showToast('Veri localStorage\'a sığmıyor. Lütfen filtre uygulayarak veri setini küçültün.', 'error');
-            return;
-        }
-    } else {
-        try {
-            localStorage.setItem('rapor_payload', json);
-        } catch(e) {
-            showToast('Veri localStorage\'a sığmıyor. Lütfen filtre uygulayarak veri setini küçültün.', 'error');
-            return;
-        }
-    }
-    window.open('kapsamli-rapor.html', '_blank');
+    _rIdbSave(payload)
+        .then(() => window.open('kapsamli-rapor.html', '_blank'))
+        .catch(e => showToast('Rapor kaydedilemedi: ' + (e && e.message || e), 'error'));
 }
 
 // Özellik 1: Tedarikçi bazında Fishbone — 6M yapısı
