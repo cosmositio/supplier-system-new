@@ -4796,7 +4796,7 @@ function collectAllCauses() {
     function walk(causes, parentLabel, depth) {
         causes.forEach(c => {
             if (depth > 1) {
-                all.push({ id: c.id, name: c.name, parent: parentLabel, depth });
+                all.push({ id: c.id, name: c.name, parent: parentLabel, depth, _contrib: c._contrib || null });
             }
             if (c.children && c.children.length > 0) {
                 walk(c.children, c.name, depth + 1);
@@ -4831,7 +4831,7 @@ function syncCausesToActionPlan() {
             action:       old ? old.action       : '',
             responsible:  old ? old.responsible  : '',
             dueDate:      old ? old.dueDate       : '',
-            contribution: old ? old.contribution  : 0,
+            contribution: old ? old.contribution  : (c._contrib != null ? c._contrib : 0),
             method:       old ? old.method        : '',
             status:       old ? old.status        : 'Açık'
         };
