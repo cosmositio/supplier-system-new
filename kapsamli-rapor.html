@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kapsamlı Kalite Uygunsuzluk Raporu</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --c-bg:       #f4f6fa;
+    --c-card:     #ffffff;
+    --c-border:   #e2e6ed;
+    --c-text:     #1e2535;
+    --c-sub:      #5a6478;
+    --c-accent:   #2563eb;
+    --c-ok:       #16a34a;
+    --c-warn:     #d97706;
+    --c-danger:   #dc2626;
+    --c-info:     #0891b2;
+    --c-purple:   #7c3aed;
+    --c-pink:     #db2777;
+    --shadow:     0 2px 12px rgba(0,0,0,.08);
+    --r:          12px;
+}
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); color:var(--c-text); font-size:14px; }
+
+/* ── TOPBAR ── */
+.topbar {
+    position:sticky; top:0; z-index:200;
+    background:#1e2535; color:#fff;
+    display:flex; align-items:center; gap:16px;
+    padding:12px 32px; box-shadow:0 2px 8px rgba(0,0,0,.3);
+}
+.topbar .logo { font-size:1.25rem; font-weight:700; letter-spacing:-.5px; }
+.topbar .logo span { color:#60a5fa; }
+.topbar-right { margin-left:auto; display:flex; gap:8px; }
+.btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:8px; border:none; cursor:pointer; font-size:.85rem; font-weight:600; transition:all .15s; }
+.btn-primary { background:var(--c-accent); color:#fff; }
+.btn-primary:hover { background:#1d4ed8; }
+.btn-success { background:var(--c-ok); color:#fff; }
+.btn-success:hover { background:#15803d; }
+.btn-outline { background:transparent; color:#93c5fd; border:1.5px solid #3b82f6; }
+.btn-outline:hover { background:#3b82f6; color:#fff; }
+
+/* ── NAV SIDEBAR ── */
+.layout { display:flex; min-height:calc(100vh - 52px); }
+.sidebar {
+    width:230px; flex-shrink:0;
+    background:#fff; border-right:1px solid var(--c-border);
+    padding:20px 0;
+    position:sticky; top:52px; height:calc(100vh - 52px); overflow-y:auto;
+}
+.sidebar h3 { font-size:.7rem; text-transform:uppercase; letter-spacing:1px; color:var(--c-sub); padding:0 20px 8px; }
+.nav-item {
+    display:flex; align-items:center; gap:8px;
+    padding:9px 20px; cursor:pointer; font-size:.85rem; color:var(--c-sub);
+    border-left:3px solid transparent; transition:all .15s;
+}
+.nav-item:hover { background:#f0f4ff; color:var(--c-accent); }
+.nav-item.active { background:#eff6ff; color:var(--c-accent); border-left-color:var(--c-accent); font-weight:600; }
+.nav-item .nav-ico { font-size:1rem; width:20px; text-align:center; }
+
+/* ── MAIN ── */
+.main { flex:1; padding:28px 32px; max-width:1400px; }
+
+/* ── REPORT HEADER ── */
+.report-header {
+    background:linear-gradient(135deg,#1e3a8a 0%,#1e40af 50%,#2563eb 100%);
+    border-radius:var(--r); padding:32px 40px; color:#fff; margin-bottom:24px;
+}
+.report-header h1 { font-size:1.6rem; font-weight:700; margin-bottom:6px; }
+.report-header .sub { color:#93c5fd; font-size:.9rem; margin-bottom:16px; }
+.rh-meta { display:flex; flex-wrap:wrap; gap:20px; }
+.rh-tag { background:rgba(255,255,255,.15); border-radius:6px; padding:4px 12px; font-size:.78rem; backdrop-filter:blur(4px); }
+
+/* ── KPI CARDS ── */
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:16px; margin-bottom:24px; }
+.kpi-card {
+    background:var(--c-card); border-radius:var(--r); padding:20px 18px;
+    box-shadow:var(--shadow); border-top:4px solid var(--c-accent);
+    display:flex; flex-direction:column; gap:4px;
+}
+.kpi-card .kval { font-size:1.9rem; font-weight:800; color:var(--c-text); line-height:1.1; }
+.kpi-card .klbl { font-size:.75rem; color:var(--c-sub); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+.kpi-card .kdiff { font-size:.78rem; margin-top:4px; }
+.kdiff.pos { color:var(--c-ok); }
+.kdiff.neg { color:var(--c-danger); }
+
+/* ── SECTION CARDS ── */
+.section { background:var(--c-card); border-radius:var(--r); box-shadow:var(--shadow); margin-bottom:24px; overflow:hidden; }
+.section-hdr {
+    display:flex; align-items:center; gap:10px;
+    padding:18px 24px; border-bottom:1px solid var(--c-border);
+    background:linear-gradient(90deg,#f8faff,#fff);
+}
+.section-hdr .ico { font-size:1.2rem; }
+.section-hdr h2 { font-size:1rem; font-weight:700; color:var(--c-text); }
+.section-hdr .hint { font-size:.75rem; color:var(--c-sub); margin-left:auto; }
+.section-body { padding:24px; }
+
+/* ── TWO COLUMN ── */
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+.three-col { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
+@media(max-width:900px){ .two-col, .three-col { grid-template-columns:1fr; } }
+
+/* ── CHART CONTAINERS ── */
+.chart-wrap { position:relative; }
+.chart-wrap canvas { max-height:300px; }
+.chart-wrap-tall canvas { max-height:380px; }
+
+/* ── TABLES ── */
+.rep-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+.rep-table th { background:#f1f5f9; text-transform:uppercase; font-size:.7rem; letter-spacing:.5px; color:var(--c-sub); padding:9px 12px; text-align:left; border-bottom:2px solid var(--c-border); }
+.rep-table td { padding:8px 12px; border-bottom:1px solid #f1f5f9; vertical-align:top; }
+.rep-table tr:last-child td { border-bottom:none; }
+.rep-table tr:hover td { background:#f8faff; }
+.rep-table .rank { width:32px; color:var(--c-sub); font-weight:700; }
+.rep-table .num { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+.rep-table .pct { text-align:right; color:var(--c-sub); font-size:.78rem; }
+.badge { display:inline-block; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; }
+.badge-red    { background:#fee2e2; color:#b91c1c; }
+.badge-blue   { background:#dbeafe; color:#1e40af; }
+.badge-green  { background:#dcfce7; color:#15803d; }
+.badge-yellow { background:#fef9c3; color:#92400e; }
+.badge-purple { background:#ede9fe; color:#5b21b6; }
+.badge-gray   { background:#f1f5f9; color:#475569; }
+
+/* ── PROGRESS BAR ── */
+.prog-bar { background:#f1f5f9; border-radius:100px; overflow:hidden; height:8px; margin-top:4px; }
+.prog-fill { height:100%; border-radius:100px; transition:width .6s; }
+
+/* ── IC DIS CARDS ── */
+.ic-dis-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.ic-card { border-radius:10px; padding:20px 24px; }
+.ic-card.ic { background:linear-gradient(135deg,#eff6ff,#dbeafe); border:1.5px solid #93c5fd; }
+.ic-card.dis { background:linear-gradient(135deg,#fff7ed,#fed7aa); border:1.5px solid #fdba74; }
+.ic-card h3 { font-size:.85rem; font-weight:700; margin-bottom:6px; }
+.ic-card .ic-val { font-size:2rem; font-weight:800; margin-bottom:2px; }
+.ic-card.ic .ic-val { color:#1d4ed8; }
+.ic-card.dis .ic-val { color:#c2410c; }
+
+/* ── AKSIYON PLAN TABLE ── */
+.ap-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+.ap-table th { background:#1e2535; color:#e2e8f0; padding:10px 14px; text-align:left; font-size:.72rem; text-transform:uppercase; letter-spacing:.5px; }
+.ap-table td { padding:10px 14px; border-bottom:1px solid #f1f5f9; }
+.ap-table tr:nth-child(even) td { background:#fafbff; }
+.ap-table .pri { font-weight:700; font-size:.78rem; }
+.pri-yuksek { color:#b91c1c; }
+.pri-orta   { color:#b45309; }
+.pri-dusuk  { color:#166534; }
+
+/* ── 6M GRID ── */
+.m6-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.m6-card { border-radius:10px; padding:16px; border:1.5px solid; }
+.m6-card .m6-title { font-size:.8rem; font-weight:700; margin-bottom:8px; }
+.m6-card .m6-val { font-size:1.4rem; font-weight:800; margin-bottom:4px; }
+.m6-card .m6-list { font-size:.75rem; color:var(--c-sub); }
+
+/* ── PRINT ── */
+@media print {
+    .topbar, .sidebar, .topbar-right, .no-print { display:none !important; }
+    .layout { display:block; }
+    .main { padding:16px; max-width:100%; }
+    .section { break-inside:avoid; box-shadow:none; border:1px solid #e2e6ed; }
+    .kpi-card { box-shadow:none; border:1px solid #e2e6ed; }
+    .report-header { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    body { font-size:11px; }
+    .kpi-card .kval { font-size:1.5rem; }
+    canvas { max-height:200px !important; }
+}
+
+/* ── EMPTY STATE ── */
+.empty-state { text-align:center; padding:60px 20px; color:var(--c-sub); }
+.empty-state .emo { font-size:3rem; margin-bottom:12px; }
+
+/* ── SCROLL NAV ── */
+.scroll-progress { position:fixed; top:52px; left:0; height:3px; background:var(--c-accent); z-index:300; transition:width .1s; }
+</style>
+</head>
+<body>
+
+<div class="scroll-progress" id="scrollProg"></div>
+
+<!-- TOPBAR -->
+<div class="topbar no-print">
+    <div class="logo">📊 Kalite<span>Rapor</span></div>
+    <div id="topbarTitle" style="color:#93c5fd;font-size:.85rem;"></div>
+    <div class="topbar-right">
+        <button class="btn btn-outline" onclick="window.print()">🖨️ Yazdır / PDF</button>
+        <button class="btn btn-primary" onclick="window.close()">✖ Kapat</button>
+    </div>
+</div>
+
+<div class="layout">
+<!-- SIDEBAR NAV -->
+<nav class="sidebar no-print">
+    <h3>İçindekiler</h3>
+    <div class="nav-item active" onclick="scrollTo('s-ozet')"><span class="nav-ico">📋</span> Özet</div>
+    <div class="nav-item" onclick="scrollTo('s-icdis')"><span class="nav-ico">⚖️</span> İç / Dış Başarısızlık</div>
+    <div class="nav-item" onclick="scrollTo('s-tedarikci')"><span class="nav-ico">🏭</span> Tedarikçi Kaynaklı</div>
+    <div class="nav-item" onclick="scrollTo('s-malzeme')"><span class="nav-ico">📦</span> Malzeme Bazlı</div>
+    <div class="nav-item" onclick="scrollTo('s-musteri')"><span class="nav-ico">👥</span> Müşteri / Şube Bazlı</div>
+    <div class="nav-item" onclick="scrollTo('s-hatatipi')"><span class="nav-ico">🔍</span> Hata Tipi Dağılımı</div>
+    <div class="nav-item" onclick="scrollTo('s-6m')"><span class="nav-ico">🔧</span> 6M Kaynak Analizi</div>
+    <div class="nav-item" onclick="scrollTo('s-trend')"><span class="nav-ico">📈</span> Aylık Trend</div>
+    <div class="nav-item" onclick="scrollTo('s-aksiyon')"><span class="nav-ico">✅</span> Aksiyon Planı</div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main class="main" id="mainArea">
+
+    <!-- LOADING -->
+    <div id="loadingState" class="empty-state">
+        <div class="emo">⏳</div>
+        <p>Rapor yükleniyor…</p>
+    </div>
+
+    <div id="reportContent" style="display:none;">
+
+    <!-- REPORT HEADER -->
+    <div class="report-header" id="s-ozet">
+        <h1 id="rhTitle">Kalite Uygunsuzluk Raporu</h1>
+        <div class="sub" id="rhSub">Uygunsuzluk Analizi — Tüm Veriler</div>
+        <div class="rh-meta" id="rhMeta"></div>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- İÇ / DIŞ BAŞARISIZLIK -->
+    <div class="section" id="s-icdis">
+        <div class="section-hdr">
+            <span class="ico">⚖️</span>
+            <h2>İç & Dış Başarısızlık Analizi</h2>
+            <span class="hint">tipi alanına göre sınıflandırma</span>
+        </div>
+        <div class="section-body">
+            <div class="ic-dis-grid" style="margin-bottom:24px;" id="icDisCards"></div>
+            <div class="two-col">
+                <div class="chart-wrap"><canvas id="cIcDis"></canvas></div>
+                <div id="icDisTable"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEDARİKÇİ -->
+    <div class="section" id="s-tedarikci">
+        <div class="section-hdr">
+            <span class="ico">🏭</span>
+            <h2>Tedarikçi Kaynaklı Hatalar</h2>
+            <span class="hint">Cari adına göre Pareto — Top 15</span>
+        </div>
+        <div class="section-body">
+            <div class="two-col">
+                <div class="chart-wrap-tall"><canvas id="cTedarikci"></canvas></div>
+                <div id="tedarikciTable"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MALZEME -->
+    <div class="section" id="s-malzeme">
+        <div class="section-hdr">
+            <span class="ico">📦</span>
+            <h2>Malzeme (Stok Adı) Bazlı Hatalar</h2>
+            <span class="hint">Stok adına göre Pareto — Top 15</span>
+        </div>
+        <div class="section-body">
+            <div class="two-col">
+                <div class="chart-wrap-tall"><canvas id="cMalzeme"></canvas></div>
+                <div id="malzemeTable"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MÜŞTERİ / ŞUBE -->
+    <div class="section" id="s-musteri">
+        <div class="section-hdr">
+            <span class="ico">👥</span>
+            <h2>Müşteri / Şube Bazlı Hata Dağılımı</h2>
+            <span class="hint">Tespit yerlerine göre — dış kaynaklılar ön plana</span>
+        </div>
+        <div class="section-body">
+            <div class="two-col">
+                <div class="chart-wrap-tall"><canvas id="cMusteri"></canvas></div>
+                <div id="musteriTable"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HATA TİPİ -->
+    <div class="section" id="s-hatatipi">
+        <div class="section-hdr">
+            <span class="ico">🔍</span>
+            <h2>Hata Tipi Dağılımı</h2>
+            <span class="hint">Pareto + kümülatif</span>
+        </div>
+        <div class="section-body">
+            <div class="two-col">
+                <div class="chart-wrap-tall"><canvas id="cHataTipi"></canvas></div>
+                <div id="hataTipiTable"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6M -->
+    <div class="section" id="s-6m">
+        <div class="section-hdr">
+            <span class="ico">🔧</span>
+            <h2>6M Kaynak Analizi</h2>
+            <span class="hint">hataKaynagi alanı anahtar kelime sınıflandırması</span>
+        </div>
+        <div class="section-body">
+            <div class="m6-grid" id="m6Grid" style="margin-bottom:24px;"></div>
+            <div class="two-col">
+                <div class="chart-wrap"><canvas id="c6M"></canvas></div>
+                <div id="m6Detail"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TREND -->
+    <div class="section" id="s-trend">
+        <div class="section-hdr">
+            <span class="ico">📈</span>
+            <h2>Aylık Trend Analizi</h2>
+            <span class="hint">Hatalı miktar aylara göre — son 18 ay</span>
+        </div>
+        <div class="section-body">
+            <div class="two-col">
+                <div class="chart-wrap-tall" style="grid-column:1/-1;"><canvas id="cTrend"></canvas></div>
+            </div>
+            <div id="trendInsight" style="margin-top:16px; padding:14px 18px; background:#eff6ff; border-radius:10px; border-left:4px solid var(--c-accent); font-size:.85rem; color:#1e3a8a;"></div>
+        </div>
+    </div>
+
+    <!-- AKSİYON PLANI -->
+    <div class="section" id="s-aksiyon">
+        <div class="section-hdr">
+            <span class="ico">✅</span>
+            <h2>Aksiyon Planı Önerileri</h2>
+            <span class="hint">Veriye dayalı otomatik oluşturuldu</span>
+        </div>
+        <div class="section-body">
+            <p style="color:var(--c-sub);font-size:.8rem;margin-bottom:16px;">Bu aksiyon planı analiz bulgularına göre otomatik oluşturulmuştur. Sorumlu atama ve tarihleri düzenleyiniz.</p>
+            <table class="ap-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Bulgu / Problem</th>
+                        <th>Kategori</th>
+                        <th>Önerilen Aksiyon</th>
+                        <th>Öncelik</th>
+                        <th>Hedef Süre</th>
+                    </tr>
+                </thead>
+                <tbody id="aksiyonBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="text-align:center; color:var(--c-sub); font-size:.75rem; padding:24px 0; margin-top:8px;">
+        Rapor <span id="footerDate"></span> tarihinde oluşturuldu · Kalite Yönetim Sistemi
+    </div>
+
+    </div><!-- /reportContent -->
+</main>
+</div><!-- /layout -->
+
+<script>
+// ── Scroll progress ──
+window.addEventListener('scroll', () => {
+    const el = document.getElementById('scrollProg');
+    const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+    if(el) el.style.width = Math.min(pct, 100) + '%';
+});
+
+// ── Nav active ──
+function scrollTo(id) {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ── Helpers ──
+function fmtN(n, d=0) {
+    if (n == null || isNaN(n)) return '—';
+    return Number(n).toLocaleString('tr-TR', { maximumFractionDigits: d });
+}
+function fmtPct(p) { return '%' + Number(p).toFixed(1); }
+function truncate(s, n=40) { return s && s.length > n ? s.slice(0, n) + '…' : (s || ''); }
+
+// ── Color palettes ──
+const PAL_BLUE   = ['#1d4ed8','#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe'];
+const PAL_MIXED  = ['#2563eb','#7c3aed','#db2777','#dc2626','#d97706','#16a34a','#0891b2','#1d4ed8'];
+const PAL_DANGER = ['#b91c1c','#dc2626','#ef4444','#f87171','#fca5a5','#fecaca'];
+const PAL_OK     = '#16a34a';
+
+function paretoColors(n) {
+    const base = ['#2563eb','#7c3aed','#db2777','#dc2626','#d97706','#16a34a','#0891b2','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#22c55e','#06b6d4'];
+    return Array.from({length:n}, (_, i) => base[i % base.length]);
+}
+
+// ── Pareto data helper ──
+function paretoData(rows, field, n = 15) {
+    const agg = {};
+    const totalH = rows.reduce((s,r) => s + (Number(r.hataliMiktar)||0), 0) || 1;
+    rows.forEach(r => {
+        const v = (r[field] || '').trim();
+        if (!v) return;
+        if (!agg[v]) agg[v] = { h:0, c:0 };
+        agg[v].h += Number(r.hataliMiktar)||0;
+        agg[v].c++;
+    });
+    let entries = Object.entries(agg).sort((a,b) => b[1].h - a[1].h).slice(0, n);
+    let cum = 0;
+    return entries.map(([name, v]) => {
+        cum += v.h;
+        return { name, h: v.h, c: v.c, pct: v.h / totalH * 100, cumPct: cum / totalH * 100 };
+    });
+}
+
+// ── Table builder ──
+function buildParetoTable(entries, totalH, colorFn) {
+    const maxH = entries[0]?.h || 1;
+    let html = `<table class="rep-table"><thead><tr><th class="rank">#</th><th>Ad</th><th class="num">Hatalı</th><th class="pct">%</th></tr></thead><tbody>`;
+    entries.slice(0,12).forEach((e,i) => {
+        const col = colorFn ? colorFn(i) : paretoColors(12)[i];
+        const pct = (e.h / (totalH||1) * 100).toFixed(1);
+        html += `<tr>
+            <td class="rank">${i+1}</td>
+            <td><div style="font-weight:600;margin-bottom:3px;">${truncate(e.name,38)}</div>
+                <div class="prog-bar"><div class="prog-fill" style="width:${Math.round(e.h/maxH*100)}%;background:${col};"></div></div>
+            </td>
+            <td class="num">${fmtN(e.h)}</td>
+            <td class="pct">${fmtPct(pct)}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    return html;
+}
+
+// ── Horizontal bar chart ──
+function hBarChart(ctx, labels, values, colors, label='Hatalı Miktar') {
+    return new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{ label, data: values, backgroundColor: colors, borderRadius: 4, borderSkipped: false }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${fmtN(ctx.raw)} adet`
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { font:{size:10} }, grid:{ color:'#f1f5f9' } },
+                y: { ticks: { font:{size:10}, callback: v => truncate(v, 28) } }
+            }
+        }
+    });
+}
+
+// ── Pareto line+bar chart ──
+function paretoChart(ctx, entries) {
+    const labels = entries.map(e => truncate(e.name, 22));
+    const vals   = entries.map(e => e.h);
+    const cums   = entries.map(e => e.cumPct);
+    const cols   = paretoColors(entries.length);
+    return new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                { type:'bar',  label:'Hatalı Miktar', data:vals, backgroundColor:cols, yAxisID:'y', borderRadius:5, order:2 },
+                { type:'line', label:'Kümülatif %',   data:cums, borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,.08)', yAxisID:'y2', tension:.35, pointRadius:3, fill:true, order:1 }
+            ]
+        },
+        options: {
+            responsive:true, maintainAspectRatio:true,
+            plugins: {
+                legend:{ position:'top', labels:{ font:{size:11} } },
+                tooltip:{ callbacks:{
+                    label: ctx => ctx.datasetIndex===0 ? ` ${fmtN(ctx.raw)} adet` : ` %${Number(ctx.raw).toFixed(1)}`
+                }}
+            },
+            scales: {
+                x: { ticks:{ font:{size:9}, maxRotation:45 }, grid:{color:'#f1f5f9'} },
+                y: { position:'left',  title:{display:true,text:'Hatalı Miktar',font:{size:10}}, ticks:{font:{size:10}} },
+                y2:{ position:'right', min:0, max:100, title:{display:true,text:'%',font:{size:10}}, ticks:{ font:{size:10}, callback:v=>v+'%' }, grid:{display:false} }
+            }
+        }
+    });
+}
+
+// ── 6M CLASSIFIER (same as main page) ──
+function classify6M(rows) {
+    const RULES = [
+        { bone:'insan',   kws:['işçi','işcilik','iscilik','operatör','operator','personel','eğitim','egitim','dikkatsiz','ihmal','çalışan','calisan','insan','adam','yorgun','tecrübe','tecrubesiz'] },
+        { bone:'malzeme', kws:['hammadde','ham madde','malzeme kalite','malzeme','tedarikçi','tedarikci','hammad','kalitesiz','stok','yar mamul','yarı mamul'] },
+        { bone:'metot',   kws:['hatalı talimat','hatali talimat','prosedür','prosedur','yöntem','yontem','süreç','surec','standart','talimat','instruks','uygulama hatası'] },
+        { bone:'makine',  kws:['makine','ekipman','kalibrasyon','arıza','ariza','bakım','bakim','tertibat','aparat','kalıp','kalip','pres','hidrolik'] },
+        { bone:'olcum',   kws:['ölçüm','olcum','muayene','kontrol','test','ölçme','tolerans'] },
+        { bone:'ortam',   kws:['sevkiyat','depolama','nakliye','çevre','cevre','sıcaklık','sicaklik','nem','ortam','ambalaj'] },
+    ];
+    const totalH = rows.reduce((s,r) => s+(Number(r.hataliMiktar)||0),0)||1;
+    const agg = {};
+    rows.forEach(r => {
+        const v = (r.hataKaynagi||'').trim(); if(!v) return;
+        if(!agg[v]) agg[v]={h:0,c:0};
+        agg[v].h += Number(r.hataliMiktar)||0; agg[v].c++;
+    });
+    const result = { insan:[], malzeme:[], metot:[], makine:[], olcum:[], ortam:[] };
+    Object.entries(agg).forEach(([name,v]) => {
+        const lower = name.toLowerCase();
+        let bone = null;
+        for(const rule of RULES) { if(rule.kws.some(kw=>lower.includes(kw))){ bone=rule.bone; break; } }
+        if(!bone) return;
+        const pct = (v.h/totalH*100).toFixed(1);
+        result[bone].push({ name, pct:Number(pct), h:v.h, c:v.c });
+    });
+    for(const k of Object.keys(result)) result[k].sort((a,b)=>b.h-a.h);
+    return result;
+}
+
+// ── IC/DIS CLASSIFIER ──
+function classifyIcDis(rows) {
+    const ic = [], dis = [];
+    const IC_KWS  = ['teknik','fabrika','atölye','boya','boyahane','kesim','montaj','depo','ambar','muayene','kalite','üretim','imalat','iç','ic','dahili','çerkezköy teknik'];
+    const DIS_KWS = ['şube','subesi','sube','müşteri','musteri','saha','servis','nakliye','kargo','şantiye','santiye','markt','market','market','plaza','dağıtım','dagitim'];
+    rows.forEach(r => {
+        const tipi = (r.tipi||'').toLowerCase().trim();
+        // tipi field directly — most reliable
+        if (tipi.includes('iç') || tipi === 'ic' || tipi.includes('dahili') || tipi.includes('internal')) { ic.push(r); return; }
+        if (tipi.includes('dış') || tipi === 'dis' || tipi.includes('external')) { dis.push(r); return; }
+        // fallback: tespitYeri keyword
+        const ty = (r.tespitYeri||'').toLowerCase();
+        const isIC  = IC_KWS.some(kw => ty.includes(kw));
+        const isDIS = DIS_KWS.some(kw => ty.includes(kw));
+        if (isIC && !isDIS) { ic.push(r); return; }
+        if (isDIS)          { dis.push(r); return; }
+        // unclassified → put in ic by default
+        ic.push(r);
+    });
+    return { ic, dis };
+}
+
+// ── SAFE PARSE DATE ──
+function parseDateStr(s) {
+    if (!s) return null;
+    if (s instanceof Date) return isNaN(s.getTime()) ? null : s;
+    const str = String(s).trim();
+    // DD.MM.YYYY or DD/MM/YYYY
+    let m = str.match(/^(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{4})$/);
+    if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+    // YYYY-MM-DD
+    m = str.match(/^(\d{4})[.\-\/](\d{2})[.\-\/](\d{2})/);
+    if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+// ── MONTHLY TREND ──
+function buildTrend(rows) {
+    const map = {};
+    rows.forEach(r => {
+        const d = parseDateStr(r.uygunsuzlukTarih);
+        if (!d) return;
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        if (!map[key]) map[key] = { h:0, c:0 };
+        map[key].h += Number(r.hataliMiktar)||0;
+        map[key].c++;
+    });
+    const keys = Object.keys(map).sort();
+    // limit to last 18 months
+    const last18 = keys.slice(-18);
+    return {
+        labels: last18.map(k => {
+            const [y,m] = k.split('-');
+            const months = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+            return `${months[+m-1]} ${y.slice(2)}`;
+        }),
+        hatali: last18.map(k => map[k].h),
+        kayit:  last18.map(k => map[k].c),
+        keys: last18
+    };
+}
+
+// ── ACTION PLAN GENERATOR ──
+function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, m6) {
+    const actions = [];
+    const totalH = rows.reduce((s,r) => s+(Number(r.hataliMiktar)||0),0)||1;
+
+    // Top hata tipi
+    topHataTipi.slice(0,3).forEach((e,i) => {
+        actions.push({
+            bulgu: `En yüksek hata tipi: "${truncate(e.name,35)}"`,
+            kat: 'Hata Tipi', katBadge: 'badge-red',
+            aksiyon: `Kök neden analizi yapılmalı (5-Neden / Fishbone). Hata oluşum koşulları belirlenmeli ve düzeltici faaliyet başlatılmalı.`,
+            oncelik: i===0 ? 'Yüksek' : 'Orta',
+            sure: i===0 ? '2 hafta' : '1 ay'
+        });
+    });
+
+    // Top tedarikçi
+    topTedarikci.slice(0,2).forEach((e,i) => {
+        const pct = (e.h/totalH*100).toFixed(1);
+        actions.push({
+            bulgu: `Tedarikçi "${truncate(e.name,30)}" toplam hatanın %${pct}'ini oluşturuyor`,
+            kat: 'Tedarikçi', katBadge: 'badge-purple',
+            aksiyon: `Tedarikçi denetimi planlanmalı. Giriş muayene kriterleri gözden geçirilmeli. Gerekirse alternatif tedarikçi değerlendirmesi yapılmalı.`,
+            oncelik: pct > 20 ? 'Yüksek' : 'Orta',
+            sure: '3 hafta'
+        });
+    });
+
+    // Top malzeme
+    topMalzeme.slice(0,2).forEach((e,i) => {
+        actions.push({
+            bulgu: `Malzeme "${truncate(e.name,30)}" için yüksek hata oranı`,
+            kat: 'Malzeme', katBadge: 'badge-yellow',
+            aksiyon: `Bu malzeme için muayene talimatı / kontrol planı güncellenmeli. Tedarikçiden kalite sertifikası (CoA) talep edilmeli.`,
+            oncelik: 'Orta',
+            sure: '1 ay'
+        });
+    });
+
+    // İç/Dış analizi
+    const icH  = icDis.ic.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
+    const disH = icDis.dis.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
+    if (disH > icH * 0.3) {
+        actions.push({
+            bulgu: `Dış başarısızlık oranı yüksek (%${(disH/totalH*100).toFixed(1)}) — müşteri/saha şikayetleri`,
+            kat: 'Dış Başarısızlık', katBadge: 'badge-red',
+            aksiyon: `Sevkiyat öncesi son kontrol prosedürü güçlendirilmeli. Paketleme & etiketleme prosedürü gözden geçirilmeli. Müşteri iade süreç haritası çizilmeli.`,
+            oncelik: 'Yüksek',
+            sure: '2 hafta'
+        });
+    }
+    if (icH > totalH * 0.5) {
+        actions.push({
+            bulgu: `İç başarısızlık oranı dominant (%${(icH/totalH*100).toFixed(1)}) — süreç içi israf`,
+            kat: 'İç Başarısızlık', katBadge: 'badge-blue',
+            aksiyon: `Üretim / hizmet sürecinde proses kontrol noktaları artırılmalı. Operatör eğitimi ve farkındalık programı düzenlenmeli. Kalite kontrol noktaları gözden geçirilmeli.`,
+            oncelik: 'Orta',
+            sure: '4 hafta'
+        });
+    }
+
+    // 6M insights
+    const m6Totals = Object.entries(m6).map(([k,v]) => ({ k, h: v.reduce((s,e)=>s+e.h,0) })).sort((a,b)=>b.h-a.h);
+    if (m6Totals[0] && m6Totals[0].h > 0) {
+        const boneMap = { insan:'İnsan (eğitim/işçilik)', malzeme:'Malzeme', metot:'Metot/Süreç', makine:'Makine/Ekipman', olcum:'Ölçüm/Muayene', ortam:'Ortam/Lojistik' };
+        const boneAct = {
+            insan:   'Personel eğitim programı ve çalışma talimatı güncellemesi planlanmalı.',
+            malzeme: 'Malzeme kabul kriterleri ve tedarikçi değerlendirmesi gözden geçirilmeli.',
+            metot:   'Proses talimatları ve standart çalışma prosedürleri (SOP) güncellenmeli.',
+            makine:  'Periyodik bakım planı oluşturulmalı / güncellenmeli. Kalibrasyon takibi yapılmalı.',
+            olcum:   'Ölçüm sistemi analizi (MSA) yapılmalı. Muayene talimatları güncellenmeli.',
+            ortam:   'Depolama & sevkiyat koşulları iyileştirilmeli. Ambalaj standardı belirlenmeli.'
+        };
+        actions.push({
+            bulgu: `6M analizine göre en yüksek kaynak: ${boneMap[m6Totals[0].k]}`,
+            kat: '6M Analizi', katBadge: 'badge-green',
+            aksiyon: boneAct[m6Totals[0].k] || 'Kök neden analizi derinleştirilmeli.',
+            oncelik: 'Orta',
+            sure: '3 hafta'
+        });
+    }
+
+    // Genel
+    actions.push({
+        bulgu: 'Periyodik kalite gözden geçirme toplantısı eksikliği riski',
+        kat: 'Sistem', katBadge: 'badge-gray',
+        aksiyon: 'Aylık KPI takibi için kalite gözden geçirme toplantısı takvimi oluşturulmalı. Bu rapor bazında aylık trend izlenmeli.',
+        oncelik: 'Düşük',
+        sure: '1 ay'
+    });
+
+    return actions;
+}
+
+// ─────────────────────────────────────────────
+// MAIN RENDER
+// ─────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+    const raw = localStorage.getItem('rapor_payload');
+    if (!raw) {
+        document.getElementById('loadingState').innerHTML = `
+            <div class="empty-state">
+                <div class="emo">⚠️</div>
+                <p style="font-size:1rem;font-weight:600;">Rapor verisi bulunamadı</p>
+                <p style="color:var(--c-sub);margin-top:8px;">Lütfen Uygunsuzluk Analizi sayfasından "Kapsamlı Rapor Oluştur" butonuna tıklayın.</p>
+            </div>`;
+        return;
+    }
+
+    let payload;
+    try { payload = JSON.parse(raw); } catch(e) {
+        document.getElementById('loadingState').innerHTML = '<div class="empty-state"><div class="emo">❌</div><p>Veri okunamadı.</p></div>';
+        return;
+    }
+
+    const rows = payload.rows || [];
+    if (!rows.length) {
+        document.getElementById('loadingState').innerHTML = '<div class="empty-state"><div class="emo">📭</div><p>Filtrelenmiş veri boş — lütfen filtreleri kontrol edin.</p></div>';
+        return;
+    }
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('reportContent').style.display = 'block';
+
+    const totalH   = rows.reduce((s,r) => s+(Number(r.hataliMiktar)||0), 0);
+    const totalRec = rows.length;
+    const filters  = payload.filters || {};
+    const genAt    = new Date(payload.generatedAt || Date.now());
+
+    // ── HEADER ──
+    const title = payload.title || 'Kalite Uygunsuzluk Raporu';
+    document.title = title;
+    document.getElementById('topbarTitle').textContent = title;
+    document.getElementById('rhTitle').textContent = title;
+    document.getElementById('rhSub').textContent = `Uygunsuzluk Analizi — ${totalRec} kayıt · ${fmtN(totalH)} hatalı adet`;
+    document.getElementById('footerDate').textContent = genAt.toLocaleDateString('tr-TR', {day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+    const metaItems = [];
+    if (filters.tarihStart || filters.tarihEnd) metaItems.push(`📅 ${filters.tarihStart||'—'} / ${filters.tarihEnd||'—'}`);
+    if (filters.cari) metaItems.push(`🏢 ${filters.cari}`);
+    if (filters.tespitYeri?.length) metaItems.push(`📍 ${filters.tespitYeri.join(', ')}`);
+    if (filters.hataTipi) metaItems.push(`🔍 ${filters.hataTipi}`);
+    metaItems.push(`📊 ${totalRec} kayıt`);
+    metaItems.push(`⏱ ${genAt.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} oluşturuldu`);
+    document.getElementById('rhMeta').innerHTML = metaItems.map(t=>`<span class="rh-tag">${t}</span>`).join('');
+
+    // ── İÇ / DIŞ ──
+    const icDis = classifyIcDis(rows);
+    const icH   = icDis.ic.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
+    const disH  = icDis.dis.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
+    const icPct  = totalH ? (icH/totalH*100).toFixed(1) : 0;
+    const disPct = totalH ? (disH/totalH*100).toFixed(1) : 0;
+
+    // ── UNIQUE COUNTS ──
+    const uTedarikci = new Set(rows.map(r=>r.cariAdi).filter(Boolean)).size;
+    const uMalzeme   = new Set(rows.map(r=>r.stokAdi).filter(Boolean)).size;
+    const uHataTipi  = new Set(rows.map(r=>r.hataTipi).filter(Boolean)).size;
+
+    // ── KPI CARDS ──
+    const kpis = [
+        { val: fmtN(totalRec),    lbl:'Toplam Kayıt',       color:'#2563eb' },
+        { val: fmtN(totalH),      lbl:'Toplam Hatalı Mikt.',color:'#dc2626' },
+        { val: fmtN(icH),         lbl:'İç Başarısızlık',    color:'#1d4ed8' },
+        { val: fmtN(disH),        lbl:'Dış Başarısızlık',   color:'#c2410c' },
+        { val: uTedarikci,        lbl:'Farklı Tedarikçi',   color:'#7c3aed' },
+        { val: uMalzeme,          lbl:'Farklı Malzeme',     color:'#0891b2' },
+        { val: uHataTipi,         lbl:'Farklı Hata Tipi',   color:'#be185d' },
+        { val: icPct+'%',         lbl:'İç Başarısızlık %',  color:'#16a34a' },
+    ];
+    document.getElementById('kpiGrid').innerHTML = kpis.map(k => `
+        <div class="kpi-card" style="border-top-color:${k.color}">
+            <div class="kval" style="color:${k.color}">${k.val}</div>
+            <div class="klbl">${k.lbl}</div>
+        </div>`).join('');
+
+    // ── İÇ / DIŞ CARDS ──
+    document.getElementById('icDisCards').innerHTML = `
+        <div class="ic-card ic">
+            <h3>🏭 İç Başarısızlık</h3>
+            <div class="ic-val">${fmtN(icH)}</div>
+            <div style="color:#1d4ed8;font-weight:700;font-size:1.1rem;">%${icPct}</div>
+            <div style="color:#5a6478;font-size:.78rem;margin-top:6px;">${icDis.ic.length} kayıt — Fabrika/Tesis içinde tespit edilen</div>
+        </div>
+        <div class="ic-card dis">
+            <h3>🚚 Dış Başarısızlık</h3>
+            <div class="ic-val">${fmtN(disH)}</div>
+            <div style="color:#c2410c;font-weight:700;font-size:1.1rem;">%${disPct}</div>
+            <div style="color:#5a6478;font-size:.78rem;margin-top:6px;">${icDis.dis.length} kayıt — Müşteri/Saha/Şube'de tespit edilen</div>
+        </div>`;
+
+    // ── İÇ/DIŞ CHART ──
+    new Chart(document.getElementById('cIcDis'), {
+        type:'doughnut',
+        data:{
+            labels:['İç Başarısızlık','Dış Başarısızlık'],
+            datasets:[{ data:[icH,disH], backgroundColor:['#2563eb','#ea580c'], borderWidth:0, hoverOffset:8 }]
+        },
+        options:{
+            responsive:true, maintainAspectRatio:true,
+            cutout:'60%',
+            plugins:{ legend:{ position:'bottom' }, tooltip:{ callbacks:{ label: c=>`${c.label}: ${fmtN(c.raw)} adet` }}}
+        }
+    });
+
+    // ── İÇ/DIŞ TABLE (by tespitYeri) ──
+    const icDisByYer = paretoData(rows,'tespitYeri',12);
+    document.getElementById('icDisTable').innerHTML = buildParetoTable(icDisByYer, totalH);
+
+    // ── TEDARİKÇİ ──
+    const tedData = paretoData(rows,'cariAdi',15);
+    const tedLabels = tedData.map(e=>truncate(e.name,30));
+    const tedVals   = tedData.map(e=>e.h);
+    hBarChart(document.getElementById('cTedarikci'), tedLabels, tedVals, paretoColors(tedData.length), 'Hatalı Miktar');
+    document.getElementById('tedarikciTable').innerHTML = buildParetoTable(tedData, totalH);
+
+    // ── MALZEME ──
+    const malData = paretoData(rows,'stokAdi',15);
+    const malLabels = malData.map(e=>truncate(e.name,32));
+    hBarChart(document.getElementById('cMalzeme'), malLabels, malData.map(e=>e.h), paretoColors(malData.length), 'Hatalı Miktar');
+    document.getElementById('malzemeTable').innerHTML = buildParetoTable(malData, totalH);
+
+    // ── MÜŞTERİ / ŞUBE (tespitYeri) ──
+    const mustData = paretoData(rows,'tespitYeri',15);
+    hBarChart(document.getElementById('cMusteri'), mustData.map(e=>truncate(e.name,28)), mustData.map(e=>e.h), PAL_DANGER.concat(PAL_BLUE), 'Hatalı Miktar');
+    document.getElementById('musteriTable').innerHTML = buildParetoTable(mustData, totalH);
+
+    // ── HATA TİPİ ──
+    const htData = paretoData(rows,'hataTipi',15);
+    paretoChart(document.getElementById('cHataTipi'), htData);
+    document.getElementById('hataTipiTable').innerHTML = buildParetoTable(htData, totalH);
+
+    // ── 6M ──
+    const m6 = classify6M(rows);
+    const M6_META = {
+        insan:   { label:'👤 İnsan',   color:'#ef4444', borderColor:'#fca5a5', desc:'İşçilik, operatör, eğitim kaynaklı' },
+        makine:  { label:'⚙️ Makine',  color:'#f59e0b', borderColor:'#fcd34d', desc:'Makine, ekipman, kalibrasyon' },
+        malzeme: { label:'📦 Malzeme', color:'#3b82f6', borderColor:'#93c5fd', desc:'Hammadde, tedarikçi, stok kalitesi' },
+        metot:   { label:'📋 Metot',   color:'#8b5cf6', borderColor:'#c4b5fd', desc:'Talimat, prosedür, standart' },
+        olcum:   { label:'📐 Ölçüm',  color:'#06b6d4', borderColor:'#67e8f9', desc:'Muayene, kontrol, tolerans' },
+        ortam:   { label:'🌡️ Ortam',  color:'#22c55e', borderColor:'#86efac', desc:'Sevkiyat, depolama, çevre' },
+    };
+    const m6Order = ['insan','makine','malzeme','metot','olcum','ortam'];
+    document.getElementById('m6Grid').innerHTML = m6Order.map(k => {
+        const meta = M6_META[k];
+        const items = m6[k];
+        const total = items.reduce((s,e)=>s+e.h,0);
+        return `<div class="m6-card" style="border-color:${meta.borderColor};background:${meta.color}18;">
+            <div class="m6-title" style="color:${meta.color}">${meta.label}</div>
+            <div class="m6-val" style="color:${meta.color}">${fmtN(total)}</div>
+            <div style="font-size:.7rem;color:var(--c-sub);margin-bottom:8px;">${meta.desc}</div>
+            <div class="m6-list">${items.slice(0,3).map(e=>`• ${truncate(e.name,26)} (%${e.pct})`).join('<br>') || '<span style="color:#bbb;">Sınıflandırılan kayıt yok</span>'}</div>
+        </div>`;
+    }).join('');
+
+    new Chart(document.getElementById('c6M'), {
+        type:'polarArea',
+        data:{
+            labels: m6Order.map(k=>M6_META[k].label),
+            datasets:[{ data: m6Order.map(k=>m6[k].reduce((s,e)=>s+e.h,0)), backgroundColor: m6Order.map(k=>M6_META[k].color+'cc'), borderWidth:0 }]
+        },
+        options:{
+            responsive:true, maintainAspectRatio:true,
+            plugins:{ legend:{ position:'bottom', labels:{font:{size:10}} }, tooltip:{ callbacks:{ label: c=>`${c.label}: ${fmtN(c.raw)}` }}}
+        }
+    });
+
+    // 6M detail list
+    let m6DetailHtml = '<div style="font-size:.82rem;">';
+    m6Order.forEach(k => {
+        const meta = M6_META[k];
+        const items = m6[k];
+        if (!items.length) return;
+        m6DetailHtml += `<div style="margin-bottom:14px;">
+            <div style="font-weight:700;color:${meta.color};margin-bottom:6px;">${meta.label}</div>`;
+        items.slice(0,5).forEach(e => {
+            const w = Math.min(Math.round(e.pct*2),100);
+            m6DetailHtml += `<div style="margin-bottom:4px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                    <span>${truncate(e.name,32)}</span>
+                    <span style="color:var(--c-sub);">%${e.pct}</span>
+                </div>
+                <div class="prog-bar"><div class="prog-fill" style="width:${w}%;background:${meta.color};"></div></div>
+            </div>`;
+        });
+        m6DetailHtml += '</div>';
+    });
+    m6DetailHtml += '</div>';
+    document.getElementById('m6Detail').innerHTML = m6DetailHtml || '<span style="color:var(--c-sub);">hataKaynagi alanı dolu kayıt bulunamadı.</span>';
+
+    // ── TREND ──
+    const trend = buildTrend(rows);
+    new Chart(document.getElementById('cTrend'), {
+        type:'line',
+        data:{
+            labels: trend.labels,
+            datasets:[
+                {
+                    label:'Hatalı Miktar', data:trend.hatali,
+                    borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.1)',
+                    tension:.35, fill:true, pointRadius:4, yAxisID:'y'
+                },
+                {
+                    label:'Kayıt Sayısı', data:trend.kayit,
+                    borderColor:'#7c3aed', backgroundColor:'rgba(124,58,237,.05)',
+                    tension:.35, fill:false, pointRadius:3, borderDash:[5,5], yAxisID:'y2'
+                }
+            ]
+        },
+        options:{
+            responsive:true, maintainAspectRatio:true,
+            plugins:{ legend:{ position:'top' } },
+            scales:{
+                x:{ ticks:{font:{size:10}}, grid:{color:'#f1f5f9'} },
+                y:{ position:'left',  ticks:{font:{size:10}}, title:{display:true,text:'Hatalı Miktar',font:{size:10}} },
+                y2:{ position:'right', ticks:{font:{size:10}}, title:{display:true,text:'Kayıt Sayısı',font:{size:10}}, grid:{display:false} }
+            }
+        }
+    });
+
+    // Trend insight
+    if (trend.hatali.length >= 3) {
+        const last3  = trend.hatali.slice(-3).reduce((s,v)=>s+v,0)/3;
+        const prev3  = trend.hatali.slice(-6,-3).reduce((s,v)=>s+v,0)/3;
+        let insight = '';
+        if (prev3 > 0) {
+            const chg = Math.round((last3-prev3)/prev3*100);
+            if (chg >= 15)  insight = `⚠️ <strong>Yükselen trend:</strong> Son 3 ay ortalaması önceki 3 aya göre <strong>+%${chg} artış</strong> gösteriyor. Acil müdahale önerilir.`;
+            else if (chg <= -15) insight = `✅ <strong>İyileşme trendi:</strong> Son 3 ay ortalaması önceki 3 aya göre <strong>%${Math.abs(chg)} azalış</strong> gösteriyor. İyileştirme çalışmaları etkili.`;
+            else insight = `ℹ️ <strong>Stabil trend:</strong> Son 6 ayda belirgin bir değişim gözlenmedi (%${chg > 0 ? '+' : ''}${chg}).`;
+        } else {
+            insight = `ℹ️ Yeterli tarihsel veri bulunamadı — karşılaştırmalı trend hesaplanamadı.`;
+        }
+        document.getElementById('trendInsight').innerHTML = insight;
+    }
+
+    // ── AKSİYON PLANI ──
+    const actions = generateActionPlan(rows, htData, tedData, malData, icDis, m6);
+    const priColor = { 'Yüksek':'pri-yuksek', 'Orta':'pri-orta', 'Düşük':'pri-dusuk' };
+    document.getElementById('aksiyonBody').innerHTML = actions.map((a,i) => `
+        <tr>
+            <td style="color:var(--c-sub);font-size:.78rem;">${i+1}</td>
+            <td>${a.bulgu}</td>
+            <td><span class="badge ${a.katBadge}">${a.kat}</span></td>
+            <td style="max-width:320px;">${a.aksiyon}</td>
+            <td><span class="pri ${priColor[a.oncelik]||''}">${a.oncelik}</span></td>
+            <td style="color:var(--c-sub);white-space:nowrap;">${a.sure}</td>
+        </tr>`).join('');
+});
+</script>
+</body>
+</html>

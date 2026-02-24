@@ -635,10 +635,11 @@
 
     <!-- Tabs -->
     <div id="mainContent" style="display:none;">
-        <div class="tabs">
+        <div class="tabs" style="flex-wrap:wrap;gap:4px;">
             <button class="tab-btn active" onclick="switchTab('pareto')">📊 Pareto Analizi</button>
             <button class="tab-btn" onclick="switchTab('breakdown')">📋 Hata Tipi Dağılımı</button>
             <button class="tab-btn" onclick="switchTab('table')">📄 Veri Tablosu</button>
+            <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;">📑 Kapsamlı Rapor Oluştur</button>
         </div>
 
         <!-- Pareto Tab -->
@@ -1720,6 +1721,42 @@ function openFishbone(hataTipi, count, hatali, pct) {
     }));
     localStorage.setItem('fishbone_source', 'uygunsuzluk-analizi');
     window.open('balik-kilcigi.html', '_blank');
+}
+
+// Kapsamlı Rapor — tüm filtrelenmiş veriyi paketleyip rapor sayfasına gönderir
+function openKapsamliRapor() {
+    if (!filteredData || !filteredData.length) {
+        showToast('Rapor oluşturmak için önce veri yükleyin ve filtreleyin.', 'error');
+        return;
+    }
+    const fTarih1  = (document.getElementById('fDateStart') || {}).value || '';
+    const fTarih2  = (document.getElementById('fDateEnd')   || {}).value || '';
+    const fHataTipi = (document.getElementById('fHataTipi') || {}).value || '';
+    const tespitList = [...selectedTespitYeriSet];
+
+    // Rapor başlığı — cari ve/veya tespit yeri seçiliyse özelleştirilir
+    let titleParts = [];
+    if (selectedCari) titleParts.push(selectedCari);
+    if (tespitList.length === 1) titleParts.push(tespitList[0]);
+    if (fHataTipi) titleParts.push(fHataTipi);
+    const title = titleParts.length
+        ? titleParts.join(' · ') + ' — Kalite Raporu'
+        : 'Kalite Uygunsuzluk Raporu';
+
+    const payload = {
+        rows: filteredData,
+        title,
+        generatedAt: new Date().toISOString(),
+        filters: {
+            tarihStart: fTarih1,
+            tarihEnd:   fTarih2,
+            cari:       selectedCari || '',
+            tespitYeri: tespitList,
+            hataTipi:   fHataTipi
+        }
+    };
+    localStorage.setItem('rapor_payload', JSON.stringify(payload));
+    window.open('kapsamli-rapor.html', '_blank');
 }
 
 // Özellik 1: Tedarikçi bazında Fishbone — 6M yapısı
