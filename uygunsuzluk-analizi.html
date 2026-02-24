@@ -1611,6 +1611,42 @@ function topNFieldWithContrib(rows, field, n = 5) {
         });
 }
 
+// 6M anahtar kelime sınıflandırıcı
+// hataKaynagi değerlerini içeriklerine göre 6 kemiğe dağıtır
+function classify6M(rows) {
+    const RULES = [
+        { bone: 'insan',   kws: ['işçi','işcilik','iscilik','operatör','operator','personel','eğitim','egitim','dikkatsiz','ihmal','çalışan','calisan','insan','adam','yorgun','tecrübe','tecrubesiz'] },
+        { bone: 'malzeme', kws: ['hammadde','ham madde','malzeme kalite','malzeme','tedarikçi','tedarikci','hammad','kalitesiz','stok','yar mamul','yarı mamul'] },
+        { bone: 'metot',   kws: ['hatalı talimat','hatali talimat','prosedür','prosedur','yöntem','yontem','süreç','surec','standart','talimat','instruks','uygulama hatası'] },
+        { bone: 'makine',  kws: ['makine','ekipman','kalibrasyon','arıza','ariza','bakım','bakim','tertibat','aparat','kalıp','kalip','pres','hidrolik'] },
+        { bone: 'olcum',   kws: ['ölçüm','olcum','muayene','kontrol','test','ölçme','tolerans'] },
+        { bone: 'ortam',   kws: ['sevkiyat','depolama','nakliye','çevre','cevre','sıcaklık','sicaklik','nem','ortam','ambalaj'] },
+    ];
+
+    const totalHatali = rows.reduce((s, r) => s + (Number(r.hataliMiktar) || 0), 0) || 1;
+    const agg = {};
+    rows.forEach(r => {
+        const v = (r.hataKaynagi || '').trim();
+        if (!v) return;
+        if (!agg[v]) agg[v] = { count: 0, hatali: 0 };
+        agg[v].count++;
+        agg[v].hatali += Number(r.hataliMiktar) || 0;
+    });
+
+    const result = { insan: [], malzeme: [], metot: [], makine: [], olcum: [], ortam: [] };
+    Object.entries(agg).forEach(([name, v]) => {
+        const lower = name.toLowerCase();
+        let bone = 'insan'; // eşleşme yoksa İnsan'a at
+        for (const rule of RULES) {
+            if (rule.kws.some(kw => lower.includes(kw))) { bone = rule.bone; break; }
+        }
+        const pct = (v.hatali / totalHatali * 100).toFixed(1);
+        result[bone].push({ name, displayName: `${name} (%${pct})`, pct: Number(pct), count: v.count, hatali: v.hatali });
+    });
+    for (const k of Object.keys(result)) result[k].sort((a, b) => b.hatali - a.hatali);
+    return result;
+}
+
 function openFishbone(hataTipi, count, hatali, pct) {
     const fTarih1 = (document.getElementById('fDateStart') || {}).value || '';
     const fTarih2 = (document.getElementById('fDateEnd')   || {}).value || '';
@@ -1638,30 +1674,47 @@ function openFishbone(hataTipi, count, hatali, pct) {
 
     const desc = `Uygunsuzluk Analizi verilerinden aktarıldı.\n• Hatalı miktar: ${Number(hatali).toLocaleString('tr', {maximumFractionDigits:1})} adet (%${pct})\n• Kayıt sayısı: ${count}${tarihBilgi}${cariBilgi}${trendBilgi}`;
 
-    // Özellik 2: 6M kemikleri — veri kaynaklı otomatik doldurma
+    // Özellik 2: 6M kemikleri — hataKaynagi anahtar kelimeye göre otomatik sınıflandırılır
     const BONE_COLORS = ['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#06b6d4','#22c55e'];
     let _nid = 1; const mkId = () => _nid++;
-    const mkChildren = (items, color) => items.map(item => ({
+    const mkChildren = (items, color) => (items||[]).slice(0,6).map(item => ({
         id:mkId(),
-        name: item.displayName || item,
+        name: item.displayName || item.name || item,
         color, children:[], collapsed:false,
         offsetX:0, offsetY:0,
         _contrib: item.pct || null
     }));
-    const bonesConfig = [
-        {name:'👤 İnsan',   desc:'Hata kaynağı dağılımı',       color:BONE_COLORS[0], side:'top',    field:'hataKaynagi'},
-        {name:'⚙️ Makine',  desc:'Makine / ekipman dağılımı',   color:BONE_COLORS[1], side:'bottom', field:'makine'},
-        {name:'📦 Malzeme', desc:'En çok etkilenen stoklar',     color:BONE_COLORS[2], side:'top',    field:'stokAdi'},
-        {name:'📋 Metot',   desc:'Uygunsuzluk türü dağılımı',   color:BONE_COLORS[3], side:'bottom', field:'uygunsuzlukTuru'},
-        {name:'📐 Ölçüm',  desc:'Tespit yeri dağılımı',         color:BONE_COLORS[4], side:'top',    field:'tespitYeri'},
-        {name:'🌡️ Ortam',  desc:'(Manuel doldurun)',            color:BONE_COLORS[5], side:'bottom', field:null},
-    ];
-    const causes = bonesConfig.map(b => ({
-        id:mkId(), name:b.name, description:b.desc,
-        color:b.color, side:b.side, collapsed:false,
-        children: b.field ? mkChildren(topNFieldWithContrib(relRows, b.field), b.color) : [],
-        offsetX:0, offsetY:0, baseOffsetX:0, baseOffsetY:0
-    }));
+
+    // hataKaynagi -> 6M anahtar kelime sınıflandırması
+    const cls = classify6M(relRows);
+
+    // Diğer alanlarda da katkı oranı
+    const causes = [
+        { name:'👤 İnsan',   desc:'Hata kaynağı → insan kaynaklı',        color:BONE_COLORS[0], side:'top',
+          children: mkChildren(cls.insan, BONE_COLORS[0]) },
+        { name:'⚙️ Makine',  desc:'Makine/ekipman kaynaklı + veri',  color:BONE_COLORS[1], side:'bottom',
+          children: [
+            ...mkChildren(topNFieldWithContrib(relRows,'makine',4), BONE_COLORS[1]),
+            ...mkChildren(cls.makine, BONE_COLORS[1])
+          ].slice(0,6) },
+        { name:'📦 Malzeme', desc:'Etkilenen stoklar + malzeme kaynaklı', color:BONE_COLORS[2], side:'top',
+          children: [
+            ...mkChildren(topNFieldWithContrib(relRows,'stokAdi',3), BONE_COLORS[2]),
+            ...mkChildren(cls.malzeme, BONE_COLORS[2])
+          ].slice(0,6) },
+        { name:'📋 Metot',   desc:'Uygunsuzluk türü + metot kaynaklı',  color:BONE_COLORS[3], side:'bottom',
+          children: [
+            ...mkChildren(topNFieldWithContrib(relRows,'uygunsuzlukTuru',3), BONE_COLORS[3]),
+            ...mkChildren(cls.metot, BONE_COLORS[3])
+          ].slice(0,6) },
+        { name:'📐 Ölçüm',  desc:'Tespit yeri + ölçüm kaynaklı',      color:BONE_COLORS[4], side:'top',
+          children: [
+            ...mkChildren(topNFieldWithContrib(relRows,'tespitYeri',3), BONE_COLORS[4]),
+            ...mkChildren(cls.olcum, BONE_COLORS[4])
+          ].slice(0,6) },
+        { name:'🌡️ Ortam',  desc:'Ortam / lojistik kaynaklı',        color:BONE_COLORS[5], side:'bottom',
+          children: mkChildren(cls.ortam, BONE_COLORS[5]) },
+    ].map(b => ({ ...b, id:mkId(), collapsed:false, offsetX:0, offsetY:0, baseOffsetX:0, baseOffsetY:0 }));
 
     localStorage.setItem('fishbone_incoming', JSON.stringify({
         problem: hataTipi, problemDesc: desc,
@@ -1680,28 +1733,45 @@ function openFishboneTedarikci() {
     if (!cariRows.length) { showToast('Bu cari için veri bulunamadı.', 'error'); return; }
     const BONE_COLORS = ['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#06b6d4','#22c55e'];
     let _nid = 1; const mkId = () => _nid++;
-    const mkChildren = (items, color) => items.map(item => ({
+    const mkChildren = (items, color) => (items||[]).slice(0,6).map(item => ({
         id:mkId(),
-        name: item.displayName || item,
+        name: item.displayName || item.name || item,
         color, children:[], collapsed:false,
         offsetX:0, offsetY:0,
         _contrib: item.pct || null
     }));
-    // 6M ana kemikler — veriler cariRows'dan, doğru alan eşlemeleriyle
-    const bonesConfig = [
-        {name:'👤 İnsan',   desc:'Hata kaynağı dağılımı',      color:BONE_COLORS[0], side:'top',    field:'hataKaynagi'},
-        {name:'⚙️ Makine',  desc:'Makine / ekipman dağılımı',  color:BONE_COLORS[1], side:'bottom', field:'makine'},
-        {name:'📦 Malzeme', desc:'En çok etkilenen stoklar',    color:BONE_COLORS[2], side:'top',    field:'stokAdi'},
-        {name:'📋 Metot',   desc:'Uygunsuzluk türü dağılımı',  color:BONE_COLORS[3], side:'bottom', field:'uygunsuzlukTuru'},
-        {name:'📐 Ölçüm',  desc:'Hata tipi dağılımı',         color:BONE_COLORS[4], side:'top',    field:'hataTipi'},
-        {name:'🌡️ Ortam',  desc:'Tespit yeri dağılımı',       color:BONE_COLORS[5], side:'bottom', field:'tespitYeri'},
-    ];
-    const causes = bonesConfig.map(b => ({
-        id:mkId(), name:b.name, description:b.desc,
-        color:b.color, side:b.side, collapsed:false,
-        children: b.field ? mkChildren(topNFieldWithContrib(cariRows, b.field, 5), b.color) : [],
-        offsetX:0, offsetY:0, baseOffsetX:0, baseOffsetY:0
-    }));
+    // hataKaynagi -> 6M anahtar kelime sınıflandırması
+    const cls = classify6M(cariRows);
+
+    const causes = [
+        { name:'👤 İnsan',   desc:'Hata kaynağı → insan kaynaklı',           color:BONE_COLORS[0], side:'top',
+          children: mkChildren(cls.insan, BONE_COLORS[0]) },
+        { name:'⚙️ Makine',  desc:'Makine/ekipman kaynaklı + veri',     color:BONE_COLORS[1], side:'bottom',
+          children: [
+            ...mkChildren(topNFieldWithContrib(cariRows,'makine',4), BONE_COLORS[1]),
+            ...mkChildren(cls.makine, BONE_COLORS[1])
+          ].slice(0,6) },
+        { name:'📦 Malzeme', desc:'Etkilenen stoklar + malzeme kaynaklı',  color:BONE_COLORS[2], side:'top',
+          children: [
+            ...mkChildren(topNFieldWithContrib(cariRows,'stokAdi',3), BONE_COLORS[2]),
+            ...mkChildren(cls.malzeme, BONE_COLORS[2])
+          ].slice(0,6) },
+        { name:'📋 Metot',   desc:'Uygunsuzluk türü + metot kaynaklı',     color:BONE_COLORS[3], side:'bottom',
+          children: [
+            ...mkChildren(topNFieldWithContrib(cariRows,'uygunsuzlukTuru',3), BONE_COLORS[3]),
+            ...mkChildren(cls.metot, BONE_COLORS[3])
+          ].slice(0,6) },
+        { name:'📐 Ölçüm',  desc:'Hata tipi + ölçüm kaynaklı',            color:BONE_COLORS[4], side:'top',
+          children: [
+            ...mkChildren(topNFieldWithContrib(cariRows,'hataTipi',3), BONE_COLORS[4]),
+            ...mkChildren(cls.olcum, BONE_COLORS[4])
+          ].slice(0,6) },
+        { name:'🌡️ Ortam',  desc:'Tespit yeri + ortam kaynaklı',         color:BONE_COLORS[5], side:'bottom',
+          children: [
+            ...mkChildren(topNFieldWithContrib(cariRows,'tespitYeri',3), BONE_COLORS[5]),
+            ...mkChildren(cls.ortam, BONE_COLORS[5])
+          ].slice(0,6) },
+    ].map(b => ({ ...b, id:mkId(), collapsed:false, offsetX:0, offsetY:0, baseOffsetX:0, baseOffsetY:0 }));
     const total = cariRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
     const desc = `Tedarikçi kalite analizi.\n• Toplam hatalı miktar: ${total.toLocaleString('tr',{maximumFractionDigits:1})}\n• Toplam kayıt: ${cariRows.length}\nKaynak: Uygunsuzluk Analizi`;
     localStorage.setItem('fishbone_incoming', JSON.stringify({
