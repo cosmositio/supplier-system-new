@@ -684,6 +684,10 @@
                     <input type="checkbox" id="paretoGroupOthers" onchange="renderPareto()" style="width:16px;height:16px;accent-color:#b94fc4;cursor:pointer;">
                     <label for="paretoGroupOthers" style="cursor:pointer;font-size:0.88em;color:#4a0a6b;white-space:nowrap;">Eşiküstü 'Diğer'</label>
                 </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <input type="checkbox" id="paretoShowLabels" onchange="renderPareto()" style="width:16px;height:16px;accent-color:#b94fc4;cursor:pointer;">
+                    <label for="paretoShowLabels" style="cursor:pointer;font-size:0.88em;color:#4a0a6b;white-space:nowrap;">Değerleri Göster</label>
+                </div>
                 <button class="export-btn" onclick="downloadChartPNG()">⬇ PNG İndir</button>
             </div>
             <div class="chart-wrapper">
@@ -1292,6 +1296,39 @@ function renderPareto() {
 
     if (paretoChartInst) { paretoChartInst.destroy(); paretoChartInst = null; }
 
+    // Data labels plugin — draws values on top of each bar
+    const _showLabels = document.getElementById('paretoShowLabels').checked;
+    const _metric = metric;
+    const pluginDataLabels = {
+        id: 'barDataLabels',
+        afterDatasetsDraw(chart) {
+            if (!_showLabels) return;
+            const { ctx, data, scales } = chart;
+            const barDs = chart.data.datasets.findIndex(ds => ds.type === 'bar');
+            if (barDs < 0) return;
+            const meta = chart.getDatasetMeta(barDs);
+            ctx.save();
+            ctx.font = 'bold 11px Segoe UI, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            meta.data.forEach((bar, i) => {
+                const val = data.datasets[barDs].data[i];
+                if (val == null || val === 0) return;
+                const formatted = Number(val) >= 1000
+                    ? Number(val).toLocaleString('tr', { maximumFractionDigits: 0 })
+                    : Number(val).toLocaleString('tr', { maximumFractionDigits: 1 });
+                const x = bar.x;
+                const y = bar.y - 4;
+                // shadow for readability
+                ctx.fillStyle = 'rgba(255,255,255,0.75)';
+                ctx.fillText(formatted, x + 1, y + 1);
+                ctx.fillStyle = '#4a0a6b';
+                ctx.fillText(formatted, x, y);
+            });
+            ctx.restore();
+        }
+    };
+
     // Threshold reference line — inline plugin (closure captures current threshold)
     const _thresholdVal = threshold;
     const plugin80 = {
@@ -1314,7 +1351,7 @@ function renderPareto() {
 
     const ctx = document.getElementById('paretoChart').getContext('2d');
     paretoChartInst = new Chart(ctx, {
-        plugins: [plugin80],
+        plugins: [pluginDataLabels, plugin80],
         data: {
             labels,
             datasets: [
