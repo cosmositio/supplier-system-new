@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -166,6 +166,12 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .ap-btn-add  { background:#dcfce7; color:#166534; }
 .ap-actions-col { white-space:nowrap; display:flex; gap:5px; }
 .ap-table th:last-child, .ap-table td:last-child { text-align:center; }
+/* Durum pill */
+.durum-pill { display:inline-block; padding:3px 9px; border-radius:20px; font-size:.72rem; font-weight:700; white-space:nowrap; }
+.durum-beklemede  { background:#fef9c3; color:#854d0e; }
+.durum-devam      { background:#dbeafe; color:#1e40af; }
+.durum-tamamlandi { background:#dcfce7; color:#166534; }
+.durum-iptal      { background:#fee2e2; color:#991b1b; }
 
 /* ── MODAL ── */
 #apModal { display:none; position:fixed; inset:0; z-index:9999; background:rgba(10,15,30,.55); align-items:center; justify-content:center; }
@@ -381,7 +387,9 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
                         <th>Kategori</th>
                         <th>Önerilen Aksiyon</th>
                         <th>Öncelik</th>
-                        <th>Hedef Süre</th>
+                        <th>Sorumlu</th>
+                        <th>Durum</th>
+                        <th>Tamamlanma Tarihi</th>
                         <th class="no-print"></th>
                     </tr>
                 </thead>
@@ -425,9 +433,24 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
                 <label>Önerilen Aksiyon</label>
                 <textarea id="apFAksiyon" rows="3"></textarea>
             </div>
+            <div class="ap-modal-row">
+                <div class="ap-field">
+                    <label>Sorumlu</label>
+                    <input type="text" id="apFSorumlu" placeholder="örn: Kalite Müdürü">
+                </div>
+                <div class="ap-field">
+                    <label>Durum</label>
+                    <select id="apFDurum">
+                        <option value="Beklemede">Beklemede</option>
+                        <option value="Devam Ediyor">Devam Ediyor</option>
+                        <option value="Tamamlandı">Tamamlandı</option>
+                        <option value=İptal">İptal</option>
+                    </select>
+                </div>
+            </div>
             <div class="ap-field">
-                <label>Hedef Süre</label>
-                <input type="text" id="apFSure" placeholder="örn: 2 hafta, 1 ay">
+                <label>Tamamlanma Tarihi</label>
+                <input type="date" id="apFTarih">
             </div>
             <div class="ap-modal-footer">
                 <button class="ap-modal-cancel" onclick="apCloseModal()">İptal</button>
@@ -717,6 +740,7 @@ function buildTrend(rows) {
 function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, m6) {
     const actions = [];
     const totalH = rows.reduce((s,r) => s+(Number(r.hataliMiktar)||0),0)||1;
+    const _def = { sorumlu:'', durum:'Beklemede', tarih:'' };
 
     // Top hata tipi
     topHataTipi.slice(0,3).forEach((e,i) => {
@@ -725,7 +749,7 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
             kat: 'Hata Tipi', katBadge: 'badge-red',
             aksiyon: `Kök neden analizi yapılmalı (5-Neden / Fishbone). Hata oluşum koşulları belirlenmeli ve düzeltici faaliyet başlatılmalı.`,
             oncelik: i===0 ? 'Yüksek' : 'Orta',
-            sure: i===0 ? '2 hafta' : '1 ay'
+            ..._def
         });
     });
 
@@ -737,7 +761,7 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
             kat: 'Tedarikçi', katBadge: 'badge-purple',
             aksiyon: `Tedarikçi denetimi planlanmalı. Giriş muayene kriterleri gözden geçirilmeli. Gerekirse alternatif tedarikçi değerlendirmesi yapılmalı.`,
             oncelik: pct > 20 ? 'Yüksek' : 'Orta',
-            sure: '3 hafta'
+            ..._def
         });
     });
 
@@ -748,7 +772,7 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
             kat: 'Malzeme', katBadge: 'badge-yellow',
             aksiyon: `Bu malzeme için muayene talimatı / kontrol planı güncellenmeli. Tedarikçiden kalite sertifikası (CoA) talep edilmeli.`,
             oncelik: 'Orta',
-            sure: '1 ay'
+            ..._def
         });
     });
 
@@ -761,7 +785,7 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
             kat: 'Dış Başarısızlık', katBadge: 'badge-red',
             aksiyon: `Sevkiyat öncesi son kontrol prosedürü güçlendirilmeli. Paketleme & etiketleme prosedürü gözden geçirilmeli. Müşteri iade süreç haritası çizilmeli.`,
             oncelik: 'Yüksek',
-            sure: '2 hafta'
+            ..._def
         });
     }
     if (icH > totalH * 0.5) {
@@ -770,7 +794,7 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
             kat: 'İç Başarısızlık', katBadge: 'badge-blue',
             aksiyon: `Üretim / hizmet sürecinde proses kontrol noktaları artırılmalı. Operatör eğitimi ve farkındalık programı düzenlenmeli. Kalite kontrol noktaları gözden geçirilmeli.`,
             oncelik: 'Orta',
-            sure: '4 hafta'
+            ..._def
         });
     }
 
@@ -791,7 +815,7 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
             kat: '6M Analizi', katBadge: 'badge-green',
             aksiyon: boneAct[m6Totals[0].k] || 'Kök neden analizi derinleştirilmeli.',
             oncelik: 'Orta',
-            sure: '3 hafta'
+            ..._def
         });
     }
 
@@ -801,7 +825,7 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
         kat: 'Sistem', katBadge: 'badge-gray',
         aksiyon: 'Aylık KPI takibi için kalite gözden geçirme toplantısı takvimi oluşturulmalı. Bu rapor bazında aylık trend izlenmeli.',
         oncelik: 'Düşük',
-        sure: '1 ay'
+            ..._def
     });
 
     return actions;
@@ -849,13 +873,14 @@ function apOpenEdit(idx) {
     _apEditIdx = idx;
     const a = window._aksiyonlar[idx];
     document.getElementById('apModalTitle').textContent = 'Satırı Düzenle';
-    document.getElementById('apFBulgu').value   = a.bulgu   || '';
-    document.getElementById('apFAksiyon').value = a.aksiyon || '';
-    document.getElementById('apFOncelik').value = a.oncelik || 'Orta';
-    document.getElementById('apFSure').value    = a.sure    || '';
+    document.getElementById('apFBulgu').value    = a.bulgu    || '';
+    document.getElementById('apFAksiyon').value  = a.aksiyon  || '';
+    document.getElementById('apFOncelik').value  = a.oncelik  || 'Orta';
+    document.getElementById('apFSorumlu').value  = a.sorumlu  || '';
+    document.getElementById('apFDurum').value    = a.durum    || 'Beklemede';
+    document.getElementById('apFTarih').value    = a.tarih    || '';
     const katSel = document.getElementById('apFKat');
     const katVal = `${a.kat}|${a.katBadge}`;
-    // Try to find matching option
     let found = false;
     for (const opt of katSel.options) { if (opt.value === katVal) { katSel.value = opt.value; found = true; break; } }
     if (!found) katSel.value = 'Diğer|badge-gray';
@@ -865,11 +890,13 @@ function apOpenEdit(idx) {
 function apOpenAdd() {
     _apEditIdx = -1;
     document.getElementById('apModalTitle').textContent = 'Yeni Satır Ekle';
-    document.getElementById('apFBulgu').value   = '';
-    document.getElementById('apFAksiyon').value = '';
-    document.getElementById('apFOncelik').value = 'Orta';
-    document.getElementById('apFSure').value    = '';
-    document.getElementById('apFKat').value     = 'Diğer|badge-gray';
+    document.getElementById('apFBulgu').value    = '';
+    document.getElementById('apFAksiyon').value  = '';
+    document.getElementById('apFOncelik').value  = 'Orta';
+    document.getElementById('apFSorumlu').value  = '';
+    document.getElementById('apFDurum').value    = 'Beklemede';
+    document.getElementById('apFTarih').value    = '';
+    document.getElementById('apFKat').value      = 'Diğer|badge-gray';
     document.getElementById('apModal').classList.add('open');
     setTimeout(() => document.getElementById('apFBulgu').focus(), 50);
 }
@@ -882,13 +909,15 @@ function apSaveModal() {
     const bulgu   = document.getElementById('apFBulgu').value.trim();
     const aksiyon = document.getElementById('apFAksiyon').value.trim();
     const oncelik = document.getElementById('apFOncelik').value;
-    const sure    = document.getElementById('apFSure').value.trim();
+    const sorumlu = document.getElementById('apFSorumlu').value.trim();
+    const durum   = document.getElementById('apFDurum').value;
+    const tarih   = document.getElementById('apFTarih').value;
     const katRaw  = document.getElementById('apFKat').value; // "Name|badge-x"
     const [kat, katBadge] = katRaw.split('|');
 
     if (!bulgu) { document.getElementById('apFBulgu').focus(); return; }
 
-    const entry = { bulgu, kat, katBadge, aksiyon, oncelik, sure };
+    const entry = { bulgu, kat, katBadge, aksiyon, oncelik, sorumlu, durum, tarih };
 
     if (_apEditIdx === -1) {
         window._aksiyonlar.push(entry);
