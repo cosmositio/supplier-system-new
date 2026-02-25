@@ -2099,9 +2099,12 @@ function saveModal() {
         }
     }
 
+    const _wasAddOrChild = (modalMode === 'add' || modalMode === 'addChild');
     closeModal();
     render();
     autoSave();
+    // Yeni neden eklendiğinde kılçığı otomatik yeniden yerleştir
+    if (_wasAddOrChild) setTimeout(() => autoLayout(), 100);
 }
 
 // ===== CONTEXT MENU =====
@@ -5185,6 +5188,8 @@ function apAddToFishbone(row) {
     autoSave();
     render();
     renderActionPlan();
+    // Kılçığı otomatik yeniden yerleştir
+    setTimeout(() => autoLayout(), 100);
 }
 
 function updateContribTotal() {
