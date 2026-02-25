@@ -1047,81 +1047,92 @@ function initFishbone(m6, htData, effectLabel) {
 function drawFishbone() {
     const data = window._fbData;
     if (!data) return;
-    const {W, H, SY, SS, SE, L, A, TPOS, BONES} = _FB;
+    const {W, H, SY, SS, SE, L, A, RIB, TPOS, BONES} = _FB;
     const cosA = Math.cos(A * Math.PI / 180);
     const sinA = Math.sin(A * Math.PI / 180);
     const p = [];
 
-    // Background
+    // Background + subtle grid
     p.push(`<rect width="${W}" height="${H}" fill="#f8fafc"/>`);
-
-    // Grid lines (subtle)
-    for(let x=SS;x<=SE;x+=100) p.push(`<line x1="${x}" y1="20" x2="${x}" y2="${H-20}" stroke="#e2e8f0" stroke-width="1"/>`);
+    for(let x=SS+60; x<=SE; x+=80)
+        p.push(`<line x1="${x}" y1="14" x2="${x}" y2="${H-14}" stroke="#e8edf4" stroke-width="1"/>`);
 
     // Spine
-    p.push(`<line x1="${SS}" y1="${SY}" x2="${SE}" y2="${SY}" stroke="#475569" stroke-width="3.5" stroke-linecap="round"/>`);
+    p.push(`<line x1="${SS}" y1="${SY}" x2="${SE}" y2="${SY}" stroke="#334155" stroke-width="4" stroke-linecap="round"/>`);
     // Arrowhead
-    p.push(`<polygon points="${SE},${SY} ${SE-16},${SY-8} ${SE-16},${SY+8}" fill="#475569"/>`);
+    p.push(`<polygon points="${SE+2},${SY} ${SE-14},${SY-9} ${SE-14},${SY+9}" fill="#334155"/>`);
 
     // Effect box
-    const EX=SE+14, EW=172, EH=86;
-    p.push(`<rect x="${EX}" y="${SY-EH/2}" width="${EW}" height="${EH}" rx="10" fill="white" stroke="#ef4444" stroke-width="2.5"/>`);
+    const EX=SE+18, EW=168, EH=92;
+    p.push(`<rect x="${EX}" y="${SY-EH/2}" width="${EW}" height="${EH}" rx="12" fill="white" stroke="#ef4444" stroke-width="2.5"/>`);
     const effTxt = (data.effect||'Ana Problem');
     const words = effTxt.split(' ');
     let cur='', lines=[];
-    words.forEach(w => { if((cur+' '+w).trim().length>16 && cur){lines.push(cur.trim());cur=w;}else cur=cur?cur+' '+w:w; });
+    words.forEach(w => {
+        if((cur+' '+w).trim().length > 15 && cur){ lines.push(cur.trim()); cur=w; }
+        else cur = cur ? cur+' '+w : w;
+    });
     if(cur) lines.push(cur.trim());
     lines.slice(0,4).forEach((ln,li) => {
         const ly = SY - (lines.length-1)*9 + li*18;
-        p.push(`<text x="${EX+EW/2}" y="${ly}" text-anchor="middle" font-size="11" font-weight="700" fill="#1e293b">${esc(ln)}</text>`);
+        p.push(`<text x="${EX+EW/2}" y="${ly}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1e293b">${esc(ln)}</text>`);
     });
-    // Clickable overlay
-    p.push(`<rect x="${EX}" y="${SY-EH/2}" width="${EW}" height="${EH}" rx="10" fill="transparent" cursor="pointer" onclick="fbEditEffect()"><title>\u0130lk\u0131 d\u00fczenle</title></rect>`);
+    p.push(`<rect x="${EX}" y="${SY-EH/2}" width="${EW}" height="${EH}" rx="12" fill="transparent" cursor="pointer" onclick="fbEditEffect()"/>`);
 
-    // Bones
+    // Each bone
     Object.entries(BONES).forEach(([key, cfg]) => {
         const {sx, pos, label, color} = cfg;
-        const dir = pos==='top' ? -1 : 1;
-        const tx = +(sx - L*cosA).toFixed(1);
-        const ty = +(SY + dir*L*sinA).toFixed(1);
-        const causes = (data.bones[key]||{}).causes||[];
+        const isTop = pos === 'top';
+        const dir   = isTop ? -1 : 1;
+
+        // Tip: goes UP-LEFT (top) or DOWN-LEFT (bottom) from spine junction
+        const tipX = +(sx - L*cosA).toFixed(1);
+        const tipY = +(SY + dir*L*sinA).toFixed(1);
 
         // Main bone
-        p.push(`<line x1="${sx}" y1="${SY}" x2="${tx}" y2="${ty}" stroke="${color}" stroke-width="2.5" stroke-linecap="round"/>`);
+        p.push(`<line x1="${sx}" y1="${SY}" x2="${tipX}" y2="${tipY}" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`);
 
-        // Bone label at tip
-        const lblY = pos==='top' ? ty-10 : ty+18;
-        p.push(`<text x="${tx}" y="${lblY}" text-anchor="middle" font-size="13" font-weight="800" fill="${color}">${esc(label)}</text>`);
+        // Bone label
+        const lblY = isTop ? tipY - 13 : tipY + 19;
+        p.push(`<text x="${tipX}" y="${lblY}" text-anchor="middle" font-size="14" font-weight="800" fill="${color}">${esc(label)}</text>`);
+
+        // Junction dot + (+) shortcut
+        p.push(`<circle cx="${sx}" cy="${SY}" r="6" fill="${color}" opacity="0.25"/>`);
+        p.push(`<text x="${sx}" y="${+(SY+5).toFixed(0)}" text-anchor="middle" font-size="15" font-weight="900" fill="${color}" cursor="pointer" onclick="fbFocusInput('${key}')" style="user-select:none">+</text>`);
 
         // Cause ribs
-        const shown = causes.slice(0, TPOS.length);
-        shown.forEach((name, ci) => {
+        const causes = (data.bones[key]||{}).causes||[];
+        causes.slice(0, TPOS.length).forEach((name, ci) => {
             const t = TPOS[ci];
-            const px = +(tx + t*(sx-tx)).toFixed(1);
-            const py = +(ty + t*(SY-ty)).toFixed(1);
-            const ry = pos==='top' ? py+28 : py-28;
-            const rxe = px+4;
-            p.push(`<line x1="${px}" y1="${py}" x2="${rxe}" y2="${ry}" stroke="${color}" stroke-width="1.5" opacity="0.55"/>`);
-            const txtY = pos==='top' ? ry+11 : ry-3;
-            const nm = name.length>21 ? name.slice(0,21)+'\u2026' : name;
-            p.push(`<text x="${rxe+3}" y="${txtY}" font-size="9.5" fill="#1e293b">${esc(nm)}</text>`);
-        });
-        if(causes.length > TPOS.length) {
-            // Show "+N more" near spine
-            const moreY = pos==='top' ? SY-12 : SY+18;
-            p.push(`<text x="${sx}" y="${moreY}" text-anchor="middle" font-size="9" fill="${color}" opacity="0.7">+${causes.length-TPOS.length} daha</text>`);
-        }
+            // P: point on bone at parameter t from junction (t=0) toward tip (t=1)
+            const px = +(sx  + t*(tipX - sx)).toFixed(1);
+            const py = +(SY  + t*(tipY - SY)).toFixed(1);
 
-        // Dot + add button at spine junction
-        p.push(`<circle cx="${sx}" cy="${SY}" r="7" fill="${color}" opacity="0.2"/>`);
-        p.push(`<text x="${sx}" y="${SY+4}" text-anchor="middle" font-size="13" fill="${color}" font-weight="900" cursor="pointer" onclick="fbFocusInput('${key}')" style="user-select:none">+</text>`);
+            // Rib: perpendicular to bone, angled toward spine side
+            // Top  bone direction: (-cosA, -sinA) → perpendicular toward spine: (+sinA, +cosA)
+            // Bottom bone direction: (-cosA, +sinA) → perpendicular toward spine: (+sinA, -cosA)
+            const rx = +(px + RIB * sinA).toFixed(1);
+            const ry = +(py + RIB * (isTop ? cosA : -cosA)).toFixed(1);
+
+            p.push(`<line x1="${px}" y1="${py}" x2="${rx}" y2="${ry}" stroke="${color}" stroke-width="1.5" opacity="0.7" stroke-linecap="round"/>`);
+
+            // Label at rib end; click to delete
+            const nm = name.length > 24 ? name.slice(0,24)+'…' : name;
+            const txtY = isTop ? +(ry+12).toFixed(1) : +(ry-4).toFixed(1);
+            p.push(`<text x="${+(rx+3).toFixed(1)}" y="${txtY}" font-size="9.5" fill="#374151" cursor="pointer" onclick="fbDeleteCause('${key}',${ci})" title="Tıkla / sil: ${esc(name)}">${esc(nm)} <tspan fill="#ef4444" font-weight="700">×</tspan></text>`);
+        });
+
+        if(causes.length > TPOS.length) {
+            const moreY = isTop ? SY - 14 : SY + 20;
+            p.push(`<text x="${sx}" y="${moreY}" text-anchor="middle" font-size="9" fill="${color}" opacity="0.85">+${causes.length-TPOS.length} daha</text>`);
+        }
     });
 
     const tag = document.getElementById('fbEffectTag');
-    if(tag) tag.textContent = data.effect||'Ana Problem';
+    if(tag) tag.textContent = data.effect || 'Ana Problem';
 
     document.getElementById('fbContainer').innerHTML =
-        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;min-width:700px;">${p.join('')}</svg>`;
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;min-width:740px;">${p.join('')}</svg>`;
 }
 
 function renderFbEditPanels() {
@@ -1554,7 +1565,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('m6Detail').innerHTML = m6DetailHtml || '<span style="color:var(--c-sub);">hataKaynagi alanı dolu kayıt bulunamadı.</span>';
 
     // ── FISHBONE ──
-    initFishbone(m6, htData[0]?.name || 'Ana Kalite Problemi');
+    initFishbone(m6, htData, htData[0]?.name || 'Ana Kalite Problemi');
 
     // ── TREND ──
     const trend = buildTrend(rows);
