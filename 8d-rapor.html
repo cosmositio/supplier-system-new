@@ -294,7 +294,9 @@
     <div class="form-meta-bar">
         <div>
             <label>🏭 Tedarikçi Adı *</label>
-            <input type="text" id="meta_supplier" placeholder="Tedarikçi adını yazın..." style="min-width:220px;">
+            <select id="meta_supplier" style="min-width:240px;">
+                <option value="">— Tedarikçi Seçiniz —</option>
+            </select>
         </div>
         <div>
             <label>📅 Ay (Opsiyonel)</label>
@@ -556,8 +558,9 @@
 /* ================================================================
    DB CONFIG  (mirrors index.html)
 ================================================================ */
-const DB_NAME  = 'SupplierDataDB';
-const STORE_8D = 'report8D';
+const DB_NAME        = 'SupplierDataDB';
+const STORE_8D       = 'report8D';
+const STORE_HISTORY  = 'supplierHistory';   // Ana tedarikçi listesi
 let db = null;
 
 /* ================================================================
@@ -597,6 +600,47 @@ function openDB() {
 }
 
 /* ================================================================
+   SUPPLIER DROPDOWN — Ana listeden yükle
+================================================================ */
+function loadSupplierList(selectedValue) {
+    if (!db) return;
+    const sel = document.getElementById('meta_supplier');
+    if (!sel) return;
+
+    // supplierHistory store'undan tüm kayıtları al
+    // Her kayıt bir tedarikçiye ait; name alanını topla, unique yap
+    const tx  = db.transaction([STORE_HISTORY], 'readonly');
+    const req = tx.objectStore(STORE_HISTORY).getAll();
+    req.onsuccess = () => {
+        const records = req.result || [];
+        // Unique, boş olmayan isimler
+        const names = [...new Set(
+            records
+                .map(r => (r.name || '').trim())
+                .filter(n => n)
+        )].sort((a, b) => a.localeCompare(b, 'tr'));
+
+        // Eğer mevcut seçili değer listede yoksa ekle
+        const current = selectedValue || sel.value || '';
+        if (current && !names.includes(current)) names.unshift(current);
+
+        // Dropdown'u doldur
+        sel.innerHTML = '<option value="">— Tedarikçi Seçiniz —</option>';
+        names.forEach(n => {
+            const opt = document.createElement('option');
+            opt.value = opt.textContent = n;
+            if (n === current) opt.selected = true;
+            sel.appendChild(opt);
+        });
+
+        if (!names.length) {
+            sel.innerHTML += '<option value="" disabled>( Ana listede tedarikçi bulunamadı )</option>';
+        }
+    };
+    req.onerror = () => console.warn('Tedarikçi listesi yüklenemedi');
+}
+
+/* ================================================================
    ALERT
 ================================================================ */
 let _alertTimer = null;
@@ -633,9 +677,9 @@ function startNewReport() {
     current8DData = null;
     clear8DForm();
     document.getElementById('formTitle').textContent           = '📋 8D RAPOR — Yeni Rapor';
-    document.getElementById('meta_supplier').value             = '';
     document.getElementById('meta_month').value                = '';
     document.getElementById('deleteFormBtn').style.display     = 'none';
+    loadSupplierList('');
     showFormView();
 }
 
@@ -649,7 +693,7 @@ function openReportForEdit(reportId) {
         current8DData = doc;
         clear8DForm();
         populate8DForm(doc);
-        document.getElementById('meta_supplier').value         = doc.supplierName || '';
+        loadSupplierList(doc.supplierName || '');
         document.getElementById('meta_month').value            = doc.monthIndex   || '';
         document.getElementById('formTitle').textContent       = `📋 8D RAPOR — ${doc.supplierName || ''}`;
         document.getElementById('deleteFormBtn').style.display = 'inline-block';
@@ -1447,6 +1491,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await openDB();
         showListView();
+        // Supplier listesini arka planda hazırla
+        loadSupplierList('');
     } catch(e) {
         console.error('IndexedDB açılamadı:', e);
         document.getElementById('reportListContainer').innerHTML = `
