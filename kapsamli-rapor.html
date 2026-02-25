@@ -987,24 +987,59 @@ function _idTable(data, totalH, color) {
 // FISHBONE DIAGRAM
 // ─────────────────────────────────────────────
 const _FB = {
-    W:1100, H:500, SY:250, SS:60, SE:905, L:175, A:40,
-    TPOS:[0.13, 0.32, 0.50, 0.66], // t along bone (0=tip,1=spine)
+    W:1180, H:520, SY:260, SS:80, SE:970,
+    L:200,  // bone length
+    A:42,   // bone angle degrees
+    // rib length from bone point horizontally rightward
+    RIB: 55,
+    // t positions along bone where ribs attach (0=junction on spine, 1=tip)
+    TPOS:[0.18, 0.38, 0.57, 0.74, 0.88],
     BONES:{
-        insan:   {sx:180, pos:'top',    label:'\u0130nsan',   color:'#ef4444'},
-        makine:  {sx:430, pos:'top',    label:'Makine',  color:'#f59e0b'},
-        malzeme: {sx:678, pos:'top',    label:'Malzeme', color:'#3b82f6'},
-        metot:   {sx:280, pos:'bottom', label:'Metot',   color:'#8b5cf6'},
-        olcum:   {sx:528, pos:'bottom', label:'\u00d6l\u00e7\u00fcm',   color:'#06b6d4'},
-        ortam:   {sx:776, pos:'bottom', label:'Ortam',   color:'#22c55e'},
+        insan:   {sx:200, pos:'top',    label:'\u0130nsan',   color:'#ef4444'},
+        makine:  {sx:450, pos:'top',    label:'Makine',  color:'#f59e0b'},
+        malzeme: {sx:700, pos:'top',    label:'Malzeme', color:'#3b82f6'},
+        metot:   {sx:325, pos:'bottom', label:'Metot',   color:'#8b5cf6'},
+        olcum:   {sx:575, pos:'bottom', label:'\u00d6l\u00e7\u00fcm',  color:'#06b6d4'},
+        ortam:   {sx:825, pos:'bottom', label:'Ortam',   color:'#22c55e'},
     }
 };
 
-function initFishbone(m6, effectLabel) {
+// Classify a cause NAME into a 6M bone using keyword matching
+function classify6MName(name) {
+    const lower = (name||'').toLowerCase();
+    const rules = [
+        {bone:'insan',   kws:['işçi','iscilik','operatör','operator','personel','eğitim','egitim','dikkatsiz','ihmal','çalışan','calisan','insan','yorgun','tecrübe','hatalı kullanım','yanliş kullanım']},
+        {bone:'malzeme', kws:['hammadde','ham madde','malzeme','kalite','tedarikçi','tedarikci','stok','yarı mamul','yar mamul','sertlik','tolerans dışı','boyutsal','ölçü']},
+        {bone:'metot',   kws:['talimat','prosedür','prosedur','yöntem','yontem','süreç','surec','standart','uygulama','fire','hata','uygunsuzluk','yanlış','yanliş','eksik','fazla']},
+        {bone:'makine',  kws:['makine','ekipman','kalibrasyon','arıza','ariza','bakım','bakim','tertibat','aparat','kalıp','kalip','pres','hidrolik','titreşim','vibrasyom']},
+        {bone:'olcum',   kws:['ölçüm','olcum','muayene','kontrol','test','tolerans','ölçme','gözden','inspection']},
+        {bone:'ortam',   kws:['sevkiyat','depolama','nakliye','çevre','cevre','sıcaklık','sicaklik','nem','ortam','ambalaj','paket','depo']},
+    ];
+    for(const r of rules) { if(r.kws.some(kw=>lower.includes(kw))) return r.bone; }
+    return 'metot'; // default
+}
+
+function initFishbone(m6, htData, effectLabel) {
     const ORDER = ['insan','makine','malzeme','metot','olcum','ortam'];
     window._fbData = { effect: effectLabel || 'Ana Kalite Problemi', bones: {} };
+
+    // Seed from 6M classified data
     ORDER.forEach(k => {
-        window._fbData.bones[k] = { causes: (m6[k]||[]).slice(0,8).map(e => e.name) };
+        window._fbData.bones[k] = { causes: (m6[k]||[]).slice(0,6).map(e => e.name) };
     });
+
+    // Enrich with 80% Pareto hata tipleri
+    if (htData && htData.length) {
+        const items80 = htData.filter(e => e.cumPct !== undefined ? e.cumPct <= 82 : true);
+        // also always include at least top 3
+        const toAdd = items80.length ? items80 : htData.slice(0,5);
+        toAdd.forEach(e => {
+            const bone = classify6MName(e.name);
+            const existing = window._fbData.bones[bone].causes;
+            if (!existing.includes(e.name)) existing.push(e.name);
+        });
+    }
+
     drawFishbone();
     renderFbEditPanels();
 }
