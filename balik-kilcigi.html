@@ -3716,39 +3716,57 @@ function autoLayout() {
         const branchRatioEst = Math.min(0.65, 0.45 + maxGrandN * 0.03);
         const estBranchL  = Math.max(Math.round(boneGuess * branchRatioEst), 80);
         const estSubBranchL = Math.max(Math.round(estBranchL * SUB_RATIO), 45);
+        const gcDepthScale = Math.max(0.35, 1 - 0.14); // depth=2 → 0.86
 
-        // boneLength: her main cause'un depth=1 çocukları dikey alan hesabı
-        // boneLen * sin60 ≥ sum(effectiveH_i + gap)  →  boneLen ≥ sum/sin60
-        // effectiveH: kendi label yüksekliği + depth=2 torunların diagonal dal uzanımı
+        // boneLength:
+        // Uniform spacing: t_i = (i+1)/(n+1) → step = boneLen*sin60/(n+1)
+        // Her art arda çift için: step ≥ bottomExtent_i + topExtent_{i+1} + güvenlik
+        //   bottomExtent_i = max(labelH/2+6, gcDownY)  (grandchild varsa)
+        //   topExtent_{i+1} = labelH_{i+1}/2 + 6
+        // boneLen ≥ maxPairNeed * (n+1) / sin60
+        let boneLenByPairs = 0;
+        state.causes.forEach(mainCause => {
+            const ch = mainCause.children;
+            if (ch.length < 2) return;
+            const n = ch.length;
+            for (let i = 0; i < n; i++) {
+                const ci = ch[i];
+                const ownH_i = labelHForBoxW(ci.name, fontSizeSub, d1W);
+                // Grandchild'ın aşağı uzanımı (bottom bone direction=+1 için)
+                let bottomExtent_i = ownH_i / 2 + 6;
+                if (ci.children && ci.children.length > 0) {
+                    const gcExtY = estSubBranchL * sin60 * gcDepthScale;
+                    const maxGcH = Math.max(...ci.children.map(gc =>
+                        labelHForBoxW(gc.name, fontSizeSub, d2W)));
+                    // Grandchild label merkezi: ay_i + gcExtY → bottom: + maxGcH/2 + 6
+                    bottomExtent_i = Math.max(bottomExtent_i, gcExtY + maxGcH / 2 + 6);
+                }
+                const nextH = i + 1 < n
+                    ? labelHForBoxW(ch[i + 1].name, fontSizeSub, d1W)
+                    : ownH_i;
+                const topExtent_next = nextH / 2 + 6;
+                const pairNeed = bottomExtent_i + topExtent_next + 10; // 10px güvenlik payı
+                const minBoneForPair = Math.ceil(pairNeed * (n + 1) / sin60);
+                if (minBoneForPair > boneLenByPairs) boneLenByPairs = minBoneForPair;
+            }
+        });
+        // Fallback: toplam height yöntemi (grandchild'sız kemikler için)
         let maxTotalH = 0;
         state.causes.forEach(mainCause => {
             if (mainCause.children.length === 0) return;
             let total = 0;
             mainCause.children.forEach(c => {
-                const ownH = labelHForBoxW(c.name, fontSizeSub, d1W) + 12;
-                // Torunlar (depth=2) diagonal dal çizer: dikey uzanım ≈ subBranchLen*sin60
-                // Bu uzanım komşu depth=1 kutuların Y alanına girebilir → ekstra boşluk gerek
-                let grandExtra = 0;
-                if (c.children && c.children.length > 0) {
-                    const maxGcH = Math.max(...c.children.map(gc =>
-                        labelHForBoxW(gc.name, fontSizeSub, d2W)));
-                    // dikey uzanım + label offset (direction*th/2+6) + güvenlik payı
-                    grandExtra = Math.round(estSubBranchL * sin60) + maxGcH / 2 + 16;
-                }
-                total += ownH + grandExtra;
+                total += labelHForBoxW(c.name, fontSizeSub, d1W) + 12;
             });
             if (total > maxTotalH) maxTotalH = total;
         });
-        const boneLenByChildren = maxTotalH > 0 ? Math.ceil(maxTotalH / sin60) : 120;
+        const boneLenByTotal = maxTotalH > 0 ? Math.ceil(maxTotalH / sin60) : 120;
         const rawBL = H * 0.40 - (maxDepth - 1) * 8;
-        const boneL = Math.min(700, Math.max(boneLenByChildren, rawBL, 120));
+        const boneL = Math.min(700, Math.max(boneLenByPairs, boneLenByTotal, rawBL, 120));
 
-        // branchLen: torun sayısına göre branchRatio, VE torunların yatay aralık gereksinimi
-        // Grandchild'lar branchLen üzerinde yatay aralıkta: min X aralığı ≥ d2W * 1.2
-        const minBranchByGrandSpacing = maxGrandN > 0
-            ? Math.ceil(d2W * 1.2 * (maxGrandN + 1)) : 80;
+        // branchLen: torun sayısına göre branchRatio
         const branchRatio = Math.min(0.65, 0.45 + maxGrandN * 0.03);
-        const branchL = Math.max(Math.round(boneL * branchRatio), minBranchByGrandSpacing, 80);
+        const branchL = Math.max(Math.round(boneL * branchRatio), 80);
         const subBranchL = Math.max(Math.round(branchL * SUB_RATIO), 45);
 
         return { boneL, branchL, subBranchL };
