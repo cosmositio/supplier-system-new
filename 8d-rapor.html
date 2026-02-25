@@ -3,666 +3,876 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>8D Rapor Arşivi</title>
-    <link rel="icon" type="image/png" href="assets/favicon.png">
+    <title>📋 8D Raporu</title>
+
+    <!-- jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f2f5;
-            min-height: 100vh;
-        }
-
-        /* ── Header ─────────────────────────────────────── */
-        .header {
-            background: linear-gradient(135deg, #1a3a8a 0%, #2563eb 100%);
-            color: white;
-            padding: 20px 40px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+        /* ===== TOPBAR ===== */
+        .topbar {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 14px 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-        .header h1 { font-size: 1.6em; display: flex; align-items: center; gap: 10px; }
-        .header p  { font-size: 0.9em; opacity: 0.85; margin-top: 4px; }
-
-        .back-btn {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 8px;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s;
+        .topbar-left { display: flex; align-items: center; gap: 16px; }
+        .topbar-title { color: white; font-size: 1.3em; font-weight: 700; letter-spacing: 0.3px; }
+        .topbar-nav { display: flex; gap: 8px; flex-wrap: wrap; }
+        .nav-btn {
+            padding: 7px 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.88em;
             font-weight: 600;
+            color: white;
+            text-decoration: none;
+            display: inline-block;
+            transition: opacity 0.2s, transform 0.2s;
         }
-        .back-btn:hover { background: rgba(255,255,255,0.35); }
+        .nav-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+        .nav-btn-home    { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); }
+        .nav-btn-coa     { background: linear-gradient(135deg,#0d47a1 0%,#1565c0 100%); }
+        .nav-btn-nonconf { background: linear-gradient(135deg,#880e4f 0%,#ad1457 100%); }
+        .nav-btn-fish    { background: linear-gradient(135deg,#1b5e20 0%,#2e7d32 100%); }
+        .nav-btn-new     { background: linear-gradient(135deg,#e65100 0%,#f57c00 100%); }
 
-        /* ── Container ───────────────────────────────────── */
-        .container {
-            max-width: 1400px;
-            margin: 24px auto;
-            padding: 0 20px;
+        /* ===== ALERT ===== */
+        #alertBox {
+            position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+            padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 1em;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25); z-index: 9999;
+            display: none; min-width: 280px; text-align: center;
         }
+        #alertBox.success { background: #4caf50; color: white; }
+        #alertBox.error   { background: #f44336; color: white; }
+        #alertBox.warning { background: #ff9800; color: white; }
 
-        /* ── Stats Bar ───────────────────────────────────── */
+        /* ===== LIST VIEW ===== */
+        #listView  { display: block; }
+        #formView  { display: none; }
+
         .stats-bar {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 15px;
-            margin-bottom: 24px;
+            display: flex; gap: 12px; flex-wrap: wrap;
+            padding: 20px 24px 0;
         }
         .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            background: white; border-radius: 10px; padding: 16px 22px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); flex: 1; min-width: 140px;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
         }
-        .stat-card .number { font-size: 2em; font-weight: 700; color: #1a3a8a; }
-        .stat-card .label  { color: #666; font-size: 0.85em; margin-top: 5px; }
-        .stat-card.green .number  { color: #22c55e; }
-        .stat-card.orange .number { color: #f59e0b; }
-        .stat-card.red .number    { color: #ef4444; }
+        .stat-card .num { font-size: 2em; font-weight: 700; color: #1e3c72; }
+        .stat-card .lbl { font-size: 0.85em; color: #666; }
 
-        /* ── Toolbar ─────────────────────────────────────── */
-        .toolbar {
-            background: white;
-            padding: 16px 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            align-items: center;
-        }
-        .toolbar input, .toolbar select {
-            padding: 9px 14px;
-            border: 1.5px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 0.95em;
-            flex: 1;
-            min-width: 180px;
-            transition: border-color 0.2s;
-        }
-        .toolbar input:focus, .toolbar select:focus {
-            outline: none;
-            border-color: #2563eb;
-        }
-        .toolbar .count-badge {
-            background: #1a3a8a;
-            color: white;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-        .new-btn {
-            background: linear-gradient(135deg, #1a3a8a 0%, #2563eb 100%);
-            color: white;
-            padding: 9px 20px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s;
-            white-space: nowrap;
-        }
-        .new-btn:hover { opacity: 0.9; transform: scale(1.02); }
-
-        /* ── Empty State ─────────────────────────────────── */
-        .empty-state {
-            text-align: center;
-            padding: 80px 20px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        .empty-state .icon { font-size: 4em; margin-bottom: 16px; }
-        .empty-state h3 { color: #374151; font-size: 1.2em; margin-bottom: 8px; }
-        .empty-state p  { color: #6b7280; font-size: 0.9em; }
-
-        /* ── Loading ─────────────────────────────────────── */
-        .loading {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6b7280;
-        }
-        .spinner {
-            width: 40px; height: 40px;
-            border: 4px solid #e5e7eb;
-            border-top-color: #2563eb;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 16px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* ── Supplier Group ──────────────────────────────── */
+        .list-container { padding: 20px 24px; }
         .supplier-group {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
-            overflow: hidden;
+            margin-bottom: 20px; border: 1px solid #ddd; border-radius: 10px;
+            overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.07);
         }
         .supplier-header {
-            background: linear-gradient(135deg, #1a3a8a 0%, #2563eb 100%);
-            color: white;
-            padding: 16px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            background: linear-gradient(135deg,#1e3c72 0%,#2a5298 100%);
+            color: white; padding: 14px 18px; font-size: 1.1em; font-weight: 600;
         }
-        .supplier-header h3 { font-size: 1.1em; font-weight: 700; }
-        .supplier-header .badge {
-            background: rgba(255,255,255,0.25);
-            padding: 3px 12px;
-            border-radius: 12px;
-            font-size: 0.82em;
+        .supplier-cards {
+            background: white; padding: 14px;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px;
         }
-        .reports-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-            gap: 15px;
-            padding: 18px;
-        }
-
-        /* ── Report Card ─────────────────────────────────── */
         .report-card {
-            border: 1.5px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 14px;
-            background: #f9fafb;
-            cursor: pointer;
-            transition: all 0.25s;
+            border: 1px solid #ddd; border-radius: 8px; padding: 14px;
+            background: #f8f9fa; cursor: pointer;
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .report-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); transform: translateY(-2px); }
+        .report-card-head { display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px; }
+        .report-card-title { font-weight: 700; color: #1e3c72; font-size: 1.05em; }
+        .report-card-actions { display: flex; gap: 4px; }
+        .card-btn { padding: 5px 9px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.82em; }
+        .status-badge {
+            display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 700;
+        }
+        .status-open       { background: #ffebee; color: #c62828; }
+        .status-inprogress { background: #fff8e1; color: #f57c00; }
+        .status-closed     { background: #e8f5e9; color: #2e7d32; }
+        .empty-state { text-align: center; padding: 80px 20px; color: #999; }
+        .empty-state .icon { font-size: 3.5em; margin-bottom: 16px; }
+        .empty-state p { font-size: 1.1em; }
+
+        /* ===== FORM VIEW ===== */
+        .form-header {
+            background: linear-gradient(135deg,#1e3c72 0%,#2a5298 100%);
+            color: white; padding: 16px 24px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .form-header h2 { font-size: 1.1em; font-weight: 600; }
+        .form-meta-bar {
+            background: #e8f4fd; padding: 12px 24px;
+            display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;
+            border-bottom: 2px solid #ddd;
+        }
+        .form-meta-bar label { font-weight: 600; font-size: 0.88em; color: #1e3c72; display: block; margin-bottom: 4px; }
+        .form-meta-bar input, .form-meta-bar select {
+            padding: 7px 12px; border: 1px solid #bcd; border-radius: 6px;
+            font-size: 0.92em; min-width: 180px;
+        }
+
+        /* ===== TABS ===== */
+        .tab-nav {
+            display: flex; border-bottom: 2px solid #ddd; background: #f5f7fa;
+            position: sticky; top: 0; z-index: 10; padding: 10px 10px 0;
+            overflow-x: auto;
+        }
+        .tab-8d-btn {
             position: relative;
+            padding: 12px 20px 12px 30px !important;
+            margin-right: 8px;
+            clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%, 12px 50%);
+            border: none !important; background: #ccc; cursor: pointer;
+            font-weight: 600; color: #666; transition: all 0.3s;
+            white-space: nowrap; flex-shrink: 0;
         }
-        .report-card:hover {
-            border-color: #2563eb;
-            box-shadow: 0 4px 12px rgba(37,99,235,0.15);
-            transform: translateY(-2px);
-            background: white;
+        .tab-8d-btn:first-child {
+            clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+            padding-left: 20px !important;
         }
-        .report-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 10px;
+        .tab-8d-btn:last-child {
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 12px 50%);
+            margin-right: 0;
         }
-        .month-badge {
-            background: #2563eb;
-            color: white;
-            padding: 3px 10px;
-            border-radius: 6px;
-            font-size: 0.82em;
-            font-weight: 700;
+        .tab-8d-btn.active {
+            background: linear-gradient(135deg,#1e3c72 0%,#2a5298 100%) !important;
+            color: white !important; z-index: 2;
         }
-        .status-pill {
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.78em;
-            font-weight: 700;
-        }
-        .status-open     { background: #fee2e2; color: #dc2626; }
-        .status-progress { background: #fef3c7; color: #d97706; }
-        .status-closed   { background: #d1fae5; color: #16a34a; }
+        .tab-8d-btn:hover:not(.active) { background: #e3f2fd !important; }
 
-        .report-card h4 {
-            font-size: 0.95em;
-            color: #1f2937;
-            margin-bottom: 6px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+        /* ===== DYNAMIC ITEMS ===== */
+        .d1-team-member,.d3-action,.d4-root-cause,.d5-action,
+        .d6-implementation,.d7-prevention,.d8-participant {
+            background: #f8f9fa; border: 1px solid #dee2e6;
+            border-radius: 8px; padding: 15px; margin-bottom: 15px; position: relative;
         }
-        .report-meta { font-size: 0.82em; color: #6b7280; line-height: 1.7; }
-        .report-meta strong { color: #374151; }
+        .remove-btn-8d {
+            position: absolute; top: 10px; right: 10px;
+            background: #dc3545; color: white; border: none;
+            border-radius: 50%; width: 28px; height: 28px;
+            cursor: pointer; font-weight: bold; font-size: 16px;
+            line-height: 1; transition: transform 0.2s;
+        }
+        .remove-btn-8d:hover { transform: scale(1.1); background: #c82333; }
 
-        .card-actions {
-            display: flex;
-            gap: 6px;
-            margin-top: 12px;
-            padding-top: 10px;
-            border-top: 1px solid #e5e7eb;
+        /* ===== FORM ELEMENTS ===== */
+        .tab-content-area { padding: 25px; }
+        .field-label { display: block; font-weight: 600; margin-bottom: 5px; color: #333; font-size: 0.9em; }
+        .field-input {
+            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 0.95em; font-family: inherit;
         }
-        .card-btn {
-            flex: 1;
-            padding: 6px 0;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.82em;
-            font-weight: 600;
-            transition: opacity 0.2s;
-        }
-        .card-btn:hover { opacity: 0.85; }
-        .btn-view { background: #2563eb; color: white; }
-        .btn-edit { background: #f59e0b; color: white; }
-        .btn-del  { background: #ef4444; color: white; }
+        .field-input:focus { outline: none; border-color: #1e3c72; box-shadow: 0 0 0 2px rgba(30,60,114,0.15); }
+        .field-readonly { background: #f5f5f5; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 15px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+        .span-2 { grid-column: span 2; }
+        .span-3 { grid-column: span 3; }
+        .gap-15 { display: grid; gap: 15px; }
 
-        /* ── D-Steps Progress Bar ────────────────────────── */
-        .d-steps {
-            display: flex;
-            gap: 2px;
-            margin-top: 10px;
-        }
-        .d-step {
-            flex: 1;
-            height: 4px;
-            border-radius: 2px;
-            background: #e5e7eb;
-        }
-        .d-step.done { background: #22c55e; }
-
-        /* ── Detail Modal ────────────────────────────────── */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.55);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-        }
-        .modal-overlay.open { display: flex; }
-        .modal-box {
-            background: white;
-            border-radius: 14px;
-            max-width: 900px;
-            width: 95%;
-            max-height: 90vh;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        .modal-header {
-            background: linear-gradient(135deg, #1a3a8a 0%, #2563eb 100%);
-            color: white;
-            padding: 18px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-radius: 14px 14px 0 0;
-            flex-shrink: 0;
-        }
-        .modal-header h2 { font-size: 1.15em; }
-        .modal-close {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1.5em;
-            cursor: pointer;
-            line-height: 1;
-        }
-        .modal-body {
-            padding: 24px;
-            overflow-y: auto;
-            flex: 1;
-        }
-        .modal-footer {
-            padding: 14px 24px;
-            border-top: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            flex-shrink: 0;
-        }
-        .btn-cancel {
-            padding: 9px 20px;
-            background: #f3f4f6;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-        .btn-goto {
-            padding: 9px 20px;
-            background: linear-gradient(135deg, #1a3a8a 0%, #2563eb 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
+        .section-title {
+            font-size: 1.1em; font-weight: 700; padding-bottom: 10px;
+            margin-bottom: 20px; border-bottom: 2px solid currentColor;
         }
 
-        /* ── Detail Body Sections ────────────────────────── */
-        .d-section {
-            margin-bottom: 22px;
-            border: 1.5px solid #e5e7eb;
-            border-radius: 10px;
-            overflow: hidden;
+        .attach-box {
+            margin-top: 20px; padding: 20px; background: #f8f9fa;
+            border-radius: 8px; border: 2px dashed currentColor;
         }
-        .d-section-header {
-            padding: 10px 16px;
-            font-weight: 700;
-            font-size: 0.95em;
-            color: white;
+        .attach-box h4 { margin: 0 0 15px; display: flex; align-items: center; gap: 8px; }
+        .attach-box h4 small { font-size: 0.8em; font-weight: normal; color: #666; }
+        .attach-list { display: grid; gap: 8px; }
+        .attach-item {
+            display: flex; align-items: center; padding: 10px;
+            background: white; border: 1px solid #ddd; border-radius: 4px; gap: 10px;
         }
-        .d-section-body {
-            padding: 15px 16px;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 12px;
-        }
-        .d-field label {
-            display: block;
-            font-size: 0.78em;
-            color: #6b7280;
-            font-weight: 600;
-            margin-bottom: 3px;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-        }
-        .d-field p {
-            font-size: 0.92em;
-            color: #1f2937;
-            min-height: 20px;
-        }
-        .d-field.full { grid-column: 1 / -1; }
-        .d-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.88em;
-        }
-        .d-table th {
-            background: #f3f4f6;
-            padding: 8px 12px;
-            text-align: left;
-            font-weight: 700;
-            color: #374151;
-            border: 1px solid #e5e7eb;
-        }
-        .d-table td {
-            padding: 7px 12px;
-            border: 1px solid #e5e7eb;
-            color: #4b5563;
-            vertical-align: top;
-        }
-        .d-table tr:nth-child(even) td { background: #f9fafb; }
-        .no-data { color: #9ca3af; font-style: italic; font-size: 0.88em; padding: 8px 0; }
+        .attach-item .icon { font-size: 1.4em; flex-shrink: 0; }
+        .attach-item .info { flex: 1; min-width: 0; }
+        .attach-item .info .name { font-weight: 600; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .attach-item .info .meta { font-size: 0.82em; color: #666; }
+        .btn-dl { padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
+        .btn-rm { padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
+        .btn-up { padding: 9px 18px; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 
-        /* ── Tab Nav in detail modal ─────────────────────── */
-        .tabs-nav {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
-            margin-bottom: 18px;
-        }
-        .tab-btn {
-            padding: 7px 14px;
-            border: 1.5px solid #d1d5db;
-            border-radius: 7px;
-            cursor: pointer;
-            font-size: 0.85em;
-            font-weight: 600;
-            background: white;
-            color: #374151;
-            transition: all 0.2s;
-        }
-        .tab-btn.active {
-            background: #2563eb;
-            border-color: #2563eb;
-            color: white;
-        }
-        .tab-panel { display: none; }
-        .tab-panel.active { display: block; }
+        .add-btn       { margin-top: 12px; padding: 8px 16px; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+        .add-btn-small { margin: 12px 4px 4px 0; padding: 8px 14px; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
 
-        /* ── Delete confirm ──────────────────────────────── */
-        .del-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.55);
-            z-index: 1100;
-            justify-content: center;
-            align-items: center;
+        /* ===== FORM FOOTER ===== */
+        .form-footer {
+            padding: 14px 24px; border-top: 2px solid #ddd;
+            display: flex; justify-content: space-between; gap: 10px;
+            background: #f5f7fa; flex-wrap: wrap;
         }
-        .del-overlay.open { display: flex; }
-        .del-box {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            max-width: 440px;
-            width: 95%;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-        .del-box h3 { color: #dc2626; margin-bottom: 12px; }
-        .del-box p  { color: #4b5563; font-size: 0.92em; margin-bottom: 22px; line-height: 1.6; }
-        .del-actions { display: flex; gap: 12px; justify-content: center; }
-        .del-cancel { padding: 9px 24px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer; font-weight: 600; }
-        .del-confirm { padding: 9px 24px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .form-footer-left, .form-footer-right { display: flex; gap: 10px; flex-wrap: wrap; }
+        .footer-btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.95em; }
+        .btn-pdf  { background: #e53935; color: white; }
+        .btn-back { background: #f0f0f0; border: 1px solid #ccc; color: #333; }
+        .btn-save { background: #1e3c72; color: white; }
+        .btn-del  { background: #f44336; color: white; }
 
-        /* ── Responsive ──────────────────────────────────── */
-        @media (max-width: 640px) {
-            .header { padding: 15px 20px; }
-            .header h1 { font-size: 1.2em; }
-            .reports-grid { grid-template-columns: 1fr; }
+        .saving-spinner {
+            display: none; position: fixed; bottom: 80px; right: 24px;
+            background: #1e3c72; color: white; padding: 10px 18px; border-radius: 8px;
+            font-weight: 600; font-size: 0.9em; z-index: 9998;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        @media (max-width: 700px) {
+            .grid-2 { grid-template-columns: 1fr; }
+            .grid-3 { grid-template-columns: 1fr; }
+            .span-2, .span-3 { grid-column: span 1; }
+            .tab-8d-btn { padding: 8px 14px 8px 22px !important; font-size: 0.85em; }
+            .topbar { flex-direction: column; gap: 10px; align-items: flex-start; }
         }
     </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<div class="header">
-    <div>
-        <h1>📋 8D Rapor Arşivi</h1>
-        <p>8 Disiplin Problem Çözme Raporları</p>
+<!-- TOPBAR -->
+<div class="topbar">
+    <div class="topbar-left">
+        <span class="topbar-title">📋 8D Raporu</span>
+        <span style="color:rgba(255,255,255,0.6); font-size:0.9em;">Problem Çözme Metodu</span>
     </div>
-    <a href="index.html" class="back-btn">← Ana Sayfa</a>
-</div>
-
-<!-- MAIN CONTAINER -->
-<div class="container">
-
-    <!-- stats -->
-    <div class="stats-bar">
-        <div class="stat-card">
-            <div class="number" id="statTotal">—</div>
-            <div class="label">Toplam Rapor</div>
-        </div>
-        <div class="stat-card green">
-            <div class="number" id="statClosed">—</div>
-            <div class="label">Kapalı (Closed)</div>
-        </div>
-        <div class="stat-card orange">
-            <div class="number" id="statProgress">—</div>
-            <div class="label">Devam Eden</div>
-        </div>
-        <div class="stat-card red">
-            <div class="number" id="statOpen">—</div>
-            <div class="label">Açık (Open)</div>
-        </div>
-        <div class="stat-card">
-            <div class="number" id="statSuppliers">—</div>
-            <div class="label">Tedarikçi</div>
-        </div>
-    </div>
-
-    <!-- toolbar -->
-    <div class="toolbar">
-        <input type="text" id="searchInput" placeholder="🔍 Tedarikçi adı veya rapor başlığı ara..." oninput="filterReports()">
-        <select id="statusFilter" onchange="filterReports()">
-            <option value="">Tüm Durumlar</option>
-            <option value="Open">Open</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Closed">Closed</option>
-        </select>
-        <select id="monthFilter" onchange="filterReports()">
-            <option value="">Tüm Aylar</option>
-            <option value="1">Ocak (1)</option>
-            <option value="2">Şubat (2)</option>
-            <option value="3">Mart (3)</option>
-            <option value="4">Nisan (4)</option>
-            <option value="5">Mayıs (5)</option>
-            <option value="6">Haziran (6)</option>
-            <option value="7">Temmuz (7)</option>
-            <option value="8">Ağustos (8)</option>
-            <option value="9">Eylül (9)</option>
-            <option value="10">Ekim (10)</option>
-            <option value="11">Kasım (11)</option>
-            <option value="12">Aralık (12)</option>
-        </select>
-        <span class="count-badge" id="visibleCount">0 rapor</span>
-        <a href="index.html" class="new-btn">+ Yeni 8D Oluştur</a>
-    </div>
-
-    <!-- list area -->
-    <div id="listArea">
-        <div class="loading">
-            <div class="spinner"></div>
-            Raporlar yükleniyor…
-        </div>
+    <div class="topbar-nav">
+        <a href="index.html"                   class="nav-btn nav-btn-home">🏠 Ana Sayfa</a>
+        <a href="coa.html"                     class="nav-btn nav-btn-coa">📄 COA</a>
+        <a href="uygunsuzluk-analizi.html"     class="nav-btn nav-btn-nonconf">⚠️ Uygunsuzluk</a>
+        <a href="balik-kilcigi.html"           class="nav-btn nav-btn-fish">🐟 Balık Kılçığı</a>
+        <button onclick="startNewReport()"     class="nav-btn nav-btn-new">➕ Yeni Rapor</button>
     </div>
 </div>
 
-<!-- DETAIL MODAL -->
-<div class="modal-overlay" id="detailModal">
-    <div class="modal-box">
-        <div class="modal-header">
-            <h2 id="detailTitle">8D Rapor Detayı</h2>
-            <button class="modal-close" onclick="closeDetail()">✕</button>
-        </div>
-        <div class="modal-body" id="detailBody"></div>
-        <div class="modal-footer">
-            <button class="btn-cancel" onclick="closeDetail()">Kapat</button>
-            <a href="index.html" class="btn-goto" id="editBtn">✏️ index.html'de Düzenle</a>
-        </div>
+<!-- ALERT -->
+<div id="alertBox"></div>
+
+<!-- SAVING SPINNER -->
+<div class="saving-spinner" id="savingSpinner">💾 Kaydediliyor...</div>
+
+<!-- ============================================================
+     LIST VIEW
+============================================================ -->
+<div id="listView">
+    <div class="stats-bar" id="statsBar">
+        <div class="stat-card"><div class="num" id="statTotal">0</div><div class="lbl">Toplam Rapor</div></div>
+        <div class="stat-card"><div class="num" id="statClosed"     style="color:#2e7d32">0</div><div class="lbl">Kapalı</div></div>
+        <div class="stat-card"><div class="num" id="statInProgress" style="color:#f57c00">0</div><div class="lbl">Devam Eden</div></div>
+        <div class="stat-card"><div class="num" id="statOpen"       style="color:#c62828">0</div><div class="lbl">Açık</div></div>
+        <div class="stat-card"><div class="num" id="statSuppliers">0</div><div class="lbl">Tedarikçi</div></div>
+    </div>
+    <div class="list-container" id="reportListContainer">
+        <div class="empty-state"><div class="icon">⏳</div><p>Raporlar yükleniyor...</p></div>
     </div>
 </div>
 
-<!-- DELETE CONFIRM -->
-<div class="del-overlay" id="delModal">
-    <div class="del-box">
-        <h3>⚠️ Raporu Sil</h3>
-        <p id="delMsg">Bu 8D raporu kalıcı olarak silinecek. Bu işlem geri alınamaz.</p>
-        <div class="del-actions">
-            <button class="del-cancel" onclick="closeDelModal()">Vazgeç</button>
-            <button class="del-confirm" onclick="confirmDelete()">Sil</button>
+<!-- ============================================================
+     FORM VIEW
+============================================================ -->
+<div id="formView">
+
+    <!-- Form header -->
+    <div class="form-header">
+        <h2 id="formTitle">📋 8D RAPOR — Problem Çözme Metodu</h2>
+        <button onclick="closeForm()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:white;padding:7px 14px;border-radius:6px;cursor:pointer;font-weight:600;">← Listeye Dön</button>
+    </div>
+
+    <!-- Supplier + Month -->
+    <div class="form-meta-bar">
+        <div>
+            <label>🏭 Tedarikçi Adı *</label>
+            <input type="text" id="meta_supplier" placeholder="Tedarikçi adını yazın..." style="min-width:220px;">
+        </div>
+        <div>
+            <label>📅 Ay (Opsiyonel)</label>
+            <select id="meta_month">
+                <option value="">— Seçiniz —</option>
+                <option value="1">Ocak</option><option value="2">Şubat</option>
+                <option value="3">Mart</option><option value="4">Nisan</option>
+                <option value="5">Mayıs</option><option value="6">Haziran</option>
+                <option value="7">Temmuz</option><option value="8">Ağustos</option>
+                <option value="9">Eylül</option><option value="10">Ekim</option>
+                <option value="11">Kasım</option><option value="12">Aralık</option>
+            </select>
+        </div>
+        <div style="color:#666;font-size:0.84em;font-style:italic;">* Tedarikçi adı zorunludur</div>
+    </div>
+
+    <!-- TAB NAV -->
+    <div class="tab-nav">
+        <button class="tab-8d-btn active" onclick="switch8DTab('head')" data-tab="head">Head Data</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d1')"  data-tab="d1">D1</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d2')"  data-tab="d2">D2</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d3')"  data-tab="d3">D3</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d4')"  data-tab="d4">D4</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d5')"  data-tab="d5">D5</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d6')"  data-tab="d6">D6</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d7')"  data-tab="d7">D7</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d8')"  data-tab="d8">D8</button>
+    </div>
+
+    <!-- TAB CONTENTS -->
+    <div class="tab-content-area">
+
+        <!-- HEAD DATA -->
+        <div class="tab-8d-content" data-tab-content="head">
+            <div class="section-title" style="color:#1e3c72;">HEAD DATA</div>
+            <div class="grid-2">
+                <div><label class="field-label">8D-Report Number</label>
+                    <input type="text" id="f8d_reportNumber" class="field-input"></div>
+                <div><label class="field-label">Version</label>
+                    <input type="text" id="f8d_version" class="field-input"></div>
+                <div><label class="field-label">8D-Title</label>
+                    <input type="text" id="f8d_title" class="field-input"></div>
+                <div><label class="field-label">Start Date</label>
+                    <input type="date" id="f8d_startDate" class="field-input"></div>
+                <div><label class="field-label">Subject of Problem Solving</label>
+                    <input type="text" id="f8d_subject" class="field-input"></div>
+                <div><label class="field-label">Current Date</label>
+                    <input type="date" id="f8d_currentDate" class="field-input"></div>
+                <div><label class="field-label">Problem Owner / Customer</label>
+                    <input type="text" id="f8d_customer" class="field-input"></div>
+                <div><label class="field-label">Status / Report Form</label>
+                    <select id="f8d_status" class="field-input">
+                        <option value="">Seçiniz</option>
+                        <option value="Open">Open</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Closed">Closed</option>
+                    </select></div>
+                <div><label class="field-label">E-Mail</label>
+                    <input type="email" id="f8d_email" class="field-input"></div>
+                <div><label class="field-label">Phone</label>
+                    <input type="tel" id="f8d_phone" class="field-input"></div>
+                <div class="span-2"><label class="field-label">Additional Information</label>
+                    <textarea id="f8d_additionalInfo" class="field-input" rows="3"></textarea></div>
+            </div>
+
+            <div class="section-title" style="color:#1e3c72; margin-top:30px;">PRELIMINARY DEFECT INFORMATION</div>
+            <div class="grid-2">
+                <div><label class="field-label">Part Number</label>
+                    <input type="text" id="f8d_partNumber" class="field-input"></div>
+                <div><label class="field-label">Part Name</label>
+                    <input type="text" id="f8d_partName" class="field-input"></div>
+                <div class="span-2"><label class="field-label">Defect Description</label>
+                    <textarea id="f8d_defectDescription" class="field-input" rows="3"></textarea></div>
+                <div><label class="field-label">Defect Quantity (pcs)</label>
+                    <input type="number" id="f8d_defectQuantity" class="field-input" min="0" oninput="calculateDefectRate()"></div>
+                <div><label class="field-label">Total Checked Quantity (pcs)</label>
+                    <input type="number" id="f8d_totalCheckedQuantity" class="field-input" min="0" oninput="calculateDefectRate()"></div>
+                <div><label class="field-label">Defect Rate (%)</label>
+                    <input type="number" id="f8d_defectRate" class="field-input field-readonly" step="0.01" readonly></div>
+                <div><label class="field-label">Detection Point</label>
+                    <select id="f8d_detectionPoint" class="field-input">
+                        <option value="">Seçiniz</option>
+                        <option value="Incoming">Incoming</option>
+                        <option value="In-Process">In-Process</option>
+                        <option value="Final">Final</option>
+                        <option value="Customer">Customer</option>
+                    </select></div>
+            </div>
+
+            <!-- Defect Photos -->
+            <div class="attach-box" style="color:#1e3c72; border-color:#1e3c72;">
+                <h4 style="color:#1e3c72;">📎 DEFECT PHOTOS (ATTACHMENTS) <small>(Evidence of defect)</small></h4>
+                <div style="margin-bottom:14px;">
+                    <input type="file" id="headDefectPhotoInput" multiple accept="image/*,.pdf" style="display:none;" onchange="handleHeadDefectPhotos(event)">
+                    <button class="btn-up" style="background:#1e3c72;" onclick="document.getElementById('headDefectPhotoInput').click()">📁 Dosya Seç</button>
+                </div>
+                <div class="attach-list" id="headDefectPhotosList"><div style="text-align:center;padding:16px;color:#999;">Henüz dosya eklenmedi</div></div>
+            </div>
+        </div>
+
+        <!-- D1 -->
+        <div class="tab-8d-content" data-tab-content="d1" style="display:none;">
+            <div class="section-title" style="color:#2e7d32;">D1 — PROBLEM SOLVING TEAM</div>
+            <div id="d1TeamMembers"></div>
+            <button class="add-btn" style="background:#2e7d32;" onclick="addD1TeamMember()">+ Ekip Üyesi Ekle</button>
+        </div>
+
+        <!-- D2 -->
+        <div class="tab-8d-content" data-tab-content="d2" style="display:none;">
+            <div class="section-title" style="color:#0277bd;">D2 — PROBLEM DESCRIPTION</div>
+            <div class="gap-15">
+                <div><label class="field-label">Description — Symptom</label>
+                    <textarea id="f8d_d2_symptom" class="field-input" rows="4"></textarea></div>
+                <div><label class="field-label">Description — Problem (created by Problem Solving Team)</label>
+                    <textarea id="f8d_d2_problem" class="field-input" rows="4" placeholder="Including description of effects, extent of affected products, etc."></textarea></div>
+                <div class="grid-2">
+                    <div><label class="field-label">Categorization (type of error)</label>
+                        <select id="f8d_d2_errorType" class="field-input">
+                            <option value="">Seçiniz</option>
+                            <option value="Quality">Quality</option>
+                            <option value="Delivery">Delivery</option>
+                            <option value="Cost">Cost</option>
+                            <option value="Other">Other</option>
+                        </select></div>
+                    <div><label class="field-label">Categorization (error location)</label>
+                        <select id="f8d_d2_errorLocation" class="field-input">
+                            <option value="">Seçiniz</option>
+                            <option value="Production">Production</option>
+                            <option value="Assembly">Assembly</option>
+                            <option value="Testing">Testing</option>
+                            <option value="Packaging">Packaging</option>
+                            <option value="Logistics">Logistics</option>
+                        </select></div>
+                    <div><label class="field-label">Risk Assessment started/updated?</label>
+                        <select id="f8d_d2_riskAssessment" class="field-input">
+                            <option value="">Seçiniz</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select></div>
+                    <div><label class="field-label">Date</label>
+                        <input type="date" id="f8d_d2_riskDate" class="field-input"></div>
+                </div>
+            </div>
+            <div class="attach-box" style="color:#0277bd; border-color:#0277bd;">
+                <h4 style="color:#0277bd;">📎 APPEND ATTACHMENTS <small>(Supporting documents)</small></h4>
+                <div style="margin-bottom:14px;">
+                    <input type="file" id="d2AttachmentInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style="display:none;" onchange="handleD2Attachments(event)">
+                    <button class="btn-up" style="background:#0277bd;" onclick="document.getElementById('d2AttachmentInput').click()">📁 Dosya Seç</button>
+                </div>
+                <div class="attach-list" id="d2AttachmentsList"><div style="text-align:center;padding:16px;color:#999;">Henüz dosya eklenmedi</div></div>
+            </div>
+        </div>
+
+        <!-- D3 -->
+        <div class="tab-8d-content" data-tab-content="d3" style="display:none;">
+            <div class="section-title" style="color:#f57c00;">D3 — CONTAINMENT ACTIONS</div>
+            <div id="d3ContainmentActions"></div>
+            <button class="add-btn" style="background:#f57c00;" onclick="addD3Action()">+ Eylem Ekle</button>
+        </div>
+
+        <!-- D4 -->
+        <div class="tab-8d-content" data-tab-content="d4" style="display:none;">
+            <div class="section-title" style="color:#c62828;">D4 — ROOT CAUSE ANALYSIS</div>
+            <div id="d4RootCauses"></div>
+            <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="add-btn-small" style="background:#c62828;" onclick="addD4RootCause('tco')">+ TCO Ekle</button>
+                <button class="add-btn-small" style="background:#c62828;" onclick="addD4RootCause('tcn')">+ TCN Ekle</button>
+                <button class="add-btn-small" style="background:#c62828;" onclick="addD4RootCause('sco')">+ SCO Ekle</button>
+                <button class="add-btn-small" style="background:#c62828;" onclick="addD4RootCause('scn')">+ SCN Ekle</button>
+            </div>
+        </div>
+
+        <!-- D5 -->
+        <div class="tab-8d-content" data-tab-content="d5" style="display:none;">
+            <div class="section-title" style="color:#6a1b9a;">D5 — SELECTION AND VERIFICATION OF CORRECTIVE ACTIONS</div>
+            <div id="d5CorrectiveActions"></div>
+            <button class="add-btn" style="background:#6a1b9a;" onclick="addD5Action()">+ Düzeltici Eylem Ekle</button>
+            <div class="attach-box" style="color:#6a1b9a; border-color:#6a1b9a;">
+                <h4 style="color:#6a1b9a;">📎 APPEND ATTACHMENTS <small>(Verification documents)</small></h4>
+                <div style="margin-bottom:14px;">
+                    <input type="file" id="d5AttachmentInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style="display:none;" onchange="handleD5Attachments(event)">
+                    <button class="btn-up" style="background:#6a1b9a;" onclick="document.getElementById('d5AttachmentInput').click()">📁 Dosya Seç</button>
+                </div>
+                <div class="attach-list" id="d5AttachmentsList"><div style="text-align:center;padding:16px;color:#999;">Henüz dosya eklenmedi</div></div>
+            </div>
+        </div>
+
+        <!-- D6 -->
+        <div class="tab-8d-content" data-tab-content="d6" style="display:none;">
+            <div class="section-title" style="color:#00695c;">D6 — IMPLEMENTATION AND VALIDATION OF CORRECTIVE ACTIONS</div>
+            <div id="d6Implementations"></div>
+            <button class="add-btn" style="background:#00695c;" onclick="addD6Implementation()">+ Uygulama Ekle</button>
+            <div class="attach-box" style="color:#00695c; border-color:#00695c;">
+                <h4 style="color:#00695c;">📎 APPEND ATTACHMENTS <small>(Implementation evidence)</small></h4>
+                <div style="margin-bottom:14px;">
+                    <input type="file" id="d6AttachmentInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style="display:none;" onchange="handleD6Attachments(event)">
+                    <button class="btn-up" style="background:#00695c;" onclick="document.getElementById('d6AttachmentInput').click()">📁 Dosya Seç</button>
+                </div>
+                <div class="attach-list" id="d6AttachmentsList"><div style="text-align:center;padding:16px;color:#999;">Henüz dosya eklenmedi</div></div>
+            </div>
+        </div>
+
+        <!-- D7 -->
+        <div class="tab-8d-content" data-tab-content="d7" style="display:none;">
+            <div class="section-title" style="color:#01579b;">D7 — PREVENTION OF REOCCURRENCE</div>
+            <div id="d7Preventions"></div>
+            <button class="add-btn" style="background:#01579b;" onclick="addD7Prevention()">+ Önleme Eylemi Ekle</button>
+            <div class="attach-box" style="color:#01579b; border-color:#01579b;">
+                <h4 style="color:#01579b;">📎 APPEND ATTACHMENTS <small>(Proof of applicability)</small></h4>
+                <div style="margin-bottom:14px;">
+                    <input type="file" id="d7AttachmentInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style="display:none;" onchange="handleD7Attachments(event)">
+                    <button class="btn-up" style="background:#01579b;" onclick="document.getElementById('d7AttachmentInput').click()">📁 Dosya Seç</button>
+                </div>
+                <div class="attach-list" id="d7AttachmentsList"><div style="text-align:center;padding:16px;color:#999;">Henüz dosya eklenmedi</div></div>
+            </div>
+        </div>
+
+        <!-- D8 -->
+        <div class="tab-8d-content" data-tab-content="d8" style="display:none;">
+            <div class="section-title" style="color:#558b2f;">D8 — CONCLUSION AND APPRECIATION OF THE TEAM'S SUCCESS</div>
+            <div class="gap-15">
+                <div id="d8Participants"></div>
+                <button class="add-btn" style="background:#558b2f;" onclick="addD8Participant()">+ Katılımcı Ekle</button>
+                <div><label class="field-label">Result 8D Assessment</label>
+                    <textarea id="f8d_d8_result" class="field-input" rows="3"></textarea></div>
+                <div class="grid-2">
+                    <div><label class="field-label">8D Assessment carried out by</label>
+                        <input type="text" id="f8d_d8_assessmentBy" class="field-input"></div>
+                    <div><label class="field-label">Date of the Final Meeting (Optional)</label>
+                        <input type="date" id="f8d_d8_finalMeetingDate" class="field-input"></div>
+                </div>
+                <div><label class="field-label">8D Assessment performed on</label>
+                    <input type="date" id="f8d_d8_performedOn" class="field-input"></div>
+                <div><label class="field-label">Results of the Final Discussion (Optional)</label>
+                    <textarea id="f8d_d8_finalDiscussion" class="field-input" rows="3"></textarea></div>
+            </div>
+        </div>
+
+    </div><!-- /.tab-content-area -->
+
+    <!-- FORM FOOTER -->
+    <div class="form-footer">
+        <div class="form-footer-left">
+            <button class="footer-btn btn-pdf" onclick="export8DReportPDF()">📄 PDF Export</button>
+        </div>
+        <div class="form-footer-right">
+            <button class="footer-btn btn-del" id="deleteFormBtn" onclick="deleteCurrentReport()" style="display:none;">🗑️ Sil</button>
+            <button class="footer-btn btn-back" onclick="closeForm()">← İptal</button>
+            <button class="footer-btn btn-save" onclick="save8DReport()">💾 Kaydet</button>
         </div>
     </div>
-</div>
 
+</div><!-- /#formView -->
+
+<!-- ============================================================
+     JAVASCRIPT
+============================================================ -->
 <script>
-/* ── Constants ─────────────────────────────────────────── */
+/* ================================================================
+   DB CONFIG  (mirrors index.html)
+================================================================ */
 const DB_NAME  = 'SupplierDataDB';
-const DB_VER   = 7;
 const STORE_8D = 'report8D';
-
-const SECTION_COLORS = {
-    head: '#1a3a8a', d1: '#2e7d32', d2: '#0277bd',
-    d3: '#f57c00',   d4: '#c62828', d5: '#6a1b9a',
-    d6: '#00695c',   d7: '#01579b', d8: '#558b2f'
-};
-
-/* ── State ─────────────────────────────────────────────── */
 let db = null;
-let allReports = [];
-let pendingDeleteId = null;
 
-/* ── DB Init ───────────────────────────────────────────── */
+/* ================================================================
+   STATE
+================================================================ */
+let current8DData         = null;
+let headDefectPhotos      = [];
+let d2Attachments         = [];
+let d5Attachments         = [];
+let d6Attachments         = [];
+let d7Attachments         = [];
+let d1MemberCount         = 0;
+let d3ActionCount         = 0;
+let d4RootCauseCount      = 0;
+let d5ActionCount         = 0;
+let d6ImplementationCount = 0;
+let d7PreventionCount     = 0;
+let d8ParticipantCount    = 0;
+
+/* ================================================================
+   INDEXEDDB  — open without specifying version so we don't downgrade
+================================================================ */
 function openDB() {
     return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, DB_VER);
-        req.onsuccess = () => resolve(req.result);
+        const req = indexedDB.open(DB_NAME);
+        req.onsuccess = () => { db = req.result; resolve(db); };
         req.onerror   = () => reject(req.error);
         req.onupgradeneeded = e => {
-            // Don't create stores – just read existing; upgrades handled by index.html
-            console.log('DB upgrade in 8d-rapor.html – passthrough');
+            const d = e.target.result;
+            if (!d.objectStoreNames.contains(STORE_8D)) {
+                const s = d.createObjectStore(STORE_8D, { keyPath:'id', autoIncrement:true });
+                s.createIndex('supplierName','supplierName',{ unique:false });
+                s.createIndex('timestamp',   'timestamp',   { unique:false });
+            }
         };
     });
 }
 
-async function loadAll() {
-    try {
-        db = await openDB();
-    } catch(e) {
-        document.getElementById('listArea').innerHTML = `
-            <div class="empty-state">
-                <div class="icon">⚠️</div>
-                <h3>Veritabanına erişilemiyor</h3>
-                <p>Ana uygulamayı (index.html) en az bir kez açın ve veri yükleyin.</p>
-            </div>`;
+/* ================================================================
+   ALERT
+================================================================ */
+let _alertTimer = null;
+function showAlert(msg, type='success') {
+    const el = document.getElementById('alertBox');
+    el.textContent = msg;
+    el.className   = type;
+    el.style.display = 'block';
+    clearTimeout(_alertTimer);
+    _alertTimer = setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+/* ================================================================
+   VIEW SWITCHING
+================================================================ */
+function showListView() {
+    document.getElementById('listView').style.display  = 'block';
+    document.getElementById('formView').style.display  = 'none';
+    refreshList();
+}
+function showFormView() {
+    document.getElementById('listView').style.display  = 'none';
+    document.getElementById('formView').style.display  = 'block';
+    switch8DTab('head');
+    // Scroll to top
+    window.scrollTo(0,0);
+}
+function closeForm() { showListView(); }
+
+/* ================================================================
+   CREATE NEW + OPEN FOR EDIT
+================================================================ */
+function startNewReport() {
+    current8DData = null;
+    clear8DForm();
+    document.getElementById('formTitle').textContent           = '📋 8D RAPOR — Yeni Rapor';
+    document.getElementById('meta_supplier').value             = '';
+    document.getElementById('meta_month').value                = '';
+    document.getElementById('deleteFormBtn').style.display     = 'none';
+    showFormView();
+}
+
+function openReportForEdit(reportId) {
+    if (!db) { showAlert('⚠️ Veritabanı hazır değil!','error'); return; }
+    const tx  = db.transaction([STORE_8D],'readonly');
+    const req = tx.objectStore(STORE_8D).get(reportId);
+    req.onsuccess = () => {
+        const doc = req.result;
+        if (!doc) { showAlert('❌ Rapor bulunamadı!','error'); return; }
+        current8DData = doc;
+        clear8DForm();
+        populate8DForm(doc);
+        document.getElementById('meta_supplier').value         = doc.supplierName || '';
+        document.getElementById('meta_month').value            = doc.monthIndex   || '';
+        document.getElementById('formTitle').textContent       = `📋 8D RAPOR — ${doc.supplierName || ''}`;
+        document.getElementById('deleteFormBtn').style.display = 'inline-block';
+        showFormView();
+    };
+    req.onerror = () => showAlert('❌ Rapor açılamadı!','error');
+}
+
+/* ================================================================
+   SAVE
+================================================================ */
+async function save8DReport() {
+    const supplierName = document.getElementById('meta_supplier').value.trim();
+    if (!supplierName) {
+        showAlert('⚠️ Tedarikçi adı zorunludur!','error');
+        document.getElementById('meta_supplier').focus();
         return;
     }
+    if (!db) { showAlert('⚠️ Veritabanı hazır değil!','error'); return; }
 
-    const tx    = db.transaction([STORE_8D], 'readonly');
-    const store = tx.objectStore(STORE_8D);
-    const req   = store.getAll();
+    const monthVal  = document.getElementById('meta_month').value;
+    const v = id => document.getElementById(id)?.value || '';
 
-    req.onsuccess = () => {
-        allReports = req.result || [];
-        updateStats(allReports);
-        renderList(allReports);
+    const reportData = {
+        supplierName : supplierName,
+        monthIndex   : monthVal ? parseInt(monthVal) : null,
+        timestamp    : new Date().toISOString(),
+
+        head: {
+            reportNumber        : v('f8d_reportNumber'),
+            version             : v('f8d_version'),
+            title               : v('f8d_title'),
+            startDate           : v('f8d_startDate'),
+            subject             : v('f8d_subject'),
+            currentDate         : v('f8d_currentDate'),
+            customer            : v('f8d_customer'),
+            status              : v('f8d_status'),
+            email               : v('f8d_email'),
+            phone               : v('f8d_phone'),
+            additionalInfo      : v('f8d_additionalInfo'),
+            partNumber          : v('f8d_partNumber'),
+            partName            : v('f8d_partName'),
+            defectDescription   : v('f8d_defectDescription'),
+            defectQuantity      : v('f8d_defectQuantity'),
+            totalCheckedQuantity: v('f8d_totalCheckedQuantity'),
+            defectRate          : v('f8d_defectRate'),
+            detectionPoint      : v('f8d_detectionPoint'),
+            defectPhotos        : headDefectPhotos || [],
+        },
+
+        d1: {
+            teamMembers: Array.from(document.querySelectorAll('.d1-team-member')).map(m => ({
+                name      : m.querySelector('.d1-name').value,
+                department: m.querySelector('.d1-department').value,
+                position  : m.querySelector('.d1-position').value,
+                contact   : m.querySelector('.d1-contact').value
+            }))
+        },
+        d2: {
+            symptom       : v('f8d_d2_symptom'),
+            problem       : v('f8d_d2_problem'),
+            errorType     : v('f8d_d2_errorType'),
+            errorLocation : v('f8d_d2_errorLocation'),
+            riskAssessment: v('f8d_d2_riskAssessment'),
+            riskDate      : v('f8d_d2_riskDate'),
+            attachments   : d2Attachments || []
+        },
+        d3: {
+            actions: Array.from(document.querySelectorAll('.d3-action')).map(a => ({
+                description: a.querySelector('.d3-description').value,
+                responsible: a.querySelector('.d3-responsible').value,
+                date       : a.querySelector('.d3-date').value
+            }))
+        },
+        d4: {
+            rootCauses: Array.from(document.querySelectorAll('.d4-root-cause')).map(c => ({
+                type        : c.querySelector('.d4-type').value,
+                title       : c.querySelector('.d4-title').value,
+                description : c.querySelector('.d4-description').value,
+                verification: c.querySelector('.d4-verification').value,
+                results     : c.querySelector('.d4-results').value,
+                date        : c.querySelector('.d4-date').value
+            }))
+        },
+        d5: {
+            actions: Array.from(document.querySelectorAll('.d5-action')).map(a => ({
+                action            : a.querySelector('.d5-action-text').value,
+                planDate          : a.querySelector('.d5-plan-date').value,
+                responsible       : a.querySelector('.d5-responsible').value,
+                verificationDate  : a.querySelector('.d5-verification-date').value,
+                verificationPerson: a.querySelector('.d5-verification-person').value
+            })),
+            attachments: d5Attachments || []
+        },
+        d6: {
+            implementations: Array.from(document.querySelectorAll('.d6-implementation')).map(i => ({
+                action       : i.querySelector('.d6-action').value,
+                launchDate   : i.querySelector('.d6-launch-date').value,
+                effectiveFrom: i.querySelector('.d6-effective-from').value,
+                validatedOn  : i.querySelector('.d6-validated-on').value,
+                responsible  : i.querySelector('.d6-responsible').value
+            })),
+            attachments: d6Attachments || []
+        },
+        d7: {
+            preventions: Array.from(document.querySelectorAll('.d7-prevention')).map(p => ({
+                description: p.querySelector('.d7-description').value,
+                responsible: p.querySelector('.d7-responsible').value,
+                planned    : p.querySelector('.d7-planned').value,
+                handover   : p.querySelector('.d7-handover').value,
+                assessment : p.querySelector('.d7-assessment').value
+            })),
+            attachments: d7Attachments || []
+        },
+        d8: {
+            participants    : Array.from(document.querySelectorAll('.d8-participant')).map(p => ({
+                name: p.querySelector('.d8-participant-name').value
+            })),
+            result          : v('f8d_d8_result'),
+            assessmentBy    : v('f8d_d8_assessmentBy'),
+            finalMeetingDate: v('f8d_d8_finalMeetingDate'),
+            performedOn     : v('f8d_d8_performedOn'),
+            finalDiscussion : v('f8d_d8_finalDiscussion')
+        }
     };
-    req.onerror = () => {
-        document.getElementById('listArea').innerHTML = `
-            <div class="empty-state">
-                <div class="icon">❌</div>
-                <h3>Raporlar yüklenemedi</h3>
-                <p>${req.error}</p>
-            </div>`;
-    };
+
+    document.getElementById('savingSpinner').style.display = 'block';
+
+    try {
+        const tx    = db.transaction([STORE_8D],'readwrite');
+        const store = tx.objectStore(STORE_8D);
+        const isEdit = !!(current8DData && current8DData.id);
+
+        if (isEdit) {
+            reportData.id = current8DData.id;
+            // Preserve remote share keys
+            ['sharedBinId','sharedPantryId','sharedBasketName',
+             'sharedGistId','gistId','sharedStorjKey']
+                .forEach(k => { if (current8DData[k]) reportData[k] = current8DData[k]; });
+
+            const req = store.put(reportData);
+            req.onsuccess = () => {
+                current8DData = reportData;
+                document.getElementById('savingSpinner').style.display = 'none';
+                showAlert('✅ 8D Raporu güncellendi!','success');
+            };
+            req.onerror = () => {
+                document.getElementById('savingSpinner').style.display = 'none';
+                showAlert('❌ Güncelleme başarısız!','error');
+            };
+        } else {
+            const req = store.add(reportData);
+            req.onsuccess = () => {
+                reportData.id = req.result;
+                current8DData = reportData;
+                document.getElementById('savingSpinner').style.display = 'none';
+                document.getElementById('deleteFormBtn').style.display = 'inline-block';
+                document.getElementById('formTitle').textContent = `📋 8D RAPOR — ${supplierName}`;
+                showAlert('✅ 8D Raporu kaydedildi!','success');
+            };
+            req.onerror = () => {
+                document.getElementById('savingSpinner').style.display = 'none';
+                showAlert('❌ Kaydetme başarısız!','error');
+            };
+        }
+    } catch(e) {
+        document.getElementById('savingSpinner').style.display = 'none';
+        showAlert('❌ Bir hata oluştu!','error');
+        console.error(e);
+    }
 }
 
-/* ── Stats ─────────────────────────────────────────────── */
-function updateStats(reports) {
-    const closed   = reports.filter(r => r.head?.status === 'Closed').length;
-    const progress = reports.filter(r => r.head?.status === 'In Progress').length;
-    const open     = reports.filter(r => !r.head?.status || r.head.status === 'Open').length;
-    const suppliers = new Set(reports.map(r => r.supplierName)).size;
-
-    document.getElementById('statTotal').textContent     = reports.length;
-    document.getElementById('statClosed').textContent    = closed;
-    document.getElementById('statProgress').textContent  = progress;
-    document.getElementById('statOpen').textContent      = open;
-    document.getElementById('statSuppliers').textContent = suppliers;
+/* ================================================================
+   DELETE
+================================================================ */
+async function deleteCurrentReport() {
+    if (!current8DData?.id) return;
+    if (!confirm('⚠️ Bu raporu silmek istediğinize emin misiniz?')) return;
+    const tx  = db.transaction([STORE_8D],'readwrite');
+    const req = tx.objectStore(STORE_8D).delete(current8DData.id);
+    req.onsuccess = () => { showAlert('✅ Rapor silindi!','success'); current8DData = null; closeForm(); };
+    req.onerror   = () => showAlert('❌ Silme başarısız!','error');
 }
 
-/* ── Render ────────────────────────────────────────────── */
-function filterReports() {
-    const q  = document.getElementById('searchInput').value.toLowerCase();
-    const st = document.getElementById('statusFilter').value;
-    const mo = document.getElementById('monthFilter').value;
+async function deleteReportFromList(reportId, supplierName) {
+    if (!confirm(`⚠️ "${supplierName}" raporunu silmek istediğinize emin misiniz?`)) return;
+    const tx  = db.transaction([STORE_8D],'readwrite');
+    const req = tx.objectStore(STORE_8D).delete(reportId);
+    req.onsuccess = () => { showAlert('✅ Rapor silindi!','success'); refreshList(); };
+    req.onerror   = () => showAlert('❌ Silme başarısız!','error');
+}
 
-    const filtered = allReports.filter(r => {
-        const matchQ  = !q  || r.supplierName?.toLowerCase().includes(q)
-                             || r.head?.title?.toLowerCase().includes(q)
-                             || r.head?.reportNumber?.toLowerCase().includes(q)
-                             || r.head?.subject?.toLowerCase().includes(q);
-        const matchSt = !st || (r.head?.status || 'Open') === st;
-        const matchMo = !mo || String(r.monthIndex) === mo;
-        return matchQ && matchSt && matchMo;
-    });
-
-    renderList(filtered);
+/* ================================================================
+   LIST
+================================================================ */
+async function refreshList() {
+    if (!db) return;
+    const tx  = db.transaction([STORE_8D],'readonly');
+    const req = tx.objectStore(STORE_8D).getAll();
+    req.onsuccess = () => renderList(req.result || []);
+    req.onerror   = () => showAlert('❌ Raporlar yüklenemedi!','error');
 }
 
 function renderList(reports) {
-    document.getElementById('visibleCount').textContent = `${reports.length} rapor`;
+    const closed     = reports.filter(r => r.head?.status === 'Closed').length;
+    const inProgress = reports.filter(r => r.head?.status === 'In Progress').length;
+    const open       = reports.filter(r => r.head?.status === 'Open' || !r.head?.status).length;
+    const suppliers  = new Set(reports.map(r => r.supplierName)).size;
 
-    if (reports.length === 0) {
-        document.getElementById('listArea').innerHTML = `
+    document.getElementById('statTotal').textContent      = reports.length;
+    document.getElementById('statClosed').textContent     = closed;
+    document.getElementById('statInProgress').textContent = inProgress;
+    document.getElementById('statOpen').textContent       = open;
+    document.getElementById('statSuppliers').textContent  = suppliers;
+
+    const container = document.getElementById('reportListContainer');
+
+    if (!reports.length) {
+        container.innerHTML = `
             <div class="empty-state">
                 <div class="icon">📭</div>
-                <h3>${allReports.length === 0 ? 'Henüz 8D raporu yok' : 'Eşleşen rapor bulunamadı'}</h3>
-                <p>${allReports.length === 0
-                    ? 'Ana uygulamadan tedarikçi performans grafiklerindeki 8D butonlarına tıklayarak rapor oluşturun.'
-                    : 'Arama veya filtre kriterlerinizi değiştirin.'}</p>
+                <p>Henüz 8D raporu kaydedilmemiş</p>
+                <p style="font-size:0.9em;margin-top:8px;color:#bbb;">Üstteki <strong>➕ Yeni Rapor</strong> butonuna tıklayarak başlayın</p>
             </div>`;
         return;
     }
@@ -670,379 +880,583 @@ function renderList(reports) {
     // Group by supplier
     const groups = {};
     reports.forEach(r => {
-        const key = r.supplierName || '(Bilinmiyor)';
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(r);
+        const key = r.supplierName || '(Tedarikçi Belirtilmemiş)';
+        (groups[key] = groups[key] || []).push(r);
     });
 
     let html = '';
     Object.keys(groups).sort().forEach(supplier => {
-        const reps = groups[supplier].sort((a,b) => a.monthIndex - b.monthIndex);
-        html += `
-            <div class="supplier-group">
-                <div class="supplier-header">
-                    <h3>🏭 ${esc(supplier)}</h3>
-                    <span class="badge">${reps.length} rapor</span>
+        const list = groups[supplier].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+        html += `<div class="supplier-group">
+            <div class="supplier-header">🏭 ${esc(supplier)} &nbsp;<span style="font-size:0.8em;opacity:0.8;">${list.length} rapor</span></div>
+            <div class="supplier-cards">`;
+
+        list.forEach(r => {
+            const status    = r.head?.status || 'Open';
+            const statusCls = status === 'Closed' ? 'status-closed' : status === 'In Progress' ? 'status-inprogress' : 'status-open';
+            const statusIco = status === 'Closed' ? '✓' : status === 'In Progress' ? '◐' : '○';
+            const repNo     = r.head?.reportNumber || '—';
+            const title     = r.head?.title        || '—';
+            const dateStr   = r.head?.startDate
+                ? new Date(r.head.startDate).toLocaleDateString('tr-TR')
+                : new Date(r.timestamp).toLocaleDateString('tr-TR');
+            const monthLbl  = r.monthIndex ? `${r.monthIndex}. Ay` : '';
+
+            html += `
+            <div class="report-card" onclick="openReportForEdit(${r.id})">
+                <div class="report-card-head">
+                    <div>
+                        <div class="report-card-title">${esc(repNo)}</div>
+                        ${monthLbl ? `<div style="font-size:0.8em;color:#888;margin-top:2px;">${esc(monthLbl)}</div>` : ''}
+                    </div>
+                    <div class="report-card-actions" onclick="event.stopPropagation()">
+                        <button class="card-btn" style="background:#2196F3;color:white;" title="Düzenle" onclick="openReportForEdit(${r.id})">✏️</button>
+                        <button class="card-btn" style="background:#f44336;color:white;" title="Sil"     onclick="deleteReportFromList(${r.id},'${escAttr(supplier)}')">🗑️</button>
+                    </div>
                 </div>
-                <div class="reports-grid">
-                    ${reps.map(r => reportCard(r)).join('')}
-                </div>
+                <div style="font-size:0.87em;color:#555;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(title)}">${esc(title)}</div>
+                <div><span class="status-badge ${statusCls}">${statusIco} ${esc(status)}</span></div>
+                <div style="font-size:0.78em;color:#aaa;border-top:1px solid #eee;padding-top:8px;margin-top:10px;">📅 ${dateStr}</div>
             </div>`;
+        });
+        html += '</div></div>';
     });
 
-    document.getElementById('listArea').innerHTML = html;
+    container.innerHTML = html;
 }
 
-function reportCard(r) {
-    const status    = r.head?.status || 'Open';
-    const statusCls = status === 'Closed' ? 'status-closed' : status === 'In Progress' ? 'status-progress' : 'status-open';
-    const title     = r.head?.title || '(Başlık yok)';
-    const repNo     = r.head?.reportNumber || '—';
-    const startDate = r.head?.startDate ? new Date(r.head.startDate).toLocaleDateString('tr-TR') : '—';
+function esc(s)     { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s||'').replace(/'/g,"\\'"); }
 
-    // D-steps completeness dots
-    const steps = ['d1','d2','d3','d4','d5','d6','d7','d8'];
-    const dots  = steps.map(s => {
-        const done = hasDData(r[s]);
-        return `<div class="d-step ${done ? 'done' : ''}"></div>`;
-    }).join('');
-
-    return `
-        <div class="report-card" onclick="openDetail(${r.id})">
-            <div class="report-card-header">
-                <span class="month-badge">${r.monthIndex}. Ay</span>
-                <span class="status-pill ${statusCls}">${status}</span>
-            </div>
-            <h4 title="${esc(title)}">${esc(title)}</h4>
-            <div class="report-meta">
-                <div><strong>Rapor No:</strong> ${esc(repNo)}</div>
-                <div><strong>Tarih:</strong> ${startDate}</div>
-                <div><strong>Kaydedildi:</strong> ${new Date(r.timestamp).toLocaleDateString('tr-TR')}</div>
-            </div>
-            <div class="d-steps" title="D1–D8 tamamlanma">${dots}</div>
-            <div class="card-actions" onclick="event.stopPropagation()">
-                <button class="card-btn btn-view" onclick="openDetail(${r.id})">👁 Görüntüle</button>
-                <button class="card-btn btn-del"  onclick="askDelete(${r.id}, '${esc(r.supplierName)?.replace(/'/g,"\\'")}', ${r.monthIndex})">🗑 Sil</button>
-            </div>
-        </div>`;
-}
-
-function hasDData(d) {
-    if (!d) return false;
-    const vals = Object.values(d);
-    return vals.some(v => {
-        if (Array.isArray(v)) return v.length > 0;
-        if (typeof v === 'string') return v.trim().length > 0;
-        return false;
-    });
-}
-
-/* ── Detail Modal ──────────────────────────────────────── */
-function openDetail(id) {
-    const r = allReports.find(x => x.id === id);
-    if (!r) return;
-
-    document.getElementById('detailTitle').textContent =
-        `📋 ${r.supplierName} — ${r.monthIndex}.Ay — ${r.head?.title || '8D Raporu'}`;
-
-    document.getElementById('detailBody').innerHTML = buildDetailHTML(r);
-    document.getElementById('detailModal').classList.add('open');
-
-    // activate first tab
-    switchTab('tab-head');
-}
-
-function closeDetail() {
-    document.getElementById('detailModal').classList.remove('open');
-}
-
-function buildDetailHTML(r) {
-    return `
-        <div class="tabs-nav">
-            ${['Head','D1','D2','D3','D4','D5','D6','D7','D8'].map((t,i) => {
-                const key = i === 0 ? 'head' : `d${i}`;
-                const done = i === 0 ? true : hasDData(r[key]);
-                return `<button class="tab-btn ${i===0?'active':''}" onclick="switchTab('tab-${key}')" id="tabBtn-${key}">
-                    ${done ? '' : ''}${t}${done && i > 0 ? ' ✓' : ''}
-                </button>`;
-            }).join('')}
-        </div>
-
-        <!-- HEAD DATA -->
-        <div class="tab-panel active" id="tab-head">
-            ${headSection(r)}
-        </div>
-
-        <!-- D1 -->
-        <div class="tab-panel" id="tab-d1">
-            ${dSection('D1 — Problem Solving Team', 'D1', SECTION_COLORS.d1, d1HTML(r.d1))}
-        </div>
-
-        <!-- D2 -->
-        <div class="tab-panel" id="tab-d2">
-            ${dSection('D2 — Problem Description', 'D2', SECTION_COLORS.d2, d2HTML(r.d2))}
-        </div>
-
-        <!-- D3 -->
-        <div class="tab-panel" id="tab-d3">
-            ${dSection('D3 — Containment Actions', 'D3', SECTION_COLORS.d3, d3HTML(r.d3))}
-        </div>
-
-        <!-- D4 -->
-        <div class="tab-panel" id="tab-d4">
-            ${dSection('D4 — Root Cause Analysis', 'D4', SECTION_COLORS.d4, d4HTML(r.d4))}
-        </div>
-
-        <!-- D5 -->
-        <div class="tab-panel" id="tab-d5">
-            ${dSection('D5 — Selection of Corrective Actions', 'D5', SECTION_COLORS.d5, d5HTML(r.d5))}
-        </div>
-
-        <!-- D6 -->
-        <div class="tab-panel" id="tab-d6">
-            ${dSection('D6 — Implementation & Validation', 'D6', SECTION_COLORS.d6, d6HTML(r.d6))}
-        </div>
-
-        <!-- D7 -->
-        <div class="tab-panel" id="tab-d7">
-            ${dSection('D7 — Prevention of Reoccurrence', 'D7', SECTION_COLORS.d7, d7HTML(r.d7))}
-        </div>
-
-        <!-- D8 -->
-        <div class="tab-panel" id="tab-d8">
-            ${dSection('D8 — Conclusion & Appreciation', 'D8', SECTION_COLORS.d8, d8HTML(r.d8))}
-        </div>
-    `;
-}
-
-function switchTab(id) {
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    const panel = document.getElementById(id);
-    if (panel) panel.classList.add('active');
-    const key = id.replace('tab-', '');
-    const btn = document.getElementById(`tabBtn-${key}`);
+/* ================================================================
+   TAB SWITCHING
+================================================================ */
+function switch8DTab(tabName) {
+    document.querySelectorAll('.tab-8d-content').forEach(c => c.style.display = 'none');
+    document.querySelectorAll('.tab-8d-btn').forEach(b => b.classList.remove('active'));
+    const content = document.querySelector(`[data-tab-content="${tabName}"]`);
+    if (content) content.style.display = 'block';
+    const btn = document.querySelector(`.tab-nav [data-tab="${tabName}"]`);
     if (btn) btn.classList.add('active');
 }
 
-function dSection(label, tag, color, innerHTML) {
-    return `
-        <div class="d-section">
-            <div class="d-section-header" style="background:${color};">${label}</div>
-            <div style="padding:15px 16px;">${innerHTML}</div>
-        </div>`;
+/* ================================================================
+   FORM CLEAR + POPULATE
+================================================================ */
+function clear8DForm() {
+    const clearEl = id => { const el = document.getElementById(id); if(el) el.value = ''; };
+    [
+        'f8d_reportNumber','f8d_version','f8d_title','f8d_startDate',
+        'f8d_subject','f8d_currentDate','f8d_customer','f8d_status',
+        'f8d_email','f8d_phone','f8d_additionalInfo',
+        'f8d_partNumber','f8d_partName','f8d_defectDescription',
+        'f8d_defectQuantity','f8d_totalCheckedQuantity','f8d_defectRate','f8d_detectionPoint',
+        'f8d_d2_symptom','f8d_d2_problem','f8d_d2_errorType','f8d_d2_errorLocation',
+        'f8d_d2_riskAssessment','f8d_d2_riskDate',
+        'f8d_d8_result','f8d_d8_assessmentBy','f8d_d8_finalMeetingDate',
+        'f8d_d8_performedOn','f8d_d8_finalDiscussion'
+    ].forEach(clearEl);
+
+    ['d1TeamMembers','d3ContainmentActions','d4RootCauses','d5CorrectiveActions',
+     'd6Implementations','d7Preventions','d8Participants']
+        .forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = ''; });
+
+    d1MemberCount = d3ActionCount = d4RootCauseCount = d5ActionCount =
+    d6ImplementationCount = d7PreventionCount = d8ParticipantCount = 0;
+
+    headDefectPhotos = []; d2Attachments = []; d5Attachments = [];
+    d6Attachments    = []; d7Attachments = [];
+
+    renderHeadDefectPhotos();
+    renderD2Attachments(); renderD5Attachments();
+    renderD6Attachments(); renderD7Attachments();
 }
 
-function headSection(r) {
-    const h = r.head || {};
-    const status = h.status || 'Open';
-    const statusCls = status === 'Closed' ? 'status-closed' : status === 'In Progress' ? 'status-progress' : 'status-open';
+function populate8DForm(data) {
+    clear8DForm();
+    const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v || ''; };
 
-    return `
-        <div class="d-section">
-            <div class="d-section-header" style="background:${SECTION_COLORS.head};">HEAD DATA</div>
-            <div class="d-section-body">
-                ${field('Rapor No', h.reportNumber)}
-                ${field('Versiyon', h.version)}
-                ${field('8D Başlık', h.title, true)}
-                ${field('Başlangıç Tarihi', fmtDate(h.startDate))}
-                ${field('Konu', h.subject, true)}
-                ${field('Güncel Tarih', fmtDate(h.currentDate))}
-                ${field('Müşteri / Problem Owner', h.customer)}
-                <div class="d-field">
-                    <label>Durum</label>
-                    <p><span class="status-pill ${statusCls}">${status}</span></p>
-                </div>
-                ${field('E-Posta', h.email)}
-                ${field('Telefon', h.phone)}
-                ${field('Ek Bilgi', h.additionalInfo, true)}
-            </div>
-        </div>
-        <div class="d-section">
-            <div class="d-section-header" style="background:${SECTION_COLORS.head};">PRELIMINARY DEFECT INFORMATION</div>
-            <div class="d-section-body">
-                ${field('Part Number', h.partNumber)}
-                ${field('Part Name', h.partName)}
-                ${field('Hata Açıklaması', h.defectDescription, true)}
-                ${field('Hata Adedi (pcs)', h.defectQuantity)}
-                ${field('Kontrol Edilen Miktar (pcs)', h.totalCheckedQuantity)}
-                ${field('Hata Oranı (%)', h.defectRate)}
-                ${field('Tespit Noktası', h.detectionPoint)}
-            </div>
-        </div>`;
-}
-
-function d1HTML(d1) {
-    const members = d1?.teamMembers || [];
-    if (!members.length) return '<p class="no-data">Ekip üyesi girilmemiş.</p>';
-    return `<table class="d-table">
-        <thead><tr><th>Ad</th><th>Departman</th><th>Rol</th><th>E-Posta</th></tr></thead>
-        <tbody>${members.map(m => `<tr>
-            <td>${esc(m.name||'—')}</td>
-            <td>${esc(m.department||'—')}</td>
-            <td>${esc(m.role||'—')}</td>
-            <td>${esc(m.email||'—')}</td>
-        </tr>`).join('')}</tbody>
-    </table>`;
-}
-
-function d2HTML(d2) {
-    if (!d2) return '<p class="no-data">Bilgi girilmemiş.</p>';
-    return `<div class="d-section-body" style="grid-template-columns:1fr 1fr;gap:12px;padding:0;">
-        ${field('Semptom', d2.symptom, true)}
-        ${field('Problem Tanımı', d2.problem, true)}
-        ${field('Hata Türü', d2.errorType)}
-        ${field('Hata Lokasyonu', d2.errorLocation)}
-        ${field('Risk Değerlendirmesi', d2.riskAssessment)}
-        ${field('Risk Tarihi', fmtDate(d2.riskDate))}
-    </div>`;
-}
-
-function d3HTML(d3) {
-    const acts = d3?.actions || [];
-    if (!acts.length) return '<p class="no-data">Önlem girilmemiş.</p>';
-    return `<table class="d-table">
-        <thead><tr><th>#</th><th>Eylem</th><th>Sorumlu</th><th>Süre</th><th>Durum</th></tr></thead>
-        <tbody>${acts.map((a,i) => `<tr>
-            <td>${i+1}</td>
-            <td>${esc(a.action||a.description||'—')}</td>
-            <td>${esc(a.responsible||a.owner||'—')}</td>
-            <td>${esc(a.deadline||a.dueDate||'—')}</td>
-            <td>${esc(a.status||'—')}</td>
-        </tr>`).join('')}</tbody>
-    </table>`;
-}
-
-function d4HTML(d4) {
-    const causes = d4?.causes || [];
-    if (!causes.length) return '<p class="no-data">Kök neden girilmemiş.</p>';
-    return `<table class="d-table">
-        <thead><tr><th>Tip</th><th>Kök Neden</th><th>Doğrulandı mı?</th></tr></thead>
-        <tbody>${causes.map(c => `<tr>
-            <td>${esc(c.type||'—')}</td>
-            <td>${esc(c.description||c.cause||'—')}</td>
-            <td>${esc(c.verified||'—')}</td>
-        </tr>`).join('')}</tbody>
-    </table>`;
-}
-
-function d5HTML(d5) {
-    const acts = d5?.actions || [];
-    if (!acts.length) return '<p class="no-data">Düzeltici eylem girilmemiş.</p>';
-    return `<table class="d-table">
-        <thead><tr><th>#</th><th>Eylem</th><th>Sorumlu</th><th>Termin</th><th>Durum</th></tr></thead>
-        <tbody>${acts.map((a,i) => `<tr>
-            <td>${i+1}</td>
-            <td>${esc(a.action||a.description||'—')}</td>
-            <td>${esc(a.responsible||a.owner||'—')}</td>
-            <td>${esc(a.deadline||a.dueDate||'—')}</td>
-            <td>${esc(a.status||'—')}</td>
-        </tr>`).join('')}</tbody>
-    </table>`;
-}
-
-function d6HTML(d6) {
-    const items = d6?.implementations || [];
-    if (!items.length) return '<p class="no-data">Uygulama kaydı girilmemiş.</p>';
-    return `<table class="d-table">
-        <thead><tr><th>#</th><th>Açıklama</th><th>Sorumlu</th><th>Tarih</th><th>Sonuç</th></tr></thead>
-        <tbody>${items.map((i,idx) => `<tr>
-            <td>${idx+1}</td>
-            <td>${esc(i.description||i.action||'—')}</td>
-            <td>${esc(i.responsible||i.owner||'—')}</td>
-            <td>${esc(i.date||i.deadline||'—')}</td>
-            <td>${esc(i.result||i.status||'—')}</td>
-        </tr>`).join('')}</tbody>
-    </table>`;
-}
-
-function d7HTML(d7) {
-    const items = d7?.preventions || [];
-    if (!items.length) return '<p class="no-data">Önleme eylemi girilmemiş.</p>';
-    return `<table class="d-table">
-        <thead><tr><th>#</th><th>Eylem</th><th>Sorumlu</th><th>Termin</th><th>Durum</th></tr></thead>
-        <tbody>${items.map((p,i) => `<tr>
-            <td>${i+1}</td>
-            <td>${esc(p.action||p.description||'—')}</td>
-            <td>${esc(p.responsible||p.owner||'—')}</td>
-            <td>${esc(p.deadline||p.dueDate||'—')}</td>
-            <td>${esc(p.status||'—')}</td>
-        </tr>`).join('')}</tbody>
-    </table>`;
-}
-
-function d8HTML(d8) {
-    if (!d8) return '<p class="no-data">Sonuç bilgisi girilmemiş.</p>';
-    const participants = d8.participants || [];
-    let html = `<div class="d-section-body" style="padding:0;gap:12px;">
-        ${field('Değerlendirme Sonucu', d8.result, true)}
-        ${field('Değerlendiren', d8.assessmentBy)}
-        ${field('Değerlendirme Tarihi', fmtDate(d8.performedOn))}
-        ${field('Final Toplantısı Tarihi', fmtDate(d8.finalMeetingDate))}
-        ${field('Final Tartışma Sonuçları', d8.finalDiscussion, true)}
-    </div>`;
-    if (participants.length) {
-        html += `<br><table class="d-table">
-            <thead><tr><th>Katılımcı</th><th>Departman</th><th>Rol</th><th>İmza/Onay</th></tr></thead>
-            <tbody>${participants.map(p => `<tr>
-                <td>${esc(p.name||'—')}</td>
-                <td>${esc(p.department||'—')}</td>
-                <td>${esc(p.role||'—')}</td>
-                <td>${esc(p.signature||p.approval||'—')}</td>
-            </tr>`).join('')}</tbody>
-        </table>`;
+    if (data.head) {
+        const h = data.head;
+        set('f8d_reportNumber',         h.reportNumber);
+        set('f8d_version',              h.version);
+        set('f8d_title',                h.title);
+        set('f8d_startDate',            h.startDate);
+        set('f8d_subject',              h.subject);
+        set('f8d_currentDate',          h.currentDate);
+        set('f8d_customer',             h.customer);
+        set('f8d_status',               h.status);
+        set('f8d_email',                h.email);
+        set('f8d_phone',                h.phone);
+        set('f8d_additionalInfo',       h.additionalInfo);
+        set('f8d_partNumber',           h.partNumber);
+        set('f8d_partName',             h.partName);
+        set('f8d_defectDescription',    h.defectDescription);
+        set('f8d_defectQuantity',       h.defectQuantity);
+        set('f8d_totalCheckedQuantity', h.totalCheckedQuantity);
+        set('f8d_defectRate',           h.defectRate);
+        set('f8d_detectionPoint',       h.detectionPoint);
+        if (h.defectPhotos) { headDefectPhotos = h.defectPhotos; renderHeadDefectPhotos(); }
     }
-    return html;
+
+    if (data.d1?.teamMembers) data.d1.teamMembers.forEach(m => addD1TeamMember(m));
+
+    if (data.d2) {
+        set('f8d_d2_symptom',        data.d2.symptom);
+        set('f8d_d2_problem',        data.d2.problem);
+        set('f8d_d2_errorType',      data.d2.errorType);
+        set('f8d_d2_errorLocation',  data.d2.errorLocation);
+        set('f8d_d2_riskAssessment', data.d2.riskAssessment);
+        set('f8d_d2_riskDate',       data.d2.riskDate);
+        if (data.d2.attachments) { d2Attachments = data.d2.attachments; renderD2Attachments(); }
+    }
+
+    if (data.d3?.actions)          data.d3.actions.forEach(a => addD3Action(a));
+    if (data.d4?.rootCauses)       data.d4.rootCauses.forEach(c => addD4RootCause(c.type, c));
+    if (data.d5?.actions)          data.d5.actions.forEach(a => addD5Action(a));
+    if (data.d5?.attachments)      { d5Attachments = data.d5.attachments; renderD5Attachments(); }
+    if (data.d6?.implementations)  data.d6.implementations.forEach(i => addD6Implementation(i));
+    if (data.d6?.attachments)      { d6Attachments = data.d6.attachments; renderD6Attachments(); }
+    if (data.d7?.preventions)      data.d7.preventions.forEach(p => addD7Prevention(p));
+    if (data.d7?.attachments)      { d7Attachments = data.d7.attachments; renderD7Attachments(); }
+
+    if (data.d8) {
+        if (data.d8.participants) data.d8.participants.forEach(p => addD8Participant(p));
+        set('f8d_d8_result',           data.d8.result);
+        set('f8d_d8_assessmentBy',     data.d8.assessmentBy);
+        set('f8d_d8_finalMeetingDate', data.d8.finalMeetingDate);
+        set('f8d_d8_performedOn',      data.d8.performedOn);
+        set('f8d_d8_finalDiscussion',  data.d8.finalDiscussion);
+    }
 }
 
-/* ── Helpers ───────────────────────────────────────────── */
-function field(label, value, full = false) {
-    const v = value != null && value !== '' ? esc(String(value)) : '<span style="color:#9ca3af">—</span>';
-    return `<div class="d-field${full?' full':''}"><label>${label}</label><p>${v}</p></div>`;
+/* ================================================================
+   DYNAMIC ITEM ADDERS
+================================================================ */
+function addD1TeamMember(data = {}) {
+    d1MemberCount++;
+    const id = `d1m_${d1MemberCount}`;
+    document.getElementById('d1TeamMembers').insertAdjacentHTML('beforeend', `
+        <div class="d1-team-member" id="${id}">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <div class="grid-3" style="margin-top:10px;">
+                <div><label class="field-label">Name</label>
+                    <input type="text" class="d1-name field-input" value="${esc(data.name||'')}"></div>
+                <div><label class="field-label">Department</label>
+                    <input type="text" class="d1-department field-input" value="${esc(data.department||'')}"></div>
+                <div><label class="field-label">Position</label>
+                    <input type="text" class="d1-position field-input" value="${esc(data.position||'')}"></div>
+                <div class="span-3"><label class="field-label">Contact Details</label>
+                    <input type="text" class="d1-contact field-input" value="${esc(data.contact||'')}" placeholder="Email, Phone, etc."></div>
+            </div>
+        </div>`);
 }
 
-function fmtDate(d) {
-    if (!d) return null;
-    try { return new Date(d).toLocaleDateString('tr-TR'); } catch { return d; }
+function addD3Action(data = {}) {
+    d3ActionCount++;
+    const id = `d3a_${d3ActionCount}`;
+    document.getElementById('d3ContainmentActions').insertAdjacentHTML('beforeend', `
+        <div class="d3-action" id="${id}">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <div style="margin-top:10px;">
+                <label class="field-label">Containment Action Description</label>
+                <textarea class="d3-description field-input" rows="3">${esc(data.description||'')}</textarea>
+            </div>
+            <div class="grid-2" style="margin-top:10px;">
+                <div><label class="field-label">Responsible Person</label>
+                    <input type="text" class="d3-responsible field-input" value="${esc(data.responsible||'')}"></div>
+                <div><label class="field-label">Target Date</label>
+                    <input type="date" class="d3-date field-input" value="${esc(data.date||'')}"></div>
+            </div>
+        </div>`);
 }
 
-function esc(s) {
-    if (s == null) return '';
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-/* ── Delete ────────────────────────────────────────────── */
-function askDelete(id, supplier, month) {
-    pendingDeleteId = id;
-    document.getElementById('delMsg').textContent =
-        `"${supplier}" — ${month}. Ay raporu kalıcı olarak silinecek. Bu işlem geri alınamaz.`;
-    document.getElementById('delModal').classList.add('open');
-}
-
-function closeDelModal() {
-    pendingDeleteId = null;
-    document.getElementById('delModal').classList.remove('open');
-}
-
-async function confirmDelete() {
-    if (pendingDeleteId == null || !db) return;
-    const id = pendingDeleteId;
-    closeDelModal();
-
-    const tx    = db.transaction([STORE_8D], 'readwrite');
-    const store = tx.objectStore(STORE_8D);
-    const req   = store.delete(id);
-
-    req.onsuccess = () => {
-        allReports = allReports.filter(r => r.id !== id);
-        updateStats(allReports);
-        filterReports();
+function addD4RootCause(type, data = {}) {
+    d4RootCauseCount++;
+    const id = `d4c_${d4RootCauseCount}`;
+    const names = {
+        tco:'Technical Root Cause Occurrence (TCO)',
+        tcn:'Technical Root Cause Non-Detection (TCN)',
+        sco:'Systemic Root Cause Occurrence (SCO)',
+        scn:'Systemic Root Cause Non-Detection (SCN)'
     };
-    req.onerror = () => alert('Silme işlemi başarısız: ' + req.error);
+    document.getElementById('d4RootCauses').insertAdjacentHTML('beforeend', `
+        <div class="d4-root-cause" id="${id}" style="border-left:4px solid #c62828;">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <h4 style="margin:0 0 10px;color:#c62828;">${names[type]||type}</h4>
+            <input type="hidden" class="d4-type" value="${type}">
+            <div style="margin-top:10px;">
+                <label class="field-label">Title</label>
+                <input type="text" class="d4-title field-input" value="${esc(data.title||'')}">
+            </div>
+            <div style="margin-top:10px;">
+                <label class="field-label">Description</label>
+                <textarea class="d4-description field-input" rows="3">${esc(data.description||'')}</textarea>
+            </div>
+            <div class="grid-3" style="margin-top:10px;">
+                <div><label class="field-label">Verification by (Person)</label>
+                    <input type="text" class="d4-verification field-input" value="${esc(data.verification||'')}"></div>
+                <div><label class="field-label">Results / Method / Report</label>
+                    <input type="text" class="d4-results field-input" value="${esc(data.results||'')}"></div>
+                <div><label class="field-label">Date</label>
+                    <input type="date" class="d4-date field-input" value="${esc(data.date||'')}"></div>
+            </div>
+        </div>`);
 }
 
-/* ── Boot ──────────────────────────────────────────────── */
-window.addEventListener('DOMContentLoaded', loadAll);
+function addD5Action(data = {}) {
+    d5ActionCount++;
+    const id = `d5a_${d5ActionCount}`;
+    document.getElementById('d5CorrectiveActions').insertAdjacentHTML('beforeend', `
+        <div class="d5-action" id="${id}">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <div style="margin-top:10px;">
+                <label class="field-label">Corrective Action</label>
+                <textarea class="d5-action-text field-input" rows="3">${esc(data.action||'')}</textarea>
+            </div>
+            <div class="grid-3" style="margin-top:10px;">
+                <div><label class="field-label">Plan Date of Launch</label>
+                    <input type="date" class="d5-plan-date field-input" value="${esc(data.planDate||'')}"></div>
+                <div><label class="field-label">Responsible for the Launch</label>
+                    <input type="text" class="d5-responsible field-input" value="${esc(data.responsible||'')}"></div>
+                <div><label class="field-label">Verification performed on</label>
+                    <input type="date" class="d5-verification-date field-input" value="${esc(data.verificationDate||'')}"></div>
+                <div class="span-3"><label class="field-label">Verification by (Person)</label>
+                    <input type="text" class="d5-verification-person field-input" value="${esc(data.verificationPerson||'')}"></div>
+            </div>
+        </div>`);
+}
+
+function addD6Implementation(data = {}) {
+    d6ImplementationCount++;
+    const id = `d6i_${d6ImplementationCount}`;
+    document.getElementById('d6Implementations').insertAdjacentHTML('beforeend', `
+        <div class="d6-implementation" id="${id}">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <div style="margin-top:10px;">
+                <label class="field-label">Corrective Action</label>
+                <textarea class="d6-action field-input" rows="3">${esc(data.action||'')}</textarea>
+            </div>
+            <div class="grid-3" style="margin-top:10px;">
+                <div><label class="field-label">Launch Date</label>
+                    <input type="date" class="d6-launch-date field-input" value="${esc(data.launchDate||'')}"></div>
+                <div><label class="field-label">Effective From</label>
+                    <input type="date" class="d6-effective-from field-input" value="${esc(data.effectiveFrom||'')}"></div>
+                <div><label class="field-label">Validated on</label>
+                    <input type="date" class="d6-validated-on field-input" value="${esc(data.validatedOn||'')}"></div>
+                <div class="span-3"><label class="field-label">Responsible (Validation)</label>
+                    <input type="text" class="d6-responsible field-input" value="${esc(data.responsible||'')}"></div>
+            </div>
+        </div>`);
+}
+
+function addD7Prevention(data = {}) {
+    d7PreventionCount++;
+    const id = `d7p_${d7PreventionCount}`;
+    document.getElementById('d7Preventions').insertAdjacentHTML('beforeend', `
+        <div class="d7-prevention" id="${id}">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <div style="margin-top:10px;">
+                <label class="field-label">Description</label>
+                <textarea class="d7-description field-input" rows="3">${esc(data.description||'')}</textarea>
+            </div>
+            <div class="grid-3" style="margin-top:10px;">
+                <div><label class="field-label">Responsible (Person, Contact)</label>
+                    <input type="text" class="d7-responsible field-input" value="${esc(data.responsible||'')}"></div>
+                <div><label class="field-label">Planned</label>
+                    <input type="date" class="d7-planned field-input" value="${esc(data.planned||'')}"></div>
+                <div><label class="field-label">Hand Over Date</label>
+                    <input type="date" class="d7-handover field-input" value="${esc(data.handover||'')}"></div>
+                <div class="span-3"><label class="field-label">Assessment of Applicability (by the Recipient)</label>
+                    <input type="text" class="d7-assessment field-input" value="${esc(data.assessment||'')}"></div>
+            </div>
+        </div>`);
+}
+
+function addD8Participant(data = {}) {
+    d8ParticipantCount++;
+    const id = `d8p_${d8ParticipantCount}`;
+    document.getElementById('d8Participants').insertAdjacentHTML('beforeend', `
+        <div class="d8-participant" id="${id}">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <div style="margin-top:10px;">
+                <label class="field-label">Participant Name</label>
+                <input type="text" class="d8-participant-name field-input" value="${esc(data.name||'')}">
+            </div>
+        </div>`);
+}
+
+/* ================================================================
+   DEFECT RATE
+================================================================ */
+function calculateDefectRate() {
+    const dq = parseFloat(document.getElementById('f8d_defectQuantity').value) || 0;
+    const tq = parseFloat(document.getElementById('f8d_totalCheckedQuantity').value) || 0;
+    document.getElementById('f8d_defectRate').value = tq > 0 ? (dq/tq*100).toFixed(2) : '0.00';
+}
+
+/* ================================================================
+   ATTACHMENT HANDLERS — generic helpers
+================================================================ */
+function _handleFiles(event, arr, renderFn) {
+    const files = event.target.files;
+    if (!files?.length) return;
+    Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            arr.push({ name:file.name, type:file.type, size:file.size, data:e.target.result, uploadDate:new Date().toISOString() });
+            renderFn();
+        };
+        reader.readAsDataURL(file);
+    });
+    event.target.value = '';
+}
+
+function _renderFiles(listId, arr, dlFn, rmFn) {
+    const el = document.getElementById(listId);
+    if (!el) return;
+    if (!arr.length) {
+        el.innerHTML = '<div style="text-align:center;padding:16px;color:#999;">Henüz dosya eklenmedi</div>';
+        return;
+    }
+    el.innerHTML = arr.map((a, i) => {
+        const sz   = (a.size/1024).toFixed(1) + ' KB';
+        const icon = a.type.startsWith('image/') ? '🖼️' : a.type.includes('pdf') ? '📄'
+                   : a.type.includes('word') ? '📝' : (a.type.includes('excel')||a.type.includes('sheet')) ? '📊' : '📎';
+        return `<div class="attach-item">
+            <span class="icon">${icon}</span>
+            <div class="info">
+                <div class="name">${esc(a.name)}</div>
+                <div class="meta">${sz} · ${new Date(a.uploadDate).toLocaleString('tr-TR')}</div>
+            </div>
+            <button class="btn-dl" onclick="${dlFn}(${i})">📥</button>
+            <button class="btn-rm" onclick="${rmFn}(${i})">🗑️</button>
+        </div>`;
+    }).join('');
+}
+
+function _download(arr, i) {
+    const a = arr[i]; if (!a) return;
+    const link = document.createElement('a'); link.href = a.data; link.download = a.name; link.click();
+}
+function _remove(arr, i, renderFn) {
+    if (confirm('Bu dosyayı silmek istediğinize emin misiniz?')) { arr.splice(i,1); renderFn(); }
+}
+
+// Head Defect Photos
+function handleHeadDefectPhotos(e) { _handleFiles(e, headDefectPhotos, renderHeadDefectPhotos); }
+function renderHeadDefectPhotos()   { _renderFiles('headDefectPhotosList', headDefectPhotos, 'downloadHeadDefectPhoto', 'removeHeadDefectPhoto'); }
+function downloadHeadDefectPhoto(i) { _download(headDefectPhotos, i); }
+function removeHeadDefectPhoto(i)   { _remove(headDefectPhotos, i, renderHeadDefectPhotos); }
+
+// D2
+function handleD2Attachments(e)    { _handleFiles(e, d2Attachments, renderD2Attachments); }
+function renderD2Attachments()      { _renderFiles('d2AttachmentsList', d2Attachments, 'downloadD2Attachment', 'removeD2Attachment'); }
+function downloadD2Attachment(i)    { _download(d2Attachments, i); }
+function removeD2Attachment(i)      { _remove(d2Attachments, i, renderD2Attachments); }
+
+// D5
+function handleD5Attachments(e)    { _handleFiles(e, d5Attachments, renderD5Attachments); }
+function renderD5Attachments()      { _renderFiles('d5AttachmentsList', d5Attachments, 'downloadD5Attachment', 'removeD5Attachment'); }
+function downloadD5Attachment(i)    { _download(d5Attachments, i); }
+function removeD5Attachment(i)      { _remove(d5Attachments, i, renderD5Attachments); }
+
+// D6
+function handleD6Attachments(e)    { _handleFiles(e, d6Attachments, renderD6Attachments); }
+function renderD6Attachments()      { _renderFiles('d6AttachmentsList', d6Attachments, 'downloadD6Attachment', 'removeD6Attachment'); }
+function downloadD6Attachment(i)    { _download(d6Attachments, i); }
+function removeD6Attachment(i)      { _remove(d6Attachments, i, renderD6Attachments); }
+
+// D7
+function handleD7Attachments(e)    { _handleFiles(e, d7Attachments, renderD7Attachments); }
+function renderD7Attachments()      { _renderFiles('d7AttachmentsList', d7Attachments, 'downloadD7Attachment', 'removeD7Attachment'); }
+function downloadD7Attachment(i)    { _download(d7Attachments, i); }
+function removeD7Attachment(i)      { _remove(d7Attachments, i, renderD7Attachments); }
+
+/* ================================================================
+   PDF EXPORT
+================================================================ */
+async function export8DReportPDF(retryCount = 0) {
+    let jsPDF = null;
+    if (window.jspdf?.jsPDF) jsPDF = window.jspdf.jsPDF;
+    else if (window.jsPDF)    jsPDF = window.jsPDF;
+
+    if (!jsPDF) {
+        if (retryCount < 5) {
+            showAlert(`⏳ PDF kütüphanesi yükleniyor... (${retryCount+1}/5)`, 'warning');
+            setTimeout(() => export8DReportPDF(retryCount+1), 1500);
+        } else {
+            showAlert('❌ PDF kütüphanesi yüklenemedi! Sayfayı yenileyin.','error');
+        }
+        return;
+    }
+
+    const supplierName = document.getElementById('meta_supplier').value.trim() || 'Tedarikçi';
+    const doc = new jsPDF('p','mm','a4');
+    const margin = 15, pageWidth = doc.internal.pageSize.getWidth();
+    let yPos = 15;
+
+    const addSection = (title, color) => {
+        if (yPos > 240) { doc.addPage(); yPos = 15; }
+        doc.setFontSize(11); doc.setFont('helvetica','bold');
+        doc.setTextColor(...color);
+        doc.text(title, margin, yPos);
+        yPos += 5;
+    };
+
+    // Header
+    doc.setFillColor(30,60,114);
+    doc.rect(margin, yPos, pageWidth-2*margin, 12, 'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(16); doc.setFont('helvetica','bold');
+    doc.text('8D Report', pageWidth/2, yPos+8, {align:'center'});
+    yPos += 16;
+
+    doc.setTextColor(0,0,0); doc.setFontSize(10); doc.setFont('helvetica','bold');
+    doc.text(`Supplier: ${supplierName}`, margin, yPos);
+    yPos += 8;
+
+    const v = id => document.getElementById(id)?.value || '';
+
+    // Head Data
+    addSection('HEAD DATA', [30,60,114]);
+    doc.autoTable({
+        startY: yPos,
+        body: [
+            ['Report Number', v('f8d_reportNumber'), 'Version',      v('f8d_version')],
+            ['Title',         v('f8d_title'),        'Start Date',   v('f8d_startDate')],
+            ['Subject',       v('f8d_subject'),      'Current Date', v('f8d_currentDate')],
+            ['Customer',      v('f8d_customer'),     'Status',       v('f8d_status')],
+            ['E-Mail',        v('f8d_email'),        'Phone',        v('f8d_phone')],
+        ],
+        theme:'grid', styles:{fontSize:9, cellPadding:3},
+        columnStyles:{0:{fontStyle:'bold',fillColor:[240,244,255]},2:{fontStyle:'bold',fillColor:[240,244,255]}},
+        margin:{left:margin, right:margin}
+    });
+    yPos = doc.lastAutoTable.finalY + 4;
+
+    // Preliminary Defect Info
+    addSection('PRELIMINARY DEFECT INFORMATION', [30,60,114]);
+    doc.autoTable({
+        startY: yPos,
+        body: [
+            ['Part Number',       v('f8d_partNumber'),   'Part Name',        v('f8d_partName')],
+            ['Defect Qty',        v('f8d_defectQuantity'),'Checked Qty',     v('f8d_totalCheckedQuantity')],
+            ['Defect Rate',       v('f8d_defectRate')+'%','Detection Point', v('f8d_detectionPoint')],
+        ],
+        theme:'grid', styles:{fontSize:9, cellPadding:3},
+        columnStyles:{0:{fontStyle:'bold',fillColor:[240,244,255]},2:{fontStyle:'bold',fillColor:[240,244,255]}},
+        margin:{left:margin, right:margin}
+    });
+    yPos = doc.lastAutoTable.finalY + 4;
+    const desc = v('f8d_defectDescription');
+    if (desc) {
+        doc.autoTable({
+            startY:yPos, body:[['Defect Description', desc]],
+            theme:'grid', styles:{fontSize:9, cellPadding:3},
+            columnStyles:{0:{fontStyle:'bold',fillColor:[240,244,255], cellWidth:45}},
+            margin:{left:margin, right:margin}
+        });
+        yPos = doc.lastAutoTable.finalY + 4;
+    }
+
+    // D1
+    const members = Array.from(document.querySelectorAll('.d1-team-member')).map(m => [
+        m.querySelector('.d1-name').value, m.querySelector('.d1-department').value,
+        m.querySelector('.d1-position').value, m.querySelector('.d1-contact').value
+    ]);
+    if (members.length) {
+        addSection('D1 – PROBLEM SOLVING TEAM', [46,125,50]);
+        doc.autoTable({
+            startY:yPos, head:[['Name','Department','Position','Contact']],
+            body:members, theme:'grid', styles:{fontSize:9, cellPadding:3},
+            headStyles:{fillColor:[46,125,50], textColor:[255,255,255]},
+            margin:{left:margin, right:margin}
+        });
+        yPos = doc.lastAutoTable.finalY + 4;
+    }
+
+    // D2
+    const d2s = v('f8d_d2_symptom'), d2p = v('f8d_d2_problem');
+    if (d2s || d2p) {
+        addSection('D2 – PROBLEM DESCRIPTION', [2,119,189]);
+        doc.autoTable({
+            startY:yPos, body:[['Symptom',d2s],['Problem',d2p]], theme:'grid',
+            styles:{fontSize:9, cellPadding:3},
+            columnStyles:{0:{fontStyle:'bold',fillColor:[240,248,255],cellWidth:40}},
+            margin:{left:margin, right:margin}
+        });
+        yPos = doc.lastAutoTable.finalY + 4;
+    }
+
+    // D3
+    const d3rows = Array.from(document.querySelectorAll('.d3-action')).map(a => [
+        a.querySelector('.d3-description').value,
+        a.querySelector('.d3-responsible').value,
+        a.querySelector('.d3-date').value
+    ]);
+    if (d3rows.length) {
+        addSection('D3 – CONTAINMENT ACTIONS', [245,124,0]);
+        doc.autoTable({
+            startY:yPos, head:[['Description','Responsible','Date']], body:d3rows,
+            theme:'grid', styles:{fontSize:9, cellPadding:3},
+            headStyles:{fillColor:[245,124,0], textColor:[255,255,255]},
+            margin:{left:margin, right:margin}
+        });
+        yPos = doc.lastAutoTable.finalY + 4;
+    }
+
+    // D4
+    const d4rows = Array.from(document.querySelectorAll('.d4-root-cause')).map(c => [
+        c.querySelector('.d4-type').value.toUpperCase(),
+        c.querySelector('.d4-title').value,
+        c.querySelector('.d4-description').value
+    ]);
+    if (d4rows.length) {
+        addSection('D4 – ROOT CAUSE ANALYSIS', [198,40,40]);
+        doc.autoTable({
+            startY:yPos, head:[['Type','Title','Description']], body:d4rows,
+            theme:'grid', styles:{fontSize:9, cellPadding:3},
+            headStyles:{fillColor:[198,40,40], textColor:[255,255,255]},
+            margin:{left:margin, right:margin}
+        });
+        yPos = doc.lastAutoTable.finalY + 4;
+    }
+
+    // D8
+    const d8res = v('f8d_d8_result');
+    if (d8res) {
+        addSection('D8 – CONCLUSION', [85,139,47]);
+        doc.autoTable({
+            startY:yPos,
+            body:[['Result', d8res],['Assessment by', v('f8d_d8_assessmentBy')],['Performed on', v('f8d_d8_performedOn')]],
+            theme:'grid', styles:{fontSize:9, cellPadding:3},
+            columnStyles:{0:{fontStyle:'bold',fillColor:[240,248,255],cellWidth:40}},
+            margin:{left:margin, right:margin}
+        });
+    }
+
+    const fileName = `8D_${supplierName.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.pdf`;
+    doc.save(fileName);
+    showAlert(`✅ PDF oluşturuldu: ${fileName}`, 'success');
+}
+
+/* ================================================================
+   INIT
+================================================================ */
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await openDB();
+        showListView();
+    } catch(e) {
+        console.error('IndexedDB açılamadı:', e);
+        document.getElementById('reportListContainer').innerHTML = `
+            <div class="empty-state">
+                <div class="icon">⚠️</div>
+                <p>Veritabanı açılamadı.</p>
+                <p style="font-size:0.9em;margin-top:8px;color:#bbb;">Önce <a href="index.html">Ana Sayfayı</a> açın.</p>
+            </div>`;
+    }
+});
 </script>
 </body>
 </html>
