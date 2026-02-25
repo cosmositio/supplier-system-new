@@ -308,6 +308,7 @@
             <select id="meta_source" onchange="onSourceChange()" style="min-width:190px;">
                 <option value="Tedarikçi">🏭 Tedarikçi (Ana Sayfada Görünür)</option>
                 <option value="Uygunsuzluk">⚠️ Uygunsuzluk Analizi</option>
+                <option value="Kapsamlı Rapor">📊 Kapsamlı Rapor</option>
                 <option value="Balık Kılçığı">🐟 Balık Kılçığı</option>
                 <option value="Genel">📋 Genel / Diğer</option>
             </select>
@@ -811,6 +812,12 @@ function loadKonuDropdown(source, savedValue) {
         if (!problems.length && !savedValue) {
             sel.innerHTML += '<option value="" disabled>(Balık Kılçığı kaydı yok — Balık Kılçığı sayfasında problem kaydedin)</option>';
         }
+
+    } else if (source === 'Kapsamlı Rapor') {
+        sel.style.display  = 'none';
+        free.style.display = '';
+        free.value = savedValue || '';
+        free.placeholder = 'Örn: En yüksek hata tipi: “Kalinlik Tolerans Disi”';
 
     } else {
         // Genel / Diğer — serbest metin
@@ -1747,6 +1754,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 title: 'Balık Kılçığı Analizinden Açıldı',
                                 sub  : (bProblem ? 'Problem: ' + bProblem + '  ›  ' : '') + (bKonu ? 'Kök Neden: ' + bKonu : ''),
                                 href : 'balik-kilcigi.html'
+                            },
+                            'Kapsamlı Rapor': {
+                                icon : '📊',
+                                title: 'Kapsamlı Rapordan Açıldı',
+                                sub  : bKonu || '',
+                                href : 'kapsamli-rapor.html'
                             },
                             'Uygunsuzluk': {
                                 icon : '⚠️',
