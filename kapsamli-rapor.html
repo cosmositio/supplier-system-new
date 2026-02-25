@@ -1231,12 +1231,18 @@ function drawFishbone() {
             const boxX = +(rx - BW / 2).toFixed(1);
             const boxY = isTop ? +(py - BH - 4).toFixed(1) : +(py + 4).toFixed(1);
             const txtY = +(boxY + BH * 0.72).toFixed(1);
+            const delBtnX = +(parseFloat(boxX) + BW - 13).toFixed(1);
             p.push(`<rect x="${boxX}" y="${boxY}" width="${BW}" height="${BH}" rx="3"
                 fill="white" stroke="${color}" stroke-width="1" opacity="0.92"/>`);
-            p.push(`<text x="${rx}" y="${txtY}" text-anchor="middle"
-                font-size="9" fill="#1e293b" cursor="pointer"
-                onclick="fbDeleteCause(${bi},${ci})" title="Sil: ${esc(name)}"
-                >${esc(nm)}<tspan fill="#ef4444" font-weight="700" dx="2">×</tspan></text>`);
+            // Label — sadece gösterim, tıklanmaz
+            p.push(`<text x="${+(parseFloat(boxX)+4).toFixed(1)}" y="${txtY}" text-anchor="start"
+                font-size="9" fill="#1e293b" style="pointer-events:none">${esc(nm)}</text>`);
+            // Sadece × alanı tıklanabilir
+            p.push(`<g onclick="fbDeleteCause(${bi},${ci})" style="cursor:pointer" title="Sil: ${esc(name)}">
+                <rect x="${delBtnX}" y="${boxY}" width="13" height="${BH}" rx="0" fill="transparent"/>
+                <text x="${+(parseFloat(delBtnX)+6.5).toFixed(1)}" y="${txtY}" text-anchor="middle"
+                    font-size="11" fill="#ef4444" font-weight="700">×</text>
+            </g>`);
 
             // Sub-ribs (alt-alt nedenler)
             const subs   = cause.subs || [];
@@ -1256,10 +1262,16 @@ function drawFishbone() {
                 const stY2 = +(parseFloat(sbY) + SBH * 0.73).toFixed(1);
                 p.push(`<rect x="${sbX}" y="${sbY}" width="${SBW}" height="${SBH}" rx="2"
                     fill="white" stroke="${color}" stroke-width="0.8" opacity="0.82"/>`);
-                p.push(`<text x="${srX}" y="${stY2}" text-anchor="middle"
-                    font-size="7.5" fill="#1e293b" cursor="pointer"
-                    onclick="fbDeleteSub(${bi},${ci},${si})" title="Sil"
-                    >${esc(snm)}<tspan fill="#ef4444" font-weight="700" dx="1">×</tspan></text>`);
+                // Alt neden label — tıklanmaz
+                p.push(`<text x="${+(parseFloat(sbX)+3).toFixed(1)}" y="${stY2}" text-anchor="start"
+                    font-size="7.5" fill="#1e293b" style="pointer-events:none">${esc(snm)}</text>`);
+                // Alt neden × butonu
+                const sDelX = +(parseFloat(sbX)+SBW-11).toFixed(1);
+                p.push(`<g onclick="fbDeleteSub(${bi},${ci},${si})" style="cursor:pointer" title="Sil">
+                    <rect x="${sDelX}" y="${sbY}" width="11" height="${SBH}" rx="0" fill="transparent"/>
+                    <text x="${+(parseFloat(sDelX)+5.5).toFixed(1)}" y="${stY2}" text-anchor="middle"
+                        font-size="10" fill="#ef4444" font-weight="700">×</text>
+                </g>`);
             });
             if (subs.length > 3) {
                 const mY2 = isTop ? +(py + subLen + 14).toFixed(0) : +(py - subLen - 4).toFixed(0);
