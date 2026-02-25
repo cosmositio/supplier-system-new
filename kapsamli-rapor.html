@@ -212,6 +212,12 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .ap-btn-add  { background:#dcfce7; color:#166534; }
 .ap-actions-col { white-space:nowrap; display:flex; gap:5px; }
 .ap-table th:last-child, .ap-table td:last-child { text-align:center; }
+.btn-8d-ap { background:none; border:1px solid #6366f1; color:#6366f1; border-radius:5px; padding:3px 7px; cursor:pointer; font-size:0.75em; transition:all 0.15s; }
+.btn-8d-ap:hover { background:#6366f1; color:#fff; }
+.btn-8d-ap.btn-8d-pending { border-color:#9ca3af; color:#9ca3af; }
+.btn-8d-ap.btn-8d-pending:hover { background:#9ca3af; color:#fff; }
+.btn-8d-unlink { background:none; border:none; color:#6b7280; cursor:pointer; font-size:0.8em; padding:1px 4px; margin-left:2px; border-radius:3px; transition:all 0.15s; }
+.btn-8d-unlink:hover { color:#ef4444; background:rgba(239,68,68,0.1); }
 /* Durum pill */
 .durum-pill { display:inline-block; padding:3px 9px; border-radius:20px; font-size:.72rem; font-weight:700; white-space:nowrap; }
 .durum-beklemede  { background:#fef9c3; color:#854d0e; }
@@ -1467,7 +1473,7 @@ function fmtTarih(t) {
 function renderAksiyonTablosu() {
     const list = window._aksiyonlar || [];
     document.getElementById('aksiyonBody').innerHTML = list.map((a, i) => `
-        <tr>
+        <tr data-apkr="${i}">
             <td style="color:var(--c-sub);font-size:.78rem;">${i+1}</td>
             <td>${esc(a.bulgu)}</td>
             <td><span class="badge ${esc(a.katBadge)}">${esc(a.kat)}</span></td>
@@ -1476,13 +1482,85 @@ function renderAksiyonTablosu() {
             <td style="font-size:.8rem;">${esc(a.sorumlu) || '<span style="color:var(--c-sub)">—</span>'}</td>
             <td><span class="durum-pill ${_DURUM_CLASS[a.durum] || 'durum-beklemede'}">${esc(a.durum) || 'Beklemede'}</span></td>
             <td style="font-size:.8rem;">${fmtTarih(a.tarih)}</td>
-            <td style="font-size:.8rem;">${a.faaliyet ? `<span class="ap-faaliyet-tag">${esc(a.faaliyet)}</span>` : '<span style="color:var(--c-sub)">—</span>'}</td>
+            <td class="ap-faaliyet-cell" style="font-size:.8rem;">${krFaaliyetCell(i, a)}</td>
             <td class="no-print"><div class="ap-actions-col">
                 <button class="ap-btn ap-btn-edit" onclick="apOpenEdit(${i})">✏️ Düzenle</button>
                 <button class="ap-btn ap-btn-del"  onclick="apDelete(${i})">🗑️</button>
             </div></td>
         </tr>`).join('');
 }
+
+function krFaaliyetCell(i, a) {
+    if (a.faaliyet !== '8D Raporu') {
+        return a.faaliyet
+            ? `<span class="ap-faaliyet-tag">${esc(a.faaliyet)}</span>`
+            : '<span style="color:var(--c-sub)">—</span>';
+    }
+    if (a.has8DLink === true) {
+        return `<button class="btn-8d-ap" onclick="krOpen8D(${i})" title="8D Raporu Aç">📋 8D</button>`
+             + `<button class="btn-8d-unlink" onclick="krUnlink8D(${i})" title="Bağlantıyı kaldır">✕</button>`;
+    }
+    if (a.has8DLink === 'pending') {
+        return `<button class="btn-8d-ap btn-8d-pending" onclick="krOpen8D(${i})" title="8D henüz kaydedilmedi">⏳ 8D</button>`
+             + `<button class="btn-8d-unlink" onclick="krUnlink8D(${i})" title="Bağlantıyı iptal et">✕</button>`;
+    }
+    return `<button class="btn-8d-ap" onclick="krOpen8D(${i})" title="8D Raporu Aç">📋 8D</button>`;
+}
+
+function krOpen8D(i) {
+    const a = (window._aksiyonlar || [])[i];
+    if (!a) return;
+    const konu = a.bulgu || '';
+    if (a.has8DLink === true) {
+        let sig = {};
+        try { sig = JSON.parse(localStorage.getItem('fishbone_8d_saved') || '{}'); } catch(e) {}
+        const reportId = sig[konu];
+        if (reportId) {
+            window.open('8d-rapor.html?editId=' + encodeURIComponent(reportId)
+                + '&source=' + encodeURIComponent('Kapsamlı Rapor')
+                + '&konu='   + encodeURIComponent(konu), '_blank');
+            return;
+        }
+    }
+    if (!a.has8DLink) {
+        a.has8DLink = 'pending';
+        const tr   = document.querySelector(`tr[data-apkr="${i}"]`);
+        const cell = tr && tr.querySelector('.ap-faaliyet-cell');
+        if (cell) cell.innerHTML = krFaaliyetCell(i, a);
+    }
+    const problem = a.aksiyon || a.bulgu || '';
+    window.open('8d-rapor.html?source=' + encodeURIComponent('Kapsamlı Rapor')
+              + '&konu='    + encodeURIComponent(konu)
+              + '&problem=' + encodeURIComponent(problem), '_blank');
+}
+
+function krUnlink8D(i) {
+    const a = (window._aksiyonlar || [])[i];
+    if (!a) return;
+    const isPending = a.has8DLink === 'pending';
+    if (!isPending && !confirm('8D bağlantısı Faaliyet sütunundan kaldırılsın mı?')) return;
+    a.has8DLink = false;
+    const tr = document.querySelector(`tr[data-apkr="${i}"]`);
+    if (tr) {
+        const cell = tr.querySelector('.ap-faaliyet-cell');
+        if (cell) cell.innerHTML = krFaaliyetCell(i, a);
+    }
+}
+
+function krCheckSaved() {
+    const list = window._aksiyonlar || [];
+    let sig;
+    try { sig = JSON.parse(localStorage.getItem('fishbone_8d_saved') || '{}'); } catch(e) { return; }
+    let changed = false;
+    list.forEach((a) => {
+        if (a.has8DLink === 'pending' && sig[a.bulgu]) {
+            a.has8DLink = true;
+            changed = true;
+        }
+    });
+    if (changed) renderAksiyonTablosu();
+}
+window.addEventListener('focus', krCheckSaved);
 
 function esc(s) {
     if (s == null) return '';
@@ -1873,6 +1951,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const actions = generateActionPlan(rows, htData, tedData, malData, icDis, m6);
     window._aksiyonlar = actions;
     renderAksiyonTablosu();
+    krCheckSaved();
 
     // ── Enable edit mode if it was on before re-render ──
     if (_editMode) { _editMode = false; toggleEditMode(); }

@@ -1044,7 +1044,7 @@ async function save8DReport() {
             req.onsuccess = () => {
                 current8DData = reportData;
                 document.getElementById('savingSpinner').style.display = 'none';
-                if (source === 'Balık Kılçığı' && konu) {
+                if ((source === 'Balık Kılçığı' || source === 'Kapsamlı Rapor') && konu) {
                     try { const s = JSON.parse(localStorage.getItem('fishbone_8d_saved')||'{}'); s[konu]=reportData.id; localStorage.setItem('fishbone_8d_saved', JSON.stringify(s)); } catch(e) {}
                 }
                 showAlert('✅ 8D Raporu güncellendi!','success');
@@ -1061,7 +1061,7 @@ async function save8DReport() {
                 document.getElementById('savingSpinner').style.display = 'none';
                 document.getElementById('deleteFormBtn').style.display = 'inline-block';
                 document.getElementById('formTitle').textContent = `📋 8D RAPOR — ${supplierName}`;
-                if (source === 'Balık Kılçığı' && konu) {
+                if ((source === 'Balık Kılçığı' || source === 'Kapsamlı Rapor') && konu) {
                     try { const s = JSON.parse(localStorage.getItem('fishbone_8d_saved')||'{}'); s[konu]=reportData.id; localStorage.setItem('fishbone_8d_saved', JSON.stringify(s)); } catch(e) {}
                 }
                 showAlert('✅ 8D Raporu kaydedildi!','success');
