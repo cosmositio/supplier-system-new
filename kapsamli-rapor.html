@@ -132,7 +132,7 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .prog-fill { height:100%; border-radius:100px; transition:width .6s; }
 
 /* ── IC DIS CARDS ── */
-.ic-dis-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.ic-dis-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
 /* İç/Dış breakdown */
 .idb-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:18px 0 14px; padding-top:18px; border-top:1.5px solid #e2e8f0; }
 .idb-bar span { font-size:.8rem; font-weight:700; color:#475569; margin-right:4px; }
@@ -146,10 +146,12 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .ic-card { border-radius:10px; padding:20px 24px; }
 .ic-card.ic { background:linear-gradient(135deg,#eff6ff,#dbeafe); border:1.5px solid #93c5fd; }
 .ic-card.dis { background:linear-gradient(135deg,#fff7ed,#fed7aa); border:1.5px solid #fdba74; }
+.ic-card.ted { background:linear-gradient(135deg,#f5f3ff,#ede9fe); border:1.5px solid #c4b5fd; }
 .ic-card h3 { font-size:.85rem; font-weight:700; margin-bottom:6px; }
 .ic-card .ic-val { font-size:2rem; font-weight:800; margin-bottom:2px; }
 .ic-card.ic .ic-val { color:#1d4ed8; }
 .ic-card.dis .ic-val { color:#c2410c; }
+.ic-card.ted .ic-val { color:#6d28d9; }
 
 /* ── AKSIYON PLAN TABLE ── */
 .ap-faaliyet-tag { display:inline-block; background:#dbeafe; color:#1e40af; font-size:.7rem; font-weight:600; border-radius:4px; padding:2px 7px; white-space:nowrap; }
@@ -1041,15 +1043,17 @@ function classify6M(rows) {
 
 // ── IC/DIS CLASSIFIER ──
 function classifyIcDis(rows) {
-    const ic = [], dis = [], belirsiz = [];
+    const ic = [], dis = [], tedarikci = [], belirsiz = [];
 
-    // tipi alanı için IC / DIŞ anahtar kelimeleri
+    // tipi alanı için IC / DIŞ / TEDARİKÇİ anahtar kelimeleri
     const IC_TIPI  = ['iç','ic','dahili','internal','iç ','in-house','üretim','imalat','fabrika'];
     const DIS_TIPI = ['dış','dis','external','müşteri','şikay','kargo','saha','servis','şube','nakliye','iade'];
+    const TED_TIPI = ['tedarikçi','tedarikci','supplier','vendor'];
 
     // uygunsuzlukTuru alanı için sinyal kelimeleri
     const IC_URU   = ['iç','ic','dahili','iç kontrol','iç üretim','üretim'];
     const DIS_URU  = ['dış','müşteri','şikay','saha','iade','kargo'];
+    const TED_URU  = ['tedarikçi','tedarikci','supplier','vendor'];
 
     function matchesAny(str, kwList) {
         const s = (str||'').toLowerCase().trim();
@@ -1061,18 +1065,20 @@ function classifyIcDis(rows) {
         const tur  = (r.uygunsuzlukTuru||'').toLowerCase().trim();
 
         // 1. Önce tipi alanına bak
-        if (tipi && matchesAny(tipi, IC_TIPI))  { ic.push(r);       return; }
-        if (tipi && matchesAny(tipi, DIS_TIPI)) { dis.push(r);      return; }
+        if (tipi && matchesAny(tipi, TED_TIPI)) { tedarikci.push(r); return; }
+        if (tipi && matchesAny(tipi, IC_TIPI))  { ic.push(r);        return; }
+        if (tipi && matchesAny(tipi, DIS_TIPI)) { dis.push(r);       return; }
 
         // 2. uygunsuzlukTuru alanına bak
-        if (tur  && matchesAny(tur,  IC_URU))   { ic.push(r);       return; }
-        if (tur  && matchesAny(tur,  DIS_URU))  { dis.push(r);      return; }
+        if (tur  && matchesAny(tur,  TED_URU))  { tedarikci.push(r); return; }
+        if (tur  && matchesAny(tur,  IC_URU))   { ic.push(r);        return; }
+        if (tur  && matchesAny(tur,  DIS_URU))  { dis.push(r);       return; }
 
         // 3. Hala eşleşmediyse — belirsiz olarak işaretle (hatalı İç'e atmayız)
         belirsiz.push(r);
     });
 
-    return { ic, dis, belirsiz };
+    return { ic, dis, tedarikci, belirsiz };
 }
 
 // tipi ve uygunsuzlukTuru değerlerinin benzersiz listesini ve sayımlarını döndür
@@ -2196,9 +2202,11 @@ function runReport(payload) {
     const icDis = classifyIcDis(rows);
     const icH   = icDis.ic.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
     const disH  = icDis.dis.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
+    const tedH  = (icDis.tedarikci||[]).reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
     const belH  = icDis.belirsiz.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0);
     const icPct  = totalH ? (icH /totalH*100).toFixed(1) : 0;
     const disPct = totalH ? (disH/totalH*100).toFixed(1) : 0;
+    const tedPct = totalH ? (tedH/totalH*100).toFixed(1) : 0;
     const belPct = totalH ? (belH/totalH*100).toFixed(1) : 0;
 
     // Tanı verisi — hangi tipi/uygunsuzlukTuru değerleri var
@@ -2247,14 +2255,20 @@ function runReport(payload) {
             <div class="ic-val">${fmtN(disH)}</div>
             <div style="color:#c2410c;font-weight:700;font-size:1.1rem;">%${disPct}</div>
             <div style="color:#5a6478;font-size:.78rem;margin-top:6px;">${icDis.dis.length} kayıt — Müşteri/Saha/Şube'de tespit edilen</div>
+        </div>
+        <div class="ic-card ted">
+            <h3>🏭 Tedarikçi Başarısızlık</h3>
+            <div class="ic-val">${fmtN(tedH)}</div>
+            <div style="color:#6d28d9;font-weight:700;font-size:1.1rem;">%${tedPct}</div>
+            <div style="color:#5a6478;font-size:.78rem;margin-top:6px;">${(icDis.tedarikci||[]).length} kayıt — Tedarikçi kaynaklı</div>
         </div>`;
 
     // ── İÇ/DIŞ CHART ──
     new Chart(document.getElementById('cIcDis'), {
         type:'doughnut',
         data:{
-            labels:['İç Başarısızlık','Dış Başarısızlık'],
-            datasets:[{ data:[icH,disH], backgroundColor:['#2563eb','#ea580c'], borderWidth:0, hoverOffset:8 }]
+            labels:['İç Başarısızlık','Dış Başarısızlık','Tedarikçi Başarısızlık'],
+            datasets:[{ data:[icH,disH,tedH], backgroundColor:['#2563eb','#ea580c','#7c3aed'], borderWidth:0, hoverOffset:8 }]
         },
         options:{
             responsive:true, maintainAspectRatio:true,
