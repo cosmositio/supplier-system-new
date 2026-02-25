@@ -133,6 +133,16 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 
 /* ── IC DIS CARDS ── */
 .ic-dis-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+/* İç/Dış breakdown */
+.idb-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:18px 0 14px; padding-top:18px; border-top:1.5px solid #e2e8f0; }
+.idb-bar span { font-size:.8rem; font-weight:700; color:#475569; margin-right:4px; }
+.idb-tab { border:1.5px solid #e2e8f0; background:#f8fafc; color:#64748b; border-radius:20px; padding:4px 14px; font-size:.78rem; font-weight:700; cursor:pointer; transition:all .15s; }
+.idb-tab:hover { border-color:#3b82f6; color:#3b82f6; }
+.idb-tab.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+.id-pareto-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:4px; }
+@media(max-width:700px){ .id-pareto-grid { grid-template-columns:1fr; } }
+.id-pareto-panel { border:1.5px solid #e2e8f0; border-radius:10px; padding:14px 14px 10px; background:#fafbff; }
+.id-panel-title { font-size:.82rem; font-weight:800; margin-bottom:10px; }
 .ic-card { border-radius:10px; padding:20px 24px; }
 .ic-card.ic { background:linear-gradient(135deg,#eff6ff,#dbeafe); border:1.5px solid #93c5fd; }
 .ic-card.dis { background:linear-gradient(135deg,#fff7ed,#fed7aa); border:1.5px solid #fdba74; }
@@ -291,6 +301,28 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
             <div class="two-col">
                 <div class="chart-wrap"><canvas id="cIcDis"></canvas></div>
                 <div id="icDisTable"></div>
+            </div>
+            <!-- per-group pareto breakdown -->
+            <div class="idb-bar no-print">
+                <span>Kırılım:</span>
+                <button class="idb-tab active" onclick="switchIdBreak('hataTipi',this)">Hata Tipi</button>
+                <button class="idb-tab" onclick="switchIdBreak('cariAdi',this)">Tedarikçi</button>
+                <button class="idb-tab" onclick="switchIdBreak('stokAdi',this)">Malzeme</button>
+            </div>
+            <div class="idb-bar" style="display:none" id="idbBarPrint">
+                <span style="font-size:.8rem;font-weight:700;">Kırılım: <span id="idbPrintLabel">Hata Tipi</span></span>
+            </div>
+            <div class="id-pareto-grid">
+                <div class="id-pareto-panel">
+                    <div class="id-panel-title" style="color:#1d4ed8;">🏢 İç Başarısızlık Pareto</div>
+                    <div style="min-height:200px;"><canvas id="cIcBreak" height="200"></canvas></div>
+                    <div id="icBreakTable" style="margin-top:10px;"></div>
+                </div>
+                <div class="id-pareto-panel">
+                    <div class="id-panel-title" style="color:#c2410c;">🚚 Dış Başarısızlık Pareto</div>
+                    <div style="min-height:200px;"><canvas id="cDisBreak" height="200"></canvas></div>
+                    <div id="disBreakTable" style="margin-top:10px;"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -861,6 +893,97 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
 }
 
 // ─────────────────────────────────────────────
+// İÇ/DIŞ PARETO BREAKDOWN
+// ─────────────────────────────────────────────
+const _ID_LABELS = { hataTipi:'Hata Tipi', cariAdi:'Tedarikçi', stokAdi:'Malzeme' };
+
+function _idBuildPareto(groupRows, field, n) {
+    // reuse paretoData helper: build manually to use groupRows
+    const totalH = groupRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
+    const agg = {};
+    groupRows.forEach(r => {
+        const v = (r[field]||'').trim(); if(!v) return;
+        if(!agg[v]) agg[v]={h:0,c:0};
+        agg[v].h += Number(r.hataliMiktar)||0; agg[v].c++;
+    });
+    let cum=0;
+    return Object.entries(agg).sort((a,b)=>b[1].h-a[1].h).slice(0,n).map(([name,v])=>{
+        cum+=v.h;
+        return {name, h:v.h, c:v.c, pct:v.h/totalH*100, cumPct:cum/totalH*100};
+    });
+}
+
+function switchIdBreak(field, btn) {
+    // update active tab
+    if (btn) {
+        document.querySelectorAll('.idb-tab').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    const lbl = _ID_LABELS[field] || field;
+    const el = document.getElementById('idbPrintLabel');
+    if (el) el.textContent = lbl;
+
+    const idRows = window._idRows;
+    if (!idRows) return;
+
+    const IC_COLOR  = '#2563eb';
+    const DIS_COLOR = '#ea580c';
+
+    // destroy old charts
+    ['_idIcChart','_idDisChart'].forEach(k => {
+        if (window[k]) { try { window[k].destroy(); } catch(e){} window[k]=null; }
+    });
+
+    // ─ İç ─
+    const icData = _idBuildPareto(idRows.ic, field, 12);
+    if (icData.length) {
+        const icTotalH = idRows.ic.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
+        window._idIcChart = hBarChart(
+            document.getElementById('cIcBreak'),
+            icData.map(e=>truncate(e.name,30)),
+            icData.map(e=>e.h),
+            icData.map((_,i)=> IC_COLOR + (i===0?'':'99')),
+            'İç Hatalı Miktar'
+        );
+        document.getElementById('icBreakTable').innerHTML = _idTable(icData, icTotalH, IC_COLOR);
+    } else {
+        document.getElementById('cIcBreak').style.display = 'none';
+        document.getElementById('icBreakTable').innerHTML = '<p style="color:var(--c-sub);font-size:.8rem;text-align:center;">İç başarısızlık kaydı yok</p>';
+    }
+
+    // ─ Dış ─
+    const disData = _idBuildPareto(idRows.dis, field, 12);
+    if (disData.length) {
+        const disTotalH = idRows.dis.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
+        window._idDisChart = hBarChart(
+            document.getElementById('cDisBreak'),
+            disData.map(e=>truncate(e.name,30)),
+            disData.map(e=>e.h),
+            disData.map((_,i)=> DIS_COLOR + (i===0?'':'99')),
+            'Dış Hatalı Miktar'
+        );
+        document.getElementById('disBreakTable').innerHTML = _idTable(disData, disTotalH, DIS_COLOR);
+    } else {
+        document.getElementById('cDisBreak').style.display = 'none';
+        document.getElementById('disBreakTable').innerHTML = '<p style="color:var(--c-sub);font-size:.8rem;text-align:center;">Dış başarısızlık kaydı yok</p>';
+    }
+}
+
+function _idTable(data, totalH, color) {
+    const maxH = data[0]?.h||1;
+    let h = `<table class="rep-table"><thead><tr><th class="rank">#</th><th>Ad</th><th class="num">Miktar</th><th class="pct">% (grup)</th></tr></thead><tbody>`;
+    data.forEach((e,i) => {
+        const pct = (e.pct).toFixed(1);
+        const bar = Math.round(e.h/maxH*100);
+        h += `<tr><td class="rank">${i+1}</td><td>
+            <div style="font-weight:600;margin-bottom:3px;">${truncate(e.name,40)}</div>
+            <div class="prog-bar"><div class="prog-fill" style="width:${bar}%;background:${color};"></div></div>
+        </td><td class="num">${fmtN(e.h)}</td><td class="pct">${fmtPct(pct)}</td></tr>`;
+    });
+    return h + '</tbody></table>';
+}
+
+// ─────────────────────────────────────────────
 // FISHBONE DIAGRAM
 // ─────────────────────────────────────────────
 const _FB = {
@@ -1264,6 +1387,11 @@ window.addEventListener('DOMContentLoaded', () => {
     // ── İÇ/DIŞ TABLE (by tespitYeri) ──
     const icDisByYer = paretoData(rows,'tespitYeri',12);
     document.getElementById('icDisTable').innerHTML = buildParetoTable(icDisByYer, totalH);
+
+    // ── İÇ/DIŞ PARETO BREAKDOWN ──
+    window._idRows = { ic: icDis.ic, dis: icDis.dis };
+    window._idCharts = {};
+    switchIdBreak('hataTipi', null);
 
     // ── TEDARİKÇİ ──
     const tedData = paretoData(rows,'cariAdi',15);
