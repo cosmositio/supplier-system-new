@@ -2863,8 +2863,50 @@ function renderFishbone() {
             const actualBaseX = boneBaseX + baseOffX;
             const actualBaseY = centerY + baseOffY;
 
-            const baseTipX = actualBaseX - boneLen * Math.cos(boneAngleRad);
-            const baseTipY = actualBaseY + dir * boneLen * Math.sin(boneAngleRad);
+            // ── effectiveBoneLen: bu kemik için gerekli minimum uzunluk ──
+            // Grandchild'lı depth=1 çocuklar diagonale uzandığından komşu kutularla çakışabilir.
+            // Her art arda çift için gereken minimum adımı hesaplayıp boneLen'i büyütüyoruz.
+            const _sin60r = Math.sin(60 * Math.PI / 180);
+            const _cos60r = Math.cos(60 * Math.PI / 180);
+            function _eFontH(name, fs, bw) {
+                const cpl = Math.max(6, Math.floor(bw / (fs * 0.58)));
+                const words = (name || '').split(' ');
+                let ln = 0, cur = '';
+                for (const w of words) {
+                    const test = cur ? cur + ' ' + w : w;
+                    if (test.length > cpl && cur) { ln++; cur = w; } else cur = test;
+                }
+                if (cur) ln++;
+                return Math.max(18, ln * (baseFontSub + 3) + 8);
+            }
+            const _d1bw = Math.min(Math.max(50, 88), Math.round(branchLen * 0.80));
+            const _gcScale = Math.max(0.35, 1 - 0.14); // depth=2 depthScale
+            const _gcBlLen = subBranchLen * _gcScale;
+            const _gcExtY  = _gcBlLen * _sin60r; // grandchild diagonal dikey uzanım
+            const _d2bw    = Math.min(Math.max(50, 76), Math.round(_gcBlLen * 0.80));
+            function _tailExt(c) {
+                const h = _eFontH(c.name, baseFontSub, _d1bw);
+                if (c.children && c.children.length > 0) {
+                    let mxGcH = 18;
+                    c.children.forEach(gc => { mxGcH = Math.max(mxGcH, _eFontH(gc.name, baseFontSub, _d2bw)); });
+                    return Math.max(h / 2 + 6, _gcExtY + mxGcH / 2 + 10);
+                }
+                return h / 2 + 6;
+            }
+            function _headExt(c) { return _eFontH(c.name, baseFontSub, _d1bw) / 2 + 6; }
+            let _neededYSpan = 0;
+            const _ch = cause.children || [];
+            if (_ch.length > 0) {
+                _neededYSpan = _headExt(_ch[0]) + 6; // başlangıç payı
+                for (let _ci = 0; _ci < _ch.length - 1; _ci++) {
+                    _neededYSpan += _tailExt(_ch[_ci]) + _headExt(_ch[_ci + 1]) + 8;
+                }
+                _neededYSpan += _tailExt(_ch[_ch.length - 1]) + 6; // bitiş payı
+            }
+            const effectiveBoneLen = Math.max(boneLen, _neededYSpan > 0 ? Math.ceil(_neededYSpan / _sin60r) : 0);
+
+            const baseTipX = actualBaseX - effectiveBoneLen * Math.cos(boneAngleRad);
+            const baseTipY = actualBaseY + dir * effectiveBoneLen * Math.sin(boneAngleRad);
             const tipX = baseTipX + (cause.offsetX || 0);
             const tipY = baseTipY + (cause.offsetY || 0);
 
