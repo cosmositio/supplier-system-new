@@ -1035,6 +1035,8 @@
         .ap-del-btn:hover { background: rgba(239,68,68,0.15); color: var(--danger); }
         .btn-8d-ap { background:none; border:1px solid #6366f1; color:#6366f1; border-radius:5px; padding:3px 7px; cursor:pointer; font-size:0.85em; transition:all 0.15s; }
         .btn-8d-ap:hover { background:#6366f1; color:#fff; }
+        .btn-8d-unlink { background:none; border:none; color:#6b7280; cursor:pointer; font-size:0.8em; padding:1px 4px; margin-left:2px; border-radius:3px; transition:all 0.15s; }
+        .btn-8d-unlink:hover { color:#ef4444; background:rgba(239,68,68,0.1); }
         .ap-empty {
             padding: 48px 24px; text-align: center;
             color: var(--text-secondary); font-size: 14px;
@@ -4911,14 +4913,15 @@ function updateActionRow(apId, field, value) {
         const barNum = document.getElementById('apBarNum_' + apId);
         if (barNum) barNum.textContent = row.contribution + '%';
     }
-    // Method değiştiğinde Faaliyet sütununu güncelle (8D butonu göster/gizle)
+    // Method değiştiğinde Faaliyet sütununu güncelle — has8DLink varsa butonu koru
     if (field === 'method') {
         const tr = document.querySelector(`tr[data-apid="${apId}"]`);
         if (tr) {
             const faaliyetCell = tr.querySelector('.ap-faaliyet-cell');
             if (faaliyetCell) {
-                faaliyetCell.innerHTML = value === '8d'
-                    ? `<button class="btn-8d-ap" onclick="open8DForActionRow(${apId})" title="8D Raporu Aç">📋 8D</button>`
+                const show = value === '8d' || !!row.has8DLink;
+                faaliyetCell.innerHTML = show
+                    ? `<button class="btn-8d-ap" onclick="open8DForActionRow(${apId})" title="8D Raporu Aç">📋 8D</button><button class="btn-8d-unlink" onclick="unlinkActionRow8D(${apId})" title="Bağlantıyı kaldır">✕</button>`
                     : '';
             }
         }
@@ -5070,7 +5073,7 @@ function renderActionPlan() {
                 </select>
             </td>
             <td style="text-align:center;" class="ap-faaliyet-cell">
-                ${row.method === '8d' ? `<button class="btn-8d-ap" onclick="open8DForActionRow(${row.apId})" title="8D Raporu Aç">📋 8D</button>` : ''}
+                ${(row.method === '8d' || row.has8DLink) ? `<button class="btn-8d-ap" onclick="open8DForActionRow(${row.apId})" title="8D Raporu Aç">📋 8D</button><button class="btn-8d-unlink" onclick="unlinkActionRow8D(${row.apId})" title="Bağlantıyı kaldır">✕</button>` : ''}
             </td>
             <td>
                 <button class="ap-del-btn" onclick="deleteActionRow(${row.apId})" title="Sil">
@@ -5096,12 +5099,29 @@ function renderActionPlan() {
 
 function open8DForActionRow(apId) {
     const row  = state.actionPlan && state.actionPlan.rows.find(r => r.apId === apId);
-    const konu = (row && row.causeName) ? row.causeName : (state && state.problem) || '';
+    if (row && !row.has8DLink) {
+        row.has8DLink = true;
+        autoSave();
+    }
+    const konu    = (row && row.causeName) ? row.causeName : (state && state.problem) || '';
     const problem = (state && state.problem) || '';
     const url  = '8d-rapor.html?source=' + encodeURIComponent('Balık Kılçığı')
                + '&konu='    + encodeURIComponent(konu)
                + '&problem=' + encodeURIComponent(problem);
     window.open(url, '_blank');
+}
+
+function unlinkActionRow8D(apId) {
+    if (!confirm('8D bağlantısı Faaliyet sütunundan kaldırılsın mı?')) return;
+    const row = state.actionPlan && state.actionPlan.rows.find(r => r.apId === apId);
+    if (row) { row.has8DLink = false; autoSave(); }
+    const tr = document.querySelector(`tr[data-apid="${apId}"]`);
+    if (tr) {
+        const cell = tr.querySelector('.ap-faaliyet-cell');
+        if (cell) cell.innerHTML = row && row.method === '8d'
+            ? `<button class="btn-8d-ap" onclick="open8DForActionRow(${apId})" title="8D Raporu Aç">📋 8D</button><button class="btn-8d-unlink" onclick="unlinkActionRow8D(${apId})" title="Bağlantıyı kaldır">✕</button>`
+            : '';
+    }
 }
 
 function renderMethodsGrid() {
