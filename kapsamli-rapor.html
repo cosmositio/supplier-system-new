@@ -1210,8 +1210,29 @@ function drawFishbone() {
         const dir    = isTop ? -1 : 1;
         const color  = bone.color;
 
-        const tipX = +(sx - L * cosA).toFixed(1);
-        const tipY = +(SY + dir * L * sinA).toFixed(1);
+        // Kemik uzunluğunu neden sayısına ve alt nedenlere göre dinamik hesapla
+        const _BH=18, _SL=34, _SBH=15, _GAP=8, _M=12;
+        const _causes = bone.causes || [];
+        const _steps = _causes.map(rc => {
+            const c = fbNorm(rc);
+            return (c.subs && c.subs.length > 0) ? (_SL + _SBH + _BH + 4 + _GAP) : (_BH + 4 + _GAP);
+        });
+        const _needed = _causes.length > 0
+            ? _M + _steps.reduce((s,v)=>s+v,0) + _M
+            : 0;
+        // SVG sınırı: SY=280, A=50° → max L = (SY-20)/sinA
+        const _maxL = Math.floor((SY - 20) / sinA);
+        const effL  = Math.min(_maxL, Math.max(L, _needed > 0 ? Math.ceil(_needed / sinA) : 0));
+        // Her neden için orantılı t değeri
+        let _pos = _M;
+        const tVals = _causes.map((_, ci) => {
+            const t = Math.min(0.96, _pos / (effL * sinA));
+            _pos += _steps[ci];
+            return t;
+        });
+
+        const tipX = +(sx - effL * cosA).toFixed(1);
+        const tipY = +(SY + dir * effL * sinA).toFixed(1);
 
         // Main bone line
         p.push(`<line x1="${sx}" y1="${SY}" x2="${tipX}" y2="${tipY}"
@@ -1238,10 +1259,10 @@ function drawFishbone() {
 
         // Ribs (main causes)
         const causes = bone.causes || [];
-        causes.slice(0, TPOS.length).forEach((rawCause, ci) => {
+        causes.forEach((rawCause, ci) => {
             const cause = fbNorm(rawCause);
             const name  = cause.name;
-            const t  = TPOS[ci];
+            const t  = ci < tVals.length ? tVals[ci] : (ci + 1) / (causes.length + 1);
             const px = +(sx  + t * (tipX - sx)).toFixed(1);
             const py = +(SY  + t * (tipY - SY)).toFixed(1);
             const rx = +(px - 78).toFixed(1);
@@ -1308,12 +1329,6 @@ function drawFishbone() {
                     font-size="8" fill="${color}" opacity="0.7">+${subs.length-3} alt neden</text>`);
             }
         });
-
-        if(causes.length > TPOS.length) {
-            const moreY = isTop ? SY - 14 : SY + 20;
-            p.push(`<text x="${sx}" y="${moreY}" text-anchor="middle"
-                font-size="9" fill="${color}" opacity="0.85">+${causes.length-TPOS.length} daha</text>`);
-        }
     });
 
     const tag = document.getElementById('fbEffectTag');
