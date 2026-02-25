@@ -253,6 +253,8 @@
             font-weight: 600;
         }
         .badge-red { background: #ffe0e0; color: #b71c1c; }
+        .btn-8d-link { font-size:0.78em; padding:3px 8px; border:1px solid #1e3c72; border-radius:4px; background:#eef2ff; color:#1e3c72; cursor:pointer; white-space:nowrap; }
+        .btn-8d-link:hover { background:#1e3c72; color:#fff; }
         .badge-orange { background: #fff3e0; color: #e65100; }
         .badge-blue { background: #e3f2fd; color: #0d47a1; }
 
@@ -1882,19 +1884,29 @@ function renderTable(data) {
     document.getElementById('tableHead').innerHTML = `<tr>${TABLE_COLS.map((k, i) => {
         const icon = sortCol === i ? (sortAsc ? ' ▲' : ' ▼') : '';
         return `<th onclick="sortTable(${i})">${COL_LABELS[k]}${icon}</th>`;
-    }).join('')}</tr>`;
+    }).join('')}<th style="min-width:52px;text-align:center;">8D</th></tr>`;
 
     // Body
-    document.getElementById('tableBody').innerHTML = slice.map(r => `<tr>${
-        TABLE_COLS.map(k => {
-            let v = r[k];
-            if (k === 'hataliMiktar' && v > 0) return `<td><span class="badge badge-red">${Number(v).toLocaleString('tr', {maximumFractionDigits:2})}</span></td>`;
-            if (k === 'kontrolMiktar' && v > 0) return `<td><span class="badge badge-blue">${Number(v).toLocaleString('tr', {maximumFractionDigits:2})}</span></td>`;
-            return `<td>${v}</td>`;
-        }).join('')
-    }</tr>`).join('') || '<tr><td colspan="' + TABLE_COLS.length + '" style="text-align:center;color:#aaa;padding:30px;">Kayıt bulunamadı</td></tr>';
+    document.getElementById('tableBody').innerHTML = slice.map(r => {
+        const seri = String(r.uygunsuzlukSeri || '').trim();
+        const esc  = seri.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        const btn  = seri ? `<button class="btn-8d-link" onclick="open8DForRow('${esc}')">📋 8D</button>` : '';
+        return `<tr>${
+            TABLE_COLS.map(k => {
+                let v = r[k];
+                if (k === 'hataliMiktar' && v > 0) return `<td><span class="badge badge-red">${Number(v).toLocaleString('tr', {maximumFractionDigits:2})}</span></td>`;
+                if (k === 'kontrolMiktar' && v > 0) return `<td><span class="badge badge-blue">${Number(v).toLocaleString('tr', {maximumFractionDigits:2})}</span></td>`;
+                return `<td>${v}</td>`;
+            }).join('')
+        }<td style="text-align:center;">${btn}</td></tr>`;
+    }).join('') || `<tr><td colspan="${TABLE_COLS.length + 1}" style="text-align:center;color:#aaa;padding:30px;">Kayıt bulunamadı</td></tr>`;
 
     renderPagination(pages, display);
+}
+
+function open8DForRow(seri) {
+    const url = '8d-rapor.html?source=' + encodeURIComponent('Uygunsuzluk') + '&konu=' + encodeURIComponent(seri);
+    window.open(url, '_blank');
 }
 
 function sortTable(idx) {

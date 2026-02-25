@@ -1033,6 +1033,8 @@
             transition: all 0.15s;
         }
         .ap-del-btn:hover { background: rgba(239,68,68,0.15); color: var(--danger); }
+        .btn-8d-ap { background:none; border:1px solid #6366f1; color:#6366f1; border-radius:5px; padding:3px 7px; cursor:pointer; font-size:0.85em; transition:all 0.15s; }
+        .btn-8d-ap:hover { background:#6366f1; color:#fff; }
         .ap-empty {
             padding: 48px 24px; text-align: center;
             color: var(--text-secondary); font-size: 14px;
@@ -1446,8 +1448,9 @@
                             <th style="width:10%">Sorumlu</th>
                             <th style="width:9%">Hedef Tarih</th>
                             <th style="width:7%">Katkı %</th>
-                            <th style="width:20%">Çözüm Yöntemi</th>
+                            <th style="width:16%">Çözüm Yöntemi</th>
                             <th style="width:9%">Durum</th>
+                            <th style="width:5%">8D</th>
                             <th style="width:3%"></th>
                         </tr>
                     </thead>
@@ -5054,6 +5057,9 @@ function renderActionPlan() {
                     ${statusOptions}
                 </select>
             </td>
+            <td style="text-align:center;">
+                <button class="btn-8d-ap" onclick="open8DForActionRow()" title="8D Raporu Aç">📋</button>
+            </td>
             <td>
                 <button class="ap-del-btn" onclick="deleteActionRow(${row.apId})" title="Sil">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
@@ -5074,6 +5080,12 @@ function renderActionPlan() {
     });
 
     updateContribTotal();
+}
+
+function open8DForActionRow() {
+    const konu = (state && state.problem) ? state.problem : '';
+    const url  = '8d-rapor.html?source=' + encodeURIComponent('Balık Kılçığı') + '&konu=' + encodeURIComponent(konu);
+    window.open(url, '_blank');
 }
 
 function renderMethodsGrid() {

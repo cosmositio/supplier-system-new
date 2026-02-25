@@ -311,8 +311,13 @@
         </div>
         <!-- KONU (Tedarikçi dışı kaynaklar için) -->
         <div id="meta_konu_wrap" style="display:none;">
-            <label>📝 Konu / Başlık</label>
-            <input type="text" id="meta_konu" style="min-width:240px;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95em;" placeholder="Konu veya başlık giriniz...">
+            <label>📝 Konu / Kayıt</label>
+            <!-- Uygunsuzluk / Balık Kılçığı için açılan liste -->
+            <select id="meta_konu_sel" style="min-width:240px;">
+                <option value="">— Seçiniz —</option>
+            </select>
+            <!-- Genel / Diğer için serbest metin -->
+            <input type="text" id="meta_konu_free" style="min-width:240px;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95em;display:none;" placeholder="Konu veya başlık giriniz...">
         </div>
         <!-- AY -->
         <div>
@@ -715,13 +720,95 @@ function loadSupplierList(selectedValue) {
 }
 
 /* ================================================================
+   KONU HELPER — seçili konu değerini okur / yazar
+================================================================ */
+function getKonuValue() {
+    const sel  = document.getElementById('meta_konu_sel');
+    const free = document.getElementById('meta_konu_free');
+    if (free && free.style.display !== 'none') return free.value.trim();
+    return sel ? sel.value.trim() : '';
+}
+function setKonuValue(v) {
+    const sel  = document.getElementById('meta_konu_sel');
+    const free = document.getElementById('meta_konu_free');
+    if (free && free.style.display !== 'none') { free.value = v || ''; }
+    else if (sel) { sel.value = v || ''; }
+}
+
+/* ================================================================
+   KONU DROPDOWN — Uygunsuzluk / Balık Kılçığı için kayıtlardan doldur
+================================================================ */
+function loadKonuDropdown(source, savedValue) {
+    const sel  = document.getElementById('meta_konu_sel');
+    const free = document.getElementById('meta_konu_free');
+    if (!sel || !free) return;
+
+    if (source === 'Uygunsuzluk') {
+        sel.style.display  = '';
+        free.style.display = 'none';
+        sel.innerHTML = '<option value="">— Yükleniyor… —</option>';
+        const req = indexedDB.open('UygunsuzlukDB', 1);
+        req.onsuccess = () => {
+            const udb = req.result;
+            const tx  = udb.transaction('cache', 'readonly');
+            const get = tx.objectStore('cache').get('data');
+            get.onsuccess = () => {
+                udb.close();
+                const rows = Array.isArray(get.result) ? get.result : [];
+                sel.innerHTML = '<option value="">— Seçiniz —</option>';
+                rows.forEach(r => {
+                    const seri  = String(r.uygunsuzlukSeri || '').trim();
+                    const tarih = String(r.uygunsuzlukTarih || '').trim();
+                    const stok  = String(r.stokKodu  || '').trim();
+                    const tip   = String(r.hataTipi  || '').trim();
+                    if (!seri) return;
+                    const label = `#${seri}${tarih ? ' · ' + tarih : ''}${stok ? ' · ' + stok : ''}${tip ? ' – ' + tip : ''}`;
+                    const opt = document.createElement('option');
+                    opt.value = seri; opt.textContent = label;
+                    if (seri === String(savedValue || '')) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+                if (rows.length === 0) {
+                    sel.innerHTML += '<option value="" disabled>(Uygunsuzluk kaydı yok — Uygunsuzluk Analizi sayfasında Excel yükleyin)</option>';
+                }
+            };
+            get.onerror = () => { udb.close(); sel.innerHTML = '<option value="">— Veri okunamadı —</option>'; };
+        };
+        req.onerror = () => { sel.innerHTML = '<option value="">— UygunsuzlukDB bağlantı hatası —</option>'; };
+
+    } else if (source === 'Balık Kılçığı') {
+        sel.style.display  = '';
+        free.style.display = 'none';
+        const data = JSON.parse(localStorage.getItem('fishbone_aksiyonlar') || '{}');
+        const problems = Object.keys(data).filter(k => k && k !== 'undefined');
+        sel.innerHTML = '<option value="">— Seçiniz —</option>';
+        problems.forEach(problem => {
+            const opt = document.createElement('option');
+            opt.value = problem; opt.textContent = problem;
+            if (problem === (savedValue || '')) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        if (!problems.length) {
+            sel.innerHTML += '<option value="" disabled>(Balık Kılçığı kaydı yok — Balık Kılçığı sayfasında problem kaydedin)</option>';
+        }
+
+    } else {
+        // Genel / Diğer — serbest metin
+        sel.style.display  = 'none';
+        free.style.display = '';
+        free.value = savedValue || '';
+    }
+}
+
+/* ================================================================
    KAYNAK DEĞİŞTİRME — supplier/konu görünürlüğü
 ================================================================ */
-function onSourceChange() {
+function onSourceChange(savedKonu) {
     const src        = document.getElementById('meta_source').value;
     const isSupplier = src === 'Tedarikçi';
     document.getElementById('meta_supplier_wrap').style.display = isSupplier ? '' : 'none';
     document.getElementById('meta_konu_wrap').style.display     = isSupplier ? 'none' : '';
+    if (!isSupplier) loadKonuDropdown(src, savedKonu !== undefined ? savedKonu : '');
 }
 
 /* ================================================================
@@ -764,8 +851,7 @@ function startNewReport() {
     document.getElementById('formTitle').textContent           = '📋 8D RAPOR — Yeni Rapor';
     document.getElementById('meta_month').value                = '';
     document.getElementById('meta_source').value               = 'Tedarikçi';
-    document.getElementById('meta_konu').value                 = '';
-    onSourceChange();
+    onSourceChange('');
     document.getElementById('deleteFormBtn').style.display     = 'none';
     loadSupplierList('');
     showFormView(null);
@@ -784,8 +870,7 @@ function openReportForEdit(reportId) {
         loadSupplierList(doc.supplierName || '');
         document.getElementById('meta_month').value            = doc.monthIndex   || '';
         document.getElementById('meta_source').value           = doc.source       || 'Tedarikçi';
-        document.getElementById('meta_konu').value             = doc.konu         || '';
-        onSourceChange();
+        onSourceChange(doc.konu || '');
         const titleLabel = doc.source === 'Tedarikçi' ? (doc.supplierName || '') : (doc.konu || doc.source || '');
         document.getElementById('formTitle').textContent       = `📋 8D RAPOR — ${titleLabel}`;
         document.getElementById('deleteFormBtn').style.display = 'inline-block';
@@ -805,7 +890,7 @@ function openReportForEdit(reportId) {
 async function save8DReport() {
     const source       = document.getElementById('meta_source').value || 'Tedarikçi';
     const supplierName = source === 'Tedarikçi' ? document.getElementById('meta_supplier').value.trim() : '';
-    const konu         = source !== 'Tedarikçi' ? document.getElementById('meta_konu').value.trim() : '';
+    const konu         = source !== 'Tedarikçi' ? getKonuValue() : '';
     if (!db) { showAlert('⚠️ Veritabanı hazır değil!','error'); return; }
     if (source === 'Tedarikçi' && !supplierName) {
         showAlert('⚠️ Tedarikçi seçiniz!','error');
@@ -1104,8 +1189,8 @@ function clear8DForm() {
     const clearEl = id => { const el = document.getElementById(id); if(el) el.value = ''; };
     // Kaynak alanını sıfırla
     const srcEl = document.getElementById('meta_source'); if(srcEl) srcEl.value = 'Tedarikçi';
-    const konuEl = document.getElementById('meta_konu'); if(konuEl) konuEl.value = '';
-    onSourceChange();
+    setKonuValue('');
+    onSourceChange('');
     [
         'f8d_reportNumber','f8d_version','f8d_title','f8d_startDate',
         'f8d_subject','f8d_currentDate','f8d_customer','f8d_status',
@@ -1138,8 +1223,7 @@ function populate8DForm(data) {
     const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v || ''; };
     // Kaynak + konu
     set('meta_source', data.source || 'Tedarikçi');
-    set('meta_konu',   data.konu   || '');
-    onSourceChange();
+    onSourceChange(data.konu || '');
 
     if (data.head) {
         const h = data.head;
@@ -1611,6 +1695,26 @@ async function export8DReportPDF(retryCount = 0) {
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         await openDB();
+
+        // URL parametresi varsa → doğrudan yeni form aç (diğer sayfalardan gelen 8D bağlantısı)
+        const params = new URLSearchParams(location.search);
+        const urlSource = params.get('source');
+        const urlKonu   = params.get('konu');
+        if (urlSource && urlKonu) {
+            // Kaynak seç
+            const srcEl = document.getElementById('meta_source');
+            if (srcEl) srcEl.value = urlSource;
+            // Formu aç, konu dropdown'unu doldur
+            current8DData = null;
+            clear8DForm();
+            document.getElementById('formTitle').textContent       = `📋 8D RAPOR — ${urlKonu}`;
+            document.getElementById('meta_month').value            = '';
+            document.getElementById('deleteFormBtn').style.display = 'none';
+            onSourceChange(urlKonu);   // konu dropdown'unu yükler ve seçer
+            showFormView(null);
+            return;
+        }
+
         showListView();
         // Supplier listesini arka planda hazırla
         loadSupplierList('');
