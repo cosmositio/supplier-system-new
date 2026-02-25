@@ -2505,7 +2505,7 @@ function runReport(payload) {
     document.getElementById('m6Detail').innerHTML = m6DetailHtml || '<span style="color:var(--c-sub);">hataKaynagi alanı dolu kayıt bulunamadı.</span>';
 
     // ── FISHBONE (6M) ──
-    initFishbone(rows, htData, window._fbEffect || 'Ana Kalite Problemi');
+    renderMultipleFishbones(payload.paretoGroups || [], rows);
     _rebuildM6Display(); // fishbone nedenlerini kart + liste’ye ekle
 
     // ── TREND ──
