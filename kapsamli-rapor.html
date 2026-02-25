@@ -158,6 +158,25 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .m6-card .m6-val { font-size:1.4rem; font-weight:800; margin-bottom:4px; }
 .m6-card .m6-list { font-size:.75rem; color:var(--c-sub); }
 
+/* ── FISHBONE ── */
+.fb-section { margin-top:28px; border-top:1.5px solid #e2e8f0; padding-top:20px; }
+.fb-header  { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+.fb-effect-tag { background:#fef2f2; color:#b91c1c; border:1.5px solid #fca5a5; border-radius:20px; padding:3px 14px; font-size:.75rem; font-weight:700; max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fb-svg-wrap { background:#f8fafc; border-radius:12px; border:1.5px solid #e2e8f0; overflow-x:auto; }
+.fb-edit-panels { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-top:14px; }
+@media(max-width:900px){ .fb-edit-panels { grid-template-columns:repeat(3,1fr); } }
+@media(max-width:600px){ .fb-edit-panels { grid-template-columns:repeat(2,1fr); } }
+.fb-bone-card { border-radius:10px; overflow:hidden; font-size:.78rem; }
+.fb-bone-head { padding:6px 10px; font-weight:800; font-size:.75rem; }
+.fb-bone-list { padding:4px 8px; max-height:150px; overflow-y:auto; }
+.fb-cause-row { display:flex; align-items:center; gap:4px; padding:3px 2px; border-bottom:1px solid #f1f5f9; }
+.fb-cause-name { flex:1; word-break:break-word; line-height:1.3; }
+.fb-cause-del { background:none; border:none; color:#ef4444; cursor:pointer; font-size:14px; padding:0 3px; line-height:1; flex-shrink:0; }
+.fb-bone-add { display:flex; gap:5px; padding:6px 8px; border-top:1px solid #f1f5f9; }
+.fb-add-input { flex:1; border:1px solid #e2e8f0; border-radius:6px; padding:4px 7px; font-size:.75rem; outline:none; font-family:inherit; }
+.fb-add-input:focus { border-color:#3b82f6; }
+.fb-add-btn { border:none; border-radius:6px; padding:4px 9px; cursor:pointer; font-size:.75rem; font-weight:700; color:#fff; }
+
 /* ── AKSIYON EDIT BUTTONS ── */
 .ap-btn { border:none; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:.75rem; font-weight:600; line-height:1; transition:opacity .15s; }
 .ap-btn:hover { opacity:.8; }
@@ -348,6 +367,16 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
             <div class="two-col">
                 <div class="chart-wrap" style="min-height:260px;"><canvas id="c6M" height="260"></canvas></div>
                 <div id="m6Detail"></div>
+            </div>
+            <!-- FISHBONE -->
+            <div class="fb-section" id="fbSection">
+                <div class="fb-header">
+                    <span style="font-weight:700;font-size:.9rem;color:#1e2535;">🐟 Balık Kılçığı Diyagramı</span>
+                    <span class="fb-effect-tag" id="fbEffectTag"></span>
+                    <button class="ap-btn ap-btn-edit no-print" onclick="fbEditEffect()">✏️ Başlık</button>
+                </div>
+                <div class="fb-svg-wrap" id="fbContainer"></div>
+                <div class="fb-edit-panels no-print" id="fbEditPanels"></div>
             </div>
         </div>
     </div>
@@ -832,6 +861,169 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
 }
 
 // ─────────────────────────────────────────────
+// FISHBONE DIAGRAM
+// ─────────────────────────────────────────────
+const _FB = {
+    W:1100, H:500, SY:250, SS:60, SE:905, L:175, A:40,
+    TPOS:[0.13, 0.32, 0.50, 0.66], // t along bone (0=tip,1=spine)
+    BONES:{
+        insan:   {sx:180, pos:'top',    label:'\u0130nsan',   color:'#ef4444'},
+        makine:  {sx:430, pos:'top',    label:'Makine',  color:'#f59e0b'},
+        malzeme: {sx:678, pos:'top',    label:'Malzeme', color:'#3b82f6'},
+        metot:   {sx:280, pos:'bottom', label:'Metot',   color:'#8b5cf6'},
+        olcum:   {sx:528, pos:'bottom', label:'\u00d6l\u00e7\u00fcm',   color:'#06b6d4'},
+        ortam:   {sx:776, pos:'bottom', label:'Ortam',   color:'#22c55e'},
+    }
+};
+
+function initFishbone(m6, effectLabel) {
+    const ORDER = ['insan','makine','malzeme','metot','olcum','ortam'];
+    window._fbData = { effect: effectLabel || 'Ana Kalite Problemi', bones: {} };
+    ORDER.forEach(k => {
+        window._fbData.bones[k] = { causes: (m6[k]||[]).slice(0,8).map(e => e.name) };
+    });
+    drawFishbone();
+    renderFbEditPanels();
+}
+
+function drawFishbone() {
+    const data = window._fbData;
+    if (!data) return;
+    const {W, H, SY, SS, SE, L, A, TPOS, BONES} = _FB;
+    const cosA = Math.cos(A * Math.PI / 180);
+    const sinA = Math.sin(A * Math.PI / 180);
+    const p = [];
+
+    // Background
+    p.push(`<rect width="${W}" height="${H}" fill="#f8fafc"/>`);
+
+    // Grid lines (subtle)
+    for(let x=SS;x<=SE;x+=100) p.push(`<line x1="${x}" y1="20" x2="${x}" y2="${H-20}" stroke="#e2e8f0" stroke-width="1"/>`);
+
+    // Spine
+    p.push(`<line x1="${SS}" y1="${SY}" x2="${SE}" y2="${SY}" stroke="#475569" stroke-width="3.5" stroke-linecap="round"/>`);
+    // Arrowhead
+    p.push(`<polygon points="${SE},${SY} ${SE-16},${SY-8} ${SE-16},${SY+8}" fill="#475569"/>`);
+
+    // Effect box
+    const EX=SE+14, EW=172, EH=86;
+    p.push(`<rect x="${EX}" y="${SY-EH/2}" width="${EW}" height="${EH}" rx="10" fill="white" stroke="#ef4444" stroke-width="2.5"/>`);
+    const effTxt = (data.effect||'Ana Problem');
+    const words = effTxt.split(' ');
+    let cur='', lines=[];
+    words.forEach(w => { if((cur+' '+w).trim().length>16 && cur){lines.push(cur.trim());cur=w;}else cur=cur?cur+' '+w:w; });
+    if(cur) lines.push(cur.trim());
+    lines.slice(0,4).forEach((ln,li) => {
+        const ly = SY - (lines.length-1)*9 + li*18;
+        p.push(`<text x="${EX+EW/2}" y="${ly}" text-anchor="middle" font-size="11" font-weight="700" fill="#1e293b">${esc(ln)}</text>`);
+    });
+    // Clickable overlay
+    p.push(`<rect x="${EX}" y="${SY-EH/2}" width="${EW}" height="${EH}" rx="10" fill="transparent" cursor="pointer" onclick="fbEditEffect()"><title>\u0130lk\u0131 d\u00fczenle</title></rect>`);
+
+    // Bones
+    Object.entries(BONES).forEach(([key, cfg]) => {
+        const {sx, pos, label, color} = cfg;
+        const dir = pos==='top' ? -1 : 1;
+        const tx = +(sx - L*cosA).toFixed(1);
+        const ty = +(SY + dir*L*sinA).toFixed(1);
+        const causes = (data.bones[key]||{}).causes||[];
+
+        // Main bone
+        p.push(`<line x1="${sx}" y1="${SY}" x2="${tx}" y2="${ty}" stroke="${color}" stroke-width="2.5" stroke-linecap="round"/>`);
+
+        // Bone label at tip
+        const lblY = pos==='top' ? ty-10 : ty+18;
+        p.push(`<text x="${tx}" y="${lblY}" text-anchor="middle" font-size="13" font-weight="800" fill="${color}">${esc(label)}</text>`);
+
+        // Cause ribs
+        const shown = causes.slice(0, TPOS.length);
+        shown.forEach((name, ci) => {
+            const t = TPOS[ci];
+            const px = +(tx + t*(sx-tx)).toFixed(1);
+            const py = +(ty + t*(SY-ty)).toFixed(1);
+            const ry = pos==='top' ? py+28 : py-28;
+            const rxe = px+4;
+            p.push(`<line x1="${px}" y1="${py}" x2="${rxe}" y2="${ry}" stroke="${color}" stroke-width="1.5" opacity="0.55"/>`);
+            const txtY = pos==='top' ? ry+11 : ry-3;
+            const nm = name.length>21 ? name.slice(0,21)+'\u2026' : name;
+            p.push(`<text x="${rxe+3}" y="${txtY}" font-size="9.5" fill="#1e293b">${esc(nm)}</text>`);
+        });
+        if(causes.length > TPOS.length) {
+            // Show "+N more" near spine
+            const moreY = pos==='top' ? SY-12 : SY+18;
+            p.push(`<text x="${sx}" y="${moreY}" text-anchor="middle" font-size="9" fill="${color}" opacity="0.7">+${causes.length-TPOS.length} daha</text>`);
+        }
+
+        // Dot + add button at spine junction
+        p.push(`<circle cx="${sx}" cy="${SY}" r="7" fill="${color}" opacity="0.2"/>`);
+        p.push(`<text x="${sx}" y="${SY+4}" text-anchor="middle" font-size="13" fill="${color}" font-weight="900" cursor="pointer" onclick="fbFocusInput('${key}')" style="user-select:none">+</text>`);
+    });
+
+    const tag = document.getElementById('fbEffectTag');
+    if(tag) tag.textContent = data.effect||'Ana Problem';
+
+    document.getElementById('fbContainer').innerHTML =
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;min-width:700px;">${p.join('')}</svg>`;
+}
+
+function renderFbEditPanels() {
+    const data = window._fbData;
+    const ORDER = ['insan','makine','malzeme','metot','olcum','ortam'];
+    const el = document.getElementById('fbEditPanels');
+    if (!el || !data) return;
+    el.innerHTML = ORDER.map(key => {
+        const cfg = _FB.BONES[key];
+        const causes = (data.bones[key]||{}).causes||[];
+        const items = causes.map((c, i) => `
+            <div class="fb-cause-row">
+                <span class="fb-cause-name">${esc(c)}</span>
+                <button class="fb-cause-del" title="Sil" onclick="fbDeleteCause('${key}',${i})">\u00d7</button>
+            </div>`).join('') || `<div style="color:#94a3b8;padding:6px 2px;font-size:.72rem;">Henüz neden yok</div>`;
+        return `
+        <div class="fb-bone-card" style="border:1.5px solid ${cfg.color}33;">
+            <div class="fb-bone-head" style="background:${cfg.color}1a;color:${cfg.color};border-bottom:1px solid ${cfg.color}22;">${esc(cfg.label)}</div>
+            <div class="fb-bone-list">${items}</div>
+            <div class="fb-bone-add">
+                <input id="fbInp_${key}" class="fb-add-input" placeholder="+ Neden ekle\u2026" type="text"
+                    onkeydown="if(event.key==='Enter')fbAddFromInput('${key}')">
+                <button class="fb-add-btn" style="background:${cfg.color};" onclick="fbAddFromInput('${key}')">+</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function fbAddFromInput(key) {
+    const inp = document.getElementById('fbInp_' + key);
+    if (!inp) return;
+    const val = inp.value.trim();
+    if (!val) { inp.focus(); return; }
+    window._fbData.bones[key].causes.push(val);
+    inp.value = '';
+    drawFishbone();
+    renderFbEditPanels();
+    setTimeout(() => { const i=document.getElementById('fbInp_'+key); if(i) i.focus(); }, 20);
+}
+
+function fbDeleteCause(key, idx) {
+    window._fbData.bones[key].causes.splice(idx, 1);
+    drawFishbone();
+    renderFbEditPanels();
+}
+
+function fbFocusInput(key) {
+    const inp = document.getElementById('fbInp_' + key);
+    if (inp) { inp.scrollIntoView({behavior:'smooth', block:'nearest'}); inp.focus(); }
+}
+
+function fbEditEffect() {
+    const cur = (window._fbData||{}).effect || '';
+    const val = prompt('Balık kılçığı ba\u015fl\u0131\u011f\u0131 (etki / problem):', cur);
+    if (val === null) return;
+    window._fbData.effect = val.trim() || 'Ana Kalite Problemi';
+    drawFishbone();
+}
+
+// ─────────────────────────────────────────────
 // AKSIYON PLAN EDIT LOGIC
 // ─────────────────────────────────────────────
 const _PRI_COLOR = { 'Yüksek':'pri-yuksek', 'Orta':'pri-orta', 'Düşük':'pri-dusuk' };
@@ -841,6 +1033,17 @@ const _KAT_BADGE_MAP = {
     '6M Analizi':'badge-green','Sistem':'badge-gray','Diğer':'badge-gray'
 };
 
+const _DURUM_CLASS = {
+    'Beklemede':   'durum-beklemede',
+    'Devam Ediyor':'durum-devam',
+    'Tamamlandı':  'durum-tamamlandi',
+    'İptal':       'durum-iptal'
+};
+function fmtTarih(t) {
+    if (!t) return '<span style="color:var(--c-sub)">—</span>';
+    try { return new Date(t).toLocaleDateString('tr-TR'); } catch(e) { return t; }
+}
+
 function renderAksiyonTablosu() {
     const list = window._aksiyonlar || [];
     document.getElementById('aksiyonBody').innerHTML = list.map((a, i) => `
@@ -848,9 +1051,11 @@ function renderAksiyonTablosu() {
             <td style="color:var(--c-sub);font-size:.78rem;">${i+1}</td>
             <td>${esc(a.bulgu)}</td>
             <td><span class="badge ${esc(a.katBadge)}">${esc(a.kat)}</span></td>
-            <td style="max-width:320px;">${esc(a.aksiyon)}</td>
+            <td style="max-width:280px;">${esc(a.aksiyon)}</td>
             <td><span class="pri ${_PRI_COLOR[a.oncelik]||''}">${esc(a.oncelik)}</span></td>
-            <td style="color:var(--c-sub);white-space:nowrap;">${esc(a.sure)}</td>
+            <td style="font-size:.8rem;">${esc(a.sorumlu) || '<span style="color:var(--c-sub)">—</span>'}</td>
+            <td><span class="durum-pill ${_DURUM_CLASS[a.durum] || 'durum-beklemede'}">${esc(a.durum) || 'Beklemede'}</span></td>
+            <td style="font-size:.8rem;">${fmtTarih(a.tarih)}</td>
             <td class="no-print"><div class="ap-actions-col">
                 <button class="ap-btn ap-btn-edit" onclick="apOpenEdit(${i})">✏️ Düzenle</button>
                 <button class="ap-btn ap-btn-del"  onclick="apDelete(${i})">🗑️</button>
@@ -1184,6 +1389,9 @@ window.addEventListener('DOMContentLoaded', () => {
     });
     m6DetailHtml += '</div>';
     document.getElementById('m6Detail').innerHTML = m6DetailHtml || '<span style="color:var(--c-sub);">hataKaynagi alanı dolu kayıt bulunamadı.</span>';
+
+    // ── FISHBONE ──
+    initFishbone(m6, htData[0]?.name || 'Ana Kalite Problemi');
 
     // ── TREND ──
     const trend = buildTrend(rows);
