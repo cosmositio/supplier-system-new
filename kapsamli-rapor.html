@@ -1453,6 +1453,8 @@ function renderMultipleFishbones(groups, allRows) {
     window._fbActiveIdx = 0;
     window._fbData      = window._fbDataArr[0];
 }
+
+function drawFishbone() {
     const data = window._fbData;
     if (!data || !data.bones || !data.bones.length) {
         const _cid = 'fbContainer_' + (window._fbActiveIdx ?? 0);
