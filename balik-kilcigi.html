@@ -3710,14 +3710,32 @@ function autoLayout() {
         const d1W = 88;   // saturated max
         const d2W = 76;   // saturated max for depth=2
 
+        // branchLen ve subBranchLen kestirimi (boneGuess'e göre)
+        const maxGrandN = state.causes.reduce((m, mc) =>
+            mc.children.reduce((m2, c) => Math.max(m2, c.children.length), m), 0);
+        const branchRatioEst = Math.min(0.65, 0.45 + maxGrandN * 0.03);
+        const estBranchL  = Math.max(Math.round(boneGuess * branchRatioEst), 80);
+        const estSubBranchL = Math.max(Math.round(estBranchL * SUB_RATIO), 45);
+
         // boneLength: her main cause'un depth=1 çocukları dikey alan hesabı
-        // boneLen * sin60 ≥ sum(labelH_i + gap)  →  boneLen ≥ sum/sin60
+        // boneLen * sin60 ≥ sum(effectiveH_i + gap)  →  boneLen ≥ sum/sin60
+        // effectiveH: kendi label yüksekliği + depth=2 torunların diagonal dal uzanımı
         let maxTotalH = 0;
         state.causes.forEach(mainCause => {
             if (mainCause.children.length === 0) return;
             let total = 0;
             mainCause.children.forEach(c => {
-                total += labelHForBoxW(c.name, fontSizeSub, d1W) + 12;
+                const ownH = labelHForBoxW(c.name, fontSizeSub, d1W) + 12;
+                // Torunlar (depth=2) diagonal dal çizer: dikey uzanım ≈ subBranchLen*sin60
+                // Bu uzanım komşu depth=1 kutuların Y alanına girebilir → ekstra boşluk gerek
+                let grandExtra = 0;
+                if (c.children && c.children.length > 0) {
+                    const maxGcH = Math.max(...c.children.map(gc =>
+                        labelHForBoxW(gc.name, fontSizeSub, d2W)));
+                    // dikey uzanım + label offset (direction*th/2+6) + güvenlik payı
+                    grandExtra = Math.round(estSubBranchL * sin60) + maxGcH / 2 + 16;
+                }
+                total += ownH + grandExtra;
             });
             if (total > maxTotalH) maxTotalH = total;
         });
@@ -3725,12 +3743,12 @@ function autoLayout() {
         const rawBL = H * 0.40 - (maxDepth - 1) * 8;
         const boneL = Math.min(700, Math.max(boneLenByChildren, rawBL, 120));
 
-        // branchLen: boneLength'in sabit oranı — torun sayısına göre hafifçe büyür
-        const maxGrandN = state.causes.reduce((m, mc) =>
-            mc.children.reduce((m2, c) => Math.max(m2, c.children.length), m), 0);
-        // Temel oran 0.45; her ek torun için küçük artış (maks 0.65)
+        // branchLen: torun sayısına göre branchRatio, VE torunların yatay aralık gereksinimi
+        // Grandchild'lar branchLen üzerinde yatay aralıkta: min X aralığı ≥ d2W * 1.2
+        const minBranchByGrandSpacing = maxGrandN > 0
+            ? Math.ceil(d2W * 1.2 * (maxGrandN + 1)) : 80;
         const branchRatio = Math.min(0.65, 0.45 + maxGrandN * 0.03);
-        const branchL = Math.max(Math.round(boneL * branchRatio), 80);
+        const branchL = Math.max(Math.round(boneL * branchRatio), minBranchByGrandSpacing, 80);
         const subBranchL = Math.max(Math.round(branchL * SUB_RATIO), 45);
 
         return { boneL, branchL, subBranchL };
