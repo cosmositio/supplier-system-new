@@ -2175,6 +2175,15 @@ function runReport(payload) {
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('reportContent').style.display = 'block';
 
+    // Her yeni rapor oluşturulduğunda kaydedilmiş kılçık + aksiyon düzenlemelerini otomatik sıfırla
+    (function() {
+        const r = indexedDB.open(_IDB.name, _IDB.ver);
+        r.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
+        r.onsuccess = e => {
+            try { e.target.result.transaction(_IDB.store,'readwrite').objectStore(_IDB.store).delete(_KR_KEY); } catch(e) {}
+        };
+    })();
+
     const totalH   = rows.reduce((s,r) => s+(Number(r.hataliMiktar)||0), 0);
     const totalRec = rows.length;
     const filters  = payload.filters || {};
@@ -2471,14 +2480,6 @@ function runReport(payload) {
     renderAksiyonTablosu();
     _rebuildAksiyonFromFishbone(); // Balık kılçığı nedenlerini aksiyon planına ekle
     krCheckSaved();
-
-    // ── Kaydedilmiş kılçık + aksiyon düzenlemelerini geri yükle ──
-    _krLoadEdits().then(saved => {
-        if (!saved) return;
-        _krApplyFishboneEdits(saved);
-        _rebuildM6Display();
-        _krApplyAksiyonEdits(saved);
-    });
 
     // ── Enable edit mode if it was on before re-render ──
     if (_editMode) { _editMode = false; toggleEditMode(); }
