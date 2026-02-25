@@ -272,7 +272,7 @@
         <div class="stat-card"><div class="num" id="statClosed"     style="color:#2e7d32">0</div><div class="lbl">Kapalı</div></div>
         <div class="stat-card"><div class="num" id="statInProgress" style="color:#f57c00">0</div><div class="lbl">Devam Eden</div></div>
         <div class="stat-card"><div class="num" id="statOpen"       style="color:#c62828">0</div><div class="lbl">Açık</div></div>
-        <div class="stat-card"><div class="num" id="statSuppliers">0</div><div class="lbl">Tedarikçi</div></div>
+        <div class="stat-card"><div class="num" id="statSuppliers">0</div><div class="lbl">Tedarikçi / Konu</div></div>
     </div>
     <div class="list-container" id="reportListContainer">
         <div class="empty-state"><div class="icon">⏳</div><p>Raporlar yükleniyor...</p></div>
@@ -290,14 +290,31 @@
         <button onclick="closeForm()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:white;padding:7px 14px;border-radius:6px;cursor:pointer;font-weight:600;">← Listeye Dön</button>
     </div>
 
-    <!-- Supplier + Month -->
+    <!-- Source + Supplier/Konu + Month -->
     <div class="form-meta-bar">
+        <!-- KAYNAK -->
         <div>
-            <label>🏭 Tedarikçi Adı *</label>
+            <label>📂 Kaynak</label>
+            <select id="meta_source" onchange="onSourceChange()" style="min-width:190px;">
+                <option value="Tedarikçi">🏭 Tedarikçi (Ana Sayfada Görünür)</option>
+                <option value="Uygunsuzluk">⚠️ Uygunsuzluk Analizi</option>
+                <option value="Balık Kılçığı">🐟 Balık Kılçığı</option>
+                <option value="Genel">📋 Genel / Diğer</option>
+            </select>
+        </div>
+        <!-- TEDARİKÇİ (sadece Tedarikçi kaynağında) -->
+        <div id="meta_supplier_wrap">
+            <label>🏭 Tedarikçi</label>
             <select id="meta_supplier" style="min-width:240px;">
                 <option value="">— Tedarikçi Seçiniz —</option>
             </select>
         </div>
+        <!-- KONU (Tedarikçi dışı kaynaklar için) -->
+        <div id="meta_konu_wrap" style="display:none;">
+            <label>📝 Konu / Başlık</label>
+            <input type="text" id="meta_konu" style="min-width:240px;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95em;" placeholder="Konu veya başlık giriniz...">
+        </div>
+        <!-- AY -->
         <div>
             <label>📅 Ay (Opsiyonel)</label>
             <select id="meta_month">
@@ -310,7 +327,6 @@
                 <option value="11">Kasım</option><option value="12">Aralık</option>
             </select>
         </div>
-        <div style="color:#666;font-size:0.84em;font-style:italic;">* Tedarikçi adı zorunludur</div>
     </div>
 
     <!-- TAB NAV -->
@@ -699,6 +715,16 @@ function loadSupplierList(selectedValue) {
 }
 
 /* ================================================================
+   KAYNAK DEĞİŞTİRME — supplier/konu görünürlüğü
+================================================================ */
+function onSourceChange() {
+    const src        = document.getElementById('meta_source').value;
+    const isSupplier = src === 'Tedarikçi';
+    document.getElementById('meta_supplier_wrap').style.display = isSupplier ? '' : 'none';
+    document.getElementById('meta_konu_wrap').style.display     = isSupplier ? 'none' : '';
+}
+
+/* ================================================================
    ALERT
 ================================================================ */
 let _alertTimer = null;
@@ -737,6 +763,9 @@ function startNewReport() {
     clear8DForm();
     document.getElementById('formTitle').textContent           = '📋 8D RAPOR — Yeni Rapor';
     document.getElementById('meta_month').value                = '';
+    document.getElementById('meta_source').value               = 'Tedarikçi';
+    document.getElementById('meta_konu').value                 = '';
+    onSourceChange();
     document.getElementById('deleteFormBtn').style.display     = 'none';
     loadSupplierList('');
     showFormView(null);
@@ -754,7 +783,11 @@ function openReportForEdit(reportId) {
         populate8DForm(doc);
         loadSupplierList(doc.supplierName || '');
         document.getElementById('meta_month').value            = doc.monthIndex   || '';
-        document.getElementById('formTitle').textContent       = `📋 8D RAPOR — ${doc.supplierName || ''}`;
+        document.getElementById('meta_source').value           = doc.source       || 'Tedarikçi';
+        document.getElementById('meta_konu').value             = doc.konu         || '';
+        onSourceChange();
+        const titleLabel = doc.source === 'Tedarikçi' ? (doc.supplierName || '') : (doc.konu || doc.source || '');
+        document.getElementById('formTitle').textContent       = `📋 8D RAPOR — ${titleLabel}`;
         document.getElementById('deleteFormBtn').style.display = 'inline-block';
         // Kaydedilmiş değerlerle birlikte uygunsuzluk dropdown'larını doldur
         showFormView({
@@ -770,19 +803,23 @@ function openReportForEdit(reportId) {
    SAVE
 ================================================================ */
 async function save8DReport() {
-    const supplierName = document.getElementById('meta_supplier').value.trim();
-    if (!supplierName) {
-        showAlert('⚠️ Tedarikçi adı zorunludur!','error');
+    const source       = document.getElementById('meta_source').value || 'Tedarikçi';
+    const supplierName = source === 'Tedarikçi' ? document.getElementById('meta_supplier').value.trim() : '';
+    const konu         = source !== 'Tedarikçi' ? document.getElementById('meta_konu').value.trim() : '';
+    if (!db) { showAlert('⚠️ Veritabanı hazır değil!','error'); return; }
+    if (source === 'Tedarikçi' && !supplierName) {
+        showAlert('⚠️ Tedarikçi seçiniz!','error');
         document.getElementById('meta_supplier').focus();
         return;
     }
-    if (!db) { showAlert('⚠️ Veritabanı hazır değil!','error'); return; }
 
     const monthVal  = document.getElementById('meta_month').value;
     const v = id => document.getElementById(id)?.value || '';
 
     const reportData = {
         supplierName : supplierName,
+        source       : source,
+        konu         : konu,
         monthIndex   : monthVal ? parseInt(monthVal) : null,
         timestamp    : new Date().toISOString(),
 
@@ -965,7 +1002,7 @@ function renderList(reports) {
     const closed     = reports.filter(r => r.head?.status === 'Closed').length;
     const inProgress = reports.filter(r => r.head?.status === 'In Progress').length;
     const open       = reports.filter(r => r.head?.status === 'Open' || !r.head?.status).length;
-    const suppliers  = new Set(reports.map(r => r.supplierName)).size;
+    const suppliers  = new Set(reports.map(r => (r.source||'Tedarikçi') === 'Tedarikçi' ? r.supplierName : r.source)).size;
 
     document.getElementById('statTotal').textContent      = reports.length;
     document.getElementById('statClosed').textContent     = closed;
@@ -985,18 +1022,27 @@ function renderList(reports) {
         return;
     }
 
-    // Group by supplier
+    // Kaynak ikonu
+    const srcIcon = { 'Tedarikçi':'🏭', 'Uygunsuzluk':'⚠️', 'Balık Kılçığı':'🐟', 'Genel':'📋' };
+
+    // Group key: Tedarikçi raporları supplierName'e göre; diğerleri source'a göre
     const groups = {};
     reports.forEach(r => {
-        const key = r.supplierName || '(Tedarikçi Belirtilmemiş)';
-        (groups[key] = groups[key] || []).push(r);
+        const src = r.source || 'Tedarikçi';
+        const key = src === 'Tedarikçi'
+            ? (r.supplierName || '(Tedarikçi Belirtilmemiş)')
+            : src;
+        (groups[key] = groups[key] || { source: src, items: [] }).items.push(r);
     });
 
     let html = '';
-    Object.keys(groups).sort().forEach(supplier => {
-        const list = groups[supplier].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+    Object.keys(groups).sort().forEach(groupKey => {
+        const group  = groups[groupKey];
+        const src    = group.source;
+        const icon   = srcIcon[src] || '📋';
+        const list   = group.items.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
         html += `<div class="supplier-group">
-            <div class="supplier-header">🏭 ${esc(supplier)} &nbsp;<span style="font-size:0.8em;opacity:0.8;">${list.length} rapor</span></div>
+            <div class="supplier-header">${icon} ${esc(groupKey)} &nbsp;<span style="font-size:0.8em;opacity:0.8;">${list.length} rapor</span></div>
             <div class="supplier-cards">`;
 
         list.forEach(r => {
@@ -1004,25 +1050,28 @@ function renderList(reports) {
             const statusCls = status === 'Closed' ? 'status-closed' : status === 'In Progress' ? 'status-inprogress' : 'status-open';
             const statusIco = status === 'Closed' ? '✓' : status === 'In Progress' ? '◐' : '○';
             const repNo     = r.head?.reportNumber || '—';
-            const title     = r.head?.title        || '—';
+            // Kart başlığı: Tedarikçi'de rapor no, diğerlerinde konu
+            const cardTitle = (r.source && r.source !== 'Tedarikçi') ? (r.konu || repNo) : repNo;
+            const hoverTitle = r.head?.title || '';
             const dateStr   = r.head?.startDate
                 ? new Date(r.head.startDate).toLocaleDateString('tr-TR')
                 : new Date(r.timestamp).toLocaleDateString('tr-TR');
             const monthLbl  = r.monthIndex ? `${r.monthIndex}. Ay` : '';
+            const deleteLabel = escAttr(groupKey);
 
             html += `
             <div class="report-card" onclick="openReportForEdit(${r.id})">
                 <div class="report-card-head">
                     <div>
-                        <div class="report-card-title">${esc(repNo)}</div>
+                        <div class="report-card-title">${esc(cardTitle)}</div>
                         ${monthLbl ? `<div style="font-size:0.8em;color:#888;margin-top:2px;">${esc(monthLbl)}</div>` : ''}
                     </div>
                     <div class="report-card-actions" onclick="event.stopPropagation()">
                         <button class="card-btn" style="background:#2196F3;color:white;" title="Düzenle" onclick="openReportForEdit(${r.id})">✏️</button>
-                        <button class="card-btn" style="background:#f44336;color:white;" title="Sil"     onclick="deleteReportFromList(${r.id},'${escAttr(supplier)}')">🗑️</button>
+                        <button class="card-btn" style="background:#f44336;color:white;" title="Sil"     onclick="deleteReportFromList(${r.id},'${deleteLabel}')">🗑️</button>
                     </div>
                 </div>
-                <div style="font-size:0.87em;color:#555;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(title)}">${esc(title)}</div>
+                ${hoverTitle ? `<div style="font-size:0.87em;color:#555;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(hoverTitle)}">${esc(hoverTitle)}</div>` : ''}
                 <div><span class="status-badge ${statusCls}">${statusIco} ${esc(status)}</span></div>
                 <div style="font-size:0.78em;color:#aaa;border-top:1px solid #eee;padding-top:8px;margin-top:10px;">📅 ${dateStr}</div>
             </div>`;
@@ -1053,6 +1102,10 @@ function switch8DTab(tabName) {
 ================================================================ */
 function clear8DForm() {
     const clearEl = id => { const el = document.getElementById(id); if(el) el.value = ''; };
+    // Kaynak alanını sıfırla
+    const srcEl = document.getElementById('meta_source'); if(srcEl) srcEl.value = 'Tedarikçi';
+    const konuEl = document.getElementById('meta_konu'); if(konuEl) konuEl.value = '';
+    onSourceChange();
     [
         'f8d_reportNumber','f8d_version','f8d_title','f8d_startDate',
         'f8d_subject','f8d_currentDate','f8d_customer','f8d_status',
@@ -1083,6 +1136,10 @@ function clear8DForm() {
 function populate8DForm(data) {
     clear8DForm();
     const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v || ''; };
+    // Kaynak + konu
+    set('meta_source', data.source || 'Tedarikçi');
+    set('meta_konu',   data.konu   || '');
+    onSourceChange();
 
     if (data.head) {
         const h = data.head;
