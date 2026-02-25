@@ -1758,7 +1758,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             'Kapsamlı Rapor': {
                                 icon : '📊',
                                 title: 'Kapsamlı Rapordan Açıldı',
-                                sub  : bKonu || '',
+                                sub  : 'Uygunsuzluk Analizi verisi' + (bKonu ? '  ›  ' + bKonu : ''),
                                 href : 'kapsamli-rapor.html'
                             },
                             'Uygunsuzluk': {
@@ -1811,6 +1811,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     title: 'Uygunsuzluk Analizinden Açıldı',
                     sub  : 'Kayıt: #' + urlKonu,
                     href : 'uygunsuzluk-analizi.html'
+                },
+                'Kapsamlı Rapor': {
+                    icon : '📊',
+                    title: 'Kapsamlı Rapordan Açıldı',
+                    sub  : 'Uygunsuzluk Analizi verisi  ›  ' + urlKonu,
+                    href : 'kapsamli-rapor.html'
                 },
             };
             const bm = bannerMeta[urlSource];
