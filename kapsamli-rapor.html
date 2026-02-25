@@ -152,6 +152,7 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .ic-card.dis .ic-val { color:#c2410c; }
 
 /* ── AKSIYON PLAN TABLE ── */
+.ap-faaliyet-tag { display:inline-block; background:#dbeafe; color:#1e40af; font-size:.7rem; font-weight:600; border-radius:4px; padding:2px 7px; white-space:nowrap; }
 .ap-table { width:100%; border-collapse:collapse; font-size:.82rem; }
 .ap-table th { background:#1e2535; color:#e2e8f0; padding:10px 14px; text-align:left; font-size:.72rem; text-transform:uppercase; letter-spacing:.5px; }
 .ap-table td { padding:10px 14px; border-bottom:1px solid #f1f5f9; }
@@ -501,6 +502,7 @@ body.report-editing [data-ed]:focus {
                         <th>Sorumlu</th>
                         <th>Durum</th>
                         <th>Tamamlanma Tarihi</th>
+                        <th>Faaliyet</th>
                         <th class="no-print"></th>
                     </tr>
                 </thead>
@@ -562,6 +564,27 @@ body.report-editing [data-ed]:focus {
             <div class="ap-field">
                 <label>Tamamlanma Tarihi</label>
                 <input type="date" id="apFTarih">
+            </div>
+            <div class="ap-field">
+                <label>Faaliyet</label>
+                <select id="apFFaaliyet">
+                    <option value="">— Seç —</option>
+                    <option value="5 Neden (5-Why)">5 Neden (5-Why)</option>
+                    <option value="PDCA (Plan-Do-Check-Act)">PDCA (Plan-Do-Check-Act)</option>
+                    <option value="FMEA">FMEA</option>
+                    <option value="8D Raporu">8D Raporu</option>
+                    <option value="A3 Raporu">A3 Raporu</option>
+                    <option value="Kaizen / Sürekli İyileştirme">Kaizen / Sürekli İyileştirme</option>
+                    <option value="DMAIC (Six Sigma)">DMAIC (Six Sigma)</option>
+                    <option value="Pareto Analizi (80/20)">Pareto Analizi (80/20)</option>
+                    <option value="Poka-Yoke (Hata Engelleme)">Poka-Yoke (Hata Engelleme)</option>
+                    <option value="Lean / Değer Akışı (VSM)">Lean / Değer Akışı (VSM)</option>
+                    <option value="SPC / Kontrol Grafikleri">SPC / Kontrol Grafikleri</option>
+                    <option value="TPM (Toplam Verimli Bakım)">TPM (Toplam Verimli Bakım)</option>
+                    <option value="SMED (Hızlı Kalıp Değişimi)">SMED (Hızlı Kalıp Değişimi)</option>
+                    <option value="DoE (Deney Tasarımı)">DoE (Deney Tasarımı)</option>
+                    <option value="Kano Modeli">Kano Modeli</option>
+                </select>
             </div>
             <div class="ap-modal-footer">
                 <button class="ap-modal-cancel" onclick="apCloseModal()">İptal</button>
@@ -1453,6 +1476,7 @@ function renderAksiyonTablosu() {
             <td style="font-size:.8rem;">${esc(a.sorumlu) || '<span style="color:var(--c-sub)">—</span>'}</td>
             <td><span class="durum-pill ${_DURUM_CLASS[a.durum] || 'durum-beklemede'}">${esc(a.durum) || 'Beklemede'}</span></td>
             <td style="font-size:.8rem;">${fmtTarih(a.tarih)}</td>
+            <td style="font-size:.8rem;">${a.faaliyet ? `<span class="ap-faaliyet-tag">${esc(a.faaliyet)}</span>` : '<span style="color:var(--c-sub)">—</span>'}</td>
             <td class="no-print"><div class="ap-actions-col">
                 <button class="ap-btn ap-btn-edit" onclick="apOpenEdit(${i})">✏️ Düzenle</button>
                 <button class="ap-btn ap-btn-del"  onclick="apDelete(${i})">🗑️</button>
@@ -1481,6 +1505,7 @@ function apOpenEdit(idx) {
     document.getElementById('apFSorumlu').value  = a.sorumlu  || '';
     document.getElementById('apFDurum').value    = a.durum    || 'Beklemede';
     document.getElementById('apFTarih').value    = a.tarih    || '';
+    document.getElementById('apFFaaliyet').value = a.faaliyet || '';
     const katSel = document.getElementById('apFKat');
     const katVal = `${a.kat}|${a.katBadge}`;
     let found = false;
@@ -1499,6 +1524,7 @@ function apOpenAdd() {
     document.getElementById('apFDurum').value    = 'Beklemede';
     document.getElementById('apFTarih').value    = '';
     document.getElementById('apFKat').value      = 'Diğer|badge-gray';
+    document.getElementById('apFFaaliyet').value = '';
     document.getElementById('apModal').classList.add('open');
     setTimeout(() => document.getElementById('apFBulgu').focus(), 50);
 }
@@ -1519,7 +1545,8 @@ function apSaveModal() {
 
     if (!bulgu) { document.getElementById('apFBulgu').focus(); return; }
 
-    const entry = { bulgu, kat, katBadge, aksiyon, oncelik, sorumlu, durum, tarih };
+    const faaliyet = document.getElementById('apFFaaliyet').value;
+    const entry = { bulgu, kat, katBadge, aksiyon, oncelik, sorumlu, durum, tarih, faaliyet };
 
     if (_apEditIdx === -1) {
         window._aksiyonlar.push(entry);
