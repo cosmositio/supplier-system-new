@@ -1772,10 +1772,15 @@ function openKapsamliRapor() {
         ? titleParts.join(' · ') + ' — Kalite Raporu'
         : 'Kalite Uygunsuzluk Raporu';
 
+    // Hata tipinden dışlananları çıkar (Hata Tipi Dağılımı sekmesindeki checkbox seçimi)
+    const reportData = excludedHataTipleri.size > 0
+        ? filteredData.filter(r => !excludedHataTipleri.has(r.hataTipi || '(Belirtilmemiş)'))
+        : filteredData;
+
     // Yalnızca raporda kullanılan alanları gönder — localStorage limitini aşmamak için
     const RAPOR_FIELDS = ['hataliMiktar','hataTipi','hataKaynagi','cariAdi','stokAdi',
                           'tespitYeri','tipi','uygunsuzlukTarih','uygunsuzlukTuru','partiHacmi'];
-    const slimRows = filteredData.map(r => {
+    const slimRows = reportData.map(r => {
         const o = {};
         RAPOR_FIELDS.forEach(f => { if (r[f] !== undefined) o[f] = r[f]; });
         return o;
@@ -1786,11 +1791,12 @@ function openKapsamliRapor() {
         title,
         generatedAt: new Date().toISOString(),
         filters: {
-            tarihStart: fTarih1,
-            tarihEnd:   fTarih2,
-            cari:       selectedCari || '',
-            tespitYeri: tespitList,
-            hataTipi:   fHataTipi
+            tarihStart:    fTarih1,
+            tarihEnd:      fTarih2,
+            cari:          selectedCari || '',
+            tespitYeri:    tespitList,
+            hataTipi:      fHataTipi,
+            excludedTypes: [...excludedHataTipleri]
         }
     };
 

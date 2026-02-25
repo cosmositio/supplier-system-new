@@ -1571,6 +1571,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (filters.cari) metaItems.push(`🏢 ${filters.cari}`);
     if (filters.tespitYeri?.length) metaItems.push(`📍 ${filters.tespitYeri.join(', ')}`);
     if (filters.hataTipi) metaItems.push(`🔍 ${filters.hataTipi}`);
+    if (filters.excludedTypes?.length) metaItems.push(`🚫 ${filters.excludedTypes.length} tip hariç tutuldu`);
     metaItems.push(`📊 ${totalRec} kayıt`);
     metaItems.push(`⏱ ${genAt.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} oluşturuldu`);
     document.getElementById('rhMeta').innerHTML = metaItems.map(t=>`<span class="rh-tag">${t}</span>`).join('');
