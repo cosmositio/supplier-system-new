@@ -13511,6 +13511,12 @@
                 
                 // URL'de paylaşılan 8D kontrolü
                 await checkShared8DInUrl();
+
+                // Diğer sayfalardan #8d hash'iyle gelindiyse 8D listesini aç
+                if (window.location.hash === '#8d') {
+                    history.replaceState(null, '', window.location.pathname);
+                    setTimeout(() => show8DReportList(), 600);
+                }
             } catch (e) {
                 console.error('IndexedDB başlatılamadı:', e);
                 showAlert('⚠️ Veri tabanı başlatılamadı, veriler kaydedilemeyebilir!', 'warning');
