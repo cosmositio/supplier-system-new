@@ -1823,8 +1823,9 @@ function _rebuildAksiyonFromFishbone() {
 }
 
 function renderFbEditPanels() {
-    const data = window._fbData;
-    const el   = document.getElementById('fbEditPanels_' + (window._fbActiveIdx ?? 0));
+    const gi   = window._fbActiveIdx ?? 0;
+    const data = window._fbDataArr ? (window._fbDataArr[gi] || window._fbData) : window._fbData;
+    const el   = document.getElementById('fbEditPanels_' + gi);
     if (!el || !data || !data.bones) return;
     const cols = Math.min(data.bones.length || 1, 6);
     el.style.gridTemplateColumns = `repeat(${cols},1fr)`;
@@ -1834,27 +1835,27 @@ function renderFbEditPanels() {
             const cause = fbNorm(c);
             const nm    = cause.name;
             const subs  = cause.subs || [];
-            const subId = `fbSub_${bi}_${ci}`;
+            const subId = `fbSub_${gi}_${bi}_${ci}`;
             const subRows = subs.map((s, si) => {
                 const sub = fbNormSub(s);
-                const ssId = `fbSubSub_${bi}_${ci}_${si}`;
+                const ssId = `fbSubSub_${gi}_${bi}_${ci}_${si}`;
                 const ssRows = (sub.subs || []).map((ss, ssi) => `
                     <div class="fb-sub-row" style="padding-left:16px;font-size:.7rem;background:#f8fafc;">
                         <span style="flex:1;color:#475569;">↳ ${esc(fbNormSub(ss).name)}</span>
-                        <button class="fb-sub-del" title="Alt-alt nedeni sil" onclick="fbDeleteSubSub(${bi},${ci},${si},${ssi})">×</button>
+                        <button class="fb-sub-del" title="Alt-alt nedeni sil" onclick="fbDeleteSubSub(${gi},${bi},${ci},${si},${ssi})">×</button>
                     </div>`).join('');
                 const ssAdd = `
                     <div class="fb-sub-add" style="padding-left:16px;background:#f8fafc;">
-                        <input id="fbSSInp_${bi}_${ci}_${si}" type="text" placeholder="+ Alt-alt neden..."
+                        <input id="fbSSInp_${gi}_${bi}_${ci}_${si}" type="text" placeholder="+ Alt-alt neden..."
                             style="font-size:.7rem;"
-                            onkeydown="if(event.key==='Enter')fbAddSubSubFromInput(${bi},${ci},${si})">
-                        <button onclick="fbAddSubSubFromInput(${bi},${ci},${si})">+</button>
+                            onkeydown="if(event.key==='Enter')fbAddSubSubFromInput(${gi},${bi},${ci},${si})">
+                        <button onclick="fbAddSubSubFromInput(${gi},${bi},${ci},${si})">+</button>
                     </div>`;
                 return `
                 <div class="fb-sub-row">
                     <button class="fb-cause-toggle" style="font-size:.6rem;min-width:12px;height:12px;padding:0;" onclick="fbToggleSubList('${ssId}')" title="Alt-alt nedenler">▶</button>
                     <span style="flex:1">${esc(sub.name)}</span>
-                    <button class="fb-sub-del" title="Alt nedeni sil" onclick="fbDeleteSub(${bi},${ci},${si})">×</button>
+                    <button class="fb-sub-del" title="Alt nedeni sil" onclick="fbDeleteSub(${gi},${bi},${ci},${si})">×</button>
                 </div>
                 <div class="fb-sub-block" id="${ssId}" style="display:none;border-left:2px solid #e2e8f0;margin-left:10px;">
                     ${ssRows}${ssAdd}
@@ -1862,15 +1863,15 @@ function renderFbEditPanels() {
             }).join('');
             const subAdd = `
                 <div class="fb-sub-add">
-                    <input id="fbSubInp_${bi}_${ci}" type="text" placeholder="+ Alt neden..."
-                        onkeydown="if(event.key==='Enter')fbAddSubFromInput(${bi},${ci})">
-                    <button onclick="fbAddSubFromInput(${bi},${ci})">+</button>
+                    <input id="fbSubInp_${gi}_${bi}_${ci}" type="text" placeholder="+ Alt neden..."
+                        onkeydown="if(event.key==='Enter')fbAddSubFromInput(${gi},${bi},${ci})">
+                    <button onclick="fbAddSubFromInput(${gi},${bi},${ci})">+</button>
                 </div>`;
             return `
             <div class="fb-cause-row">
                 <button class="fb-cause-toggle" onclick="fbToggleSubList('${subId}')" title="Alt nedenler">▶</button>
                 <span class="fb-cause-name">${esc(nm)}</span>
-                <button class="fb-cause-del" title="Sil" onclick="fbDeleteCause(${bi},${ci})">×</button>
+                <button class="fb-cause-del" title="Sil" onclick="fbDeleteCause(${gi},${bi},${ci})">×</button>
             </div>
             <div class="fb-sub-block" id="${subId}" style="display:none;">
                 ${subRows}${subAdd}
@@ -1884,9 +1885,9 @@ function renderFbEditPanels() {
             </div>
             <div class="fb-bone-list">${items}</div>
             <div class="fb-bone-add">
-                <input id="fbInp_${bi}" class="fb-add-input" placeholder="+ Ana neden..." type="text"
-                    onkeydown="if(event.key==='Enter')fbAddFromInput(${bi})">
-                <button class="fb-add-btn" style="background:${bone.color};" onclick="fbAddFromInput(${bi})">+</button>
+                <input id="fbInp_${gi}_${bi}" class="fb-add-input" placeholder="+ Ana neden..." type="text"
+                    onkeydown="if(event.key==='Enter')fbAddFromInput(${gi},${bi})">
+                <button class="fb-add-btn" style="background:${bone.color};" onclick="fbAddFromInput(${gi},${bi})">+</button>
             </div>
         </div>`;
     }).join('');
@@ -1904,11 +1905,13 @@ function fbToggleSubList(id) {
     }
 }
 
-function fbAddSubFromInput(bi, ci) {
-    const inp = document.getElementById(`fbSubInp_${bi}_${ci}`);
+function fbAddSubFromInput(gi, bi, ci) {
+    const inp = document.getElementById(`fbSubInp_${gi}_${bi}_${ci}`);
     if (!inp) return;
     const val = inp.value.trim();
     if (!val) { inp.focus(); return; }
+    window._fbActiveIdx = gi;
+    window._fbData = window._fbDataArr[gi] || window._fbData;
     const bone  = window._fbData.bones[bi];
     const cause = fbNorm(bone.causes[ci]);
     cause.subs  = cause.subs || [];
@@ -1919,13 +1922,14 @@ function fbAddSubFromInput(bi, ci) {
     renderFbEditPanels();
     _rebuildM6Display();
     _krSaveEdits();
-    // re-open the sub panel
-    const subId = `fbSub_${bi}_${ci}`;
+    const subId = `fbSub_${gi}_${bi}_${ci}`;
     const el = document.getElementById(subId);
     if (el) el.style.display = 'block';
 }
 
-function fbDeleteSub(bi, ci, si) {
+function fbDeleteSub(gi, bi, ci, si) {
+    window._fbActiveIdx = gi;
+    window._fbData = window._fbDataArr[gi] || window._fbData;
     if (!window._fbData || !window._fbData.bones[bi]) return;
     const bone  = window._fbData.bones[bi];
     const cause = fbNorm(bone.causes[ci]);
@@ -1938,11 +1942,13 @@ function fbDeleteSub(bi, ci, si) {
     _krSaveEdits();
 }
 
-function fbAddSubSubFromInput(bi, ci, si) {
-    const inp = document.getElementById(`fbSSInp_${bi}_${ci}_${si}`);
+function fbAddSubSubFromInput(gi, bi, ci, si) {
+    const inp = document.getElementById(`fbSSInp_${gi}_${bi}_${ci}_${si}`);
     if (!inp) return;
     const val = inp.value.trim();
     if (!val) { inp.focus(); return; }
+    window._fbActiveIdx = gi;
+    window._fbData = window._fbDataArr[gi] || window._fbData;
     const bone  = window._fbData.bones[bi];
     const cause = fbNorm(bone.causes[ci]);
     cause.subs  = cause.subs || [];
@@ -1956,16 +1962,17 @@ function fbAddSubSubFromInput(bi, ci, si) {
     renderFbEditPanels();
     _rebuildM6Display();
     _krSaveEdits();
-    // re-open panels
-    const ssId = `fbSubSub_${bi}_${ci}_${si}`;
+    const ssId = `fbSubSub_${gi}_${bi}_${ci}_${si}`;
     const el   = document.getElementById(ssId);
     if (el) el.style.display = 'block';
-    const subId = `fbSub_${bi}_${ci}`;
+    const subId = `fbSub_${gi}_${bi}_${ci}`;
     const subEl = document.getElementById(subId);
     if (subEl) subEl.style.display = 'block';
 }
 
-function fbDeleteSubSub(bi, ci, si, ssi) {
+function fbDeleteSubSub(gi, bi, ci, si, ssi) {
+    window._fbActiveIdx = gi;
+    window._fbData = window._fbDataArr[gi] || window._fbData;
     if (!window._fbData || !window._fbData.bones[bi]) return;
     const bone  = window._fbData.bones[bi];
     const cause = fbNorm(bone.causes[ci]);
@@ -1981,21 +1988,25 @@ function fbDeleteSubSub(bi, ci, si, ssi) {
     _krSaveEdits();
 }
 
-function fbAddFromInput(bi) {
-    const inp = document.getElementById('fbInp_' + bi);
+function fbAddFromInput(gi, bi) {
+    const inp = document.getElementById(`fbInp_${gi}_${bi}`);
     if (!inp) return;
     const val = inp.value.trim();
     if (!val) { inp.focus(); return; }
+    window._fbActiveIdx = gi;
+    window._fbData = window._fbDataArr[gi] || window._fbData;
     window._fbData.bones[bi].causes.push({name: val, subs: []});
     inp.value = '';
     drawFishbone();
     renderFbEditPanels();
     _rebuildM6Display();
     _krSaveEdits();
-    setTimeout(() => { const i=document.getElementById('fbInp_'+bi); if(i) i.focus(); }, 20);
+    setTimeout(() => { const i=document.getElementById(`fbInp_${gi}_${bi}`); if(i) i.focus(); }, 20);
 }
 
-function fbDeleteCause(bi, ci) {
+function fbDeleteCause(gi, bi, ci) {
+    window._fbActiveIdx = gi;
+    window._fbData = window._fbDataArr[gi] || window._fbData;
     if(!window._fbData || !window._fbData.bones[bi]) return;
     window._fbData.bones[bi].causes.splice(ci, 1);
     drawFishbone();
@@ -2005,7 +2016,8 @@ function fbDeleteCause(bi, ci) {
 }
 
 function fbFocusInput(bi) {
-    const inp = document.getElementById('fbInp_' + bi);
+    const gi  = window._fbActiveIdx ?? 0;
+    const inp = document.getElementById(`fbInp_${gi}_${bi}`);
     if (inp) { inp.scrollIntoView({behavior:'smooth', block:'nearest'}); inp.focus(); }
 }
 
