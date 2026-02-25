@@ -1971,10 +1971,41 @@ function openKapsamliRapor() {
         return o;
     });
 
+    // Pareto grupları hesapla — her grup için ayrı fishbone
+    const _pgMetric = document.getElementById('paretoMetric').value;
+    const _pgTopN   = parseInt(document.getElementById('paretoTop').value);
+    const _pgThresh = parseInt(document.getElementById('paretoThreshold').value);
+    const _pgKey    = document.getElementById('paretoGroup').value;
+    const _pgAgg    = {};
+    reportData.forEach(r => {
+        const k = r[_pgKey] || '(Belirtilmemiş)';
+        if (!_pgAgg[k]) _pgAgg[k] = { count: 0, hatali: 0 };
+        _pgAgg[k].count++;
+        _pgAgg[k].hatali += Number(r.hataliMiktar) || 0;
+    });
+    let _pgEntries = Object.entries(_pgAgg).map(([k,v]) => ({
+        label: k, value: _pgMetric === 'hataliMiktar' ? v.hatali : v.count, count: v.count, hatali: v.hatali
+    })).sort((a,b) => b.value - a.value);
+    const _pgTopSlice = _pgTopN < _pgEntries.length ? _pgEntries.slice(0, _pgTopN) : _pgEntries;
+    const _pgTotal    = _pgTopSlice.reduce((s,e) => s + e.value, 0);
+    let _pgCum = 0, _pgCut = _pgTopSlice.length;
+    for (let _i = 0; _i < _pgTopSlice.length; _i++) {
+        _pgCum += _pgTopSlice[_i].value;
+        if ((_pgCum / (_pgTotal || 1)) * 100 >= _pgThresh) { _pgCut = _i + 1; break; }
+    }
+    const paretoGroups = _pgTopSlice.slice(0, _pgCut).map(e => {
+        const gRows = reportData.filter(r => (r[_pgKey] || '(Belirtilmemiş)') === e.label);
+        const slim2 = gRows.map(r => { const o = {}; RAPOR_FIELDS.forEach(f => { if (r[f] !== undefined) o[f] = r[f]; }); return o; });
+        return { label: e.label, totalHatali: e.hatali, count: e.count, pct: +(e.value / (_pgTotal || 1) * 100).toFixed(1), groupRows: slim2 };
+    });
+
     const payload = {
         rows: slimRows,
         title,
         generatedAt: new Date().toISOString(),
+        paretoGroups,
+        paretoGroupKey:  _pgKey,
+        paretoThreshold: _pgThresh,
         filters: {
             tarihStart:    fTarih1,
             tarihEnd:      fTarih2,

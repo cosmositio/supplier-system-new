@@ -173,6 +173,14 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 
 /* ── FISHBONE ── */
 .fb-section { margin-top:28px; border-top:1.5px solid #e2e8f0; padding-top:20px; }
+/* ── Multi-Fishbone Group Cards ── */
+.fb-group-card { border:1.5px solid #e2e8f0; border-radius:12px; margin-bottom:28px; overflow:hidden; background:#fff; }
+.fb-group-hdr  { display:flex; align-items:center; gap:12px; padding:14px 20px; background:linear-gradient(90deg,#f8fafc,#f1f5f9); border-bottom:1.5px solid #e2e8f0; flex-wrap:wrap; }
+.fb-group-rank { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; background:#2563eb; color:#fff; font-weight:800; font-size:.85rem; flex-shrink:0; }
+.fb-group-name { font-weight:700; font-size:.95rem; color:#1e2535; flex:1; min-width:80px; }
+.fb-group-badge2 { padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#eff6ff; color:#1d4ed8; }
+.fb-group-table { padding:16px 20px 20px; border-top:1.5px solid #f1f5f9; background:#fafbfc; }
+.fb-group-table h4 { font-size:.82rem; font-weight:700; color:#475569; margin:0 0 10px; }
 .fb-header  { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
 .fb-effect-tag { background:#fef2f2; color:#b91c1c; border:1.5px solid #fca5a5; border-radius:20px; padding:3px 14px; font-size:.75rem; font-weight:700; max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fb-svg-wrap { background:#f8fafc; border-radius:12px; border:1.5px solid #e2e8f0; overflow-x:auto; }
@@ -471,18 +479,8 @@ body.report-editing [data-ed]:focus {
                 <div class="chart-wrap" style="min-height:260px;"><canvas id="c6M" height="260"></canvas></div>
                 <div id="m6Detail"></div>
             </div>
-            <!-- FISHBONE -->
-            <div class="fb-section" id="fbSection">
-                <div class="fb-header">
-                    <span style="font-weight:700;font-size:.9rem;color:#1e2535;">🐟 Balık Kılçığı Diyagramı — 6M</span>
-                    <span class="fb-effect-tag" id="fbEffectTag"></span>
-                    <button class="ap-btn ap-btn-edit no-print" onclick="fbEditEffect()">✏️ Başlık</button>
-                    <span id="krSaveInd" style="font-size:.72rem;color:#16a34a;margin-left:6px;opacity:0;transition:opacity .4s;">✔ Kaydedildi</span>
-                    <span style="font-size:.75rem;color:#64748b;margin-left:auto;">6 kemik: İnsan · Makine · Malzeme · Metot · Ölçüm · Ortam</span>
-                </div>
-                <div class="fb-svg-wrap" id="fbContainer"></div>
-                <div class="fb-edit-panels no-print" id="fbEditPanels"></div>
-            </div>
+            <!-- FISHBONE — Pareto gruplarına göre çoklu kılçık -->
+            <div id="multiFbSection" style="margin-top:20px;"></div>
         </div>
     </div>
 
@@ -844,6 +842,12 @@ function _destroyCharts() {
 }
 
 // ── EDIT MODE ──
+window._fbDataArr   = [];
+window._fbActiveIdx = 0;
+function _fbActivate(idx) {
+    window._fbActiveIdx = idx;
+    window._fbData = window._fbDataArr[idx] || window._fbData;
+}
 let _editMode = false;
 function toggleEditMode() {
     _editMode = !_editMode;
@@ -1363,11 +1367,97 @@ function rebuildFishboneData() {
 // kept for backward compat
 function switchFbPareto(pct, btn) { rebuildFishboneData(); }
 
-function drawFishbone() {
+// —— Çoklu fishbone: Pareto gruplarına göre her hata tipi için ayrı balık kılçığı ——
+function renderMultipleFishbones(groups, allRows) {
+    window._fbDataArr = [];
+    // Grup yoksa tüm veriyle tek fishbone
+    const effectiveGroups = (groups && groups.length)
+        ? groups
+        : [{ label: window._fbEffect || 'Ana Kalite Problemi',
+             groupRows: allRows,
+             totalHatali: allRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0),
+             count: allRows.length, pct: 100 }];
+
+    // Her grup için fbData oluştur
+    effectiveGroups.forEach(g => {
+        const rows   = g.groupRows || allRows;
+        const m6data = classify6M(rows);
+        const totalH = rows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0) || 1;
+        const bones  = FB_6M.map(b => {
+            const items  = m6data[b.key] || [];
+            const causes = items.slice(0, 5).map(e => ({ name: e.name, subs: [] }));
+            const h      = items.reduce((s,e) => s + e.h, 0);
+            const pct    = +(h / totalH * 100).toFixed(1);
+            return { key: b.key, label: b.label, color: b.color, pos: b.pos, causes, pct, cumPct: 0 };
+        });
+        window._fbDataArr.push({ effect: g.label, bones });
+    });
+
+    window._fbActiveIdx = 0;
+    window._fbData      = window._fbDataArr[0] || { effect: '', bones: [] };
+
+    const container = document.getElementById('multiFbSection');
+    if (!container) return;
+
+    container.innerHTML = effectiveGroups.map((g, i) => {
+        const rows     = g.groupRows || allRows;
+        const topRows  = [...rows].sort((a,b) => (Number(b.hataliMiktar)||0) - (Number(a.hataliMiktar)||0)).slice(0, 20);
+        const tableBody = topRows.map(r => `
+            <tr>
+                <td>${esc(r.uygunsuzlukTarih||'\u2014')}</td>
+                <td>${esc(r.cariAdi||'\u2014')}</td>
+                <td>${esc(r.hataKaynagi||'\u2014')}</td>
+                <td style="text-align:right;font-weight:700;">${fmtN(Number(r.hataliMiktar)||0)}</td>
+                <td>${esc(r.tespitYeri||'\u2014')}</td>
+            </tr>`).join('');
+        return `
+        <div class="fb-group-card" id="fbGroup_${i}">
+            <div class="fb-group-hdr">
+                <span class="fb-group-rank">${i + 1}</span>
+                <span class="fb-group-name">${esc(g.label)}</span>
+                <span class="fb-group-badge2">🔴 ${fmtN(g.totalHatali)} adet</span>
+                <span class="fb-group-badge2">📋 ${g.count} kayıt</span>
+                <span class="fb-group-badge2">%${g.pct}</span>
+            </div>
+            <div class="fb-section" onmousedown="_fbActivate(${i})">
+                <div class="fb-header">
+                    <span style="font-weight:700;font-size:.9rem;color:#1e2535;">🐟 Balık Kılçığı — ${esc(g.label)}</span>
+                    <span style="font-size:.75rem;color:#64748b;margin-left:auto;">6 kemik: İnsan · Makine · Malzeme · Metot · Ölçüm · Ortam</span>
+                </div>
+                <div class="fb-svg-wrap" id="fbContainer_${i}"></div>
+                <div class="fb-edit-panels no-print" id="fbEditPanels_${i}"></div>
+            </div>
+            <div class="fb-group-table">
+                <h4>📋 ${esc(g.label)} — En Yüksek Hatalı Miktar (ilk ${Math.min(20, rows.length)} kayıt)</h4>
+                <div style="overflow-x:auto;">
+                <table class="ap-table" style="font-size:.78rem;">
+                    <thead><tr>
+                        <th>Tarih</th><th>Cari</th><th>Hata Kaynağı</th>
+                        <th style="text-align:right;">Hatalı Miktar</th><th>Tespit Yeri</th>
+                    </tr></thead>
+                    <tbody>${tableBody}</tbody>
+                </table>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    // Tüm fishbone'ları çiz
+    effectiveGroups.forEach((_, i) => {
+        window._fbActiveIdx = i;
+        window._fbData      = window._fbDataArr[i];
+        drawFishbone();
+        renderFbEditPanels();
+    });
+    // İlk fishbone aktif kalsın
+    window._fbActiveIdx = 0;
+    window._fbData      = window._fbDataArr[0];
+}
     const data = window._fbData;
     if (!data || !data.bones || !data.bones.length) {
-        document.getElementById('fbContainer').innerHTML =
-            '<div style="padding:40px;text-align:center;color:#94a3b8;">Pareto eşiğinde hata tipi bulunamadı.</div>';
+        const _cid = 'fbContainer_' + (window._fbActiveIdx ?? 0);
+        const _cel = document.getElementById(_cid);
+        if (_cel) _cel.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;">Bu kategori için veri bulunamadı.</div>';
         return;
     }
     const {W, H, SY, SS, SE, L, A, TPOS} = _FB;
@@ -1578,7 +1668,7 @@ function drawFishbone() {
     const tag = document.getElementById('fbEffectTag');
     if(tag) tag.textContent = data.effect || 'Ana Problem';
 
-    document.getElementById('fbContainer').innerHTML =
+    document.getElementById('fbContainer_' + (window._fbActiveIdx ?? 0)).innerHTML =
         `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%"
             style="display:block;min-width:740px;">${p.join('')}</svg>`;
 }
@@ -1687,7 +1777,9 @@ function _rebuildAksiyonFromFishbone() {
     // Remove auto-generated fishbone rows (keep rows user manually edited — they won't have _fbSource)
     window._aksiyonlar = window._aksiyonlar.filter(a => !a._fbSource);
 
-    const fbBones = (window._fbData && window._fbData.bones) ? window._fbData.bones : [];
+    const fbBones = (window._fbDataArr && window._fbDataArr.length)
+        ? window._fbDataArr.flatMap(fd => fd.bones || [])
+        : (window._fbData && window._fbData.bones) ? window._fbData.bones : [];
     const newEntries = [];
     fbBones.forEach(bone => {
         const bLabel = bone.label || bone.key;
@@ -1730,7 +1822,7 @@ function _rebuildAksiyonFromFishbone() {
 
 function renderFbEditPanels() {
     const data = window._fbData;
-    const el   = document.getElementById('fbEditPanels');
+    const el   = document.getElementById('fbEditPanels_' + (window._fbActiveIdx ?? 0));
     if (!el || !data || !data.bones) return;
     const cols = Math.min(data.bones.length || 1, 6);
     el.style.gridTemplateColumns = `repeat(${cols},1fr)`;
