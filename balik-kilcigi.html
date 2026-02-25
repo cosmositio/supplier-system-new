@@ -4442,7 +4442,7 @@ function renderFishboneRecordList(records) {
     }).join('');
 }
 
-async function loadFishboneRecord(recordId) {
+async async function loadFishboneRecord(recordId) {
     try {
         const db  = await openFishboneDB();
         const tx  = db.transaction([FB_STORE], 'readonly');
@@ -4456,6 +4456,7 @@ async function loadFishboneRecord(recordId) {
             document.getElementById('problemDesc').value  = state.problemDesc || '';
             initActionPlan();
             render();
+            renderActionPlan();
             checkFishbone8DSaved();
             autoSave();
             closeFishboneRecords();
@@ -4463,6 +4464,7 @@ async function loadFishboneRecord(recordId) {
         };
         req.onerror = () => showNotification('❌ Yükleme başarısız!', 'error');
     } catch(e) {
+        console.error('loadFishboneRecord error:', e);
         showNotification('❌ Veritabanı hatası!', 'error');
     }
 }
