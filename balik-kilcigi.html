@@ -1450,7 +1450,7 @@
                             <th style="width:7%">Katkı %</th>
                             <th style="width:16%">Çözüm Yöntemi</th>
                             <th style="width:9%">Durum</th>
-                            <th style="width:5%">8D</th>
+                            <th style="width:5%">Faaliyet</th>
                             <th style="width:3%"></th>
                         </tr>
                     </thead>
@@ -4911,6 +4911,18 @@ function updateActionRow(apId, field, value) {
         const barNum = document.getElementById('apBarNum_' + apId);
         if (barNum) barNum.textContent = row.contribution + '%';
     }
+    // Method değiştiğinde Faaliyet sütununu güncelle (8D butonu göster/gizle)
+    if (field === 'method') {
+        const tr = document.querySelector(`tr[data-apid="${apId}"]`);
+        if (tr) {
+            const faaliyetCell = tr.querySelector('.ap-faaliyet-cell');
+            if (faaliyetCell) {
+                faaliyetCell.innerHTML = value === '8d'
+                    ? `<button class="btn-8d-ap" onclick="open8DForActionRow()" title="8D Raporu Aç">📋 8D</button>`
+                    : '';
+            }
+        }
+    }
 }
 
 // Aksiyon planındaki manuel satırı kılçık diyagramına ekler
@@ -5057,8 +5069,8 @@ function renderActionPlan() {
                     ${statusOptions}
                 </select>
             </td>
-            <td style="text-align:center;">
-                <button class="btn-8d-ap" onclick="open8DForActionRow()" title="8D Raporu Aç">📋</button>
+            <td style="text-align:center;" class="ap-faaliyet-cell">
+                ${row.method === '8d' ? `<button class="btn-8d-ap" onclick="open8DForActionRow()" title="8D Raporu Aç">📋 8D</button>` : ''}
             </td>
             <td>
                 <button class="ap-del-btn" onclick="deleteActionRow(${row.apId})" title="Sil">
