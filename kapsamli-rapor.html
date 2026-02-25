@@ -1344,6 +1344,83 @@ function drawFishbone() {
             style="display:block;min-width:740px;">${p.join('')}</svg>`;
 }
 
+// Fishbone'da eklenen nedenler / alt nedenler → m6Grid + m6Detail güncelle
+function _rebuildM6Display() {
+    const m6       = window._m6Data;
+    const M6_META  = window._M6_META;
+    const m6Order  = window._m6Order;
+    if (!m6 || !M6_META || !m6Order) return;
+
+    // Fishbone kemiklerinden ekstra öğeler topla
+    const fbBones  = (window._fbData && window._fbData.bones) ? window._fbData.bones : [];
+    const fbByKey  = {};
+    fbBones.forEach(b => {
+        fbByKey[b.key] = [];
+        (b.causes || []).forEach(rawCause => {
+            const cause = fbNorm(rawCause);
+            fbByKey[b.key].push({ name: cause.name, isSub: false });
+            (cause.subs || []).forEach(sub => fbByKey[b.key].push({ name: sub, isSub: true }));
+        });
+    });
+
+    // m6Grid kartları
+    const m6GridEl = document.getElementById('m6Grid');
+    if (m6GridEl) {
+        m6GridEl.innerHTML = m6Order.map(k => {
+            const meta  = M6_META[k];
+            const items = m6[k];
+            const total = items.reduce((s,e)=>s+e.h, 0);
+            const m6Names = new Set(items.map(e=>e.name.toLowerCase()));
+            const fbExtras = (fbByKey[k] || []).filter(r => !m6Names.has(r.name.toLowerCase()));
+            const m6ListHtml = items.slice(0,3).map(e=>`• ${truncate(e.name,26)} (%${e.pct})`).join('<br>')
+                || '<span style="color:#bbb;">Sınıflandırılan kayıt yok</span>';
+            const fbListHtml = fbExtras.map(r =>
+                `<div style="font-size:.68rem;color:${r.isSub?'#94a3b8':'#64748b'};padding-left:${r.isSub?'10px':'2px'};">${r.isSub?'↳':'›'} ${truncate(r.name,26)}</div>`
+            ).join('');
+            return `<div class="m6-card" style="border-color:${meta.borderColor};background:${meta.color}18;">
+                <div class="m6-title" style="color:${meta.color}">${meta.label}</div>
+                <div class="m6-val" style="color:${meta.color}">${fmtN(total)}</div>
+                <div style="font-size:.7rem;color:var(--c-sub);margin-bottom:8px;">${meta.desc}</div>
+                <div class="m6-list">${m6ListHtml}${fbListHtml ? '<div style="border-top:1px solid #e2e8f0;margin:4px 0;"></div>'+fbListHtml : ''}</div>
+            </div>`;
+        }).join('');
+    }
+
+    // m6Detail sağ liste
+    const m6DetailEl = document.getElementById('m6Detail');
+    if (!m6DetailEl) return;
+    let html = '<div style="font-size:.82rem;">';
+    m6Order.forEach(k => {
+        const meta  = M6_META[k];
+        const items = m6[k];
+        const m6Names = new Set(items.map(e=>e.name.toLowerCase()));
+        const fbExtras = (fbByKey[k] || []).filter(r => !m6Names.has(r.name.toLowerCase()));
+        if (!items.length && !fbExtras.length) return;
+        html += `<div style="margin-bottom:14px;">
+            <div class="ed" style="font-weight:700;color:${meta.color};margin-bottom:6px;">${meta.label}</div>`;
+        items.slice(0,5).forEach(e => {
+            const w = Math.min(Math.round(e.pct*2), 100);
+            html += `<div style="margin-bottom:4px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                    <span class="ed">${truncate(e.name,32)}</span>
+                    <span class="ed" style="color:var(--c-sub);">%${e.pct}</span>
+                </div>
+                <div class="prog-bar"><div class="prog-fill" style="width:${w}%;background:${meta.color};"></div></div>
+            </div>`;
+        });
+        if (fbExtras.length) {
+            html += `<div style="border-top:1px solid #e2e8f0;margin:6px 0 4px;"></div>`;
+            fbExtras.forEach(r => {
+                html += `<div style="margin-bottom:3px;padding-left:${r.isSub?'14px':'4px'};font-size:.76rem;color:${r.isSub?'#94a3b8':'#475569'};"
+                    >${r.isSub?'↳':'›'} ${truncate(r.name,32)}</div>`;
+            });
+        }
+        html += '</div>';
+    });
+    html += '</div>';
+    m6DetailEl.innerHTML = html;
+}
+
 function renderFbEditPanels() {
     const data = window._fbData;
     const el   = document.getElementById('fbEditPanels');
@@ -1419,6 +1496,7 @@ function fbAddSubFromInput(bi, ci) {
     inp.value = '';
     drawFishbone();
     renderFbEditPanels();
+    _rebuildM6Display();
     // re-open the sub panel
     const subId = `fbSub_${bi}_${ci}`;
     const el = document.getElementById(subId);
@@ -1434,6 +1512,7 @@ function fbDeleteSub(bi, ci, si) {
     bone.causes[ci] = cause;
     drawFishbone();
     renderFbEditPanels();
+    _rebuildM6Display();
 }
 
 function fbAddFromInput(bi) {
@@ -1445,6 +1524,7 @@ function fbAddFromInput(bi) {
     inp.value = '';
     drawFishbone();
     renderFbEditPanels();
+    _rebuildM6Display();
     setTimeout(() => { const i=document.getElementById('fbInp_'+bi); if(i) i.focus(); }, 20);
 }
 
@@ -1453,6 +1533,7 @@ function fbDeleteCause(bi, ci) {
     window._fbData.bones[bi].causes.splice(ci, 1);
     drawFishbone();
     renderFbEditPanels();
+    _rebuildM6Display();
 }
 
 function fbFocusInput(bi) {
@@ -1827,6 +1908,10 @@ window.addEventListener('DOMContentLoaded', () => {
         ortam:   { label:'🌡️ Ortam',  color:'#22c55e', borderColor:'#86efac', desc:'Sevkiyat, depolama, çevre' },
     };
     const m6Order = ['insan','makine','malzeme','metot','olcum','ortam'];
+    // globals so _rebuildM6Display() can re-read them later
+    window._m6Data  = m6;
+    window._M6_META = M6_META;
+    window._m6Order = m6Order;
     document.getElementById('m6Grid').innerHTML = m6Order.map(k => {
         const meta = M6_META[k];
         const items = m6[k];
@@ -1920,6 +2005,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // ── FISHBONE (6M) ──
     initFishbone(rows, htData, window._fbEffect || 'Ana Kalite Problemi');
+    _rebuildM6Display(); // fishbone nedenlerini kart + liste’ye ekle
 
     // ── TREND ──
     const trend = buildTrend(rows);
