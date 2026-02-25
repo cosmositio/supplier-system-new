@@ -444,16 +444,10 @@ body.report-editing [data-ed]:focus {
             <!-- FISHBONE -->
             <div class="fb-section" id="fbSection">
                 <div class="fb-header">
-                    <span style="font-weight:700;font-size:.9rem;color:#1e2535;">🐟 Balık Kılçığı Diyagramı</span>
+                    <span style="font-weight:700;font-size:.9rem;color:#1e2535;">🐟 Balık Kılçığı Diyagramı — 6M</span>
                     <span class="fb-effect-tag" id="fbEffectTag"></span>
                     <button class="ap-btn ap-btn-edit no-print" onclick="fbEditEffect()">✏️ Başlık</button>
-                    <div class="fb-par-bar no-print" style="display:flex;align-items:center;gap:6px;margin-left:auto;">
-                        <span style="font-size:.75rem;font-weight:700;color:#64748b;">Pareto Eşiği:</span>
-                        <button class="fb-par-tab active" onclick="switchFbPareto(80,this)">80/20</button>
-                        <button class="fb-par-tab" onclick="switchFbPareto(70,this)">70/30</button>
-                        <button class="fb-par-tab" onclick="switchFbPareto(60,this)">60/40</button>
-                        <button class="fb-par-tab" onclick="switchFbPareto(90,this)">90/10</button>
-                    </div>
+                    <span style="font-size:.75rem;color:#64748b;margin-left:auto;">6 kemik: İnsan · Makine · Malzeme · Metot · Ölçüm · Ortam</span>
                 </div>
                 <div class="fb-svg-wrap" id="fbContainer"></div>
                 <div class="fb-edit-panels no-print" id="fbEditPanels"></div>
@@ -631,14 +625,21 @@ function toggleEditMode() {
         '.ic-card h3', '.ic-card .ic-val',
         '.m6-card .m6-title', '.m6-card .m6-val', '.m6-card .m6-list',
         '.id-panel-title',
-        '.ed',                        // pareto table name/value cells
+        '.ed',                        // all .ed spans / divs across tables
         '#icDisTable td', '#icDisTable th',
-        '#tedarikciTable .ed',
-        '#malzemeTable .ed',
-        '#musteriTable .ed',
-        '#hataTipiTable .ed',
-        '#icBreakTable td', '#disBreakTable td',
-        '#m6Detail td',
+        '#tedarikciTable td', '#tedarikciTable th',
+        '#malzemeTable td',  '#malzemeTable th',
+        '#musteriTable td',  '#musteriTable th',
+        '#hataTipiTable td', '#hataTipiTable th',
+        '#idBreakContainer td', '#idBreakContainer th',
+        '#icBreakTable td',  '#icBreakTable th',
+        '#disBreakTable td', '#disBreakTable th',
+        '#m6Detail div',
+        '.m6-card',
+        '.ap-table td', '.ap-table th',
+        '.rep-table td', '.rep-table th',
+        '.kpi-row span', '.kpi-row td',
+        'h1.rh-title', '.rh-sub', '.rh-period',
     ];
 
     document.querySelectorAll(SEL.join(',')).forEach(el => {
@@ -1078,44 +1079,43 @@ const _FB = {
     L:210, A:50,
     TPOS:[0.15, 0.32, 0.50, 0.67, 0.84],
 };
-const FB_COLORS = ['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#06b6d4','#22c55e',
-                   '#ec4899','#f97316','#6366f1','#14b8a6','#dc2626','#65a30d'];
+
+// Fixed 6M bones
+const FB_6M = [
+    { key:'insan',   label:'İnsan',   color:'#ef4444', pos:'top'    },
+    { key:'makine',  label:'Makine',  color:'#f59e0b', pos:'bottom' },
+    { key:'malzeme', label:'Malzeme', color:'#3b82f6', pos:'top'    },
+    { key:'metot',   label:'Metot',   color:'#8b5cf6', pos:'bottom' },
+    { key:'olcum',   label:'Ölçüm',   color:'#06b6d4', pos:'top'    },
+    { key:'ortam',   label:'Ortam',   color:'#22c55e', pos:'bottom' },
+];
 
 // ── Public entry point (called once on data load) ──
-function initFishbone(rows, htData, effectLabel) {
-    window._fbRows      = rows;
-    window._fbHtData    = htData;
-    window._fbEffect    = effectLabel || 'Ana Kalite Problemi';
-    window._fbThreshold = window._fbThreshold || 80;
+function initFishbone(rows, _htData, effectLabel) {
+    window._fbRows   = rows;
+    window._fbEffect = effectLabel || 'Ana Kalite Problemi';
     rebuildFishboneData();
 }
 
-// ── Re-build bones from current threshold ──
+// ── Re-build 6M bones from current rows ──
 function rebuildFishboneData() {
-    const rows      = window._fbRows    || [];
-    const htData    = window._fbHtData  || [];
-    const threshold = window._fbThreshold || 80;
+    const rows   = window._fbRows || [];
+    const m6data = classify6M(rows);          // {insan:[], makine:[], ...}
 
-    // Select hata tipleri within cumPct <= threshold; always at least top-2, cap 12
-    let selected = htData.filter(e => (e.cumPct || 0) <= threshold);
-    if (selected.length < 2) selected = htData.slice(0, Math.min(2, htData.length));
-    if (selected.length > 12) selected = selected.slice(0, 12);
+    // Aggregate totals per category for % badge
+    const totalH = rows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
+    const m6Vals = {};
+    FB_6M.forEach(b => {
+        m6Vals[b.key] = m6data[b.key].reduce((s,e)=>s+e.h,0);
+    });
 
-    // Build per-bone data
-    const bones = selected.map((ht, i) => {
-        const pos   = (i % 2 === 0) ? 'top' : 'bottom';
-        const color = FB_COLORS[i % FB_COLORS.length];
-
-        // Ribs = top tedarikçiler (cariAdi) for this hata tipi
-        const htRows = rows.filter(r => (r.hataTipi||'').trim() === ht.name.trim());
-        const byTed  = {};
-        htRows.forEach(r => {
-            const v = (r.cariAdi||'').trim(); if(!v) return;
-            byTed[v] = (byTed[v]||0) + (Number(r.hataliMiktar)||0);
-        });
-        const causes = Object.entries(byTed).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k);
-
-        return { key:'ht_'+i, label:ht.name, color, pos, causes, pct:ht.pct||0, cumPct:ht.cumPct||0 };
+    const bones = FB_6M.map(b => {
+        const items  = m6data[b.key] || [];
+        // Ribs = top-5 by hatalı miktar
+        const causes = items.slice(0,5).map(e=>e.name);
+        const h      = m6Vals[b.key];
+        const pct    = +(h/totalH*100).toFixed(1);
+        return { key:b.key, label:b.label, color:b.color, pos:b.pos, causes, pct, cumPct:0 };
     });
 
     window._fbData = { effect: window._fbEffect, bones };
@@ -1123,13 +1123,8 @@ function rebuildFishboneData() {
     renderFbEditPanels();
 }
 
-// ── Switch Pareto threshold ──
-function switchFbPareto(pct, btn) {
-    window._fbThreshold = pct;
-    document.querySelectorAll('.fb-par-tab').forEach(b => b.classList.remove('active'));
-    if(btn) btn.classList.add('active');
-    rebuildFishboneData();
-}
+// kept for backward compat (Pareto tabs removed)
+function switchFbPareto(pct, btn) { rebuildFishboneData(); }
 
 function drawFishbone() {
     const data = window._fbData;
@@ -1685,8 +1680,8 @@ window.addEventListener('DOMContentLoaded', () => {
     m6DetailHtml += '</div>';
     document.getElementById('m6Detail').innerHTML = m6DetailHtml || '<span style="color:var(--c-sub);">hataKaynagi alanı dolu kayıt bulunamadı.</span>';
 
-    // ── FISHBONE ──
-    initFishbone(rows, htData, htData[0]?.name || 'Ana Kalite Problemi');
+    // ── FISHBONE (6M) ──
+    initFishbone(rows, htData, window._fbEffect || 'Ana Kalite Problemi');
 
     // ── TREND ──
     const trend = buildTrend(rows);

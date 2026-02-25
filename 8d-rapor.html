@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>8D Rapor Arşivi</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+
+        /* ── Header ─────────────────────────────────────── */
+        .header {
+            background: linear-gradient(135deg, #1a3a8a 0%, #2563eb 100%);
+            color: white;
+            padding: 20px 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .header h1 { font-size: 1.6em; display: flex; align-items: center; gap: 10px; }
+        .header p  { font-size: 0.9em; opacity: 0.85; margin-top: 4px; }
+
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.35); }
+
+        /* ── Container ───────────────────────────────────── */
+        .container {
+            max-width: 1400px;
+            margin: 24px auto;
+            padding: 0 20px;
+        }
+
+        /* ── Stats Bar ───────────────────────────────────── */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .stat-card .number { font-size: 2em; font-weight: 700; color: #1a3a8a; }
+        .stat-card .label  { color: #666; font-size: 0.85em; margin-top: 5px; }
+        .stat-card.green .number  { color: #22c55e; }
+        .stat-card.orange .number { color: #f59e0b; }
+        .stat-card.red .number    { color: #ef4444; }
+
+        /* ── Toolbar ─────────────────────────────────────── */
+        .toolbar {
+            background: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        .toolbar input, .toolbar select {
+            padding: 9px 14px;
+            border: 1.5px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.95em;
+            flex: 1;
+            min-width: 180px;
+            transition: border-color 0.2s;
+        }
+        .toolbar input:focus, .toolbar select:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+        .toolbar .count-badge {
+            background: #1a3a8a;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .new-btn {
+            background: linear-gradient(135deg, #1a3a8a 0%, #2563eb 100%);
+            color: white;
+            padding: 9px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .new-btn:hover { opacity: 0.9; transform: scale(1.02); }
+
+        /* ── Empty State ─────────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .empty-state .icon { font-size: 4em; margin-bottom: 16px; }
+        .empty-state h3 { color: #374151; font-size: 1.2em; margin-bottom: 8px; }
+        .empty-state p  { color: #6b7280; font-size: 0.9em; }
+
+        /* ── Loading ─────────────────────────────────────── */
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Supplier Group ──────────────────────────────── */
+        .supplier-group {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .supplier-header {
+            background: linear-gradient(135deg, #1a3a8a 0%, #2563eb 100%);
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .supplier-header h3 { font-size: 1.1em; font-weight: 700; }
+        .supplier-header .badge {
+            background: rgba(255,255,255,0.25);
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-size: 0.82em;
+        }
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+            gap: 15px;
+            padding: 18px;
+        }
+
+        /* ── Report Card ─────────────────────────────────── */
+        .report-card {
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px;
+            background: #f9fafb;
+            cursor: pointer;
+            transition: all 0.25s;
+            position: relative;
+        }
+        .report-card:hover {
+            border-color: #2563eb;
+            box-shadow: 0 4px 12px rgba(37,99,235,0.15);
+            transform: translateY(-2px);
+            background: white;
+        }
+        .report-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .month-badge {
+            background: #2563eb;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.82em;
+            font-weight: 700;
+        }
+        .status-pill {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.78em;
+            font-weight: 700;
+        }
+        .status-open     { background: #fee2e2; color: #dc2626; }
+        .status-progress { background: #fef3c7; color: #d97706; }
+        .status-closed   { background: #d1fae5; color: #16a34a; }
+
+        .report-card h4 {
+            font-size: 0.95em;
+            color: #1f2937;
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .report-meta { font-size: 0.82em; color: #6b7280; line-height: 1.7; }
+        .report-meta strong { color: #374151; }
+
+        .card-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .card-btn {
+            flex: 1;
+            padding: 6px 0;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.82em;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .card-btn:hover { opacity: 0.85; }
+        .btn-view { background: #2563eb; color: white; }
+        .btn-edit { background: #f59e0b; color: white; }
+        .btn-del  { background: #ef4444; color: white; }
+
+        /* ── D-Steps Progress Bar ────────────────────────── */
+        .d-steps {
+            display: flex;
+            gap: 2px;
+            margin-top: 10px;
+        }
+        .d-step {
+            flex: 1;
+            height: 4px;
+            border-radius: 2px;
+            background: #e5e7eb;
+        }
+        .d-step.done { background: #22c55e; }
+
+        /* ── Detail Modal ────────────────────────────────── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: white;
+            border-radius: 14px;
+            max-width: 900px;
+            width: 95%;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .modal-header {
+            background: linear-gradient(135deg, #1a3a8a 0%, #2563eb 100%);
+            color: white;
+            padding: 18px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 14px 14px 0 0;
+            flex-shrink: 0;
+        }
+        .modal-header h2 { font-size: 1.15em; }
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .modal-footer {
+            padding: 14px 24px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .btn-cancel {
+            padding: 9px 20px;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-goto {
+            padding: 9px 20px;
+            background: linear-gradient(135deg, #1a3a8a 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ── Detail Body Sections ────────────────────────── */
+        .d-section {
+            margin-bottom: 22px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .d-section-header {
+            padding: 10px 16px;
+            font-weight: 700;
+            font-size: 0.95em;
+            color: white;
+        }
+        .d-section-body {
+            padding: 15px 16px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .d-field label {
+            display: block;
+            font-size: 0.78em;
+            color: #6b7280;
+            font-weight: 600;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .d-field p {
+            font-size: 0.92em;
+            color: #1f2937;
+            min-height: 20px;
+        }
+        .d-field.full { grid-column: 1 / -1; }
+        .d-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88em;
+        }
+        .d-table th {
+            background: #f3f4f6;
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 700;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+        }
+        .d-table td {
+            padding: 7px 12px;
+            border: 1px solid #e5e7eb;
+            color: #4b5563;
+            vertical-align: top;
+        }
+        .d-table tr:nth-child(even) td { background: #f9fafb; }
+        .no-data { color: #9ca3af; font-style: italic; font-size: 0.88em; padding: 8px 0; }
+
+        /* ── Tab Nav in detail modal ─────────────────────── */
+        .tabs-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 18px;
+        }
+        .tab-btn {
+            padding: 7px 14px;
+            border: 1.5px solid #d1d5db;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 600;
+            background: white;
+            color: #374151;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: white;
+        }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Delete confirm ──────────────────────────────── */
+        .del-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 1100;
+            justify-content: center;
+            align-items: center;
+        }
+        .del-overlay.open { display: flex; }
+        .del-box {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 440px;
+            width: 95%;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .del-box h3 { color: #dc2626; margin-bottom: 12px; }
+        .del-box p  { color: #4b5563; font-size: 0.92em; margin-bottom: 22px; line-height: 1.6; }
+        .del-actions { display: flex; gap: 12px; justify-content: center; }
+        .del-cancel { padding: 9px 24px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .del-confirm { padding: 9px 24px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+
+        /* ── Responsive ──────────────────────────────────── */
+        @media (max-width: 640px) {
+            .header { padding: 15px 20px; }
+            .header h1 { font-size: 1.2em; }
+            .reports-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <div>
+        <h1>📋 8D Rapor Arşivi</h1>
+        <p>8 Disiplin Problem Çözme Raporları</p>
+    </div>
+    <a href="index.html" class="back-btn">← Ana Sayfa</a>
+</div>
+
+<!-- MAIN CONTAINER -->
+<div class="container">
+
+    <!-- stats -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <div class="number" id="statTotal">—</div>
+            <div class="label">Toplam Rapor</div>
+        </div>
+        <div class="stat-card green">
+            <div class="number" id="statClosed">—</div>
+            <div class="label">Kapalı (Closed)</div>
+        </div>
+        <div class="stat-card orange">
+            <div class="number" id="statProgress">—</div>
+            <div class="label">Devam Eden</div>
+        </div>
+        <div class="stat-card red">
+            <div class="number" id="statOpen">—</div>
+            <div class="label">Açık (Open)</div>
+        </div>
+        <div class="stat-card">
+            <div class="number" id="statSuppliers">—</div>
+            <div class="label">Tedarikçi</div>
+        </div>
+    </div>
+
+    <!-- toolbar -->
+    <div class="toolbar">
+        <input type="text" id="searchInput" placeholder="🔍 Tedarikçi adı veya rapor başlığı ara..." oninput="filterReports()">
+        <select id="statusFilter" onchange="filterReports()">
+            <option value="">Tüm Durumlar</option>
+            <option value="Open">Open</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Closed">Closed</option>
+        </select>
+        <select id="monthFilter" onchange="filterReports()">
+            <option value="">Tüm Aylar</option>
+            <option value="1">Ocak (1)</option>
+            <option value="2">Şubat (2)</option>
+            <option value="3">Mart (3)</option>
+            <option value="4">Nisan (4)</option>
+            <option value="5">Mayıs (5)</option>
+            <option value="6">Haziran (6)</option>
+            <option value="7">Temmuz (7)</option>
+            <option value="8">Ağustos (8)</option>
+            <option value="9">Eylül (9)</option>
+            <option value="10">Ekim (10)</option>
+            <option value="11">Kasım (11)</option>
+            <option value="12">Aralık (12)</option>
+        </select>
+        <span class="count-badge" id="visibleCount">0 rapor</span>
+        <a href="index.html" class="new-btn">+ Yeni 8D Oluştur</a>
+    </div>
+
+    <!-- list area -->
+    <div id="listArea">
+        <div class="loading">
+            <div class="spinner"></div>
+            Raporlar yükleniyor…
+        </div>
+    </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="detailTitle">8D Rapor Detayı</h2>
+            <button class="modal-close" onclick="closeDetail()">✕</button>
+        </div>
+        <div class="modal-body" id="detailBody"></div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeDetail()">Kapat</button>
+            <a href="index.html" class="btn-goto" id="editBtn">✏️ index.html'de Düzenle</a>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE CONFIRM -->
+<div class="del-overlay" id="delModal">
+    <div class="del-box">
+        <h3>⚠️ Raporu Sil</h3>
+        <p id="delMsg">Bu 8D raporu kalıcı olarak silinecek. Bu işlem geri alınamaz.</p>
+        <div class="del-actions">
+            <button class="del-cancel" onclick="closeDelModal()">Vazgeç</button>
+            <button class="del-confirm" onclick="confirmDelete()">Sil</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ── Constants ─────────────────────────────────────────── */
+const DB_NAME  = 'SupplierDataDB';
+const DB_VER   = 7;
+const STORE_8D = 'report8D';
+
+const SECTION_COLORS = {
+    head: '#1a3a8a', d1: '#2e7d32', d2: '#0277bd',
+    d3: '#f57c00',   d4: '#c62828', d5: '#6a1b9a',
+    d6: '#00695c',   d7: '#01579b', d8: '#558b2f'
+};
+
+/* ── State ─────────────────────────────────────────────── */
+let db = null;
+let allReports = [];
+let pendingDeleteId = null;
+
+/* ── DB Init ───────────────────────────────────────────── */
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VER);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror   = () => reject(req.error);
+        req.onupgradeneeded = e => {
+            // Don't create stores – just read existing; upgrades handled by index.html
+            console.log('DB upgrade in 8d-rapor.html – passthrough');
+        };
+    });
+}
+
+async function loadAll() {
+    try {
+        db = await openDB();
+    } catch(e) {
+        document.getElementById('listArea').innerHTML = `
+            <div class="empty-state">
+                <div class="icon">⚠️</div>
+                <h3>Veritabanına erişilemiyor</h3>
+                <p>Ana uygulamayı (index.html) en az bir kez açın ve veri yükleyin.</p>
+            </div>`;
+        return;
+    }
+
+    const tx    = db.transaction([STORE_8D], 'readonly');
+    const store = tx.objectStore(STORE_8D);
+    const req   = store.getAll();
+
+    req.onsuccess = () => {
+        allReports = req.result || [];
+        updateStats(allReports);
+        renderList(allReports);
+    };
+    req.onerror = () => {
+        document.getElementById('listArea').innerHTML = `
+            <div class="empty-state">
+                <div class="icon">❌</div>
+                <h3>Raporlar yüklenemedi</h3>
+                <p>${req.error}</p>
+            </div>`;
+    };
+}
+
+/* ── Stats ─────────────────────────────────────────────── */
+function updateStats(reports) {
+    const closed   = reports.filter(r => r.head?.status === 'Closed').length;
+    const progress = reports.filter(r => r.head?.status === 'In Progress').length;
+    const open     = reports.filter(r => !r.head?.status || r.head.status === 'Open').length;
+    const suppliers = new Set(reports.map(r => r.supplierName)).size;
+
+    document.getElementById('statTotal').textContent     = reports.length;
+    document.getElementById('statClosed').textContent    = closed;
+    document.getElementById('statProgress').textContent  = progress;
+    document.getElementById('statOpen').textContent      = open;
+    document.getElementById('statSuppliers').textContent = suppliers;
+}
+
+/* ── Render ────────────────────────────────────────────── */
+function filterReports() {
+    const q  = document.getElementById('searchInput').value.toLowerCase();
+    const st = document.getElementById('statusFilter').value;
+    const mo = document.getElementById('monthFilter').value;
+
+    const filtered = allReports.filter(r => {
+        const matchQ  = !q  || r.supplierName?.toLowerCase().includes(q)
+                             || r.head?.title?.toLowerCase().includes(q)
+                             || r.head?.reportNumber?.toLowerCase().includes(q)
+                             || r.head?.subject?.toLowerCase().includes(q);
+        const matchSt = !st || (r.head?.status || 'Open') === st;
+        const matchMo = !mo || String(r.monthIndex) === mo;
+        return matchQ && matchSt && matchMo;
+    });
+
+    renderList(filtered);
+}
+
+function renderList(reports) {
+    document.getElementById('visibleCount').textContent = `${reports.length} rapor`;
+
+    if (reports.length === 0) {
+        document.getElementById('listArea').innerHTML = `
+            <div class="empty-state">
+                <div class="icon">📭</div>
+                <h3>${allReports.length === 0 ? 'Henüz 8D raporu yok' : 'Eşleşen rapor bulunamadı'}</h3>
+                <p>${allReports.length === 0
+                    ? 'Ana uygulamadan tedarikçi performans grafiklerindeki 8D butonlarına tıklayarak rapor oluşturun.'
+                    : 'Arama veya filtre kriterlerinizi değiştirin.'}</p>
+            </div>`;
+        return;
+    }
+
+    // Group by supplier
+    const groups = {};
+    reports.forEach(r => {
+        const key = r.supplierName || '(Bilinmiyor)';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(r);
+    });
+
+    let html = '';
+    Object.keys(groups).sort().forEach(supplier => {
+        const reps = groups[supplier].sort((a,b) => a.monthIndex - b.monthIndex);
+        html += `
+            <div class="supplier-group">
+                <div class="supplier-header">
+                    <h3>🏭 ${esc(supplier)}</h3>
+                    <span class="badge">${reps.length} rapor</span>
+                </div>
+                <div class="reports-grid">
+                    ${reps.map(r => reportCard(r)).join('')}
+                </div>
+            </div>`;
+    });
+
+    document.getElementById('listArea').innerHTML = html;
+}
+
+function reportCard(r) {
+    const status    = r.head?.status || 'Open';
+    const statusCls = status === 'Closed' ? 'status-closed' : status === 'In Progress' ? 'status-progress' : 'status-open';
+    const title     = r.head?.title || '(Başlık yok)';
+    const repNo     = r.head?.reportNumber || '—';
+    const startDate = r.head?.startDate ? new Date(r.head.startDate).toLocaleDateString('tr-TR') : '—';
+
+    // D-steps completeness dots
+    const steps = ['d1','d2','d3','d4','d5','d6','d7','d8'];
+    const dots  = steps.map(s => {
+        const done = hasDData(r[s]);
+        return `<div class="d-step ${done ? 'done' : ''}"></div>`;
+    }).join('');
+
+    return `
+        <div class="report-card" onclick="openDetail(${r.id})">
+            <div class="report-card-header">
+                <span class="month-badge">${r.monthIndex}. Ay</span>
+                <span class="status-pill ${statusCls}">${status}</span>
+            </div>
+            <h4 title="${esc(title)}">${esc(title)}</h4>
+            <div class="report-meta">
+                <div><strong>Rapor No:</strong> ${esc(repNo)}</div>
+                <div><strong>Tarih:</strong> ${startDate}</div>
+                <div><strong>Kaydedildi:</strong> ${new Date(r.timestamp).toLocaleDateString('tr-TR')}</div>
+            </div>
+            <div class="d-steps" title="D1–D8 tamamlanma">${dots}</div>
+            <div class="card-actions" onclick="event.stopPropagation()">
+                <button class="card-btn btn-view" onclick="openDetail(${r.id})">👁 Görüntüle</button>
+                <button class="card-btn btn-del"  onclick="askDelete(${r.id}, '${esc(r.supplierName)?.replace(/'/g,"\\'")}', ${r.monthIndex})">🗑 Sil</button>
+            </div>
+        </div>`;
+}
+
+function hasDData(d) {
+    if (!d) return false;
+    const vals = Object.values(d);
+    return vals.some(v => {
+        if (Array.isArray(v)) return v.length > 0;
+        if (typeof v === 'string') return v.trim().length > 0;
+        return false;
+    });
+}
+
+/* ── Detail Modal ──────────────────────────────────────── */
+function openDetail(id) {
+    const r = allReports.find(x => x.id === id);
+    if (!r) return;
+
+    document.getElementById('detailTitle').textContent =
+        `📋 ${r.supplierName} — ${r.monthIndex}.Ay — ${r.head?.title || '8D Raporu'}`;
+
+    document.getElementById('detailBody').innerHTML = buildDetailHTML(r);
+    document.getElementById('detailModal').classList.add('open');
+
+    // activate first tab
+    switchTab('tab-head');
+}
+
+function closeDetail() {
+    document.getElementById('detailModal').classList.remove('open');
+}
+
+function buildDetailHTML(r) {
+    return `
+        <div class="tabs-nav">
+            ${['Head','D1','D2','D3','D4','D5','D6','D7','D8'].map((t,i) => {
+                const key = i === 0 ? 'head' : `d${i}`;
+                const done = i === 0 ? true : hasDData(r[key]);
+                return `<button class="tab-btn ${i===0?'active':''}" onclick="switchTab('tab-${key}')" id="tabBtn-${key}">
+                    ${done ? '' : ''}${t}${done && i > 0 ? ' ✓' : ''}
+                </button>`;
+            }).join('')}
+        </div>
+
+        <!-- HEAD DATA -->
+        <div class="tab-panel active" id="tab-head">
+            ${headSection(r)}
+        </div>
+
+        <!-- D1 -->
+        <div class="tab-panel" id="tab-d1">
+            ${dSection('D1 — Problem Solving Team', 'D1', SECTION_COLORS.d1, d1HTML(r.d1))}
+        </div>
+
+        <!-- D2 -->
+        <div class="tab-panel" id="tab-d2">
+            ${dSection('D2 — Problem Description', 'D2', SECTION_COLORS.d2, d2HTML(r.d2))}
+        </div>
+
+        <!-- D3 -->
+        <div class="tab-panel" id="tab-d3">
+            ${dSection('D3 — Containment Actions', 'D3', SECTION_COLORS.d3, d3HTML(r.d3))}
+        </div>
+
+        <!-- D4 -->
+        <div class="tab-panel" id="tab-d4">
+            ${dSection('D4 — Root Cause Analysis', 'D4', SECTION_COLORS.d4, d4HTML(r.d4))}
+        </div>
+
+        <!-- D5 -->
+        <div class="tab-panel" id="tab-d5">
+            ${dSection('D5 — Selection of Corrective Actions', 'D5', SECTION_COLORS.d5, d5HTML(r.d5))}
+        </div>
+
+        <!-- D6 -->
+        <div class="tab-panel" id="tab-d6">
+            ${dSection('D6 — Implementation & Validation', 'D6', SECTION_COLORS.d6, d6HTML(r.d6))}
+        </div>
+
+        <!-- D7 -->
+        <div class="tab-panel" id="tab-d7">
+            ${dSection('D7 — Prevention of Reoccurrence', 'D7', SECTION_COLORS.d7, d7HTML(r.d7))}
+        </div>
+
+        <!-- D8 -->
+        <div class="tab-panel" id="tab-d8">
+            ${dSection('D8 — Conclusion & Appreciation', 'D8', SECTION_COLORS.d8, d8HTML(r.d8))}
+        </div>
+    `;
+}
+
+function switchTab(id) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const panel = document.getElementById(id);
+    if (panel) panel.classList.add('active');
+    const key = id.replace('tab-', '');
+    const btn = document.getElementById(`tabBtn-${key}`);
+    if (btn) btn.classList.add('active');
+}
+
+function dSection(label, tag, color, innerHTML) {
+    return `
+        <div class="d-section">
+            <div class="d-section-header" style="background:${color};">${label}</div>
+            <div style="padding:15px 16px;">${innerHTML}</div>
+        </div>`;
+}
+
+function headSection(r) {
+    const h = r.head || {};
+    const status = h.status || 'Open';
+    const statusCls = status === 'Closed' ? 'status-closed' : status === 'In Progress' ? 'status-progress' : 'status-open';
+
+    return `
+        <div class="d-section">
+            <div class="d-section-header" style="background:${SECTION_COLORS.head};">HEAD DATA</div>
+            <div class="d-section-body">
+                ${field('Rapor No', h.reportNumber)}
+                ${field('Versiyon', h.version)}
+                ${field('8D Başlık', h.title, true)}
+                ${field('Başlangıç Tarihi', fmtDate(h.startDate))}
+                ${field('Konu', h.subject, true)}
+                ${field('Güncel Tarih', fmtDate(h.currentDate))}
+                ${field('Müşteri / Problem Owner', h.customer)}
+                <div class="d-field">
+                    <label>Durum</label>
+                    <p><span class="status-pill ${statusCls}">${status}</span></p>
+                </div>
+                ${field('E-Posta', h.email)}
+                ${field('Telefon', h.phone)}
+                ${field('Ek Bilgi', h.additionalInfo, true)}
+            </div>
+        </div>
+        <div class="d-section">
+            <div class="d-section-header" style="background:${SECTION_COLORS.head};">PRELIMINARY DEFECT INFORMATION</div>
+            <div class="d-section-body">
+                ${field('Part Number', h.partNumber)}
+                ${field('Part Name', h.partName)}
+                ${field('Hata Açıklaması', h.defectDescription, true)}
+                ${field('Hata Adedi (pcs)', h.defectQuantity)}
+                ${field('Kontrol Edilen Miktar (pcs)', h.totalCheckedQuantity)}
+                ${field('Hata Oranı (%)', h.defectRate)}
+                ${field('Tespit Noktası', h.detectionPoint)}
+            </div>
+        </div>`;
+}
+
+function d1HTML(d1) {
+    const members = d1?.teamMembers || [];
+    if (!members.length) return '<p class="no-data">Ekip üyesi girilmemiş.</p>';
+    return `<table class="d-table">
+        <thead><tr><th>Ad</th><th>Departman</th><th>Rol</th><th>E-Posta</th></tr></thead>
+        <tbody>${members.map(m => `<tr>
+            <td>${esc(m.name||'—')}</td>
+            <td>${esc(m.department||'—')}</td>
+            <td>${esc(m.role||'—')}</td>
+            <td>${esc(m.email||'—')}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+function d2HTML(d2) {
+    if (!d2) return '<p class="no-data">Bilgi girilmemiş.</p>';
+    return `<div class="d-section-body" style="grid-template-columns:1fr 1fr;gap:12px;padding:0;">
+        ${field('Semptom', d2.symptom, true)}
+        ${field('Problem Tanımı', d2.problem, true)}
+        ${field('Hata Türü', d2.errorType)}
+        ${field('Hata Lokasyonu', d2.errorLocation)}
+        ${field('Risk Değerlendirmesi', d2.riskAssessment)}
+        ${field('Risk Tarihi', fmtDate(d2.riskDate))}
+    </div>`;
+}
+
+function d3HTML(d3) {
+    const acts = d3?.actions || [];
+    if (!acts.length) return '<p class="no-data">Önlem girilmemiş.</p>';
+    return `<table class="d-table">
+        <thead><tr><th>#</th><th>Eylem</th><th>Sorumlu</th><th>Süre</th><th>Durum</th></tr></thead>
+        <tbody>${acts.map((a,i) => `<tr>
+            <td>${i+1}</td>
+            <td>${esc(a.action||a.description||'—')}</td>
+            <td>${esc(a.responsible||a.owner||'—')}</td>
+            <td>${esc(a.deadline||a.dueDate||'—')}</td>
+            <td>${esc(a.status||'—')}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+function d4HTML(d4) {
+    const causes = d4?.causes || [];
+    if (!causes.length) return '<p class="no-data">Kök neden girilmemiş.</p>';
+    return `<table class="d-table">
+        <thead><tr><th>Tip</th><th>Kök Neden</th><th>Doğrulandı mı?</th></tr></thead>
+        <tbody>${causes.map(c => `<tr>
+            <td>${esc(c.type||'—')}</td>
+            <td>${esc(c.description||c.cause||'—')}</td>
+            <td>${esc(c.verified||'—')}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+function d5HTML(d5) {
+    const acts = d5?.actions || [];
+    if (!acts.length) return '<p class="no-data">Düzeltici eylem girilmemiş.</p>';
+    return `<table class="d-table">
+        <thead><tr><th>#</th><th>Eylem</th><th>Sorumlu</th><th>Termin</th><th>Durum</th></tr></thead>
+        <tbody>${acts.map((a,i) => `<tr>
+            <td>${i+1}</td>
+            <td>${esc(a.action||a.description||'—')}</td>
+            <td>${esc(a.responsible||a.owner||'—')}</td>
+            <td>${esc(a.deadline||a.dueDate||'—')}</td>
+            <td>${esc(a.status||'—')}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+function d6HTML(d6) {
+    const items = d6?.implementations || [];
+    if (!items.length) return '<p class="no-data">Uygulama kaydı girilmemiş.</p>';
+    return `<table class="d-table">
+        <thead><tr><th>#</th><th>Açıklama</th><th>Sorumlu</th><th>Tarih</th><th>Sonuç</th></tr></thead>
+        <tbody>${items.map((i,idx) => `<tr>
+            <td>${idx+1}</td>
+            <td>${esc(i.description||i.action||'—')}</td>
+            <td>${esc(i.responsible||i.owner||'—')}</td>
+            <td>${esc(i.date||i.deadline||'—')}</td>
+            <td>${esc(i.result||i.status||'—')}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+function d7HTML(d7) {
+    const items = d7?.preventions || [];
+    if (!items.length) return '<p class="no-data">Önleme eylemi girilmemiş.</p>';
+    return `<table class="d-table">
+        <thead><tr><th>#</th><th>Eylem</th><th>Sorumlu</th><th>Termin</th><th>Durum</th></tr></thead>
+        <tbody>${items.map((p,i) => `<tr>
+            <td>${i+1}</td>
+            <td>${esc(p.action||p.description||'—')}</td>
+            <td>${esc(p.responsible||p.owner||'—')}</td>
+            <td>${esc(p.deadline||p.dueDate||'—')}</td>
+            <td>${esc(p.status||'—')}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+function d8HTML(d8) {
+    if (!d8) return '<p class="no-data">Sonuç bilgisi girilmemiş.</p>';
+    const participants = d8.participants || [];
+    let html = `<div class="d-section-body" style="padding:0;gap:12px;">
+        ${field('Değerlendirme Sonucu', d8.result, true)}
+        ${field('Değerlendiren', d8.assessmentBy)}
+        ${field('Değerlendirme Tarihi', fmtDate(d8.performedOn))}
+        ${field('Final Toplantısı Tarihi', fmtDate(d8.finalMeetingDate))}
+        ${field('Final Tartışma Sonuçları', d8.finalDiscussion, true)}
+    </div>`;
+    if (participants.length) {
+        html += `<br><table class="d-table">
+            <thead><tr><th>Katılımcı</th><th>Departman</th><th>Rol</th><th>İmza/Onay</th></tr></thead>
+            <tbody>${participants.map(p => `<tr>
+                <td>${esc(p.name||'—')}</td>
+                <td>${esc(p.department||'—')}</td>
+                <td>${esc(p.role||'—')}</td>
+                <td>${esc(p.signature||p.approval||'—')}</td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+    }
+    return html;
+}
+
+/* ── Helpers ───────────────────────────────────────────── */
+function field(label, value, full = false) {
+    const v = value != null && value !== '' ? esc(String(value)) : '<span style="color:#9ca3af">—</span>';
+    return `<div class="d-field${full?' full':''}"><label>${label}</label><p>${v}</p></div>`;
+}
+
+function fmtDate(d) {
+    if (!d) return null;
+    try { return new Date(d).toLocaleDateString('tr-TR'); } catch { return d; }
+}
+
+function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── Delete ────────────────────────────────────────────── */
+function askDelete(id, supplier, month) {
+    pendingDeleteId = id;
+    document.getElementById('delMsg').textContent =
+        `"${supplier}" — ${month}. Ay raporu kalıcı olarak silinecek. Bu işlem geri alınamaz.`;
+    document.getElementById('delModal').classList.add('open');
+}
+
+function closeDelModal() {
+    pendingDeleteId = null;
+    document.getElementById('delModal').classList.remove('open');
+}
+
+async function confirmDelete() {
+    if (pendingDeleteId == null || !db) return;
+    const id = pendingDeleteId;
+    closeDelModal();
+
+    const tx    = db.transaction([STORE_8D], 'readwrite');
+    const store = tx.objectStore(STORE_8D);
+    const req   = store.delete(id);
+
+    req.onsuccess = () => {
+        allReports = allReports.filter(r => r.id !== id);
+        updateStats(allReports);
+        filterReports();
+    };
+    req.onerror = () => alert('Silme işlemi başarısız: ' + req.error);
+}
+
+/* ── Boot ──────────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', loadAll);
+</script>
+</body>
+</html>
