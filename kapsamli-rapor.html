@@ -462,7 +462,9 @@ body.report-editing [data-ed]:focus {
                     <span style="font-weight:700;font-size:.9rem;color:#1e2535;">🐟 Balık Kılçığı Diyagramı — 6M</span>
                     <span class="fb-effect-tag" id="fbEffectTag"></span>
                     <button class="ap-btn ap-btn-edit no-print" onclick="fbEditEffect()">✏️ Başlık</button>
+                    <span id="krSaveInd" style="font-size:.72rem;color:#16a34a;margin-left:6px;opacity:0;transition:opacity .4s;">✔ Kaydedildi</span>
                     <span style="font-size:.75rem;color:#64748b;margin-left:auto;">6 kemik: İnsan · Makine · Malzeme · Metot · Ölçüm · Ortam</span>
+                    <button class="ap-btn no-print" style="margin-left:8px;font-size:.72rem;opacity:.7;" onclick="krClearSavedEdits()" title="Kılçık ve aksiyon düzenlemelerini sıfırla">↺ Sıfırla</button>
                 </div>
                 <div class="fb-svg-wrap" id="fbContainer"></div>
                 <div class="fb-edit-panels no-print" id="fbEditPanels"></div>
@@ -645,6 +647,74 @@ function idbLoadRapor() {
         };
         r.onerror = () => rej(r.error);
     });
+}
+
+// ── Kapsamlı Rapor Düzen Kaydet / Yükleme (IndexedDB) ──
+const _KR_KEY = 'kapsamli_rapor_edits';
+
+function _krSaveEdits() {
+    const fbBoneCauses = {};
+    if (window._fbData && window._fbData.bones) {
+        window._fbData.bones.forEach(b => { fbBoneCauses[b.key] = b.causes || []; });
+    }
+    const fbEffect     = (window._fbData && window._fbData.effect) || window._fbEffect || '';
+    const manualAksiyon = (window._aksiyonlar || []).filter(a => !a._fbSource);
+    const payload = { version: 1, fbBoneCauses, fbEffect, manualAksiyon };
+    const r = indexedDB.open(_IDB.name, _IDB.ver);
+    r.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
+    r.onsuccess = e => {
+        const db = e.target.result;
+        db.transaction(_IDB.store, 'readwrite').objectStore(_IDB.store).put(payload, _KR_KEY);
+    };
+    // show brief save indicator
+    const ind = document.getElementById('krSaveInd');
+    if (ind) { ind.style.opacity='1'; clearTimeout(ind._t); ind._t = setTimeout(() => ind.style.opacity='0', 1800); }
+}
+
+function _krLoadEdits() {
+    return new Promise(res => {
+        const r = indexedDB.open(_IDB.name, _IDB.ver);
+        r.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
+        r.onsuccess = e => {
+            const db = e.target.result;
+            const g  = db.transaction(_IDB.store, 'readonly').objectStore(_IDB.store).get(_KR_KEY);
+            g.onsuccess = () => res(g.result || null);
+            g.onerror   = () => res(null);
+        };
+        r.onerror = () => res(null);
+    });
+}
+
+function _krApplyFishboneEdits(saved) {
+    if (!saved || !saved.fbBoneCauses || !window._fbData) return;
+    if (saved.fbEffect) { window._fbData.effect = saved.fbEffect; window._fbEffect = saved.fbEffect; }
+    window._fbData.bones.forEach(bone => {
+        if (saved.fbBoneCauses[bone.key] !== undefined) bone.causes = saved.fbBoneCauses[bone.key];
+    });
+    drawFishbone();
+    renderFbEditPanels();
+}
+
+function _krApplyAksiyonEdits(saved) {
+    if (!saved || !window._aksiyonlar) return;
+    const manual = (saved.manualAksiyon || []);
+    if (!manual.length) return;
+    // replace auto-generated rows (keep _fbSource rows, but remove originals that would duplicate)
+    const savedKeys = new Set(manual.map(a => a.bulgu));
+    window._aksiyonlar = window._aksiyonlar.filter(a => a._fbSource || !savedKeys.has(a.bulgu));
+    window._aksiyonlar.push(...manual);
+    renderAksiyonTablosu();
+}
+
+function krClearSavedEdits() {
+    if (!confirm('Kılçık ve aksiyon planı üzerindeki tüm kaydedilmiş düzenleme silinsin mi? (Veriden yeniden oluşturulacak)')) return;
+    const r = indexedDB.open(_IDB.name, _IDB.ver);
+    r.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
+    r.onsuccess = e => {
+        e.target.result.transaction(_IDB.store,'readwrite').objectStore(_IDB.store).delete(_KR_KEY);
+    };
+    rebuildFishboneData();
+    _rebuildM6Display();
 }
 
 // ── EDIT MODE ──
@@ -1566,6 +1636,7 @@ function fbAddSubFromInput(bi, ci) {
     drawFishbone();
     renderFbEditPanels();
     _rebuildM6Display();
+    _krSaveEdits();
     // re-open the sub panel
     const subId = `fbSub_${bi}_${ci}`;
     const el = document.getElementById(subId);
@@ -1582,6 +1653,7 @@ function fbDeleteSub(bi, ci, si) {
     drawFishbone();
     renderFbEditPanels();
     _rebuildM6Display();
+    _krSaveEdits();
 }
 
 function fbAddFromInput(bi) {
@@ -1594,6 +1666,7 @@ function fbAddFromInput(bi) {
     drawFishbone();
     renderFbEditPanels();
     _rebuildM6Display();
+    _krSaveEdits();
     setTimeout(() => { const i=document.getElementById('fbInp_'+bi); if(i) i.focus(); }, 20);
 }
 
@@ -1603,6 +1676,7 @@ function fbDeleteCause(bi, ci) {
     drawFishbone();
     renderFbEditPanels();
     _rebuildM6Display();
+    _krSaveEdits();
 }
 
 function fbFocusInput(bi) {
@@ -1617,6 +1691,7 @@ function fbEditEffect() {
     window._fbData.effect = val.trim() || 'Ana Kalite Problemi';
     window._fbEffect = window._fbData.effect;
     drawFishbone();
+    _krSaveEdits();
 }
 
 // ─────────────────────────────────────────────
@@ -1802,6 +1877,7 @@ function apSaveModal() {
         window._aksiyonlar[_apEditIdx] = entry;
     }
     renderAksiyonTablosu();
+    _krSaveEdits();
     apCloseModal();
 }
 
@@ -1809,6 +1885,7 @@ function apDelete(idx) {
     if (!confirm('Bu satırı silmek istediğinizden emin misiniz?')) return;
     window._aksiyonlar.splice(idx, 1);
     renderAksiyonTablosu();
+    _krSaveEdits();
 }
 
 // Close modal on backdrop click
@@ -2128,6 +2205,14 @@ window.addEventListener('DOMContentLoaded', () => {
     renderAksiyonTablosu();
     _rebuildAksiyonFromFishbone(); // Balık kılçığı nedenlerini aksiyon planına ekle
     krCheckSaved();
+
+    // ── Kaydedilmiş kılçık + aksiyon düzenlemelerini geri yükle ──
+    _krLoadEdits().then(saved => {
+        if (!saved) return;
+        _krApplyFishboneEdits(saved);
+        _rebuildM6Display();
+        _krApplyAksiyonEdits(saved);
+    });
 
     // ── Enable edit mode if it was on before re-render ──
     if (_editMode) { _editMode = false; toggleEditMode(); }
