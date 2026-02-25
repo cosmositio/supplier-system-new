@@ -1912,7 +1912,9 @@
                             </div>
                             <div>
                                 <label style="display: block; font-weight: 600; margin-bottom: 5px; color: #333;">Problem Owner/Customer</label>
-                                <input type="text" id="f8d_customer" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95em;">
+                                <select id="f8d_customer" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95em;">
+                                    <option value="">-- Seçiniz --</option>
+                                </select>
                             </div>
                             <div>
                                 <label style="display: block; font-weight: 600; margin-bottom: 5px; color: #333;">Status/Report Form</label>
@@ -21366,6 +21368,8 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 const today = new Date().toISOString().split('T')[0];
                 document.getElementById('f8d_startDate').value = today;
                 document.getElementById('f8d_currentDate').value = today;
+                // Müşteri dropdown’ını doldur
+                loadCustomerDropdown8D(null);
             }
             
             document.getElementById('report8DModal').style.display = 'flex';
@@ -27079,6 +27083,44 @@ Devam etmek istiyor musunuz?`;
         }
 
         // Form temizleme
+        async function loadCustomerDropdown8D(savedValue) {
+            const sel = document.getElementById('f8d_customer');
+            if (!sel) return;
+            sel.innerHTML = '<option value="">-- Seçiniz --</option>';
+            try {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const all = await new Promise((res, rej) => {
+                    const req = tx.objectStore(STORE_NAME).getAll();
+                    req.onsuccess = () => res(req.result);
+                    req.onerror  = () => rej(req.error);
+                });
+                const seen = new Set();
+                all
+                    .filter(s => s.status && s.status.toUpperCase() === 'MÜŞTİRİ')
+                    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'))
+                    .forEach(s => {
+                        if (s.name && !seen.has(s.name)) {
+                            seen.add(s.name);
+                            const opt = document.createElement('option');
+                            opt.value = s.name;
+                            opt.textContent = s.name;
+                            if (savedValue && s.name === savedValue) opt.selected = true;
+                            sel.appendChild(opt);
+                        }
+                    });
+                // Kaydedilen değer listede yoksa yine de seçili göster
+                if (savedValue && !seen.has(savedValue) && savedValue !== '') {
+                    const opt = document.createElement('option');
+                    opt.value = savedValue;
+                    opt.textContent = savedValue;
+                    opt.selected = true;
+                    sel.insertBefore(opt, sel.children[1] || null);
+                }
+            } catch(e) {
+                console.warn('Müşteri listesi yüklenemedi:', e);
+            }
+        }
+
         function clear8DForm() {
             // Head
             document.getElementById('f8d_reportNumber').value = '';
@@ -27187,7 +27229,7 @@ Devam etmek istiyor musunuz?`;
                 document.getElementById('f8d_startDate').value = data.head.startDate || '';
                 document.getElementById('f8d_subject').value = data.head.subject || '';
                 document.getElementById('f8d_currentDate').value = data.head.currentDate || '';
-                document.getElementById('f8d_customer').value = data.head.customer || '';
+                loadCustomerDropdown8D(data.head.customer || '');
                 document.getElementById('f8d_status').value = data.head.status || '';
                 document.getElementById('f8d_email').value = data.head.email || '';
                 document.getElementById('f8d_phone').value = data.head.phone || '';
