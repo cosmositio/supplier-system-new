@@ -186,6 +186,14 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .fb-add-input { flex:1; border:1px solid #e2e8f0; border-radius:6px; padding:4px 7px; font-size:.75rem; outline:none; font-family:inherit; }
 .fb-add-input:focus { border-color:#3b82f6; }
 .fb-add-btn { border:none; border-radius:6px; padding:4px 9px; cursor:pointer; font-size:.75rem; font-weight:700; color:#fff; }
+.fb-cause-toggle { background:none; border:none; cursor:pointer; color:#94a3b8; font-size:9px; padding:0 2px; flex-shrink:0; transition:transform .15s; line-height:1; }
+.fb-sub-block  { border-left:2px solid #e2e8f0; margin:0 2px 3px 18px; padding-left:5px; }
+.fb-sub-row    { display:flex; align-items:center; gap:3px; padding:2px 0; font-size:.71rem; color:#475569; }
+.fb-sub-del    { background:none; border:none; color:#ef4444; cursor:pointer; font-size:11px; padding:0 2px; flex-shrink:0; }
+.fb-sub-add    { display:flex; gap:4px; padding:2px 2px 4px 18px; }
+.fb-sub-add input { flex:1; border:1px solid #e2e8f0; border-radius:5px; padding:2px 5px; font-size:.7rem; outline:none; font-family:inherit; }
+.fb-sub-add input:focus { border-color:#3b82f6; }
+.fb-sub-add button { border:none; border-radius:5px; padding:2px 8px; background:#3b82f6; color:#fff; cursor:pointer; font-size:.7rem; font-weight:700; }
 /* Pareto tab selector for fishbone */
 .fb-par-tab {
     border:1.5px solid #e2e8f0; background:#f8fafc; color:#64748b;
@@ -1097,22 +1105,21 @@ function initFishbone(rows, _htData, effectLabel) {
     rebuildFishboneData();
 }
 
+// Normalize cause: string or {name,subs} → always {name,subs}
+function fbNorm(c) { return typeof c === 'string' ? {name:c, subs:[]} : (c || {name:'', subs:[]}); }
+
 // ── Re-build 6M bones from current rows ──
 function rebuildFishboneData() {
     const rows   = window._fbRows || [];
-    const m6data = classify6M(rows);          // {insan:[], makine:[], ...}
+    const m6data = classify6M(rows);
 
-    // Aggregate totals per category for % badge
     const totalH = rows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
     const m6Vals = {};
-    FB_6M.forEach(b => {
-        m6Vals[b.key] = m6data[b.key].reduce((s,e)=>s+e.h,0);
-    });
+    FB_6M.forEach(b => { m6Vals[b.key] = m6data[b.key].reduce((s,e)=>s+e.h,0); });
 
     const bones = FB_6M.map(b => {
         const items  = m6data[b.key] || [];
-        // Ribs = top-5 by hatalı miktar
-        const causes = items.slice(0,5).map(e=>e.name);
+        const causes = items.slice(0,5).map(e=>({name:e.name, subs:[]}));
         const h      = m6Vals[b.key];
         const pct    = +(h/totalH*100).toFixed(1);
         return { key:b.key, label:b.label, color:b.color, pos:b.pos, causes, pct, cumPct:0 };
@@ -1123,7 +1130,7 @@ function rebuildFishboneData() {
     renderFbEditPanels();
 }
 
-// kept for backward compat (Pareto tabs removed)
+// kept for backward compat
 function switchFbPareto(pct, btn) { rebuildFishboneData(); }
 
 function drawFishbone() {
@@ -1200,20 +1207,22 @@ function drawFishbone() {
             font-size="15" font-weight="900" fill="${color}" cursor="pointer"
             onclick="fbFocusInput(${bi})" style="user-select:none">+</text>`);
 
-        // Ribs (tedarikçiler)
+        // Ribs (main causes)
         const causes = bone.causes || [];
-        causes.slice(0, TPOS.length).forEach((name, ci) => {
-            const t   = TPOS[ci];
-            const px  = +(sx  + t * (tipX - sx)).toFixed(1);
-            const py  = +(SY  + t * (tipY - SY)).toFixed(1);
-            const rx  = +(px - 78).toFixed(1);
+        causes.slice(0, TPOS.length).forEach((rawCause, ci) => {
+            const cause = fbNorm(rawCause);
+            const name  = cause.name;
+            const t  = TPOS[ci];
+            const px = +(sx  + t * (tipX - sx)).toFixed(1);
+            const py = +(SY  + t * (tipY - SY)).toFixed(1);
+            const rx = +(px - 78).toFixed(1);
 
             // Horizontal rib line
             p.push(`<line x1="${px}" y1="${py}" x2="${rx}" y2="${py}"
                 stroke="${color}" stroke-width="1.6" opacity="0.75" stroke-linecap="round"/>`);
-            // Arrow at junction
-            p.push(`<polygon points="${px},${py} ${+(px+7).toFixed(0)},${+(py-3).toFixed(0)} ${+(px+7).toFixed(0)},${+(py+3).toFixed(0)}"
-                fill="${color}" opacity="0.55" style="pointer-events:none"/>`);
+            // Arrow: tip at junction, base to left -> points INTO spine
+            p.push(`<polygon points="${px},${py} ${+(px-8).toFixed(0)},${+(py-4).toFixed(0)} ${+(px-8).toFixed(0)},${+(py+4).toFixed(0)}"
+                fill="${color}" opacity="0.75" style="pointer-events:none"/>`);
 
             // Label box above/below rib end
             const nm   = name.length > 20 ? name.slice(0,20)+'…' : name;
@@ -1228,6 +1237,35 @@ function drawFishbone() {
                 font-size="9" fill="#1e293b" cursor="pointer"
                 onclick="fbDeleteCause(${bi},${ci})" title="Sil: ${esc(name)}"
                 >${esc(nm)}<tspan fill="#ef4444" font-weight="700" dx="2">×</tspan></text>`);
+
+            // Sub-ribs (alt-alt nedenler)
+            const subs   = cause.subs || [];
+            const subDir = isTop ? 1 : -1;
+            const subLen = 34;
+            subs.slice(0, 3).forEach((sub, si) => {
+                const maxS = Math.min(subs.length, 3);
+                const srX  = +(rx + (78 / (maxS + 1)) * (si + 1)).toFixed(1);
+                const srTY = +(py + subDir * subLen).toFixed(1);
+                p.push(`<line x1="${srX}" y1="${py}" x2="${srX}" y2="${srTY}"
+                    stroke="${color}" stroke-width="1.1" opacity="0.5" stroke-dasharray="3,2"/>`);
+                const snm = sub.length > 15 ? sub.slice(0,15)+'…' : sub;
+                const SBW = Math.max(50, snm.length * 5.5 + 12);
+                const SBH = 15;
+                const sbX = +(srX - SBW/2).toFixed(1);
+                const sbY = isTop ? srTY : +(parseFloat(srTY) - SBH).toFixed(1);
+                const stY2 = +(parseFloat(sbY) + SBH * 0.73).toFixed(1);
+                p.push(`<rect x="${sbX}" y="${sbY}" width="${SBW}" height="${SBH}" rx="2"
+                    fill="white" stroke="${color}" stroke-width="0.8" opacity="0.82"/>`);
+                p.push(`<text x="${srX}" y="${stY2}" text-anchor="middle"
+                    font-size="7.5" fill="#1e293b" cursor="pointer"
+                    onclick="fbDeleteSub(${bi},${ci},${si})" title="Sil"
+                    >${esc(snm)}<tspan fill="#ef4444" font-weight="700" dx="1">×</tspan></text>`);
+            });
+            if (subs.length > 3) {
+                const mY2 = isTop ? +(py + subLen + 14).toFixed(0) : +(py - subLen - 4).toFixed(0);
+                p.push(`<text x="${+(rx+39).toFixed(0)}" y="${mY2}" text-anchor="middle"
+                    font-size="8" fill="${color}" opacity="0.7">+${subs.length-3} alt neden</text>`);
+            }
         });
 
         if(causes.length > TPOS.length) {
@@ -1249,16 +1287,36 @@ function renderFbEditPanels() {
     const data = window._fbData;
     const el   = document.getElementById('fbEditPanels');
     if (!el || !data || !data.bones) return;
-    // Dynamic grid columns — up to 6 per row
     const cols = Math.min(data.bones.length || 1, 6);
     el.style.gridTemplateColumns = `repeat(${cols},1fr)`;
     el.innerHTML = data.bones.map((bone, bi) => {
         const causes = bone.causes || [];
-        const items  = causes.map((c, ci) => `
+        const items  = causes.map((c, ci) => {
+            const cause = fbNorm(c);
+            const nm    = cause.name;
+            const subs  = cause.subs || [];
+            const subId = `fbSub_${bi}_${ci}`;
+            const subRows = subs.map((s, si) => `
+                <div class="fb-sub-row">
+                    <span style="flex:1">${esc(s)}</span>
+                    <button class="fb-sub-del" title="Alt nedeni sil" onclick="fbDeleteSub(${bi},${ci},${si})">×</button>
+                </div>`).join('');
+            const subAdd = `
+                <div class="fb-sub-add">
+                    <input id="fbSubInp_${bi}_${ci}" type="text" placeholder="+ Alt neden..."
+                        onkeydown="if(event.key==='Enter')fbAddSubFromInput(${bi},${ci})">
+                    <button onclick="fbAddSubFromInput(${bi},${ci})">+</button>
+                </div>`;
+            return `
             <div class="fb-cause-row">
-                <span class="fb-cause-name">${esc(c)}</span>
+                <button class="fb-cause-toggle" onclick="fbToggleSubList('${subId}')" title="Alt nedenler">▶</button>
+                <span class="fb-cause-name">${esc(nm)}</span>
                 <button class="fb-cause-del" title="Sil" onclick="fbDeleteCause(${bi},${ci})">×</button>
-            </div>`).join('') || `<div style="color:#94a3b8;padding:6px 2px;font-size:.72rem;">Tedarikçi kaydı yok</div>`;
+            </div>
+            <div class="fb-sub-block" id="${subId}" style="display:none;">
+                ${subRows}${subAdd}
+            </div>`;
+        }).join('') || `<div style="color:#94a3b8;padding:6px 2px;font-size:.72rem;">Tedarikçi kaydı yok</div>`;
         const pctBadge = `<span style="font-size:.68rem;opacity:.75;font-weight:400;"> %${+(bone.pct||0).toFixed(1)}</span>`;
         return `
         <div class="fb-bone-card" style="border:1.5px solid ${bone.color}33;">
@@ -1267,7 +1325,7 @@ function renderFbEditPanels() {
             </div>
             <div class="fb-bone-list">${items}</div>
             <div class="fb-bone-add">
-                <input id="fbInp_${bi}" class="fb-add-input" placeholder="+ Tedarikçi/neden…" type="text"
+                <input id="fbInp_${bi}" class="fb-add-input" placeholder="+ Ana neden..." type="text"
                     onkeydown="if(event.key==='Enter')fbAddFromInput(${bi})">
                 <button class="fb-add-btn" style="background:${bone.color};" onclick="fbAddFromInput(${bi})">+</button>
             </div>
@@ -1275,12 +1333,54 @@ function renderFbEditPanels() {
     }).join('');
 }
 
+function fbToggleSubList(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    // rotate toggle arrow
+    const row = el.previousElementSibling;
+    if (row) {
+        const btn = row.querySelector('.fb-cause-toggle');
+        if (btn) btn.textContent = el.style.display === 'none' ? '▶' : '▼';
+    }
+}
+
+function fbAddSubFromInput(bi, ci) {
+    const inp = document.getElementById(`fbSubInp_${bi}_${ci}`);
+    if (!inp) return;
+    const val = inp.value.trim();
+    if (!val) { inp.focus(); return; }
+    const bone  = window._fbData.bones[bi];
+    const cause = fbNorm(bone.causes[ci]);
+    cause.subs  = cause.subs || [];
+    cause.subs.push(val);
+    bone.causes[ci] = cause;
+    inp.value = '';
+    drawFishbone();
+    renderFbEditPanels();
+    // re-open the sub panel
+    const subId = `fbSub_${bi}_${ci}`;
+    const el = document.getElementById(subId);
+    if (el) el.style.display = 'block';
+}
+
+function fbDeleteSub(bi, ci, si) {
+    if (!window._fbData || !window._fbData.bones[bi]) return;
+    const bone  = window._fbData.bones[bi];
+    const cause = fbNorm(bone.causes[ci]);
+    cause.subs  = cause.subs || [];
+    cause.subs.splice(si, 1);
+    bone.causes[ci] = cause;
+    drawFishbone();
+    renderFbEditPanels();
+}
+
 function fbAddFromInput(bi) {
     const inp = document.getElementById('fbInp_' + bi);
     if (!inp) return;
     const val = inp.value.trim();
     if (!val) { inp.focus(); return; }
-    window._fbData.bones[bi].causes.push(val);
+    window._fbData.bones[bi].causes.push({name: val, subs: []});
     inp.value = '';
     drawFishbone();
     renderFbEditPanels();
