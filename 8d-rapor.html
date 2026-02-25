@@ -376,13 +376,9 @@
                     <input type="number" id="f8d_totalCheckedQuantity" class="field-input" min="0" oninput="calculateDefectRate()"></div>
                 <div><label class="field-label">Defect Rate (%)</label>
                     <input type="number" id="f8d_defectRate" class="field-input field-readonly" step="0.01" readonly></div>
-                <div><label class="field-label">Detection Point</label>
+                <div><label class="field-label">Tespit Yeri</label>
                     <select id="f8d_detectionPoint" class="field-input">
-                        <option value="">Seçiniz</option>
-                        <option value="Incoming">Incoming</option>
-                        <option value="In-Process">In-Process</option>
-                        <option value="Final">Final</option>
-                        <option value="Customer">Customer</option>
+                        <option value="">— Seçiniz —</option>
                     </select></div>
             </div>
 
@@ -413,22 +409,13 @@
                 <div><label class="field-label">Description — Problem (created by Problem Solving Team)</label>
                     <textarea id="f8d_d2_problem" class="field-input" rows="4" placeholder="Including description of effects, extent of affected products, etc."></textarea></div>
                 <div class="grid-2">
-                    <div><label class="field-label">Categorization (type of error)</label>
+                    <div><label class="field-label">Hata Tipi</label>
                         <select id="f8d_d2_errorType" class="field-input">
-                            <option value="">Seçiniz</option>
-                            <option value="Quality">Quality</option>
-                            <option value="Delivery">Delivery</option>
-                            <option value="Cost">Cost</option>
-                            <option value="Other">Other</option>
+                            <option value="">— Seçiniz —</option>
                         </select></div>
-                    <div><label class="field-label">Categorization (error location)</label>
+                    <div><label class="field-label">Hata Kaynağı</label>
                         <select id="f8d_d2_errorLocation" class="field-input">
-                            <option value="">Seçiniz</option>
-                            <option value="Production">Production</option>
-                            <option value="Assembly">Assembly</option>
-                            <option value="Testing">Testing</option>
-                            <option value="Packaging">Packaging</option>
-                            <option value="Logistics">Logistics</option>
+                            <option value="">— Seçiniz —</option>
                         </select></div>
                     <div><label class="field-label">Risk Assessment started/updated?</label>
                         <select id="f8d_d2_riskAssessment" class="field-input">
@@ -563,6 +550,12 @@ const STORE_8D       = 'report8D';
 const STORE_HISTORY  = 'supplierHistory';   // Ana tedarikçi listesi
 let db = null;
 
+// Uygunsuzluk analiz verilerinden dinamik dropdown için
+const UYG_DB_NAME    = 'UygunsuzlukDB';
+const UYG_DB_VER     = 1;
+const UYG_STORE      = 'cache';
+const UYG_DATA_KEY   = 'data';
+
 /* ================================================================
    STATE
 ================================================================ */
@@ -597,6 +590,59 @@ function openDB() {
             }
         };
     });
+}
+
+/* ================================================================
+   UYGUNSUZLUK DROPDOWN — UygunsuzlukDB'den hata tipi/kaynağı/tespit yeri çek
+================================================================ */
+function loadUygunsuzlukDropdowns(savedValues) {
+    const req = indexedDB.open(UYG_DB_NAME, UYG_DB_VER);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(UYG_STORE);
+    req.onsuccess = () => {
+        const udb = req.result;
+        const tx  = udb.transaction(UYG_STORE, 'readonly');
+        const get = tx.objectStore(UYG_STORE).get(UYG_DATA_KEY);
+        get.onsuccess = () => {
+            udb.close();
+            const rows = get.result || [];
+            if (!rows.length) return; // Uygunsuzluk verisi yock
+
+            const uniq = field => [
+                ...new Set(
+                    rows.map(r => (r[field] || '').toString().trim())
+                        .filter(v => v)
+                )
+            ].sort((a,b) => a.localeCompare(b,'tr'));
+
+            const fillSel = (id, values, currentVal) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const prev = currentVal !== undefined ? currentVal : el.value;
+                el.innerHTML = '<option value="">— Seçiniz —</option>';
+                values.forEach(v => {
+                    const o = document.createElement('option');
+                    o.value = o.textContent = v;
+                    if (v === prev) o.selected = true;
+                    el.appendChild(o);
+                });
+                // Eğer mevcut değer listede yoksa ama var ise, ekle
+                if (prev && !values.includes(prev)) {
+                    const o = document.createElement('option');
+                    o.value = o.textContent = prev;
+                    o.selected = true;
+                    el.insertBefore(o, el.children[1]);
+                }
+            };
+
+            const sv = savedValues || {};
+            fillSel('f8d_d2_errorType',     uniq('hataTipi'),      sv.errorType);
+            fillSel('f8d_d2_errorLocation', uniq('hataKaynagi'),   sv.errorLocation);
+            fillSel('f8d_detectionPoint',   uniq('tespitYeri'),    sv.detectionPoint);
+        };
+        get.onerror = () => udb.close();
+    };
+    // Hata varsa (DB yok, vb.) sessizce geç
+    req.onerror = () => {};
 }
 
 /* ================================================================
@@ -661,12 +707,13 @@ function showListView() {
     document.getElementById('formView').style.display  = 'none';
     refreshList();
 }
-function showFormView() {
+function showFormView(uygValues) {
     document.getElementById('listView').style.display  = 'none';
     document.getElementById('formView').style.display  = 'block';
     switch8DTab('head');
-    // Scroll to top
     window.scrollTo(0,0);
+    // Uygunsuzluk dropdown'larını yükle (kayıtlı değerler varsa onlarla)
+    loadUygunsuzlukDropdowns(uygValues || null);
 }
 function closeForm() { showListView(); }
 
@@ -680,7 +727,7 @@ function startNewReport() {
     document.getElementById('meta_month').value                = '';
     document.getElementById('deleteFormBtn').style.display     = 'none';
     loadSupplierList('');
-    showFormView();
+    showFormView(null);
 }
 
 function openReportForEdit(reportId) {
@@ -697,7 +744,12 @@ function openReportForEdit(reportId) {
         document.getElementById('meta_month').value            = doc.monthIndex   || '';
         document.getElementById('formTitle').textContent       = `📋 8D RAPOR — ${doc.supplierName || ''}`;
         document.getElementById('deleteFormBtn').style.display = 'inline-block';
-        showFormView();
+        // Kaydedilmiş değerlerle birlikte uygunsuzluk dropdown'larını doldur
+        showFormView({
+            errorType     : doc.d2?.errorType,
+            errorLocation : doc.d2?.errorLocation,
+            detectionPoint: doc.head?.detectionPoint
+        });
     };
     req.onerror = () => showAlert('❌ Rapor açılamadı!','error');
 }

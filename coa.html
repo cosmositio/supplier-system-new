@@ -80,10 +80,9 @@
             align-items: center;
             gap: 8px;
         }
-        
-        .back-btn:hover {
-            background: rgba(255,255,255,0.3);
-        }
+        .back-btn:hover { background: rgba(255,255,255,0.3); }
+        .page-nav { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .page-nav .back-btn { font-size: 0.85em; padding: 8px 14px; }
         
         .container {
             max-width: 1600px;
@@ -972,9 +971,11 @@
             </h1>
             <p>Tedarik?i analiz sertifikalar?n? AI destekli olarak y?netin</p>
         </div>
-        <a href="index.html" class="back-btn">
-            ? Ana Sayfaya D?n
-        </a>
+        <div class="page-nav">
+            <a href="index.html"             class="back-btn">🏠 Ana Sayfa</a>
+            <a href="uygunsuzluk-analizi.html" class="back-btn">⚠️ Uygunsuzluk</a>
+            <a href="balik-kilcigi.html"      class="back-btn">🐟 Balık Kılçığı</a>
+        </div>
     </div>
 
     <div class="container">

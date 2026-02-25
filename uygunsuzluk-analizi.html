@@ -43,6 +43,9 @@
             font-size: 0.95em;
         }
         .back-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.04); }
+        .page-nav { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .page-nav .back-btn { font-size: 0.85em; padding: 8px 14px; border-radius: 8px; }
+        .page-nav .back-btn.active-page { background: rgba(255,255,255,0.35); font-weight: 700; }
 
         .container { max-width: 1600px; margin: 0 auto; padding: 24px 20px; }
 
@@ -498,7 +501,11 @@
         <h1>🔍 Uygunsuzluk Analizi</h1>
         <p>Pareto Analizi · Hata Tipi Dağılımı</p>
     </div>
-    <a href="index.html" class="back-btn">← Ana Sayfa</a>
+    <div class="page-nav">
+        <a href="index.html"              class="back-btn">🏠 Ana Sayfa</a>
+        <a href="coa.html"               class="back-btn">📄 COA</a>
+        <a href="balik-kilcigi.html"      class="back-btn">🐟 Balık Kılçığı</a>
+    </div>
 </div>
 
 <div class="loading-overlay" id="loadingOverlay">
