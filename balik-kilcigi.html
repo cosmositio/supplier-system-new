@@ -1831,6 +1831,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Otomatik yerleştir: yeni veri gelince VEYA hiç layout ayarı kaydedilmemişse
+    if (state.causes && state.causes.length > 0 && (_fromUygunsuzluk || !state.autoLayoutSettings)) {
+        setTimeout(() => autoLayout(), 200);
+    }
+
     // Geri butonunu düzenle
     const _src = localStorage.getItem('fishbone_source');
     localStorage.removeItem('fishbone_source'); // tek seferlik
@@ -2092,12 +2097,12 @@ function saveModal() {
         }
     }
 
+    const _wasAddOrChild = (modalMode === 'add' || modalMode === 'addChild');
     closeModal();
     render();
     autoSave();
+    if (_wasAddOrChild) setTimeout(() => autoLayout(), 100);
 }
-
-// ===== CONTEXT MENU =====
 function showContextMenu(e, causeId) {
     e.preventDefault();
     e.stopPropagation();
@@ -2853,8 +2858,40 @@ function renderFishbone() {
             const actualBaseX = boneBaseX + baseOffX;
             const actualBaseY = centerY + baseOffY;
 
-            const baseTipX = actualBaseX - boneLen * Math.cos(boneAngleRad);
-            const baseTipY = actualBaseY + dir * boneLen * Math.sin(boneAngleRad);
+            // effectiveBoneLen: grandchild'a göre gerekli minimum kemik uzunluğu
+            const _SIN60 = Math.sin(60 * Math.PI / 180);
+            const _EB_GAP = 10, _EB_MARGIN = 14;
+            function _ebH(name, fs, bw) {
+                const cpl = Math.max(6, Math.floor(bw / (fs * 0.58)));
+                const wds = (name || '').split(' '); let ln = 0, cur = '';
+                for (const w of wds) { const t2 = cur ? cur+' '+w : w; if (t2.length>cpl&&cur){ln++;cur=w;}else cur=t2; }
+                if (cur) ln++;
+                return Math.max(18, ln * (baseFontSub + 3) + 8);
+            }
+            const _ebD1bw = Math.min(88, Math.round(branchLen * 0.80));
+            const _ebGcBL = subBranchLen * Math.max(0.35, 1 - 0.14);
+            const _ebGcEY = _ebGcBL * _SIN60;
+            const _ebD2bw = Math.min(76, Math.round(_ebGcBL * 0.80));
+            function _ebFpB(c) {
+                const th = _ebH(c.name, baseFontSub, _ebD1bw);
+                if (c.children && c.children.length > 0) {
+                    let mxG = 18;
+                    c.children.forEach(gc => { mxG = Math.max(mxG, _ebH(gc.name, baseFontSub, _ebD2bw)); });
+                    return Math.max(th, _ebGcEY + mxG);
+                }
+                return th;
+            }
+            let _neededYSpan = 0;
+            const _ebCh = cause.children || [];
+            if (_ebCh.length > 0) {
+                let _p = _EB_MARGIN;
+                for (let _ci = 0; _ci < _ebCh.length - 1; _ci++) _p += _ebFpB(_ebCh[_ci]) + _EB_GAP;
+                _neededYSpan = _p + _ebFpB(_ebCh[_ebCh.length - 1]) + 6 + _EB_MARGIN;
+            }
+            const effectiveBoneLen = Math.max(boneLen, _neededYSpan > 0 ? Math.ceil(_neededYSpan / _SIN60) : 0);
+
+            const baseTipX = actualBaseX - effectiveBoneLen * Math.cos(boneAngleRad);
+            const baseTipY = actualBaseY + dir * effectiveBoneLen * Math.sin(boneAngleRad);
             const tipX = baseTipX + (cause.offsetX || 0);
             const tipY = baseTipY + (cause.offsetY || 0);
 
@@ -3018,10 +3055,40 @@ function renderFishbone() {
         const pux = isHorizontal ? -1    : mainUX;
         const puy = isHorizontal ?  0    : mainUY;
 
+        // Orantılı t değerleri: footprintBelow formulüyle çakışma önleme
+        const _DC_GAP = 10, _DC_MARGIN = 14;
         const _n = children.length;
+        const _boneYSpan = Math.abs(lineEnd.y - lineStart.y) || 1;
+        const _dcFs1 = Math.max(8, baseFontSub - (depth - 1) * 1.5);
+        const _dcBw1 = Math.min(Math.max(50, 100 - depth * 12), Math.round(blLen * 0.80));
+        const _dcGcBL = subBranchLen * Math.max(0.35, 1 - depth * 0.14);
+        const _dcGcEY = _dcGcBL * Math.sin(60 * Math.PI / 180);
+        const _dcFs2 = Math.max(8, baseFontSub - depth * 1.5);
+        const _dcBw2 = Math.min(Math.max(50, 100-(depth+1)*12), Math.round(_dcGcBL * 0.80));
+        function _dcH(c, fs, bw) {
+            const cpl = Math.max(6, Math.floor(bw / (fs * 0.58)));
+            const wds = (c.name||'').split(' '); let ln=0,cur='';
+            for(const w of wds){const t2=cur?cur+' '+w:w;if(t2.length>cpl&&cur){ln++;cur=w;}else cur=t2;}
+            if(cur)ln++; return Math.max(18,ln*(fs+3)+8);
+        }
+        function _dcFpB(c) {
+            const th = _dcH(c, _dcFs1, _dcBw1);
+            if (c.children && c.children.length > 0) {
+                let mxG=18; c.children.forEach(gc=>{mxG=Math.max(mxG,_dcH(gc,_dcFs2,_dcBw2));});
+                return Math.max(th, _dcGcEY + mxG);
+            }
+            return th;
+        }
+        let _propTVals = null;
+        if (depth === 1 && _n > 0) {
+            let _p = _DC_MARGIN;
+            const _rawYs = [_p];
+            for (let _i = 0; _i < _n - 1; _i++) { _p += _dcFpB(children[_i]) + _DC_GAP; _rawYs.push(_p); }
+            _propTVals = _rawYs.map(v => Math.min(0.96, v / _boneYSpan));
+        }
 
         children.forEach((child, ci) => {
-            const t = (ci + 1) / (_n + 1);
+            const t = (_propTVals && _propTVals.length === _n) ? _propTVals[ci] : (ci + 1) / (_n + 1);
             const rawAx = lineStart.x + (lineEnd.x - lineStart.x) * t;
             const rawAy = lineStart.y + (lineEnd.y - lineStart.y) * t;
 
@@ -5216,6 +5283,7 @@ function apAddToFishbone(row) {
     autoSave();
     render();
     renderActionPlan();
+    setTimeout(() => autoLayout(), 100);
 }
 
 function updateContribTotal() {
