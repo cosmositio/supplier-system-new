@@ -479,7 +479,6 @@ body.report-editing [data-ed]:focus {
                     <button class="ap-btn ap-btn-edit no-print" onclick="fbEditEffect()">✏️ Başlık</button>
                     <span id="krSaveInd" style="font-size:.72rem;color:#16a34a;margin-left:6px;opacity:0;transition:opacity .4s;">✔ Kaydedildi</span>
                     <span style="font-size:.75rem;color:#64748b;margin-left:auto;">6 kemik: İnsan · Makine · Malzeme · Metot · Ölçüm · Ortam</span>
-                    <button class="ap-btn no-print" style="margin-left:8px;font-size:.72rem;opacity:.7;" onclick="krClearSavedEdits()" title="Kılçık ve aksiyon düzenlemelerini sıfırla">↺ Sıfırla</button>
                 </div>
                 <div class="fb-svg-wrap" id="fbContainer"></div>
                 <div class="fb-edit-panels no-print" id="fbEditPanels"></div>
@@ -730,17 +729,6 @@ function _krApplyAksiyonEdits(saved) {
     window._aksiyonlar = window._aksiyonlar.filter(a => a._fbSource || !savedKeys.has(a.bulgu));
     window._aksiyonlar.push(...manual);
     renderAksiyonTablosu();
-}
-
-function krClearSavedEdits() {
-    if (!confirm('Kılçık ve aksiyon planı üzerindeki tüm kaydedilmiş düzenleme silinsin mi? (Veriden yeniden oluşturulacak)')) return;
-    const r = indexedDB.open(_IDB.name, _IDB.ver);
-    r.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
-    r.onsuccess = e => {
-        e.target.result.transaction(_IDB.store,'readwrite').objectStore(_IDB.store).delete(_KR_KEY);
-    };
-    rebuildFishboneData();
-    _rebuildM6Display();
 }
 
 // ── Generic IDB helpers ──
