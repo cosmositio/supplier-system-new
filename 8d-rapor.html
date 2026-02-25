@@ -653,20 +653,32 @@ function loadSupplierList(selectedValue) {
     const sel = document.getElementById('meta_supplier');
     if (!sel) return;
 
-    // supplierHistory store'undan tüm kayıtları al
-    // Her kayıt bir tedarikçiye ait; name alanını topla, unique yap
+    // supplierHistory store'unda her kayıt bir ANLİK GÖRÜNTÜ'dür (snapshot).
+    // Snapshot'ın r.name'i "liste adı"dır, bireysel tedarikçiler r.data[] içindedir.
+    // En son snapshot'ı al ve r.data[]'dan tedarikçi isimlerini çıkar.
     const tx  = db.transaction([STORE_HISTORY], 'readonly');
     const req = tx.objectStore(STORE_HISTORY).getAll();
     req.onsuccess = () => {
-        const records = req.result || [];
-        // Unique, boş olmayan isimler
+        const snapshots = req.result || [];
+        if (!snapshots.length) {
+            sel.innerHTML = '<option value="">— Tedarikçi Seçiniz —</option>'
+                          + '<option value="" disabled>( Ana sayfada kayıtlı liste bulunamadı )</option>';
+            return;
+        }
+
+        // En son kaydedilen snapshot'ı bul
+        snapshots.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const latest      = snapshots[0];
+        const suppData    = latest.data || [];
+
+        // Bireysel tedarikçi isimlerini unique + sıralı topla
         const names = [...new Set(
-            records
-                .map(r => (r.name || '').trim())
-                .filter(n => n)
+            suppData
+                .map(s => (s.name || '').trim())
+                .filter(n => n && !n.startsWith('[Tedarikçi Adı Yok'))
         )].sort((a, b) => a.localeCompare(b, 'tr'));
 
-        // Eğer mevcut seçili değer listede yoksa ekle
+        // Eğer kaydedilen rapordaki isim listede yoksa üste ekle
         const current = selectedValue || sel.value || '';
         if (current && !names.includes(current)) names.unshift(current);
 
@@ -680,7 +692,7 @@ function loadSupplierList(selectedValue) {
         });
 
         if (!names.length) {
-            sel.innerHTML += '<option value="" disabled>( Ana listede tedarikçi bulunamadı )</option>';
+            sel.innerHTML += '<option value="" disabled>( Listede tedarikçi bulunamadı )</option>';
         }
     };
     req.onerror = () => console.warn('Tedarikçi listesi yüklenemedi');
