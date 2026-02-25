@@ -1175,34 +1175,6 @@ function drawFishbone() {
     const sinA   = Math.sin(A * Math.PI / 180);
     const p      = [];
 
-    // Overlap-prevention helpers: proportional t values + per-bone effective length
-    const _OP_M   = 14,  _OP_G   = 8;   // margin / gap (px, vertical)
-    const _OP_BH  = 18,  _OP_SL  = 34,  _OP_SBH = 15; // label-h, sub-len, sub-box-h
-    // max bone length so tip stays inside SVG (20 px margin inside top/bottom edge)
-    const _OP_MAX = Math.floor((SY - 20) / sinA);
-    function _opBoneL(bCauses) {
-        const bc = bCauses || [];
-        if (!bc.length) return L;
-        const pos = [_OP_M];
-        for (let k = 1; k < bc.length; k++) {
-            const ns = (fbNorm(bc[k]).subs || []).length;
-            pos[k] = pos[k-1] + (ns > 0 ? _OP_SL + _OP_SBH + _OP_BH + 4 + _OP_G : _OP_BH + 4 + _OP_G);
-        }
-        const needed = pos[bc.length - 1] + _OP_BH + 4 + _OP_M;
-        return Math.min(_OP_MAX, Math.max(L, Math.ceil(needed / sinA)));
-    }
-    function _opTVals(bCauses, effL) {
-        const bc = bCauses || [];
-        if (!bc.length) return [];
-        const pos = [_OP_M];
-        for (let k = 1; k < bc.length; k++) {
-            const ns = (fbNorm(bc[k]).subs || []).length;
-            pos[k] = pos[k-1] + (ns > 0 ? _OP_SL + _OP_SBH + _OP_BH + 4 + _OP_G : _OP_BH + 4 + _OP_G);
-        }
-        const span = effL * sinA;
-        return pos.map(v => Math.min(0.96, v / span));
-    }
-
     // Background + grid
     p.push(`<rect width="${W}" height="${H}" fill="#f8fafc"/>`);
     for(let x=SS+60; x<=SE; x+=80)
@@ -1238,11 +1210,8 @@ function drawFishbone() {
         const dir    = isTop ? -1 : 1;
         const color  = bone.color;
 
-        // Per-bone effective bone length to avoid sub-cause / label overlaps
-        const _bEL  = _opBoneL(bone.causes);
-        const _bTV  = _opTVals(bone.causes, _bEL);
-        const tipX = +(sx - _bEL * cosA).toFixed(1);
-        const tipY = +(SY + dir * _bEL * sinA).toFixed(1);
+        const tipX = +(sx - L * cosA).toFixed(1);
+        const tipY = +(SY + dir * L * sinA).toFixed(1);
 
         // Main bone line
         p.push(`<line x1="${sx}" y1="${SY}" x2="${tipX}" y2="${tipY}"
@@ -1269,10 +1238,10 @@ function drawFishbone() {
 
         // Ribs (main causes)
         const causes = bone.causes || [];
-        causes.forEach((rawCause, ci) => {
+        causes.slice(0, TPOS.length).forEach((rawCause, ci) => {
             const cause = fbNorm(rawCause);
             const name  = cause.name;
-            const t  = ci < _bTV.length ? _bTV[ci] : (ci + 1) / (causes.length + 1);
+            const t  = TPOS[ci];
             const px = +(sx  + t * (tipX - sx)).toFixed(1);
             const py = +(SY  + t * (tipY - SY)).toFixed(1);
             const rx = +(px - 78).toFixed(1);
@@ -1339,6 +1308,12 @@ function drawFishbone() {
                     font-size="8" fill="${color}" opacity="0.7">+${subs.length-3} alt neden</text>`);
             }
         });
+
+        if(causes.length > TPOS.length) {
+            const moreY = isTop ? SY - 14 : SY + 20;
+            p.push(`<text x="${sx}" y="${moreY}" text-anchor="middle"
+                font-size="9" fill="${color}" opacity="0.85">+${causes.length-TPOS.length} daha</text>`);
+        }
     });
 
     const tag = document.getElementById('fbEffectTag');
