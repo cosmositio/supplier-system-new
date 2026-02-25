@@ -4442,7 +4442,7 @@ function renderFishboneRecordList(records) {
     }).join('');
 }
 
-async async function loadFishboneRecord(recordId) {
+async function loadFishboneRecord(recordId) {
     try {
         const db  = await openFishboneDB();
         const tx  = db.transaction([FB_STORE], 'readonly');
