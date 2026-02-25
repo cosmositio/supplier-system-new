@@ -2123,8 +2123,15 @@ function krCheckSaved() {
     try { sig = JSON.parse(localStorage.getItem('fishbone_8d_saved') || '{}'); } catch(e) { return; }
     let changed = false;
     list.forEach((a) => {
+        if (a.faaliyet !== '8D Raporu') return;
+        // 8D kaydedildiyse güncelle
         if (a.has8DLink === 'pending' && sig[a.bulgu]) {
             a.has8DLink = true;
+            changed = true;
+        }
+        // 8D silindiyse bağlantıyı kaldır
+        if (a.has8DLink === true && !sig[a.bulgu]) {
+            a.has8DLink = undefined;
             changed = true;
         }
     });
@@ -2197,8 +2204,15 @@ function apSaveModal() {
     const entry = { bulgu, kat, katBadge, aksiyon, oncelik, sorumlu, durum, tarih, faaliyet };
 
     if (_apEditIdx === -1) {
+        // Yeni satır: 8D seçildiyse has8DLink'i undefined bırak (düğme görünür)
         window._aksiyonlar.push(entry);
     } else {
+        // Düzenleme: onceki satırdan has8DLink'i koru
+        const prev = window._aksiyonlar[_apEditIdx] || {};
+        if (faaliyet === '8D Raporu') {
+            entry.has8DLink = prev.has8DLink; // true / 'pending' / undefined
+        }
+        // Faaliyet 8D'den başkasına değiştirildiyse bağlantıyı temizle
         window._aksiyonlar[_apEditIdx] = entry;
     }
     renderAksiyonTablosu();
