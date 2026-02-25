@@ -1136,6 +1136,7 @@ function initFishbone(rows, _htData, effectLabel) {
 
 // Normalize cause: string or {name,subs} → always {name,subs}
 function fbNorm(c) { return typeof c === 'string' ? {name:c, subs:[]} : (c || {name:'', subs:[]}); }
+function fbNormSub(s) { return typeof s === 'string' ? {name:s, subs:[]} : (s || {name:'', subs:[]}); }
 
 // ── Re-build 6M bones from current rows ──
 function rebuildFishboneData() {
@@ -1419,6 +1420,74 @@ function _rebuildM6Display() {
     });
     html += '</div>';
     m6DetailEl.innerHTML = html;
+
+    // Sync fishbone causes → aksiyon planı
+    _rebuildAksiyonFromFishbone();
+}
+
+// Balık kılçığı nedenleri → Aksiyon Planı senkronizasyonu
+function _rebuildAksiyonFromFishbone() {
+    if (!window._aksiyonlar) return;
+    const _def = { sorumlu:'', durum:'Beklemede', tarih:'', faaliyet:'' };
+    const boneAct = {
+        insan:   'Personel eğitim programı ve çalışma talimatı güncellemesi planlanmalı.',
+        malzeme: 'Malzeme kabul kriterleri ve tedarikçi değerlendirmesi gözden geçirilmeli.',
+        metot:   'Proses talimatları ve standart çalışma prosedürleri (SOP) güncellenmeli.',
+        makine:  'Periyodik bakım planı oluşturulmalı / güncellenmeli. Kalibrasyon takibi yapılmalı.',
+        olcum:   'Ölçüm sistemi analizi (MSA) yapılmalı. Muayene talimatları güncellenmeli.',
+        ortam:   'Depolama & sevkiyat koşulları iyileştirilmeli. Ambalaj standardı belirlenmeli.'
+    };
+    const boneKat = {
+        insan:'İnsan', malzeme:'Malzeme', metot:'Metot/Süreç',
+        makine:'Makine', olcum:'Ölçüm', ortam:'Ortam'
+    };
+    const boneKatBadge = {
+        insan:'badge-blue', malzeme:'badge-yellow', metot:'badge-purple',
+        makine:'badge-gray', olcum:'badge-green', ortam:'badge-green'
+    };
+
+    // Remove auto-generated fishbone rows (keep rows user manually edited — they won't have _fbSource)
+    window._aksiyonlar = window._aksiyonlar.filter(a => !a._fbSource);
+
+    const fbBones = (window._fbData && window._fbData.bones) ? window._fbData.bones : [];
+    const newEntries = [];
+    fbBones.forEach(bone => {
+        const bLabel = bone.label || bone.key;
+        const actTxt = boneAct[bone.key] || `"${bLabel}" kategorisindeki kök neden giderilmeli. Düzeltici faaliyet planlanmalı.`;
+        const kat     = boneKat[bone.key]     || '6M Analizi';
+        const katBadge= boneKatBadge[bone.key]|| 'badge-green';
+        (bone.causes || []).forEach(rawCause => {
+            const cause = fbNorm(rawCause);
+            if (!cause.name) return;
+            newEntries.push({
+                bulgu: `Balık kılçığı [${bLabel}]: "${cause.name}"`,
+                kat, katBadge,
+                aksiyon: actTxt,
+                oncelik: 'Orta',
+                _fbSource: true,
+                ..._def
+            });
+            (cause.subs || []).forEach(sub => {
+                const subName = fbNormSub(sub).name;
+                if (!subName) return;
+                newEntries.push({
+                    bulgu: `Balık kılçığı [${bLabel}] › ${cause.name}: "${subName}"`,
+                    kat, katBadge,
+                    aksiyon: actTxt,
+                    oncelik: 'Düşük',
+                    _fbSource: true,
+                    ..._def
+                });
+            });
+        });
+    });
+
+    if (newEntries.length) {
+        window._aksiyonlar.push(...newEntries);
+        renderAksiyonTablosu();
+    } else if (fbBones.some(b => (b.causes||[]).length)) {
+        renderAksiyonTablosu();
+    }
 }
 
 function renderFbEditPanels() {
@@ -2057,6 +2126,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const actions = generateActionPlan(rows, htData, tedData, malData, icDis, m6);
     window._aksiyonlar = actions;
     renderAksiyonTablosu();
+    _rebuildAksiyonFromFishbone(); // Balık kılçığı nedenlerini aksiyon planına ekle
     krCheckSaved();
 
     // ── Enable edit mode if it was on before re-render ──
