@@ -489,6 +489,21 @@
         .toast.error { background: #b71c1c; }
         .toast.success { background: #2d5a3d; }
 
+        /* ── Snapshot Modal ── */
+        #uaSnapModal { display:none; position:fixed; inset:0; z-index:9999; background:rgba(10,15,30,.55); align-items:center; justify-content:center; }
+        #uaSnapModal.open { display:flex; }
+        #uaSnapBox { background:#fff; border-radius:14px; padding:28px 28px 20px; width:min(640px,96vw); max-height:82vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.25); font-family:inherit; }
+        #uaSnapBox h3 { margin:0 0 18px; font-size:1rem; color:#1e2535; }
+        .ua-snap-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #f1f5f9; }
+        .ua-snap-row:last-child { border-bottom:none; }
+        .ua-snap-info { flex:1; }
+        .ua-snap-name { font-size:.88rem; font-weight:700; color:#1e2535; margin-bottom:3px; }
+        .ua-snap-meta { font-size:.73rem; color:#94a3b8; }
+        .ua-snap-btns { display:flex; gap:6px; flex-shrink:0; }
+        .ua-snap-btn  { border:none; border-radius:6px; padding:5px 11px; cursor:pointer; font-size:.75rem; font-weight:600; line-height:1; }
+        .ua-snap-load { background:#dbeafe; color:#1e40af; }
+        .ua-snap-del  { background:#fee2e2; color:#b91c1c; }
+
         @media(max-width: 700px) {
             .header { padding: 16px 18px; }
             .header h1 { font-size: 1.3em; }
@@ -650,6 +665,7 @@
             <button class="tab-btn" onclick="switchTab('breakdown')">📋 Hata Tipi Dağılımı</button>
             <button class="tab-btn" onclick="switchTab('table')">📄 Veri Tablosu</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;">📑 Kapsamlı Rapor Oluştur</button>
+            <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
         </div>
 
         <!-- Pareto Tab -->
@@ -1751,6 +1767,83 @@ function _rIdbSave(data) {
         tx.onerror    = () => { db.close(); rej(tx.error); };
     }));
 }
+function _rIdbGet(key) {
+    return _rIdbOpen().then(db => new Promise(res => {
+        const g = db.transaction(_RIDB.store,'readonly').objectStore(_RIDB.store).get(key);
+        g.onsuccess = () => { db.close(); res(g.result ?? null); };
+        g.onerror   = () => { db.close(); res(null); };
+    }));
+}
+function _rIdbPut(key, value) {
+    return _rIdbOpen().then(db => new Promise((res, rej) => {
+        const tx = db.transaction(_RIDB.store, 'readwrite');
+        tx.objectStore(_RIDB.store).put(value, key);
+        tx.oncomplete = () => { db.close(); res(); };
+        tx.onerror    = () => { db.close(); rej(tx.error); };
+    }));
+}
+function _rIdbDel(key) {
+    return _rIdbOpen().then(db => new Promise(res => {
+        const tx = db.transaction(_RIDB.store,'readwrite');
+        tx.objectStore(_RIDB.store).delete(key);
+        tx.oncomplete = () => { db.close(); res(); };
+        tx.onerror    = () => { db.close(); res(); };
+    }));
+}
+
+// Snapshot list modal for uygunsuzluk-analizi
+const _UA_SNAPS_KEY = 'kr_snapshots'; // same key as kapsamli-rapor.html
+const _UA_EDITS_KEY = 'kapsamli_rapor_edits';
+
+function _uaEsc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _uaFmtN(n) {
+    if (n == null || isNaN(n)) return '—';
+    return Number(n).toLocaleString('tr-TR', { maximumFractionDigits:0 });
+}
+
+async function uaOpenSnapshotModal() {
+    const list = (await _rIdbGet(_UA_SNAPS_KEY)) || [];
+    const body = document.getElementById('uaSnapList');
+    if (!body) return;
+    if (!list.length) {
+        body.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:28px 0;">Henüz kayıtlı rapor yok.<br><small style="color:#c4cdd8;">Kapsamlı Rapor sayfasında 💾 Kaydet butonunu kullanarak rapor kaydedebilirsiniz.</small></p>';
+    } else {
+        body.innerHTML = list.slice().reverse().map(m => `
+            <div class="ua-snap-row">
+                <div class="ua-snap-info">
+                    <div class="ua-snap-name">${_uaEsc(m.name)}</div>
+                    <div class="ua-snap-meta">${new Date(m.ts).toLocaleString('tr-TR')} &nbsp;·&nbsp; ${_uaFmtN(m.recordCount)} kayıt &nbsp;·&nbsp; ${_uaFmtN(m.totalHatali)} hatalı</div>
+                </div>
+                <div class="ua-snap-btns">
+                    <button class="ua-snap-btn ua-snap-load" onclick="uaLoadSnapshot('${m.id}')">📂 Raporu Aç</button>
+                    <button class="ua-snap-btn ua-snap-del"  onclick="uaDeleteSnapshot('${m.id}')">🗑️ Sil</button>
+                </div>
+            </div>`.trim()).join('');
+    }
+    document.getElementById('uaSnapModal').classList.add('open');
+}
+
+async function uaDeleteSnapshot(id) {
+    if (!confirm('Bu kayıtlı rapor silinsin mi?')) return;
+    const list = (await _rIdbGet(_UA_SNAPS_KEY)) || [];
+    await _rIdbPut(_UA_SNAPS_KEY, list.filter(m => m.id !== id));
+    await _rIdbDel('kr_' + id);
+    uaOpenSnapshotModal();
+}
+
+async function uaLoadSnapshot(id) {
+    const snap = await _rIdbGet('kr_' + id);
+    if (!snap || !snap.payload) { showToast('Snapshot verisi bulunamadı.', 'error'); return; }
+    // Restore payload + edits to IDB then open the report
+    await _rIdbPut(_RIDB.key, snap.payload);
+    if (snap.edits) await _rIdbPut(_UA_EDITS_KEY, snap.edits);
+    else await _rIdbDel(_UA_EDITS_KEY);
+    document.getElementById('uaSnapModal').classList.remove('open');
+    window.open('kapsamli-rapor.html', '_blank');
+}
 
 // Kapsamlı Rapor — tüm filtrelenmiş veriyi paketleyip rapor sayfasına gönderir
 function openKapsamliRapor() {
@@ -2073,6 +2166,9 @@ function showFileInfo(fileName, sheetName, count, fromCache) {
 }
 
 document.addEventListener('DOMContentLoaded', loadFromStorage);
+document.addEventListener('click', e => {
+    if (e.target.id === 'uaSnapModal') document.getElementById('uaSnapModal').classList.remove('open');
+});
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function showLoading(show) {
@@ -2148,6 +2244,16 @@ function openFishboneMulti() {
     window.open('balik-kilcigi.html','_blank');
 }
 </script>
+
+<div id="uaSnapModal">
+    <div id="uaSnapBox">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+            <h3>📁 Kayıtlı Kapsamlı Raporlar</h3>
+            <button onclick="document.getElementById('uaSnapModal').classList.remove('open')" style="margin-left:auto;background:#f1f5f9;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:.82rem;font-weight:600;">✕ Kapat</button>
+        </div>
+        <div id="uaSnapList"></div>
+    </div>
+</div>
 
 <!-- Çoklu Analiz Alt Barı -->
 <div id="multiAnalyzeBar" class="multi-analyze-bar" style="display:none;">
