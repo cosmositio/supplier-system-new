@@ -241,6 +241,17 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .ap-modal-cancel { background:#f1f5f9; color:#475569; border:none; border-radius:8px; padding:9px 18px; font-size:.85rem; font-weight:600; cursor:pointer; }
 .ap-section-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
 
+/* ── SNAPSHOT MODAL ── */
+#krSnapModal { display:none; position:fixed; inset:0; z-index:9998; background:rgba(10,15,30,.55); align-items:center; justify-content:center; }
+#krSnapModal.open { display:flex; }
+#krSnapBox { background:#fff; border-radius:14px; padding:28px 28px 20px; width:min(640px,96vw); max-height:82vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.25); }
+.kr-snap-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #f1f5f9; }
+.kr-snap-row:last-child { border-bottom:none; }
+.kr-snap-info { flex:1; }
+.kr-snap-name { font-size:.88rem; font-weight:700; color:#1e2535; margin-bottom:3px; }
+.kr-snap-meta { font-size:.73rem; color:#94a3b8; }
+.kr-snap-btns { display:flex; gap:6px; flex-shrink:0; }
+
 /* ── PRINT ── */
 @media print {
     .topbar, .sidebar, .topbar-right, .no-print { display:none !important; }
@@ -303,6 +314,8 @@ body.report-editing [data-ed]:focus {
     <div id="topbarTitle" style="color:#93c5fd;font-size:.85rem;"></div>
     <div class="edit-mode-badge">✏️ Düzenleme Modu Aktif</div>
     <div class="topbar-right">
+        <button class="btn btn-outline no-print" onclick="krSaveSnapshot()" title="Raporu isimle kaydet">💾 Kaydet</button>
+        <button class="btn btn-outline no-print" onclick="krOpenSnapshotModal()" title="Kayıtlı raporları listele">📁 Raporlarım</button>
         <button id="btnEditMode" class="btn btn-outline no-print" onclick="toggleEditMode()">✏️ Raporu Düzenle</button>
         <button class="btn btn-outline no-print" onclick="window.print()">🖨️ Yazdır / PDF</button>
         <button class="btn btn-primary" onclick="window.close()">✖ Kapat</button>
@@ -601,6 +614,17 @@ body.report-editing [data-ed]:focus {
         </div>
     </div>
 
+    <!-- SNAPSHOT MODAL -->
+    <div id="krSnapModal">
+        <div id="krSnapBox">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+                <h3 style="margin:0;font-size:1rem;">📁 Kayıtlı Raporlar</h3>
+                <button onclick="document.getElementById('krSnapModal').classList.remove('open')" style="margin-left:auto;background:#f1f5f9;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:.82rem;font-weight:600;">✕ Kapat</button>
+            </div>
+            <div id="krSnapList"></div>
+        </div>
+    </div>
+
     <!-- FOOTER -->
     <div style="text-align:center; color:var(--c-sub); font-size:.75rem; padding:24px 0; margin-top:8px;">
         Rapor <span id="footerDate"></span> tarihinde oluşturuldu · Kalite Yönetim Sistemi
@@ -715,6 +739,118 @@ function krClearSavedEdits() {
     };
     rebuildFishboneData();
     _rebuildM6Display();
+}
+
+// ── Generic IDB helpers ──
+function _idbGet(key) {
+    return new Promise(res => {
+        const r = indexedDB.open(_IDB.name, _IDB.ver);
+        r.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
+        r.onsuccess = e => {
+            const g = e.target.result.transaction(_IDB.store,'readonly').objectStore(_IDB.store).get(key);
+            g.onsuccess = () => res(g.result ?? null);
+            g.onerror   = () => res(null);
+        };
+        r.onerror = () => res(null);
+    });
+}
+function _idbPut(key, value) {
+    return new Promise(res => {
+        const r = indexedDB.open(_IDB.name, _IDB.ver);
+        r.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
+        r.onsuccess = e => {
+            const tx = e.target.result.transaction(_IDB.store,'readwrite');
+            tx.objectStore(_IDB.store).put(value, key);
+            tx.oncomplete = () => res(true);
+            tx.onerror    = () => res(false);
+        };
+        r.onerror = () => res(false);
+    });
+}
+function _idbDel(key) {
+    return new Promise(res => {
+        const r = indexedDB.open(_IDB.name, _IDB.ver);
+        r.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
+        r.onsuccess = e => {
+            const tx = e.target.result.transaction(_IDB.store,'readwrite');
+            tx.objectStore(_IDB.store).delete(key);
+            tx.oncomplete = () => res(true);
+            tx.onerror    = () => res(false);
+        };
+        r.onerror = () => res(false);
+    });
+}
+
+// ── Snapshot save / list / load / delete ──
+const _SNAPS_KEY = 'kr_snapshots';
+
+async function krSaveSnapshot() {
+    const payload = await _idbGet(_IDB.key);
+    if (!payload) { alert('Önce bir rapor yüklenmelidir.'); return; }
+    const defaultName = (payload.title || 'Rapor') + ' — ' + new Date().toLocaleDateString('tr-TR');
+    const name = prompt('Bu rapor için bir isim girin:', defaultName);
+    if (name === null) return;
+    const edits = await _krLoadEdits();
+    const rows  = payload.rows || [];
+    const id    = 'snap_' + Date.now();
+    const meta  = {
+        id, name: (name.trim() || defaultName), ts: Date.now(),
+        recordCount: rows.length,
+        totalHatali: rows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0),
+        title: payload.title || ''
+    };
+    const list = (await _idbGet(_SNAPS_KEY)) || [];
+    list.push(meta);
+    await _idbPut(_SNAPS_KEY, list);
+    await _idbPut('kr_' + id, { payload, edits });
+    const ind = document.getElementById('krSaveInd');
+    if (ind) { ind.textContent = '✔ Snapshot kaydedildi'; ind.style.opacity='1'; clearTimeout(ind._t); ind._t = setTimeout(() => { ind.style.opacity='0'; ind.textContent='✔ Kaydedildi'; }, 2500); }
+}
+
+async function krOpenSnapshotModal() {
+    const list = (await _idbGet(_SNAPS_KEY)) || [];
+    const body = document.getElementById('krSnapList');
+    if (!body) return;
+    if (!list.length) {
+        body.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:24px 0;">Henüz kayıtlı rapor yok.<br><small style="color:#c4cdd8;">Raporu kaydetmek için üst çubuktaki 💾 Kaydet butonunu kullanın.</small></p>';
+    } else {
+        body.innerHTML = list.slice().reverse().map(m => `
+            <div class="kr-snap-row">
+                <div class="kr-snap-info">
+                    <div class="kr-snap-name">${esc(m.name)}</div>
+                    <div class="kr-snap-meta">${new Date(m.ts).toLocaleString('tr-TR')} &nbsp;·&nbsp; ${fmtN(m.recordCount)} kayıt &nbsp;·&nbsp; ${fmtN(m.totalHatali)} hatalı</div>
+                </div>
+                <div class="kr-snap-btns">
+                    <button class="ap-btn ap-btn-edit" onclick="krLoadSnapshot('${m.id}')">📂 Yükle</button>
+                    <button class="ap-btn ap-btn-del"  onclick="krDeleteSnapshot('${m.id}')">🗑️</button>
+                </div>
+            </div>`.trim()).join('');
+    }
+    document.getElementById('krSnapModal').classList.add('open');
+}
+
+async function krDeleteSnapshot(id) {
+    if (!confirm('Bu kayıtlı rapor silinsin mi?')) return;
+    const list = (await _idbGet(_SNAPS_KEY)) || [];
+    await _idbPut(_SNAPS_KEY, list.filter(m => m.id !== id));
+    await _idbDel('kr_' + id);
+    krOpenSnapshotModal();
+}
+
+async function krLoadSnapshot(id) {
+    const snap = await _idbGet('kr_' + id);
+    if (!snap || !snap.payload) { alert('Snapshot verisi bulunamadı.'); return; }
+    document.getElementById('krSnapModal').classList.remove('open');
+    // persist back to IDB so refresh also loads this snapshot
+    await _idbPut(_IDB.key, snap.payload);
+    if (snap.edits) await _idbPut(_KR_KEY, snap.edits);
+    else await _idbDel(_KR_KEY);
+    _destroyCharts();
+    runReport(snap.payload);
+}
+
+function _destroyCharts() {
+    try { Object.values(Chart.instances || {}).forEach(c => { try { c.destroy(); } catch(e) {} }); } catch(e) {}
 }
 
 // ── EDIT MODE ──
@@ -1961,13 +2097,28 @@ document.addEventListener('click', e => {
 // MAIN RENDER
 // ─────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-    idbLoadRapor().then(payload => {
-        if (!payload) {
+    idbLoadRapor()
+        .then(payload => runReport(payload))
+        .catch(e => {
+            document.getElementById('loadingState').innerHTML = `<div class="empty-state"><div class="emo">❌</div><p>Veri okunamadı: ${e.message}</p></div>`;
+        });
+});
+
+function runReport(payload) {
+    // destroy previous chart instances on re-run
+    _destroyCharts();
+    // reset UI state
+    document.getElementById('loadingState').style.display = '';
+    document.getElementById('loadingState').innerHTML = '<div class="empty-state"><div class="emo">⏳</div><p>Rapor yükleniyor…</p></div>';
+    document.getElementById('reportContent').style.display = 'none';
+
+    if (!payload) {
             document.getElementById('loadingState').innerHTML = `
                 <div class="empty-state">
                     <div class="emo">⚠️</div>
                     <p style="font-size:1rem;font-weight:600;">Rapor verisi bulunamadı</p>
                     <p style="color:var(--c-sub);margin-top:8px;">Lütfen Uygunsuzluk Analizi sayfasından "Kapsamlı Rapor Oluştur" butonuna tıklayın.</p>
+                    <button class="btn btn-outline" style="margin-top:16px;" onclick="krOpenSnapshotModal()">📁 Kayıtlı Raporlarım</button>
                 </div>`;
             return;
         }
@@ -2280,10 +2431,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // ── Enable edit mode if it was on before re-render ──
     if (_editMode) { _editMode = false; toggleEditMode(); }
+}
 
-    }).catch(e => {
-        document.getElementById('loadingState').innerHTML = `<div class="empty-state"><div class="emo">❌</div><p>Veri okunamadı: ${e.message}</p></div>`;
-    });
+// close snap modal on backdrop click
+document.addEventListener('click', e => {
+    if (e.target.id === 'krSnapModal') document.getElementById('krSnapModal').classList.remove('open');
 });
 </script>
 </body>
