@@ -2863,45 +2863,45 @@ function renderFishbone() {
             const actualBaseX = boneBaseX + baseOffX;
             const actualBaseY = centerY + baseOffY;
 
-            // ── effectiveBoneLen: bu kemik için gerekli minimum uzunluk ──
-            // Grandchild'lı depth=1 çocuklar için kemik uzunluğunu dinamik genişlet.
-            const _SIN60 = Math.sin(60 * Math.PI / 180);
-            const _EB_MARGIN = 14; // kemik başı/sonu için sabit boşluk (px)
-            const _EB_GAP    = 10; // kardeşler arası ek boşluk (px)
-            function _ebLabelH(name, fs, bw) {
+            // ── effectiveBoneLen: bu kemik için gereken minimum uzunluk ──
+            // SVG render gerçeği (depth=1, dir=±1):
+            //   anchor ay_i → kutu alt kenar = ay_i + th_i + 6  (dir=+1)
+            //   grandchild branch dikeyde gcExtY iner → gc kutu altı = ay_i + gcExtY + thGc + 6
+            //   bir sonraki anchor ay_{i+1} → kutu üstü = ay_{i+1} + 6
+            //   çakışmamak için: ay_{i+1} > ay_i + max(th_i, gcExtY + thGc_i)
+            //   yani step = max(th_i, gcExtY + thGc_i) + GAP
+            const _SIN60  = Math.sin(60 * Math.PI / 180);
+            const _EB_GAP    = 10;  // kardeşler arası güvenlik payı (px)
+            const _EB_MARGIN = 14;  // kemik başı/sonu payı (px)
+            function _ebH(name, fs, bw) {
                 const cpl = Math.max(6, Math.floor(bw / (fs * 0.58)));
-                const words = (name || '').split(' ');
-                let ln = 0, cur = '';
-                for (const w of words) {
-                    const test = cur ? cur + ' ' + w : w;
-                    if (test.length > cpl && cur) { ln++; cur = w; } else cur = test;
-                }
+                const wds = (name || '').split(' '); let ln = 0, cur = '';
+                for (const w of wds) { const t2 = cur ? cur+' '+w : w; if (t2.length>cpl&&cur){ln++;cur=w;}else cur=t2; }
                 if (cur) ln++;
                 return Math.max(18, ln * (baseFontSub + 3) + 8);
             }
-            const _ebD1bw   = Math.min(88, Math.round(branchLen * 0.80));
-            const _ebGcScl  = Math.max(0.35, 1 - 0.14); // depth=2 depthScale
-            const _ebGcBL   = subBranchLen * _ebGcScl;
-            const _ebGcExtY = _ebGcBL * _SIN60; // grandchild diagonal dikey uzanımı
-            const _ebD2bw   = Math.min(76, Math.round(_ebGcBL * 0.80));
-            function _ebTail(c) {
-                const h = _ebLabelH(c.name, baseFontSub, _ebD1bw);
+            const _ebD1bw  = Math.min(88, Math.round(branchLen * 0.80));
+            const _ebGcBL  = subBranchLen * Math.max(0.35, 1 - 0.14); // depth=2 depthScale
+            const _ebGcEY  = _ebGcBL * _SIN60;   // grandchild diagonal dikey uzanımı
+            const _ebD2bw  = Math.min(76, Math.round(_ebGcBL * 0.80));
+            // footprintBelow(c): anchor'dan aşağıya toplam uzanma (kutu veya grandchild)
+            function _ebFpB(c) {
+                const th = _ebH(c.name, baseFontSub, _ebD1bw);
                 if (c.children && c.children.length > 0) {
-                    let mxH = 18;
-                    c.children.forEach(gc => { mxH = Math.max(mxH, _ebLabelH(gc.name, baseFontSub, _ebD2bw)); });
-                    return Math.max(h / 2 + 6, _ebGcExtY + mxH / 2 + 10);
+                    let mxG = 18;
+                    c.children.forEach(gc => { mxG = Math.max(mxG, _ebH(gc.name, baseFontSub, _ebD2bw)); });
+                    return Math.max(th, _ebGcEY + mxG);
                 }
-                return h / 2 + 6;
+                return th;
             }
-            function _ebHead(c) { return _ebLabelH(c.name, baseFontSub, _ebD1bw) / 2 + 6; }
             let _neededYSpan = 0;
             const _ebCh = cause.children || [];
             if (_ebCh.length > 0) {
-                _neededYSpan = _EB_MARGIN + _ebHead(_ebCh[0]);
+                let _p = _EB_MARGIN; // ilk anchor konumu
                 for (let _ci = 0; _ci < _ebCh.length - 1; _ci++) {
-                    _neededYSpan += _ebTail(_ebCh[_ci]) + _ebHead(_ebCh[_ci + 1]) + _EB_GAP;
+                    _p += _ebFpB(_ebCh[_ci]) + _EB_GAP;
                 }
-                _neededYSpan += _ebTail(_ebCh[_ebCh.length - 1]) + _EB_MARGIN;
+                _neededYSpan = _p + _ebFpB(_ebCh[_ebCh.length - 1]) + 6 + _EB_MARGIN;
             }
             const effectiveBoneLen = Math.max(boneLen, _neededYSpan > 0 ? Math.ceil(_neededYSpan / _SIN60) : 0);
 
@@ -3070,53 +3070,42 @@ function renderFishbone() {
         const pux = isHorizontal ? -1    : mainUX;
         const puy = isHorizontal ?  0    : mainUY;
 
-        // ── Orantılı t değerleri: grandchild olan kutular için komşular arasını aç ──
-        // renderFishbone'daki _EB_MARGIN / _EB_GAP sabitleriyle AYNI değerleri kullan.
-        const _DC_MARGIN = 14;
+        // ── Orantılı t değerleri: effectiveBoneLen ile birebir aynı formul ──
+        // Aynı _EB_GAP/_EB_MARGIN sabitleri, aynı footprintBelow mantığı.
+        // t_i = pos_i / boneYSpan  (boneYSpan = effectiveBoneLen * sin60 = _neededYSpan)
         const _DC_GAP    = 10;
+        const _DC_MARGIN = 14;
         const _n = children.length;
         const _boneYSpan = Math.abs(lineEnd.y - lineStart.y) || 1;
-        const _fs1 = Math.max(8, baseFontSub - (depth - 1) * 1.5);
-        const _bw1 = Math.min(Math.max(50, 100 - depth * 12), Math.round(blLen * 0.80));
-        const _gcDepthScale = Math.max(0.35, 1 - depth * 0.14);
-        const _gcBranchLen  = subBranchLen * _gcDepthScale;
-        const _gcExtY = _gcBranchLen * Math.abs(mainUY);
-
-        function _dcLabelH(c, fs, bw) {
-            const _chPL = Math.max(6, Math.floor(bw / (fs * 0.58)));
-            const _words = (c.name || '').split(' ');
-            let _ln = 0, _cur = '';
-            for (const w of _words) {
-                const _test = _cur ? _cur + ' ' + w : w;
-                if (_test.length > _chPL && _cur) { _ln++; _cur = w; } else _cur = _test;
-            }
-            if (_cur) _ln++;
-            return Math.max(18, _ln * (fs + 3) + 8);
+        const _dcFs1 = Math.max(8, baseFontSub - (depth - 1) * 1.5);
+        const _dcBw1 = Math.min(Math.max(50, 100 - depth * 12), Math.round(blLen * 0.80));
+        const _dcGcBL = subBranchLen * Math.max(0.35, 1 - depth * 0.14);
+        const _dcGcEY = _dcGcBL * Math.sin(60 * Math.PI / 180);
+        const _dcFs2 = Math.max(8, baseFontSub - depth * 1.5);
+        const _dcBw2 = Math.min(Math.max(50, 100-(depth+1)*12), Math.round(_dcGcBL * 0.80));
+        function _dcH(c, fs, bw) {
+            const cpl = Math.max(6, Math.floor(bw / (fs * 0.58)));
+            const wds = (c.name||'').split(' '); let ln=0,cur='';
+            for(const w of wds){const t2=cur?cur+' '+w:w;if(t2.length>cpl&&cur){ln++;cur=w;}else cur=t2;}
+            if(cur)ln++; return Math.max(18,ln*(fs+3)+8);
         }
-        function _dcTail(c) {
-            const h = _dcLabelH(c, _fs1, _bw1);
+        function _dcFpB(c) {
+            const th = _dcH(c, _dcFs1, _dcBw1);
             if (c.children && c.children.length > 0) {
-                const _fs2 = Math.max(8, baseFontSub - depth * 1.5);
-                const _bw2 = Math.min(Math.max(50, 100 - (depth+1)*12), Math.round(_gcBranchLen * 0.80));
-                let _mxH = 18;
-                c.children.forEach(gc => { _mxH = Math.max(_mxH, _dcLabelH(gc, _fs2, _bw2)); });
-                return Math.max(h / 2 + 6, _gcExtY + _mxH / 2 + 10);
+                let mxG=18; c.children.forEach(gc=>{mxG=Math.max(mxG,_dcH(gc,_dcFs2,_dcBw2));});
+                return Math.max(th, _dcGcEY + mxG);
             }
-            return h / 2 + 6;
+            return th;
         }
-        function _dcHead(c) { return _dcLabelH(c, _fs1, _bw1) / 2 + 6; }
-
-        // Kümülatif Y konumları — renderFishbone._neededYSpan ile birebir aynı formül
         let _propTVals = null;
         if (depth === 1 && _n > 0) {
-            let _cumY = _DC_MARGIN + _dcHead(children[0]);
-            const _rawYs = [_cumY];
+            let _p = _DC_MARGIN;
+            const _rawYs = [_p];
             for (let _i = 0; _i < _n - 1; _i++) {
-                _cumY += _dcTail(children[_i]) + _dcHead(children[_i + 1]) + _DC_GAP;
-                _rawYs.push(_cumY);
+                _p += _dcFpB(children[_i]) + _DC_GAP;
+                _rawYs.push(_p);
             }
-            // t = posY / boneYSpan — effectiveBoneLen boneYSpan'ı karşılayacak kadar büyüdü
-            _propTVals = _rawYs.map(v => Math.min(0.97, v / _boneYSpan));
+            _propTVals = _rawYs.map(v => Math.min(0.96, v / _boneYSpan));
         }
 
         children.forEach((child, ci) => {
