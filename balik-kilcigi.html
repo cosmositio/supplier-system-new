@@ -4918,7 +4918,7 @@ function updateActionRow(apId, field, value) {
             const faaliyetCell = tr.querySelector('.ap-faaliyet-cell');
             if (faaliyetCell) {
                 faaliyetCell.innerHTML = value === '8d'
-                    ? `<button class="btn-8d-ap" onclick="open8DForActionRow()" title="8D Raporu Aç">📋 8D</button>`
+                    ? `<button class="btn-8d-ap" onclick="open8DForActionRow(${apId})" title="8D Raporu Aç">📋 8D</button>`
                     : '';
             }
         }
@@ -5070,7 +5070,7 @@ function renderActionPlan() {
                 </select>
             </td>
             <td style="text-align:center;" class="ap-faaliyet-cell">
-                ${row.method === '8d' ? `<button class="btn-8d-ap" onclick="open8DForActionRow()" title="8D Raporu Aç">📋 8D</button>` : ''}
+                ${row.method === '8d' ? `<button class="btn-8d-ap" onclick="open8DForActionRow(${row.apId})" title="8D Raporu Aç">📋 8D</button>` : ''}
             </td>
             <td>
                 <button class="ap-del-btn" onclick="deleteActionRow(${row.apId})" title="Sil">
@@ -5094,9 +5094,13 @@ function renderActionPlan() {
     updateContribTotal();
 }
 
-function open8DForActionRow() {
-    const konu = (state && state.problem) ? state.problem : '';
-    const url  = '8d-rapor.html?source=' + encodeURIComponent('Balık Kılçığı') + '&konu=' + encodeURIComponent(konu);
+function open8DForActionRow(apId) {
+    const row  = state.actionPlan && state.actionPlan.rows.find(r => r.apId === apId);
+    const konu = (row && row.causeName) ? row.causeName : (state && state.problem) || '';
+    const problem = (state && state.problem) || '';
+    const url  = '8d-rapor.html?source=' + encodeURIComponent('Balık Kılçığı')
+               + '&konu='    + encodeURIComponent(konu)
+               + '&problem=' + encodeURIComponent(problem);
     window.open(url, '_blank');
 }
 

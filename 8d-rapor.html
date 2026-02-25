@@ -792,13 +792,23 @@ function loadKonuDropdown(source, savedValue) {
         const data = JSON.parse(localStorage.getItem('fishbone_aksiyonlar') || '{}');
         const problems = Object.keys(data).filter(k => k && k !== 'undefined');
         sel.innerHTML = '<option value="">— Seçiniz —</option>';
+        // Eğer kaydedilen değer problem listesinde yoksa (orn. kauş ismi) başına özel seçenek olarak ekle
+        if (savedValue && !problems.includes(savedValue)) {
+            const customOpt = document.createElement('option');
+            customOpt.value = savedValue; customOpt.textContent = savedValue; customOpt.selected = true;
+            sel.appendChild(customOpt);
+            if (problems.length) {
+                const sep = document.createElement('option'); sep.disabled = true; sep.textContent = '── Kaydedilmiş Problemler ──';
+                sel.appendChild(sep);
+            }
+        }
         problems.forEach(problem => {
             const opt = document.createElement('option');
             opt.value = problem; opt.textContent = problem;
             if (problem === (savedValue || '')) opt.selected = true;
             sel.appendChild(opt);
         });
-        if (!problems.length) {
+        if (!problems.length && !savedValue) {
             sel.innerHTML += '<option value="" disabled>(Balık Kılçığı kaydı yok — Balık Kılçığı sayfasında problem kaydedin)</option>';
         }
 
@@ -1707,9 +1717,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         await openDB();
 
         // URL parametresi varsa → doğrudan yeni form aç (diğer sayfalardan gelen 8D bağlantısı)
-        const params = new URLSearchParams(location.search);
-        const urlSource = params.get('source');
-        const urlKonu   = params.get('konu');
+        const params    = new URLSearchParams(location.search);
+        const urlSource  = params.get('source');
+        const urlKonu    = params.get('konu');
+        const urlProblem = params.get('problem');   // Balık Kılçığı ana problem başlığı
         if (urlSource && urlKonu) {
             current8DData = null;
             clear8DForm();
@@ -1723,8 +1734,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Kaynak bağlam baneri
             const bannerMeta = {
-                'Balık Kılçığı': { icon: '🐟', title: 'Balık Kılçığı Analizinden Açıldı', sub: 'Problem: ' + urlKonu, href: 'balik-kilcigi.html' },
-                'Uygunsuzluk':   { icon: '⚠️', title: 'Uygunsuzluk Analizinden Açıldı',   sub: 'Kayıt: #' + urlKonu,   href: 'uygunsuzluk-analizi.html' },
+                'Balık Kılçığı': {
+                    icon : '🐟',
+                    title: 'Balık Kılçığı Analizinden Açıldı',
+                    sub  : (urlProblem ? 'Problem: ' + urlProblem + '  ›  ' : '') + 'Kök Neden: ' + urlKonu,
+                    href : 'balik-kilcigi.html'
+                },
+                'Uygunsuzluk': {
+                    icon : '⚠️',
+                    title: 'Uygunsuzluk Analizinden Açıldı',
+                    sub  : 'Kayıt: #' + urlKonu,
+                    href : 'uygunsuzluk-analizi.html'
+                },
             };
             const bm = bannerMeta[urlSource];
             if (bm) {
