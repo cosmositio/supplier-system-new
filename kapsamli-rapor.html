@@ -1380,7 +1380,8 @@ function drawFishbone() {
                 const srTY = +(py + subDir * subLen).toFixed(1);
                 p.push(`<line x1="${srX}" y1="${py}" x2="${srX}" y2="${srTY}"
                     stroke="${color}" stroke-width="1.1" opacity="0.5" stroke-dasharray="3,2"/>`);
-                const snm = sub.length > 15 ? sub.slice(0,15)+'…' : sub;
+                const _subN = fbNormSub(sub).name;
+                const snm = _subN.length > 15 ? _subN.slice(0,15)+'…' : _subN;
                 const SBW = Math.max(50, snm.length * 5.5 + 12);
                 const SBH = 15;
                 const sbX = +(srX - SBW/2).toFixed(1);
@@ -1430,7 +1431,7 @@ function _rebuildM6Display() {
         (b.causes || []).forEach(rawCause => {
             const cause = fbNorm(rawCause);
             fbByKey[b.key].push({ name: cause.name, isSub: false });
-            (cause.subs || []).forEach(sub => fbByKey[b.key].push({ name: sub, isSub: true }));
+            (cause.subs || []).forEach(sub => fbByKey[b.key].push({ name: fbNormSub(sub).name, isSub: true }));
         });
     });
 
@@ -1573,11 +1574,31 @@ function renderFbEditPanels() {
             const nm    = cause.name;
             const subs  = cause.subs || [];
             const subId = `fbSub_${bi}_${ci}`;
-            const subRows = subs.map((s, si) => `
+            const subRows = subs.map((s, si) => {
+                const sub = fbNormSub(s);
+                const ssId = `fbSubSub_${bi}_${ci}_${si}`;
+                const ssRows = (sub.subs || []).map((ss, ssi) => `
+                    <div class="fb-sub-row" style="padding-left:16px;font-size:.7rem;background:#f8fafc;">
+                        <span style="flex:1;color:#475569;">↳ ${esc(fbNormSub(ss).name)}</span>
+                        <button class="fb-sub-del" title="Alt-alt nedeni sil" onclick="fbDeleteSubSub(${bi},${ci},${si},${ssi})">×</button>
+                    </div>`).join('');
+                const ssAdd = `
+                    <div class="fb-sub-add" style="padding-left:16px;background:#f8fafc;">
+                        <input id="fbSSInp_${bi}_${ci}_${si}" type="text" placeholder="+ Alt-alt neden..."
+                            style="font-size:.7rem;"
+                            onkeydown="if(event.key==='Enter')fbAddSubSubFromInput(${bi},${ci},${si})">
+                        <button onclick="fbAddSubSubFromInput(${bi},${ci},${si})">+</button>
+                    </div>`;
+                return `
                 <div class="fb-sub-row">
-                    <span style="flex:1">${esc(s)}</span>
+                    <button class="fb-cause-toggle" style="font-size:.6rem;min-width:12px;height:12px;padding:0;" onclick="fbToggleSubList('${ssId}')" title="Alt-alt nedenler">▶</button>
+                    <span style="flex:1">${esc(sub.name)}</span>
                     <button class="fb-sub-del" title="Alt nedeni sil" onclick="fbDeleteSub(${bi},${ci},${si})">×</button>
-                </div>`).join('');
+                </div>
+                <div class="fb-sub-block" id="${ssId}" style="display:none;border-left:2px solid #e2e8f0;margin-left:10px;">
+                    ${ssRows}${ssAdd}
+                </div>`;
+            }).join('');
             const subAdd = `
                 <div class="fb-sub-add">
                     <input id="fbSubInp_${bi}_${ci}" type="text" placeholder="+ Alt neden..."
@@ -1630,7 +1651,7 @@ function fbAddSubFromInput(bi, ci) {
     const bone  = window._fbData.bones[bi];
     const cause = fbNorm(bone.causes[ci]);
     cause.subs  = cause.subs || [];
-    cause.subs.push(val);
+    cause.subs.push({name: val, subs: []});
     bone.causes[ci] = cause;
     inp.value = '';
     drawFishbone();
@@ -1649,6 +1670,49 @@ function fbDeleteSub(bi, ci, si) {
     const cause = fbNorm(bone.causes[ci]);
     cause.subs  = cause.subs || [];
     cause.subs.splice(si, 1);
+    bone.causes[ci] = cause;
+    drawFishbone();
+    renderFbEditPanels();
+    _rebuildM6Display();
+    _krSaveEdits();
+}
+
+function fbAddSubSubFromInput(bi, ci, si) {
+    const inp = document.getElementById(`fbSSInp_${bi}_${ci}_${si}`);
+    if (!inp) return;
+    const val = inp.value.trim();
+    if (!val) { inp.focus(); return; }
+    const bone  = window._fbData.bones[bi];
+    const cause = fbNorm(bone.causes[ci]);
+    cause.subs  = cause.subs || [];
+    const sub   = fbNormSub(cause.subs[si]);
+    sub.subs    = sub.subs || [];
+    sub.subs.push(val);
+    cause.subs[si]  = sub;
+    bone.causes[ci] = cause;
+    inp.value = '';
+    drawFishbone();
+    renderFbEditPanels();
+    _rebuildM6Display();
+    _krSaveEdits();
+    // re-open panels
+    const ssId = `fbSubSub_${bi}_${ci}_${si}`;
+    const el   = document.getElementById(ssId);
+    if (el) el.style.display = 'block';
+    const subId = `fbSub_${bi}_${ci}`;
+    const subEl = document.getElementById(subId);
+    if (subEl) subEl.style.display = 'block';
+}
+
+function fbDeleteSubSub(bi, ci, si, ssi) {
+    if (!window._fbData || !window._fbData.bones[bi]) return;
+    const bone  = window._fbData.bones[bi];
+    const cause = fbNorm(bone.causes[ci]);
+    cause.subs  = cause.subs || [];
+    const sub   = fbNormSub(cause.subs[si]);
+    sub.subs    = sub.subs || [];
+    sub.subs.splice(ssi, 1);
+    cause.subs[si]  = sub;
     bone.causes[ci] = cause;
     drawFishbone();
     renderFbEditPanels();
