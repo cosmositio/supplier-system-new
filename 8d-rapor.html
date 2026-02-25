@@ -1711,12 +1711,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const urlSource = params.get('source');
         const urlKonu   = params.get('konu');
         if (urlSource && urlKonu) {
-            // Kaynak seç
-            const srcEl = document.getElementById('meta_source');
-            if (srcEl) srcEl.value = urlSource;
-            // Formu aç, konu dropdown'unu doldur
             current8DData = null;
             clear8DForm();
+            // clear8DForm() kaynağı sıfırlar, bu yüzden SONRA set ediyoruz
+            const srcEl = document.getElementById('meta_source');
+            if (srcEl) srcEl.value = urlSource;
             document.getElementById('formTitle').textContent       = `📋 8D RAPOR — ${urlKonu}`;
             document.getElementById('meta_month').value            = '';
             document.getElementById('deleteFormBtn').style.display = 'none';
