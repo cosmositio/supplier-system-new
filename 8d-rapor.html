@@ -321,7 +321,9 @@
         </div>
         <!-- KONU (Tedarikçi dışı kaynaklar için) -->
         <div id="meta_konu_wrap" style="display:none;">
-            <label>📝 Konu / Kayıt</label>
+            <label>📝 Konu / Kayıt
+                <button id="meta_konu_clear_btn" onclick="clearKonuHistory()" title="Geçmiş kayıtları temizle" style="display:none;margin-left:6px;padding:1px 7px;font-size:0.78em;background:#fee2e2;border:1px solid #fca5a5;color:#b91c1c;border-radius:4px;cursor:pointer;vertical-align:middle;">🗑️ Geçmişi Temizle</button>
+            </label>
             <!-- Uygunsuzluk / Balık Kılçığı için açılan liste -->
             <select id="meta_konu_sel" style="min-width:240px;">
                 <option value="">— Seçiniz —</option>
@@ -828,7 +830,16 @@ function onSourceChange(savedKonu) {
     const isSupplier = src === 'Tedarikçi';
     document.getElementById('meta_supplier_wrap').style.display = isSupplier ? '' : 'none';
     document.getElementById('meta_konu_wrap').style.display     = isSupplier ? 'none' : '';
+    const clearBtn = document.getElementById('meta_konu_clear_btn');
+    if (clearBtn) clearBtn.style.display = src === 'Balık Kılçığı' ? '' : 'none';
     if (!isSupplier) loadKonuDropdown(src, savedKonu !== undefined ? savedKonu : '');
+}
+
+function clearKonuHistory() {
+    if (!confirm('Balık Kılçığı geçmiş problem listesi temizlensin mi?\n(Mevcut açık diyagramınızı etkilemez)')) return;
+    localStorage.removeItem('fishbone_aksiyonlar');
+    loadKonuDropdown('Balık Kılçığı', '');
+    showAlert('✅ Geçmiş kayıtlar temizlendi.', 'success');
 }
 
 /* ================================================================
