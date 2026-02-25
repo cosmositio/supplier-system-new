@@ -1210,26 +1210,31 @@ function drawFishbone() {
         const dir    = isTop ? -1 : 1;
         const color  = bone.color;
 
-        // Kemik uzunluğunu neden sayısına ve alt nedenlere göre dinamik hesapla
-        const _BH=18, _SL=34, _SBH=15, _GAP=8, _M=12;
+        // Kemik uzunluğunu neden + alt neden yönüne göre dinamik hesapla
+        // Alt nedenler spine'a doğru çıkar (subDir = isTop?1:-1)
+        // → bir önceki cause label'ıyla çakışmamak için adım formülü:
+        //   step(i→i+1) = labelH(i) + GAP + subUpward(i+1)
+        // ilk cause: spine'dan yeterli mesafe (subUpward varsa alt neden spine'ı aşmasın)
+        const _BH=18, _SL=34, _SBH=15, _GAP=10, _LGap=4;
         const _causes = bone.causes || [];
-        const _steps = _causes.map(rc => {
-            const c = fbNorm(rc);
-            return (c.subs && c.subs.length > 0) ? (_SL + _SBH + _BH + 4 + _GAP) : (_BH + 4 + _GAP);
-        });
+        function _hasSub(rc) { const c=fbNorm(rc); return c.subs && c.subs.length > 0; }
+        const _subUp = _SL + _SBH; // alt neden spine yönünde uzanma (49px)
+        // ilk anchor: spine'dan en az _subUp+gap uzakta ol (eğer ilk cause'un sub'ı varsa)
+        const _startM = _causes.length > 0 && _hasSub(_causes[0]) ? _subUp + _GAP : _GAP + _BH/2;
+        const _pos0 = [_startM];
+        for (let _i = 0; _i < _causes.length - 1; _i++) {
+            const nextHasSub = _hasSub(_causes[_i + 1]);
+            _pos0.push(_pos0[_i] + _BH + _LGap + _GAP + (nextHasSub ? _subUp : 0));
+        }
         const _needed = _causes.length > 0
-            ? _M + _steps.reduce((s,v)=>s+v,0) + _M
+            ? _pos0[_pos0.length-1] + _BH + _LGap + _GAP
             : 0;
         // SVG sınırı: SY=280, A=50° → max L = (SY-20)/sinA
         const _maxL = Math.floor((SY - 20) / sinA);
         const effL  = Math.min(_maxL, Math.max(L, _needed > 0 ? Math.ceil(_needed / sinA) : 0));
         // Her neden için orantılı t değeri
-        let _pos = _M;
-        const tVals = _causes.map((_, ci) => {
-            const t = Math.min(0.96, _pos / (effL * sinA));
-            _pos += _steps[ci];
-            return t;
-        });
+        const _span = effL * sinA;
+        const tVals = _pos0.map(p => Math.min(0.96, p / _span));
 
         const tipX = +(sx - effL * cosA).toFixed(1);
         const tipY = +(SY + dir * effL * sinA).toFixed(1);
