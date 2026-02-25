@@ -186,6 +186,14 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .fb-add-input { flex:1; border:1px solid #e2e8f0; border-radius:6px; padding:4px 7px; font-size:.75rem; outline:none; font-family:inherit; }
 .fb-add-input:focus { border-color:#3b82f6; }
 .fb-add-btn { border:none; border-radius:6px; padding:4px 9px; cursor:pointer; font-size:.75rem; font-weight:700; color:#fff; }
+/* Pareto tab selector for fishbone */
+.fb-par-tab {
+    border:1.5px solid #e2e8f0; background:#f8fafc; color:#64748b;
+    border-radius:20px; padding:3px 12px; font-size:.75rem; font-weight:700;
+    cursor:pointer; transition:all .15s;
+}
+.fb-par-tab:hover { border-color:#3b82f6; color:#3b82f6; }
+.fb-par-tab.active { background:#2563eb; color:#fff; border-color:#2563eb; }
 
 /* ── AKSIYON EDIT BUTTONS ── */
 .ap-btn { border:none; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:.75rem; font-weight:600; line-height:1; transition:opacity .15s; }
@@ -237,6 +245,37 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 
 /* ── SCROLL NAV ── */
 .scroll-progress { position:fixed; top:52px; left:0; height:3px; background:var(--c-accent); z-index:300; transition:width .1s; }
+
+/* ── EDIT MODE ── */
+.edit-mode-badge {
+    display:none; align-items:center; gap:5px;
+    background:rgba(251,191,36,.18); border:1px solid rgba(251,191,36,.45);
+    border-radius:20px; padding:3px 12px; font-size:.73rem; color:#fbbf24; font-weight:700;
+    animation:edpulse 2s infinite;
+}
+body.report-editing .edit-mode-badge { display:flex; }
+@keyframes edpulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+
+body.report-editing .ed,
+body.report-editing [data-ed] {
+    outline:1.5px dashed #93c5fd;
+    border-radius:3px;
+    cursor:text;
+    transition:background .12s, outline-color .12s;
+    min-width:14px;
+    display:inline-block;
+}
+body.report-editing .ed:hover,
+body.report-editing [data-ed]:hover {
+    background:rgba(59,130,246,.07);
+    outline-color:#3b82f6;
+}
+body.report-editing .ed:focus,
+body.report-editing [data-ed]:focus {
+    outline:2px solid #2563eb;
+    background:#fff;
+    box-shadow:0 0 0 3px rgba(37,99,235,.13);
+}
 </style>
 </head>
 <body>
@@ -247,8 +286,10 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 <div class="topbar no-print">
     <div class="logo">📊 Kalite<span>Rapor</span></div>
     <div id="topbarTitle" style="color:#93c5fd;font-size:.85rem;"></div>
+    <div class="edit-mode-badge">✏️ Düzenleme Modu Aktif</div>
     <div class="topbar-right">
-        <button class="btn btn-outline" onclick="window.print()">🖨️ Yazdır / PDF</button>
+        <button id="btnEditMode" class="btn btn-outline no-print" onclick="toggleEditMode()">✏️ Raporu Düzenle</button>
+        <button class="btn btn-outline no-print" onclick="window.print()">🖨️ Yazdır / PDF</button>
         <button class="btn btn-primary" onclick="window.close()">✖ Kapat</button>
     </div>
 </div>
@@ -406,6 +447,13 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
                     <span style="font-weight:700;font-size:.9rem;color:#1e2535;">🐟 Balık Kılçığı Diyagramı</span>
                     <span class="fb-effect-tag" id="fbEffectTag"></span>
                     <button class="ap-btn ap-btn-edit no-print" onclick="fbEditEffect()">✏️ Başlık</button>
+                    <div class="fb-par-bar no-print" style="display:flex;align-items:center;gap:6px;margin-left:auto;">
+                        <span style="font-size:.75rem;font-weight:700;color:#64748b;">Pareto Eşiği:</span>
+                        <button class="fb-par-tab active" onclick="switchFbPareto(80,this)">80/20</button>
+                        <button class="fb-par-tab" onclick="switchFbPareto(70,this)">70/30</button>
+                        <button class="fb-par-tab" onclick="switchFbPareto(60,this)">60/40</button>
+                        <button class="fb-par-tab" onclick="switchFbPareto(90,this)">90/10</button>
+                    </div>
                 </div>
                 <div class="fb-svg-wrap" id="fbContainer"></div>
                 <div class="fb-edit-panels no-print" id="fbEditPanels"></div>
@@ -568,6 +616,45 @@ function idbLoadRapor() {
     });
 }
 
+// ── EDIT MODE ──
+let _editMode = false;
+function toggleEditMode() {
+    _editMode = !_editMode;
+    const btn = document.getElementById('btnEditMode');
+
+    // All selectors that should be editable in-place
+    const SEL = [
+        '#rhTitle', '#rhSub', '.rh-tag',
+        '.kpi-card .kval', '.kpi-card .klbl', '.kdiff',
+        '.section-hdr h2', '.section-hdr .hint',
+        '#trendInsight',
+        '.ic-card h3', '.ic-card .ic-val',
+        '.m6-card .m6-title', '.m6-card .m6-val', '.m6-card .m6-list',
+        '.id-panel-title',
+        '.ed',                        // pareto table name/value cells
+        '#icDisTable td', '#icDisTable th',
+        '#tedarikciTable .ed',
+        '#malzemeTable .ed',
+        '#musteriTable .ed',
+        '#hataTipiTable .ed',
+        '#icBreakTable td', '#disBreakTable td',
+        '#m6Detail td',
+    ];
+
+    document.querySelectorAll(SEL.join(',')).forEach(el => {
+        el.contentEditable = _editMode ? 'true' : 'false';
+        if (_editMode) el.dataset.ed = '1';
+        else delete el.dataset.ed;
+    });
+
+    document.body.classList.toggle('report-editing', _editMode);
+
+    if (btn) {
+        btn.innerHTML = _editMode ? '💾 Düzenlemeyi Bitir' : '✏️ Raporu Düzenle';
+        btn.className  = _editMode ? 'btn btn-success no-print' : 'btn btn-outline no-print';
+    }
+}
+
 // ── Color palettes ──
 const PAL_BLUE   = ['#1d4ed8','#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe'];
 const PAL_MIXED  = ['#2563eb','#7c3aed','#db2777','#dc2626','#d97706','#16a34a','#0891b2','#1d4ed8'];
@@ -607,11 +694,11 @@ function buildParetoTable(entries, totalH, colorFn) {
         const pct = (e.h / (totalH||1) * 100).toFixed(1);
         html += `<tr>
             <td class="rank">${i+1}</td>
-            <td><div style="font-weight:600;margin-bottom:3px;">${truncate(e.name,38)}</div>
+            <td><div class="ed" style="font-weight:600;margin-bottom:3px;">${truncate(e.name,38)}</div>
                 <div class="prog-bar"><div class="prog-fill" style="width:${Math.round(e.h/maxH*100)}%;background:${col};"></div></div>
             </td>
-            <td class="num">${fmtN(e.h)}</td>
-            <td class="pct">${fmtPct(pct)}</td>
+            <td class="num ed">${fmtN(e.h)}</td>
+            <td class="pct ed">${fmtPct(pct)}</td>
         </tr>`;
     });
     html += '</tbody></table>';
@@ -976,9 +1063,9 @@ function _idTable(data, totalH, color) {
         const pct = (e.pct).toFixed(1);
         const bar = Math.round(e.h/maxH*100);
         h += `<tr><td class="rank">${i+1}</td><td>
-            <div style="font-weight:600;margin-bottom:3px;">${truncate(e.name,40)}</div>
+            <div class="ed" style="font-weight:600;margin-bottom:3px;">${truncate(e.name,40)}</div>
             <div class="prog-bar"><div class="prog-fill" style="width:${bar}%;background:${color};"></div></div>
-        </td><td class="num">${fmtN(e.h)}</td><td class="pct">${fmtPct(pct)}</td></tr>`;
+        </td><td class="num ed">${fmtN(e.h)}</td><td class="pct ed">${fmtPct(pct)}</td></tr>`;
     });
     return h + '</tbody></table>';
 }
@@ -987,144 +1074,171 @@ function _idTable(data, totalH, color) {
 // FISHBONE DIAGRAM
 // ─────────────────────────────────────────────
 const _FB = {
-    W:1180, H:520, SY:260, SS:80, SE:970,
-    L:200,  // bone length
-    A:42,   // bone angle degrees
-    // rib length from bone point horizontally rightward
-    RIB: 55,
-    // t positions along bone where ribs attach (0=junction on spine, 1=tip)
-    TPOS:[0.18, 0.38, 0.57, 0.74, 0.88],
-    BONES:{
-        insan:   {sx:200, pos:'top',    label:'\u0130nsan',   color:'#ef4444'},
-        makine:  {sx:450, pos:'top',    label:'Makine',  color:'#f59e0b'},
-        malzeme: {sx:700, pos:'top',    label:'Malzeme', color:'#3b82f6'},
-        metot:   {sx:325, pos:'bottom', label:'Metot',   color:'#8b5cf6'},
-        olcum:   {sx:575, pos:'bottom', label:'\u00d6l\u00e7\u00fcm',  color:'#06b6d4'},
-        ortam:   {sx:825, pos:'bottom', label:'Ortam',   color:'#22c55e'},
-    }
+    W:1200, H:560, SY:280, SS:80, SE:970,
+    L:210, A:50,
+    TPOS:[0.15, 0.32, 0.50, 0.67, 0.84],
 };
+const FB_COLORS = ['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#06b6d4','#22c55e',
+                   '#ec4899','#f97316','#6366f1','#14b8a6','#dc2626','#65a30d'];
 
-// Classify a cause NAME into a 6M bone using keyword matching
-function classify6MName(name) {
-    const lower = (name||'').toLowerCase();
-    const rules = [
-        {bone:'insan',   kws:['işçi','iscilik','operatör','operator','personel','eğitim','egitim','dikkatsiz','ihmal','çalışan','calisan','insan','yorgun','tecrübe','hatalı kullanım','yanliş kullanım']},
-        {bone:'malzeme', kws:['hammadde','ham madde','malzeme','kalite','tedarikçi','tedarikci','stok','yarı mamul','yar mamul','sertlik','tolerans dışı','boyutsal','ölçü']},
-        {bone:'metot',   kws:['talimat','prosedür','prosedur','yöntem','yontem','süreç','surec','standart','uygulama','fire','hata','uygunsuzluk','yanlış','yanliş','eksik','fazla']},
-        {bone:'makine',  kws:['makine','ekipman','kalibrasyon','arıza','ariza','bakım','bakim','tertibat','aparat','kalıp','kalip','pres','hidrolik','titreşim','vibrasyom']},
-        {bone:'olcum',   kws:['ölçüm','olcum','muayene','kontrol','test','tolerans','ölçme','gözden','inspection']},
-        {bone:'ortam',   kws:['sevkiyat','depolama','nakliye','çevre','cevre','sıcaklık','sicaklik','nem','ortam','ambalaj','paket','depo']},
-    ];
-    for(const r of rules) { if(r.kws.some(kw=>lower.includes(kw))) return r.bone; }
-    return 'metot'; // default
+// ── Public entry point (called once on data load) ──
+function initFishbone(rows, htData, effectLabel) {
+    window._fbRows      = rows;
+    window._fbHtData    = htData;
+    window._fbEffect    = effectLabel || 'Ana Kalite Problemi';
+    window._fbThreshold = window._fbThreshold || 80;
+    rebuildFishboneData();
 }
 
-function initFishbone(m6, htData, effectLabel) {
-    const ORDER = ['insan','makine','malzeme','metot','olcum','ortam'];
-    window._fbData = { effect: effectLabel || 'Ana Kalite Problemi', bones: {} };
+// ── Re-build bones from current threshold ──
+function rebuildFishboneData() {
+    const rows      = window._fbRows    || [];
+    const htData    = window._fbHtData  || [];
+    const threshold = window._fbThreshold || 80;
 
-    // Seed from 6M classified data
-    ORDER.forEach(k => {
-        window._fbData.bones[k] = { causes: (m6[k]||[]).slice(0,6).map(e => e.name) };
+    // Select hata tipleri within cumPct <= threshold; always at least top-2, cap 12
+    let selected = htData.filter(e => (e.cumPct || 0) <= threshold);
+    if (selected.length < 2) selected = htData.slice(0, Math.min(2, htData.length));
+    if (selected.length > 12) selected = selected.slice(0, 12);
+
+    // Build per-bone data
+    const bones = selected.map((ht, i) => {
+        const pos   = (i % 2 === 0) ? 'top' : 'bottom';
+        const color = FB_COLORS[i % FB_COLORS.length];
+
+        // Ribs = top tedarikçiler (cariAdi) for this hata tipi
+        const htRows = rows.filter(r => (r.hataTipi||'').trim() === ht.name.trim());
+        const byTed  = {};
+        htRows.forEach(r => {
+            const v = (r.cariAdi||'').trim(); if(!v) return;
+            byTed[v] = (byTed[v]||0) + (Number(r.hataliMiktar)||0);
+        });
+        const causes = Object.entries(byTed).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k);
+
+        return { key:'ht_'+i, label:ht.name, color, pos, causes, pct:ht.pct||0, cumPct:ht.cumPct||0 };
     });
 
-    // Enrich with 80% Pareto hata tipleri
-    if (htData && htData.length) {
-        const items80 = htData.filter(e => e.cumPct !== undefined ? e.cumPct <= 82 : true);
-        // also always include at least top 3
-        const toAdd = items80.length ? items80 : htData.slice(0,5);
-        toAdd.forEach(e => {
-            const bone = classify6MName(e.name);
-            const existing = window._fbData.bones[bone].causes;
-            if (!existing.includes(e.name)) existing.push(e.name);
-        });
-    }
-
+    window._fbData = { effect: window._fbEffect, bones };
     drawFishbone();
     renderFbEditPanels();
 }
 
+// ── Switch Pareto threshold ──
+function switchFbPareto(pct, btn) {
+    window._fbThreshold = pct;
+    document.querySelectorAll('.fb-par-tab').forEach(b => b.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+    rebuildFishboneData();
+}
+
 function drawFishbone() {
     const data = window._fbData;
-    if (!data) return;
-    const {W, H, SY, SS, SE, L, A, RIB, TPOS, BONES} = _FB;
-    const cosA = Math.cos(A * Math.PI / 180);
-    const sinA = Math.sin(A * Math.PI / 180);
-    const p = [];
+    if (!data || !data.bones || !data.bones.length) {
+        document.getElementById('fbContainer').innerHTML =
+            '<div style="padding:40px;text-align:center;color:#94a3b8;">Pareto eşiğinde hata tipi bulunamadı.</div>';
+        return;
+    }
+    const {W, H, SY, SS, SE, L, A, TPOS} = _FB;
+    const bones  = data.bones;
+    const cosA   = Math.cos(A * Math.PI / 180);
+    const sinA   = Math.sin(A * Math.PI / 180);
+    const p      = [];
 
-    // Background + subtle grid
+    // Background + grid
     p.push(`<rect width="${W}" height="${H}" fill="#f8fafc"/>`);
     for(let x=SS+60; x<=SE; x+=80)
         p.push(`<line x1="${x}" y1="14" x2="${x}" y2="${H-14}" stroke="#e8edf4" stroke-width="1"/>`);
 
     // Spine
     p.push(`<line x1="${SS}" y1="${SY}" x2="${SE}" y2="${SY}" stroke="#334155" stroke-width="4" stroke-linecap="round"/>`);
-    // Arrowhead
     p.push(`<polygon points="${SE+2},${SY} ${SE-14},${SY-9} ${SE-14},${SY+9}" fill="#334155"/>`);
 
-    // Effect box
+    // Effect box (fish head)
     const EX=SE+18, EW=168, EH=92;
     p.push(`<rect x="${EX}" y="${SY-EH/2}" width="${EW}" height="${EH}" rx="12" fill="white" stroke="#ef4444" stroke-width="2.5"/>`);
-    const effTxt = (data.effect||'Ana Problem');
-    const words = effTxt.split(' ');
-    let cur='', lines=[];
-    words.forEach(w => {
-        if((cur+' '+w).trim().length > 15 && cur){ lines.push(cur.trim()); cur=w; }
-        else cur = cur ? cur+' '+w : w;
+    const effWords = (data.effect||'Ana Problem').split(' ');
+    let ecur='', elines=[];
+    effWords.forEach(w => {
+        if((ecur+' '+w).trim().length > 15 && ecur){ elines.push(ecur.trim()); ecur=w; }
+        else ecur = ecur ? ecur+' '+w : w;
     });
-    if(cur) lines.push(cur.trim());
-    lines.slice(0,4).forEach((ln,li) => {
-        const ly = SY - (lines.length-1)*9 + li*18;
+    if(ecur) elines.push(ecur.trim());
+    elines.slice(0,4).forEach((ln,li) => {
+        const ly = SY - (elines.length-1)*9 + li*18;
         p.push(`<text x="${EX+EW/2}" y="${ly}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1e293b">${esc(ln)}</text>`);
     });
     p.push(`<rect x="${EX}" y="${SY-EH/2}" width="${EW}" height="${EH}" rx="12" fill="transparent" cursor="pointer" onclick="fbEditEffect()"/>`);
 
-    // Each bone
-    Object.entries(BONES).forEach(([key, cfg]) => {
-        const {sx, pos, label, color} = cfg;
-        const isTop = pos === 'top';
-        const dir   = isTop ? -1 : 1;
+    // Compute even spacing along spine
+    const spineLen = SE - SS;
+    const spacing  = spineLen / (bones.length + 1);
 
-        // Tip: goes UP-LEFT (top) or DOWN-LEFT (bottom) from spine junction
-        const tipX = +(sx - L*cosA).toFixed(1);
-        const tipY = +(SY + dir*L*sinA).toFixed(1);
+    bones.forEach((bone, bi) => {
+        const sx     = +(SS + spacing * (bi + 1)).toFixed(1);
+        const isTop  = bone.pos === 'top';
+        const dir    = isTop ? -1 : 1;
+        const color  = bone.color;
 
-        // Main bone
-        p.push(`<line x1="${sx}" y1="${SY}" x2="${tipX}" y2="${tipY}" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`);
+        const tipX = +(sx - L * cosA).toFixed(1);
+        const tipY = +(SY + dir * L * sinA).toFixed(1);
 
-        // Bone label
-        const lblY = isTop ? tipY - 13 : tipY + 19;
-        p.push(`<text x="${tipX}" y="${lblY}" text-anchor="middle" font-size="14" font-weight="800" fill="${color}">${esc(label)}</text>`);
+        // Main bone line
+        p.push(`<line x1="${sx}" y1="${SY}" x2="${tipX}" y2="${tipY}"
+            stroke="${color}" stroke-width="3" stroke-linecap="round"/>`);
 
-        // Junction dot + (+) shortcut
+        // Category label at tip
+        const lbl  = bone.label.length > 22 ? bone.label.slice(0,22)+'…' : bone.label;
+        const lblY = isTop ? tipY - 14 : tipY + 20;
+        p.push(`<text x="${tipX}" y="${lblY}" text-anchor="middle"
+            font-size="12" font-weight="800" fill="${color}">${esc(lbl)}</text>`);
+
+        // % badge
+        const pctTxt = `%${+(bone.pct||0).toFixed(1)}`;
+        const cumTxt = `(kümülâtif %${+(bone.cumPct||0).toFixed(1)})`;
+        const badgeY = isTop ? tipY - 28 : tipY + 35;
+        p.push(`<text x="${tipX}" y="${badgeY}" text-anchor="middle"
+            font-size="9" fill="${color}" opacity="0.8">${pctTxt} ${cumTxt}</text>`);
+
+        // Junction dot + add shortcut
         p.push(`<circle cx="${sx}" cy="${SY}" r="6" fill="${color}" opacity="0.25"/>`);
-        p.push(`<text x="${sx}" y="${+(SY+5).toFixed(0)}" text-anchor="middle" font-size="15" font-weight="900" fill="${color}" cursor="pointer" onclick="fbFocusInput('${key}')" style="user-select:none">+</text>`);
+        p.push(`<text x="${sx}" y="${+(SY+5).toFixed(0)}" text-anchor="middle"
+            font-size="15" font-weight="900" fill="${color}" cursor="pointer"
+            onclick="fbFocusInput(${bi})" style="user-select:none">+</text>`);
 
-        // Cause ribs
-        const causes = (data.bones[key]||{}).causes||[];
+        // Ribs (tedarikçiler)
+        const causes = bone.causes || [];
         causes.slice(0, TPOS.length).forEach((name, ci) => {
-            const t = TPOS[ci];
-            // P: point on bone at parameter t from junction (t=0) toward tip (t=1)
-            const px = +(sx  + t*(tipX - sx)).toFixed(1);
-            const py = +(SY  + t*(tipY - SY)).toFixed(1);
+            const t   = TPOS[ci];
+            const px  = +(sx  + t * (tipX - sx)).toFixed(1);
+            const py  = +(SY  + t * (tipY - SY)).toFixed(1);
+            const rx  = +(px - 78).toFixed(1);
 
-            // Rib: perpendicular to bone, angled toward spine side
-            // Top  bone direction: (-cosA, -sinA) → perpendicular toward spine: (+sinA, +cosA)
-            // Bottom bone direction: (-cosA, +sinA) → perpendicular toward spine: (+sinA, -cosA)
-            const rx = +(px + RIB * sinA).toFixed(1);
-            const ry = +(py + RIB * (isTop ? cosA : -cosA)).toFixed(1);
+            // Horizontal rib line
+            p.push(`<line x1="${px}" y1="${py}" x2="${rx}" y2="${py}"
+                stroke="${color}" stroke-width="1.6" opacity="0.75" stroke-linecap="round"/>`);
+            // Arrow at junction
+            p.push(`<polygon points="${px},${py} ${+(px+7).toFixed(0)},${+(py-3).toFixed(0)} ${+(px+7).toFixed(0)},${+(py+3).toFixed(0)}"
+                fill="${color}" opacity="0.55" style="pointer-events:none"/>`);
 
-            p.push(`<line x1="${px}" y1="${py}" x2="${rx}" y2="${ry}" stroke="${color}" stroke-width="1.5" opacity="0.7" stroke-linecap="round"/>`);
-
-            // Label at rib end; click to delete
-            const nm = name.length > 24 ? name.slice(0,24)+'…' : name;
-            const txtY = isTop ? +(ry+12).toFixed(1) : +(ry-4).toFixed(1);
-            p.push(`<text x="${+(rx+3).toFixed(1)}" y="${txtY}" font-size="9.5" fill="#374151" cursor="pointer" onclick="fbDeleteCause('${key}',${ci})" title="Tıkla / sil: ${esc(name)}">${esc(nm)} <tspan fill="#ef4444" font-weight="700">×</tspan></text>`);
+            // Label box above/below rib end
+            const nm   = name.length > 20 ? name.slice(0,20)+'…' : name;
+            const BW   = Math.max(60, nm.length * 6 + 16);
+            const BH   = 18;
+            const boxX = +(rx - BW / 2).toFixed(1);
+            const boxY = isTop ? +(py - BH - 4).toFixed(1) : +(py + 4).toFixed(1);
+            const txtY = +(boxY + BH * 0.72).toFixed(1);
+            p.push(`<rect x="${boxX}" y="${boxY}" width="${BW}" height="${BH}" rx="3"
+                fill="white" stroke="${color}" stroke-width="1" opacity="0.92"/>`);
+            p.push(`<text x="${rx}" y="${txtY}" text-anchor="middle"
+                font-size="9" fill="#1e293b" cursor="pointer"
+                onclick="fbDeleteCause(${bi},${ci})" title="Sil: ${esc(name)}"
+                >${esc(nm)}<tspan fill="#ef4444" font-weight="700" dx="2">×</tspan></text>`);
         });
 
         if(causes.length > TPOS.length) {
             const moreY = isTop ? SY - 14 : SY + 20;
-            p.push(`<text x="${sx}" y="${moreY}" text-anchor="middle" font-size="9" fill="${color}" opacity="0.85">+${causes.length-TPOS.length} daha</text>`);
+            p.push(`<text x="${sx}" y="${moreY}" text-anchor="middle"
+                font-size="9" fill="${color}" opacity="0.85">+${causes.length-TPOS.length} daha</text>`);
         }
     });
 
@@ -1132,63 +1246,70 @@ function drawFishbone() {
     if(tag) tag.textContent = data.effect || 'Ana Problem';
 
     document.getElementById('fbContainer').innerHTML =
-        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;min-width:740px;">${p.join('')}</svg>`;
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%"
+            style="display:block;min-width:740px;">${p.join('')}</svg>`;
 }
 
 function renderFbEditPanels() {
     const data = window._fbData;
-    const ORDER = ['insan','makine','malzeme','metot','olcum','ortam'];
-    const el = document.getElementById('fbEditPanels');
-    if (!el || !data) return;
-    el.innerHTML = ORDER.map(key => {
-        const cfg = _FB.BONES[key];
-        const causes = (data.bones[key]||{}).causes||[];
-        const items = causes.map((c, i) => `
+    const el   = document.getElementById('fbEditPanels');
+    if (!el || !data || !data.bones) return;
+    // Dynamic grid columns — up to 6 per row
+    const cols = Math.min(data.bones.length || 1, 6);
+    el.style.gridTemplateColumns = `repeat(${cols},1fr)`;
+    el.innerHTML = data.bones.map((bone, bi) => {
+        const causes = bone.causes || [];
+        const items  = causes.map((c, ci) => `
             <div class="fb-cause-row">
                 <span class="fb-cause-name">${esc(c)}</span>
-                <button class="fb-cause-del" title="Sil" onclick="fbDeleteCause('${key}',${i})">\u00d7</button>
-            </div>`).join('') || `<div style="color:#94a3b8;padding:6px 2px;font-size:.72rem;">Henüz neden yok</div>`;
+                <button class="fb-cause-del" title="Sil" onclick="fbDeleteCause(${bi},${ci})">×</button>
+            </div>`).join('') || `<div style="color:#94a3b8;padding:6px 2px;font-size:.72rem;">Tedarikçi kaydı yok</div>`;
+        const pctBadge = `<span style="font-size:.68rem;opacity:.75;font-weight:400;"> %${+(bone.pct||0).toFixed(1)}</span>`;
         return `
-        <div class="fb-bone-card" style="border:1.5px solid ${cfg.color}33;">
-            <div class="fb-bone-head" style="background:${cfg.color}1a;color:${cfg.color};border-bottom:1px solid ${cfg.color}22;">${esc(cfg.label)}</div>
+        <div class="fb-bone-card" style="border:1.5px solid ${bone.color}33;">
+            <div class="fb-bone-head" style="background:${bone.color}1a;color:${bone.color};border-bottom:1px solid ${bone.color}22;">
+                ${esc(bone.label.length>18?bone.label.slice(0,18)+'…':bone.label)}${pctBadge}
+            </div>
             <div class="fb-bone-list">${items}</div>
             <div class="fb-bone-add">
-                <input id="fbInp_${key}" class="fb-add-input" placeholder="+ Neden ekle\u2026" type="text"
-                    onkeydown="if(event.key==='Enter')fbAddFromInput('${key}')">
-                <button class="fb-add-btn" style="background:${cfg.color};" onclick="fbAddFromInput('${key}')">+</button>
+                <input id="fbInp_${bi}" class="fb-add-input" placeholder="+ Tedarikçi/neden…" type="text"
+                    onkeydown="if(event.key==='Enter')fbAddFromInput(${bi})">
+                <button class="fb-add-btn" style="background:${bone.color};" onclick="fbAddFromInput(${bi})">+</button>
             </div>
         </div>`;
     }).join('');
 }
 
-function fbAddFromInput(key) {
-    const inp = document.getElementById('fbInp_' + key);
+function fbAddFromInput(bi) {
+    const inp = document.getElementById('fbInp_' + bi);
     if (!inp) return;
     const val = inp.value.trim();
     if (!val) { inp.focus(); return; }
-    window._fbData.bones[key].causes.push(val);
+    window._fbData.bones[bi].causes.push(val);
     inp.value = '';
     drawFishbone();
     renderFbEditPanels();
-    setTimeout(() => { const i=document.getElementById('fbInp_'+key); if(i) i.focus(); }, 20);
+    setTimeout(() => { const i=document.getElementById('fbInp_'+bi); if(i) i.focus(); }, 20);
 }
 
-function fbDeleteCause(key, idx) {
-    window._fbData.bones[key].causes.splice(idx, 1);
+function fbDeleteCause(bi, ci) {
+    if(!window._fbData || !window._fbData.bones[bi]) return;
+    window._fbData.bones[bi].causes.splice(ci, 1);
     drawFishbone();
     renderFbEditPanels();
 }
 
-function fbFocusInput(key) {
-    const inp = document.getElementById('fbInp_' + key);
+function fbFocusInput(bi) {
+    const inp = document.getElementById('fbInp_' + bi);
     if (inp) { inp.scrollIntoView({behavior:'smooth', block:'nearest'}); inp.focus(); }
 }
 
 function fbEditEffect() {
     const cur = (window._fbData||{}).effect || '';
-    const val = prompt('Balık kılçığı ba\u015fl\u0131\u011f\u0131 (etki / problem):', cur);
+    const val = prompt('Balık kılçığı başlığı (etki / problem):', cur);
     if (val === null) return;
     window._fbData.effect = val.trim() || 'Ana Kalite Problemi';
+    window._fbEffect = window._fbData.effect;
     drawFishbone();
 }
 
@@ -1548,13 +1669,13 @@ window.addEventListener('DOMContentLoaded', () => {
         const items = m6[k];
         if (!items.length) return;
         m6DetailHtml += `<div style="margin-bottom:14px;">
-            <div style="font-weight:700;color:${meta.color};margin-bottom:6px;">${meta.label}</div>`;
+            <div class="ed" style="font-weight:700;color:${meta.color};margin-bottom:6px;">${meta.label}</div>`;
         items.slice(0,5).forEach(e => {
             const w = Math.min(Math.round(e.pct*2),100);
             m6DetailHtml += `<div style="margin-bottom:4px;">
                 <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
-                    <span>${truncate(e.name,32)}</span>
-                    <span style="color:var(--c-sub);">%${e.pct}</span>
+                    <span class="ed">${truncate(e.name,32)}</span>
+                    <span class="ed" style="color:var(--c-sub);">%${e.pct}</span>
                 </div>
                 <div class="prog-bar"><div class="prog-fill" style="width:${w}%;background:${meta.color};"></div></div>
             </div>`;
@@ -1565,7 +1686,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('m6Detail').innerHTML = m6DetailHtml || '<span style="color:var(--c-sub);">hataKaynagi alanı dolu kayıt bulunamadı.</span>';
 
     // ── FISHBONE ──
-    initFishbone(m6, htData, htData[0]?.name || 'Ana Kalite Problemi');
+    initFishbone(rows, htData, htData[0]?.name || 'Ana Kalite Problemi');
 
     // ── TREND ──
     const trend = buildTrend(rows);
@@ -1617,6 +1738,10 @@ window.addEventListener('DOMContentLoaded', () => {
     const actions = generateActionPlan(rows, htData, tedData, malData, icDis, m6);
     window._aksiyonlar = actions;
     renderAksiyonTablosu();
+
+    // ── Enable edit mode if it was on before re-render ──
+    if (_editMode) { _editMode = false; toggleEditMode(); }
+
     }).catch(e => {
         document.getElementById('loadingState').innerHTML = `<div class="empty-state"><div class="emo">❌</div><p>Veri okunamadı: ${e.message}</p></div>`;
     });
