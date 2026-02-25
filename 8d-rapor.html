@@ -1045,7 +1045,7 @@ async function save8DReport() {
                 current8DData = reportData;
                 document.getElementById('savingSpinner').style.display = 'none';
                 if (source === 'Balık Kılçığı' && konu) {
-                    try { const s = JSON.parse(localStorage.getItem('fishbone_8d_saved')||'{}'); s[konu]=true; localStorage.setItem('fishbone_8d_saved', JSON.stringify(s)); } catch(e) {}
+                    try { const s = JSON.parse(localStorage.getItem('fishbone_8d_saved')||'{}'); s[konu]=reportData.id; localStorage.setItem('fishbone_8d_saved', JSON.stringify(s)); } catch(e) {}
                 }
                 showAlert('✅ 8D Raporu güncellendi!','success');
             };
@@ -1062,7 +1062,7 @@ async function save8DReport() {
                 document.getElementById('deleteFormBtn').style.display = 'inline-block';
                 document.getElementById('formTitle').textContent = `📋 8D RAPOR — ${supplierName}`;
                 if (source === 'Balık Kılçığı' && konu) {
-                    try { const s = JSON.parse(localStorage.getItem('fishbone_8d_saved')||'{}'); s[konu]=true; localStorage.setItem('fishbone_8d_saved', JSON.stringify(s)); } catch(e) {}
+                    try { const s = JSON.parse(localStorage.getItem('fishbone_8d_saved')||'{}'); s[konu]=reportData.id; localStorage.setItem('fishbone_8d_saved', JSON.stringify(s)); } catch(e) {}
                 }
                 showAlert('✅ 8D Raporu kaydedildi!','success');
             };
@@ -1724,9 +1724,56 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // URL parametresi varsa → doğrudan yeni form aç (diğer sayfalardan gelen 8D bağlantısı)
         const params    = new URLSearchParams(location.search);
+        const urlEditId  = params.get('editId');    // Mevcut raporu doğrudan aç
         const urlSource  = params.get('source');
         const urlKonu    = params.get('konu');
         const urlProblem = params.get('problem');   // Balık Kılçığı ana problem başlığı
+
+        if (urlEditId) {
+            // Kayıtlı raporu aç
+            await new Promise(resolve => {
+                const tx  = db.transaction([STORE_8D],'readonly');
+                const req = tx.objectStore(STORE_8D).get(parseInt(urlEditId));
+                req.onsuccess = () => {
+                    if (req.result) {
+                        openReportForEdit(parseInt(urlEditId));
+                        // Bağlam baneri — source/konu/problem URL'den okunur
+                        const bSrc     = params.get('source');
+                        const bKonu    = params.get('konu');
+                        const bProblem = params.get('problem');
+                        const bannerMeta = {
+                            'Balık Kılçığı': {
+                                icon : '🐟',
+                                title: 'Balık Kılçığı Analizinden Açıldı',
+                                sub  : (bProblem ? 'Problem: ' + bProblem + '  ›  ' : '') + (bKonu ? 'Kök Neden: ' + bKonu : ''),
+                                href : 'balik-kilcigi.html'
+                            },
+                            'Uygunsuzluk': {
+                                icon : '⚠️',
+                                title: 'Uygunsuzluk Analizinden Açıldı',
+                                sub  : 'Kayıt: #' + bKonu,
+                                href : 'uygunsuzluk-analizi.html'
+                            },
+                        };
+                        if (bSrc && bannerMeta[bSrc]) {
+                            const bm = bannerMeta[bSrc];
+                            document.getElementById('sourceBannerIcon').textContent  = bm.icon;
+                            document.getElementById('sourceBannerTitle').textContent = bm.title;
+                            document.getElementById('sourceBannerSub').textContent   = bm.sub;
+                            document.getElementById('sourceBannerLink').href         = bm.href;
+                            document.getElementById('sourceBanner').style.display   = 'flex';
+                        }
+                    } else {
+                        showAlert('❌ Rapor bulunamadı — yeni form açılıyor','error');
+                        showListView();
+                    }
+                    resolve();
+                };
+                req.onerror = () => { showListView(); resolve(); };
+            });
+            return;
+        }
+
         if (urlSource && urlKonu) {
             current8DData = null;
             clear8DForm();

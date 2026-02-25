@@ -1250,6 +1250,51 @@
         .ap-contrib-total.over { color: #ef4444; border-color: #ef4444; }
         /* Action textarea */
         .ap-action-ta { resize: vertical; min-height: 40px; }
+        /* ===== FISHBONE DB MODAL ===== */
+        .fishbone-modal-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.7);
+            display:flex; align-items:center; justify-content:center;
+            z-index:9999; backdrop-filter:blur(4px);
+        }
+        .fishbone-modal {
+            background:var(--bg-secondary); border:1px solid var(--border);
+            border-radius:16px; width:600px; max-width:96vw;
+            max-height:80vh; display:flex; flex-direction:column;
+            box-shadow:0 24px 60px rgba(0,0,0,0.5);
+        }
+        .fm-header {
+            padding:16px 20px; border-bottom:1px solid var(--border);
+            display:flex; align-items:center; justify-content:space-between;
+            font-size:15px; font-weight:700; color:var(--text-primary); flex-shrink:0;
+        }
+        .fm-close-btn {
+            background:none; border:none; color:var(--text-secondary);
+            font-size:18px; cursor:pointer; padding:4px 8px; border-radius:6px;
+            transition:all 0.15s;
+        }
+        .fm-close-btn:hover { background:rgba(239,68,68,0.15); color:#ef4444; }
+        .fm-record-list {
+            overflow-y:auto; padding:12px 16px;
+            display:flex; flex-direction:column; gap:8px;
+        }
+        .fm-record-card {
+            background:var(--bg-primary); border:1px solid var(--border);
+            border-radius:10px; padding:12px 14px;
+            display:flex; align-items:center; justify-content:space-between; gap:12px;
+            transition:border-color 0.15s;
+        }
+        .fm-record-card:hover { border-color:var(--accent); }
+        .fm-record-info { flex:1; min-width:0; }
+        .fm-record-title { font-size:14px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .fm-record-meta  { font-size:11px; color:var(--text-secondary); margin-top:3px; }
+        .fm-record-actions { display:flex; gap:6px; flex-shrink:0; }
+        .fm-btn { padding:5px 10px; border-radius:7px; border:none; cursor:pointer; font-size:12px; font-weight:600; transition:all 0.15s; }
+        .fm-btn-load { background:var(--accent); color:#fff; }
+        .fm-btn-load:hover { opacity:0.85; }
+        .fm-btn-del  { background:rgba(239,68,68,0.12); color:#ef4444; }
+        .fm-btn-del:hover  { background:#ef4444; color:#fff; }
+        .btn-db { background:rgba(34,197,94,0.12); border:1px solid #22c55e; color:#22c55e; }
+        .btn-db:hover { background:#22c55e; color:#fff; }
     </style>
 </head>
 <body>
@@ -1296,9 +1341,17 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
             Yeni
         </button>
-        <button class="btn" onclick="saveDiagram()" title="Kaydet">
+        <button class="btn" onclick="saveDiagram()" title="JSON olarak indir">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            Kaydet
+            JSON
+        </button>
+        <button class="btn btn-db" onclick="saveToFishboneDB()" title="Balık kılçığı ve aksiyon planını veritabanına kaydet">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            DB Kaydet
+        </button>
+        <button class="btn" onclick="openFishboneRecords()" title="Kaydedilmiş analizler">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Kayıtlar
         </button>
         <button class="btn" onclick="loadDiagram()" title="Yükle">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1308,6 +1361,17 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             PNG
         </button>
+    </div>
+</div>
+
+<!-- FISHBONE DB MODAL -->
+<div id="fishboneRecordsModal" class="fishbone-modal-overlay" style="display:none" onclick="if(event.target===this)closeFishboneRecords()">
+    <div class="fishbone-modal">
+        <div class="fm-header">
+            <span>🗂️ Kayıtlı Balık Kılçığı Analizleri</span>
+            <button class="fm-close-btn" onclick="closeFishboneRecords()">✕</button>
+        </div>
+        <div id="fmRecordList" class="fm-record-list"></div>
     </div>
 </div>
 
@@ -4291,6 +4355,135 @@ function autoSave() {
     }
 }
 
+// ===== FISHBONE INDEXEDDB =====
+const FB_DB_NAME    = 'FishboneAnalysisDB';
+const FB_DB_VERSION = 1;
+const FB_STORE      = 'fishbones';
+let   fbDb          = null;
+
+function openFishboneDB() {
+    return new Promise((resolve, reject) => {
+        if (fbDb) { resolve(fbDb); return; }
+        const req = indexedDB.open(FB_DB_NAME, FB_DB_VERSION);
+        req.onupgradeneeded = e => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(FB_STORE)) {
+                const os = db.createObjectStore(FB_STORE, { keyPath: 'id', autoIncrement: true });
+                os.createIndex('problem', 'problem', { unique: false });
+                os.createIndex('savedAt', 'savedAt', { unique: false });
+            }
+        };
+        req.onsuccess = e => { fbDb = e.target.result; resolve(fbDb); };
+        req.onerror   = e => reject(e.target.error);
+    });
+}
+
+async function saveToFishboneDB() {
+    try {
+        const db  = await openFishboneDB();
+        const record = {
+            problem  : state.problem || 'Ana Problem',
+            savedAt  : new Date().toISOString(),
+            stateData: JSON.parse(JSON.stringify(state))  // tam state snapshot (causes + actionPlan + has8DLink)
+        };
+        const tx  = db.transaction([FB_STORE], 'readwrite');
+        const req = tx.objectStore(FB_STORE).add(record);
+        req.onsuccess = () => showNotification('✅ Analiz ve aksiyon planı veritabanına kaydedildi!', 'success');
+        req.onerror   = () => showNotification('❌ Kaydetme başarısız!', 'error');
+    } catch(e) {
+        console.error(e);
+        showNotification('❌ Veritabanı hatası!', 'error');
+    }
+}
+
+async function openFishboneRecords() {
+    const modal  = document.getElementById('fishboneRecordsModal');
+    modal.style.display = 'flex';
+    const listEl = document.getElementById('fmRecordList');
+    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8">Yükleniyor...</div>';
+    try {
+        const db  = await openFishboneDB();
+        const tx  = db.transaction([FB_STORE], 'readonly');
+        const all = await new Promise((res, rej) => {
+            const r = tx.objectStore(FB_STORE).getAll();
+            r.onsuccess = () => res(r.result);
+            r.onerror   = () => rej(r.error);
+        });
+        renderFishboneRecordList(all.reverse());  // en yeni üstte
+    } catch(e) {
+        listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#ef4444">Veritabanı açılamadı.</div>';
+    }
+}
+
+function renderFishboneRecordList(records) {
+    const listEl = document.getElementById('fmRecordList');
+    if (!records || !records.length) {
+        listEl.innerHTML = '<div style="padding:32px;text-align:center;color:#94a3b8">Henüz kayıtlı analiz yok.<br><small>"DB Kaydet" butonu ile kayıt oluşturun.</small></div>';
+        return;
+    }
+    listEl.innerHTML = records.map(r => {
+        const d         = new Date(r.savedAt);
+        const dateStr   = d.toLocaleDateString('tr-TR') + ' ' + d.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
+        const rows      = r.stateData?.actionPlan?.rows?.length || 0;
+        const causes    = r.stateData?.causes?.length || 0;
+        const has8d     = (r.stateData?.actionPlan?.rows || []).filter(row => row.has8DLink === true).length;
+        const badge8d   = has8d > 0 ? ` · <span style="color:#6366f1">📋 ${has8d} 8D</span>` : '';
+        return `
+        <div class="fm-record-card">
+            <div class="fm-record-info">
+                <div class="fm-record-title">${escapeHtml(r.problem || 'İsimsiz')}</div>
+                <div class="fm-record-meta">${dateStr} &nbsp;·&nbsp; ${causes} ana neden &nbsp;·&nbsp; ${rows} aksiyon${badge8d}</div>
+            </div>
+            <div class="fm-record-actions">
+                <button class="fm-btn fm-btn-load" onclick="loadFishboneRecord(${r.id})">📂 Yükle</button>
+                <button class="fm-btn fm-btn-del"  onclick="deleteFishboneRecord(${r.id})">🗑️</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function loadFishboneRecord(recordId) {
+    try {
+        const db  = await openFishboneDB();
+        const tx  = db.transaction([FB_STORE], 'readonly');
+        const req = tx.objectStore(FB_STORE).get(recordId);
+        req.onsuccess = () => {
+            const rec = req.result;
+            if (!rec || !rec.stateData) { showNotification('❌ Kayıt bulunamadı!', 'error'); return; }
+            // State'i tamamen geri yükle (causes + actionPlan + has8DLink + tüm meta)
+            Object.assign(state, rec.stateData);
+            document.getElementById('problemTitle').value = state.problem || '';
+            document.getElementById('problemDesc').value  = state.problemDesc || '';
+            initActionPlan();
+            render();
+            checkFishbone8DSaved();
+            autoSave();
+            closeFishboneRecords();
+            setTimeout(() => showNotification('✅ Yüklendi: ' + escapeHtml(state.problem || ''), 'success'), 100);
+        };
+        req.onerror = () => showNotification('❌ Yükleme başarısız!', 'error');
+    } catch(e) {
+        showNotification('❌ Veritabanı hatası!', 'error');
+    }
+}
+
+async function deleteFishboneRecord(recordId) {
+    if (!confirm('Bu kaydı silmek istediğinize emin misiniz?')) return;
+    try {
+        const db  = await openFishboneDB();
+        const tx  = db.transaction([FB_STORE], 'readwrite');
+        const req = tx.objectStore(FB_STORE).delete(recordId);
+        req.onsuccess = () => { openFishboneRecords(); showNotification('✅ Kayıt silindi.', 'success'); };
+        req.onerror   = () => showNotification('❌ Silme başarısız!', 'error');
+    } catch(e) {
+        showNotification('❌ Hata!', 'error');
+    }
+}
+
+function closeFishboneRecords() {
+    document.getElementById('fishboneRecordsModal').style.display = 'none';
+}
+
 function saveDiagram() {
     const data = JSON.stringify(state, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
@@ -5111,15 +5304,35 @@ function faaliyetCellInner(apId, has8DLink, method) {
 }
 
 function open8DForActionRow(apId) {
-    const row     = state.actionPlan && state.actionPlan.rows.find(r => r.apId === apId);
-    if (row && !row.has8DLink) {
+    const row = state.actionPlan && state.actionPlan.rows.find(r => r.apId === apId);
+    if (!row) return;
+
+    /* Zaten kaydedilmiş → mevcut raporu aç */
+    if (row.has8DLink === true) {
+        let sig = {};
+        try { sig = JSON.parse(localStorage.getItem('fishbone_8d_saved') || '{}'); } catch(e) {}
+        const reportId = sig[row.causeName];
+        if (reportId) {
+            const konu    = row.causeName || '';
+            const problem = (state && state.problem) || '';
+            window.open('8d-rapor.html?editId=' + encodeURIComponent(reportId)
+                + '&source=' + encodeURIComponent('Balık Kılçığı')
+                + '&konu='   + encodeURIComponent(konu)
+                + '&problem='+ encodeURIComponent(problem), '_blank');
+            return;
+        }
+        /* ID yoksa (eski kayıt) — yeni form açılır, pending'e düşer */
+    }
+
+    /* İlk kez veya ID bulunamadı → yeni form aç, sütunu pending yap */
+    if (!row.has8DLink) {
         row.has8DLink = 'pending';
         autoSave();
         const tr   = document.querySelector(`tr[data-apid="${apId}"]`);
         const cell = tr && tr.querySelector('.ap-faaliyet-cell');
         if (cell) cell.innerHTML = faaliyetCellInner(apId, 'pending', row.method);
     }
-    const konu    = (row && row.causeName) ? row.causeName : (state && state.problem) || '';
+    const konu    = row.causeName || (state && state.problem) || '';
     const problem = (state && state.problem) || '';
     const url = '8d-rapor.html?source=' + encodeURIComponent('Balık Kılçığı')
               + '&konu='    + encodeURIComponent(konu)
