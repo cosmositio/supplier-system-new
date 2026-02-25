@@ -1535,6 +1535,43 @@ function drawFishbone() {
                     <text x="${+(parseFloat(sDelX)+5.5).toFixed(1)}" y="${stY2}" text-anchor="middle"
                         font-size="10" fill="#ef4444" font-weight="700">×</text>
                 </g>`);
+
+                // Alt-alt nedenler (sub-sub) — yatay küçük dallar olarak sub-rib'den çıkar
+                const subsubs = fbNormSub(sub).subs || [];
+                const ssCount = Math.min(subsubs.length, 2);
+                subsubs.slice(0, 2).forEach((ss, ssi) => {
+                    const ssName = typeof ss === 'string' ? ss : (ss && ss.name ? ss.name : '');
+                    if (!ssName) return;
+                    // vertical position along the sub-rib
+                    const ssT = (ssi + 1) / (ssCount + 1);
+                    const ssY = +(py + subDir * subLen * ssT).toFixed(1);
+                    // horizontal branch to the left
+                    const ssLen = 34;
+                    const ssX2  = +(srX - ssLen).toFixed(1);
+                    p.push(`<line x1="${srX}" y1="${ssY}" x2="${ssX2}" y2="${ssY}"
+                        stroke="${color}" stroke-width="0.9" opacity="0.45" stroke-dasharray="2,2"/>`);
+                    const ssNm  = ssName.length > 12 ? ssName.slice(0,12)+'…' : ssName;
+                    const SSBW  = Math.max(38, ssNm.length * 5 + 10);
+                    const SSBH  = 12;
+                    const ssbX  = +(parseFloat(ssX2) - SSBW).toFixed(1);
+                    const ssbY  = +(parseFloat(ssY) - SSBH / 2).toFixed(1);
+                    const sstY  = +(parseFloat(ssbY) + SSBH * 0.76).toFixed(1);
+                    p.push(`<rect x="${ssbX}" y="${ssbY}" width="${SSBW}" height="${SSBH}" rx="2"
+                        fill="white" stroke="${color}" stroke-width="0.6" opacity="0.8"/>`);
+                    p.push(`<text x="${+(parseFloat(ssbX)+2.5).toFixed(1)}" y="${sstY}" text-anchor="start"
+                        font-size="6.5" fill="#334155" style="pointer-events:none">${esc(ssNm)}</text>`);
+                    const ssDelX = +(parseFloat(ssbX) + SSBW - 9).toFixed(1);
+                    p.push(`<g onclick="fbDeleteSubSub(${bi},${ci},${si},${ssi})" style="cursor:pointer" title="Alt-alt nedeni sil">
+                        <rect x="${ssDelX}" y="${ssbY}" width="9" height="${SSBH}" rx="0" fill="transparent"/>
+                        <text x="${+(parseFloat(ssDelX)+4.5).toFixed(1)}" y="${sstY}" text-anchor="middle"
+                            font-size="9" fill="#ef4444" font-weight="700">×</text>
+                    </g>`);
+                });
+                if (subsubs.length > 2) {
+                    const extraY = +(py + subDir * (subLen * 0.82)).toFixed(1);
+                    p.push(`<text x="${+(parseFloat(srX)-38).toFixed(1)}" y="${extraY}" text-anchor="middle"
+                        font-size="7" fill="${color}" opacity="0.6">+${subsubs.length-2} alt-alt</text>`);
+                }
             });
             if (subs.length > 3) {
                 const mY2 = isTop ? +(py + subLen + 14).toFixed(0) : +(py - subLen - 4).toFixed(0);
