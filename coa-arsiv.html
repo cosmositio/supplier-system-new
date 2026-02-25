@@ -71,18 +71,19 @@
         .back-btn {
             background: rgba(255,255,255,0.2);
             color: white;
-            padding: 10px 20px;
+            padding: 10px 18px;
             border-radius: 8px;
             text-decoration: none;
             display: flex;
             align-items: center;
             gap: 8px;
             transition: all 0.3s;
+            font-weight: 600;
+            font-size: 0.9em;
+            border: 1px solid rgba(255,255,255,0.25);
         }
-        
-        .back-btn:hover {
-            background: rgba(255,255,255,0.3);
-        }
+        .back-btn:hover { background: rgba(255,255,255,0.32); transform: translateY(-1px); }
+        .page-nav { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         
         .container {
             max-width: 1400px;
@@ -1210,7 +1211,11 @@
 <body>
     <div class="header">
         <h1>📋 COA Arşiv Sistemi</h1>
-        <a href="index.html" class="back-btn">← Ana Sayfa</a>
+        <div class="page-nav">
+            <a href="index.html"             class="back-btn">🏠 Ana Sayfa</a>
+            <a href="uygunsuzluk-analizi.html" class="back-btn">⚠️ Uygunsuzluk</a>
+            <a href="balik-kilcigi.html"      class="back-btn">🐟 Balık Kılçığı</a>
+        </div>
     </div>
     
     <div class="container">
