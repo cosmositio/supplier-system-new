@@ -1831,6 +1831,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Otomatik yerleştir: yeni veri gelince VEYA hiç layout ayarı kaydedilmemişse
+    // autoLayout() kendi içinde boneLen'i label yüksekliklerine göre hesaplayarak
+    // çakışmayı önler ve render() + autoSave() çağırır.
+    if (state.causes && state.causes.length > 0 && (_fromUygunsuzluk || !state.autoLayoutSettings)) {
+        setTimeout(() => autoLayout(), 200);
+    }
+
     // Geri butonunu düzenle
     const _src = localStorage.getItem('fishbone_source');
     localStorage.removeItem('fishbone_source'); // tek seferlik
