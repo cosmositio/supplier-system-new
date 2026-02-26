@@ -1013,6 +1013,16 @@
         .cpm-btn { padding:8px 18px; border-radius:9px; border:none; font-size:.85rem; font-weight:700; cursor:pointer; }
         .cpm-btn-cancel { background:#f1f5f9; color:#64748b; }
         .cpm-btn-cancel:hover { background:#e2e8f0; }
+
+        /* Pareto bar selection chips */
+        #paretoSelChips { margin-top:10px; padding:8px 12px; background:#fdf5ff; border-radius:8px; border:1px dashed #d0a0e0; min-height:36px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+        .psc-hint { font-size:0.82em; color:#a070c0; font-style:italic; }
+        .psc-chip { display:inline-flex; align-items:center; gap:4px; background:#7b2d8b; color:#fff; border-radius:20px; padding:3px 10px 3px 12px; font-size:0.82em; font-weight:600; }
+        .psc-chip button { background:none; border:none; color:#fff; cursor:pointer; font-size:1em; line-height:1; padding:0 0 0 2px; opacity:.75; }
+        .psc-chip button:hover { opacity:1; }
+        .psc-clear { background:#f1e8f7; color:#7b2d8b; border:1px solid #d0a0e0; border-radius:20px; padding:3px 12px; font-size:0.82em; font-weight:600; cursor:pointer; margin-left:auto; }
+        .psc-clear:hover { background:#e8d0f5; }
+        .psc-label { font-size:0.8em; color:#7b2d8b; font-weight:700; white-space:nowrap; }
         .cpm-btn-ok { background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; }
         .cpm-btn-ok:hover { filter:brightness(1.1); }
         .cpm-btn-ok:disabled { opacity:.45; cursor:not-allowed; }
@@ -1262,6 +1272,7 @@
                 <canvas id="paretoChart"></canvas>
             </div>
             <div id="paretoInsight" style="margin-top:14px;padding:12px 16px;background:#fdf5ff;border-radius:10px;font-size:0.85em;color:#4a0a6b;border-left:4px solid #b94fc4;"></div>
+            <div id="paretoSelChips"><span class="psc-hint">💡 Bara tıklayarak seçin — seçilenler kapsamlı rapora dahil edilir. Seçim yoksa tüm filtreli veri gider.</span></div>
         </div>
 
         <!-- Breakdown Tab -->
@@ -2312,6 +2323,7 @@ const PAGE_SIZE = 50;
 let sortCol = -1;
 let sortAsc = true;
 let paretoChartInst = null;
+let _paretoSelected = new Set(); // Pareto bar seçimleri (kapsamlı rapor filtresi)
 let radarChartInst  = null;
 let _radarSelected  = new Set();
 let excludedHataTipleri = new Set(); // breakdown'dan dışlananlar
@@ -2924,8 +2936,13 @@ function renderPareto() {
     const labels = entries.map(e => e.label);
     const values = entries.map(e => e.value);
 
-    // Colors: normal bars = seçilen renk şeması, 'Diğer' bar = gri
-    const barColors = getParetoBarColors(entries);
+    // Colors: normal bars = seçilen renk şeması, 'Diğer' bar = gri; seçilmeyenler soluk
+    const _baseColors = getParetoBarColors(entries);
+    const barColors = _baseColors.map((c, i) =>
+        (_paretoSelected.size > 0 && !_paretoSelected.has(entries[i].label))
+            ? 'rgba(180,180,180,0.22)'
+            : c
+    );
 
     if (paretoChartInst) { paretoChartInst.destroy(); paretoChartInst = null; }
 
@@ -3018,6 +3035,20 @@ function renderPareto() {
             responsive: true,
             maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
+            onClick: (evt, els) => {
+                const barEl = els && els.find(e => e.datasetIndex === 0);
+                if (!barEl) return;
+                const lbl = labels[barEl.index];
+                if (_paretoSelected.has(lbl)) _paretoSelected.delete(lbl);
+                else _paretoSelected.add(lbl);
+                _updateParetoSelChips();
+                renderPareto();
+            },
+            onHover: (evt, els) => {
+                const barEl = els && els.find(e => e.datasetIndex === 0);
+                if (evt.native && evt.native.target)
+                    evt.native.target.style.cursor = barEl ? 'pointer' : 'default';
+            },
             plugins: {
                 legend: { position: 'top', labels: { font: { size: 12 }, color: '#333' } },
                 tooltip: {
@@ -3132,6 +3163,32 @@ function getParetoBarColors(entries) {
         }
         return `rgba(${c.r},${c.g},${c.b},0.85)`;
     });
+}
+
+// ─── Pareto Selection Chip Helpers ──────────────────────────────────────────
+function _updateParetoSelChips() {
+    const wrap = document.getElementById('paretoSelChips');
+    if (!wrap) return;
+    if (_paretoSelected.size === 0) {
+        wrap.innerHTML = '<span class="psc-hint">💡 Bara tıklayarak seçin — seçilenler kapsamlı rapora dahil edilir. Seçim yoksa tüm filtreli veri gider.</span>';
+        return;
+    }
+    const chips = [..._paretoSelected].map(lbl => {
+        const safeL = lbl.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        return `<span class="psc-chip">${lbl}<button onclick="_paretoToggleSel('${safeL}')" title="Kaldır">×</button></span>`;
+    }).join('');
+    wrap.innerHTML = `<span class="psc-label">📌 Seçili (${_paretoSelected.size}):</span>${chips}<button class="psc-clear" onclick="_paretoClearSel()">✕ Seçimi Temizle</button>`;
+}
+function _paretoToggleSel(lbl) {
+    if (_paretoSelected.has(lbl)) _paretoSelected.delete(lbl);
+    else _paretoSelected.add(lbl);
+    _updateParetoSelChips();
+    renderPareto();
+}
+function _paretoClearSel() {
+    _paretoSelected.clear();
+    _updateParetoSelChips();
+    renderPareto();
 }
 
 function downloadChartPNG() {
@@ -3520,6 +3577,8 @@ async function openKapsamliRapor() {
         showToast('Rapor oluşturmak için önce veri yükleyin ve filtreleyin.', 'error');
         return;
     }
+
+    // ── Aktif filtre değerlerini oku ──
     const fTarih1      = (document.getElementById('fDateStart')   || {}).value || '';
     const fTarih2      = (document.getElementById('fDateEnd')     || {}).value || '';
     const fHataTipi    = (document.getElementById('fHataTipi')    || {}).value || '';
@@ -3528,69 +3587,66 @@ async function openKapsamliRapor() {
     const fCariTip     = (document.getElementById('fCariTip')     || {}).value || '';
     const fStokKodu    = (document.getElementById('fStokKodu')    || {}).value || '';
     const tespitList   = [...selectedTespitYeriSet];
+    const pgKey        = document.getElementById('paretoGroup').value;
 
+    // ── Başlık oluştur ──
     const cariTipLabel = fCariTip === 'musteri' ? '★ Müşteri' : fCariTip === 'tedarikci' ? 'Tedarikçi' : '';
     let titleParts = [];
-    if (fTipi)                   titleParts.push(fTipi);
-    if (cariTipLabel)            titleParts.push(cariTipLabel);
-    if (selectedCari)            titleParts.push(selectedCari);
-    if (tespitList.length === 1) titleParts.push(tespitList[0]);
-    if (fHataTipi)               titleParts.push(fHataTipi);
+    if (fTipi)                      titleParts.push(fTipi);
+    if (cariTipLabel)               titleParts.push(cariTipLabel);
+    if (selectedCari)               titleParts.push(selectedCari);
+    if (tespitList.length === 1)    titleParts.push(tespitList[0]);
+    if (fHataTipi)                  titleParts.push(fHataTipi);
+    if (_paretoSelected.size > 0)   titleParts.push([..._paretoSelected].join(', '));
     const batchLabel = titleParts.join(' · ') || 'Tüm Veriler';
 
-    // Hata tipinden dışlananları çıkar
-    const reportData = excludedHataTipleri.size > 0
+    // ── Veriyi filtrele: önce excludedHataTipleri, sonra Pareto seçimleri ──
+    const baseData = excludedHataTipleri.size > 0
         ? filteredData.filter(r => !excludedHataTipleri.has(r.hataTipi || '(Belirtilmemiş)'))
         : filteredData;
 
+    // Pareto bar seçimi varsa sadece o kalemlerin verisinı al
+    const reportData = _paretoSelected.size > 0
+        ? baseData.filter(r => _paretoSelected.has(r[pgKey] || '(Belirtilmemiş)'))
+        : baseData;
+
+    if (!reportData.length) {
+        showToast('Seçilen kriterlere uygun kayıt bulunamadı.', 'warn');
+        return;
+    }
+
     const RAPOR_FIELDS = ['hataliMiktar','hataTipi','hataKaynagi','cariAdi','stokAdi',
                           'tespitYeri','tipi','uygunsuzlukTarih','uygunsuzlukTuru','partiHacmi'];
-    const rowSig = r => RAPOR_FIELDS.map(f => String(r[f] ?? '')).join('|');
 
-    const batchId  = 'b_' + Date.now();
+    const batchId = 'b_' + Date.now();
     const batchFilters = {
         tarihStart: fTarih1, tarihEnd: fTarih2, tipi: fTipi, cariTip: fCariTip,
         cari: selectedCari || '', tespitYeri: tespitList, hataTipi: fHataTipi,
-        hataKaynagi: fHataKaynagi, stokKodu: fStokKodu, excludedTypes: [...excludedHataTipleri]
-    };
-    const newBatch = {
-        id: batchId, label: batchLabel, rowCount: reportData.length,
-        addedAt: new Date().toLocaleString('tr-TR'), filters: batchFilters
+        hataKaynagi: fHataKaynagi, stokKodu: fStokKodu,
+        excludedTypes:   [...excludedHataTipleri],
+        paretoSelected:  [..._paretoSelected],
+        paretoGroupKey:  pgKey
     };
 
-    // Mevcut payload'ı yükle ve birleştir
-    const existing     = await _rIdbGet(_RIDB.key);
-    let allRows        = [];
-    let batches        = [];
-    const existingSigs = new Set();
-    if (existing && existing.rows && existing.rows.length) {
-        allRows = existing.rows;
-        batches = existing.batches || [];
-        allRows.forEach(r => existingSigs.add(rowSig(r)));
-    }
-
-    // Yeni satırları etiketle ve tekrar edenleri atla
+    // ── Satırları raporlama alanlarına daralt ve etiketle ──
     const newSlim = reportData.map(r => {
         const o = { _batchId: batchId };
         RAPOR_FIELDS.forEach(f => { if (r[f] !== undefined) o[f] = r[f]; });
         return o;
-    }).filter(r => !existingSigs.has(rowSig(r)));
+    });
 
-    // Yeni benzersiz satır yoksa batch metaverisini yine de kaydet
-    const dupNotice = newSlim.length === 0
-        ? ` (0 yeni — tüm satırlar zaten mevcut; filtre işaretlendi)` : '';
+    const batchMeta = {
+        id: batchId, label: batchLabel, rowCount: newSlim.length,
+        addedAt: new Date().toLocaleString('tr-TR'), filters: batchFilters
+    };
 
-    allRows = [...allRows, ...newSlim];
-    batches = [...batches, { ...newBatch, rowCount: newSlim.length, dupNotice: !!dupNotice }];
-
-    // Tüm satırlar üzerinden Pareto gruplarını yeniden hesapla
+    // ── Pareto gruplarını hesapla (yalnızca rapor verisine göre) ──
     const _pgMetric = document.getElementById('paretoMetric').value;
     const _pgTopN   = parseInt(document.getElementById('paretoTop').value);
     const _pgThresh = parseInt(document.getElementById('paretoThreshold').value);
-    const _pgKey    = document.getElementById('paretoGroup').value;
     const _pgAgg    = {};
-    allRows.forEach(r => {
-        const k = r[_pgKey] || '(Belirtilmemiş)';
+    newSlim.forEach(r => {
+        const k = r[pgKey] || '(Belirtilmemiş)';
         if (!_pgAgg[k]) _pgAgg[k] = { count: 0, hatali: 0 };
         _pgAgg[k].count++;
         _pgAgg[k].hatali += Number(r.hataliMiktar) || 0;
@@ -3606,26 +3662,29 @@ async function openKapsamliRapor() {
         if ((_pgCum / (_pgTotal || 1)) * 100 >= _pgThresh) { _pgCut = _i + 1; break; }
     }
     const paretoGroups = _pgTopSlice.slice(0, _pgCut).map(e => {
-        const gRows = allRows.filter(r => (r[_pgKey] || '(Belirtilmemiş)') === e.label);
-        return { label: e.label, totalHatali: e.hatali, count: e.count, pct: +(e.value / (_pgTotal||1) * 100).toFixed(1), groupRows: gRows };
+        const gRows = newSlim.filter(r => (r[pgKey] || '(Belirtilmemiş)') === e.label);
+        return { label: e.label, totalHatali: e.hatali, count: e.count,
+                 pct: +(e.value / (_pgTotal||1) * 100).toFixed(1), groupRows: gRows };
     });
 
-    const title = batches.length > 1
-        ? `Birleşik Kalite Raporu — ${batches.length} filtre, ${allRows.length} kayıt`
-        : (batchLabel + ' — Kalite Raporu');
+    const title = batchLabel + ' — Kalite Raporu';
 
-    // Combine existing + new chart snapshots — yeni snapshot aynı id'deki eskiyi ezer
+    // ── Grafik anlık görüntülerini koru (dedup) ──
+    const existing = await _rIdbGet(_RIDB.key);
     const existingSnaps = (existing && existing.chartSnapshots) || [];
     const newSnaps = (_pendingSnapshots || []).map(s => ({ ...s, batchId, addedAt: new Date().toISOString() }));
     const newIds = new Set(newSnaps.map(s => s.id));
     const allSnaps = [...existingSnaps.filter(s => !newIds.has(s.id)), ...newSnaps];
     _pendingSnapshots = [];
 
+    // ── REPLACE: her zaman yeni temiz payload kaydet ──
     const payload = {
-        rows: allRows, batches, title,
+        rows: newSlim,
+        batches: [batchMeta],
+        title,
         generatedAt: new Date().toISOString(),
         paretoGroups,
-        paretoGroupKey:  _pgKey,
+        paretoGroupKey:  pgKey,
         paretoThreshold: _pgThresh,
         filters: batchFilters,
         chartSnapshots: allSnaps
@@ -3633,7 +3692,8 @@ async function openKapsamliRapor() {
 
     try {
         await _rIdbSave(payload);
-        showToast(`✅ ${newSlim.length} kayıt eklendi${dupNotice} — raporda toplam ${allRows.length} kayıt (${batches.length} filtre)`, newSlim.length === 0 ? 'warn' : 'success');
+        const selInfo = _paretoSelected.size > 0 ? ` | ${_paretoSelected.size} Pareto kalemi` : '';
+        showToast(`✅ ${newSlim.length} kayıt — ${paretoGroups.length} Pareto grubu${selInfo}`, 'success');
         if (!window._kapsamliWin || window._kapsamliWin.closed)
             window._kapsamliWin = window.open('kapsamli-rapor.html', 'kapsamliRapor');
         else
