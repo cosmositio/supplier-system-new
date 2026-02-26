@@ -618,6 +618,23 @@
         .hm-cell-val { font-size:.72rem; font-weight:700; }
         .hm-total-row td { background:#f1f5f9 !important; font-weight:700; color:#334155; }
         .hm-total-col { background:#f1f5f9 !important; font-weight:700; color:#334155; }
+        /* Heatmap picker panels */
+        .hm-pick-btn { padding:5px 10px; border:1.5px solid #7dd3fc; border-radius:7px; background:#fff; color:#0369a1; font-size:.8rem; cursor:pointer; font-weight:600; transition:all .15s; }
+        .hm-pick-btn:hover { background:#e0f4ff; }
+        .hm-pick-btn.hpb-active { background:#0369a1; color:#fff; border-color:#0369a1; }
+        .hm-pick-panel { background:#f0f8ff; border:1.5px solid #7dd3fc; border-radius:10px; padding:10px 14px; margin-top:10px; display:none; }
+        .hm-pick-panel.hm-pp-open { display:block; }
+        .hm-pp-header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+        .hm-pp-header b { font-size:.82rem; color:#0369a1; }
+        .hm-pp-header small { font-size:.74rem; color:#888; }
+        .hm-pp-header input { padding:4px 9px; border:1.5px solid #7dd3fc; border-radius:7px; font-size:.79rem; flex:1; min-width:130px; outline:none; background:#fff; }
+        .hm-pp-header button { padding:4px 10px; border:1.5px solid #bae6fd; border-radius:7px; background:#fff; color:#0369a1; font-size:.77rem; cursor:pointer; }
+        .hm-pp-header button:hover { background:#e0f4ff; }
+        .hm-pick-list { display:flex; flex-wrap:wrap; gap:5px; max-height:150px; overflow-y:auto; padding:4px 0; }
+        .hm-pick-item { display:inline-flex; align-items:center; gap:5px; padding:4px 11px; border-radius:20px; border:1.5px solid #cbd5e1; background:#fff; font-size:.77rem; cursor:pointer; user-select:none; color:#334155; transition:all .15s; }
+        .hm-pick-item:hover { border-color:#0ea5e9; background:#e0f4ff; }
+        .hm-pick-item.hpi-sel { background:#0369a1; border-color:#0369a1; color:#fff; font-weight:700; }
+        .hm-pick-item.hpi-sel:hover { background:#075985; }
     </style>
 </head>
 <body>
@@ -980,24 +997,30 @@
             <div class="hm-controls">
                 <div class="hm-ctrl-group">
                     <label>Satır (Y ekseni)</label>
-                    <select id="hmRowBy" onchange="renderHeatmap()">
+                    <select id="hmRowBy" onchange="_hmResetFilter('row');_hmResetFilter('col');renderHeatmap()">
                         <option value="cariAdi">Cari Adı</option>
                         <option value="hataTipi">Hata Tipi</option>
                         <option value="hataKaynagi">Hata Kaynağı</option>
                         <option value="tespitYeri">Tespit Yeri</option>
                         <option value="stokAdi">Stok Adı</option>
                         <option value="uygunsuzlukTuru">Uyg. Türü</option>
+                        <option value="tipi">Tipi</option>
+                        <option value="makine">Makine</option>
+                        <option value="cariTipi">Cari Tipi</option>
                     </select>
                 </div>
                 <div class="hm-ctrl-group">
                     <label>Sütun (X ekseni)</label>
-                    <select id="hmColBy" onchange="renderHeatmap()">
+                    <select id="hmColBy" onchange="_hmResetFilter('row');_hmResetFilter('col');renderHeatmap()">
                         <option value="hataTipi">Hata Tipi</option>
                         <option value="hataKaynagi">Hata Kaynağı</option>
                         <option value="tespitYeri">Tespit Yeri</option>
                         <option value="cariAdi">Cari Adı</option>
                         <option value="stokAdi">Stok Adı</option>
                         <option value="uygunsuzlukTuru">Uyg. Türü</option>
+                        <option value="tipi">Tipi</option>
+                        <option value="makine">Makine</option>
+                        <option value="cariTipi">Cari Tipi</option>
                     </select>
                 </div>
                 <div class="hm-ctrl-group">
@@ -1009,23 +1032,29 @@
                 </div>
                 <div class="hm-ctrl-group">
                     <label>Top Satır</label>
-                    <select id="hmTopRow" onchange="renderHeatmap()">
-                        <option value="10">10</option>
-                        <option value="15" selected>15</option>
-                        <option value="20">20</option>
-                        <option value="30">30</option>
-                        <option value="99999">Tümü</option>
-                    </select>
+                    <div style="display:flex;gap:5px;align-items:center;">
+                        <select id="hmTopRow" onchange="_hmResetFilter('row');renderHeatmap()">
+                            <option value="10">10</option>
+                            <option value="15" selected>15</option>
+                            <option value="20">20</option>
+                            <option value="30">30</option>
+                            <option value="99999">Tümü</option>
+                        </select>
+                        <button class="hm-pick-btn" id="hmRowPickBtn" onclick="_hmTogglePanel('row')">📋 Seç</button>
+                    </div>
                 </div>
                 <div class="hm-ctrl-group">
                     <label>Top Sütun</label>
-                    <select id="hmTopCol" onchange="renderHeatmap()">
-                        <option value="8">8</option>
-                        <option value="12" selected>12</option>
-                        <option value="16">16</option>
-                        <option value="20">20</option>
-                        <option value="99999">Tümü</option>
-                    </select>
+                    <div style="display:flex;gap:5px;align-items:center;">
+                        <select id="hmTopCol" onchange="_hmResetFilter('col');renderHeatmap()">
+                            <option value="8">8</option>
+                            <option value="12" selected>12</option>
+                            <option value="16">16</option>
+                            <option value="20">20</option>
+                            <option value="99999">Tümü</option>
+                        </select>
+                        <button class="hm-pick-btn" id="hmColPickBtn" onclick="_hmTogglePanel('col')">📋 Seç</button>
+                    </div>
                 </div>
                 <div class="hm-ctrl-group">
                     <label>Renk Skalası</label>
@@ -1044,6 +1073,31 @@
                         <option value="0">Hayır</option>
                     </select>
                 </div>
+            </div>
+
+            <!-- Row picker panel -->
+            <div class="hm-pick-panel" id="hmRowPanel">
+                <div class="hm-pp-header">
+                    <b>📋 Satır (Y) Seçimi</b>
+                    <small id="hmRowPickHint"></small>
+                    <input id="hmRowSearch" type="text" placeholder="🔍 Ara..." oninput="_hmFilterPanel('row')">
+                    <button onclick="_hmPickAll('row')">Tümü</button>
+                    <button onclick="_hmPickClear('row')">Temizle</button>
+                    <button onclick="_hmTogglePanel('row')" style="margin-left:auto;">✕ Kapat</button>
+                </div>
+                <div id="hmRowList" class="hm-pick-list"></div>
+            </div>
+            <!-- Col picker panel -->
+            <div class="hm-pick-panel" id="hmColPanel">
+                <div class="hm-pp-header">
+                    <b>📋 Sütun (X) Seçimi</b>
+                    <small id="hmColPickHint"></small>
+                    <input id="hmColSearch" type="text" placeholder="🔍 Ara..." oninput="_hmFilterPanel('col')">
+                    <button onclick="_hmPickAll('col')">Tümü</button>
+                    <button onclick="_hmPickClear('col')">Temizle</button>
+                    <button onclick="_hmTogglePanel('col')" style="margin-left:auto;">✕ Kapat</button>
+                </div>
+                <div id="hmColList" class="hm-pick-list"></div>
             </div>
 
             <div class="hm-legend-row" id="hmLegendRow">
@@ -2848,6 +2902,133 @@ const HM_SCALES = {
     orange: ['#ffedd5','#fdba74','#f97316','#c2410c','#7c2d12'],
 };
 
+// ── Heatmap picker state ──────────────────────────────────────────────────────
+let _hmRowFilter = null; // null = use top-N; Set<string> = manual selection
+let _hmColFilter = null;
+
+function _hmResetFilter(axis) {
+    if (axis === 'row') {
+        _hmRowFilter = null;
+        const btn = document.getElementById('hmRowPickBtn');
+        if (btn) btn.classList.remove('hpb-active');
+        const panel = document.getElementById('hmRowPanel');
+        if (panel) panel.classList.remove('hm-pp-open');
+    } else {
+        _hmColFilter = null;
+        const btn = document.getElementById('hmColPickBtn');
+        if (btn) btn.classList.remove('hpb-active');
+        const panel = document.getElementById('hmColPanel');
+        if (panel) panel.classList.remove('hm-pp-open');
+    }
+}
+
+function _hmBuildSortedList(axis) {
+    const key    = document.getElementById(axis === 'row' ? 'hmRowBy' : 'hmColBy').value;
+    const metric = document.getElementById('hmMetric').value;
+    const totals = {};
+    filteredData.forEach(r => {
+        const v = _hmGet(r, key);
+        if (v === '—' || v === '') return;
+        const val = metric === 'hataliMiktar' ? (parseFloat(r.hataliMiktar) || 0) : 1;
+        totals[v] = (totals[v] || 0) + val;
+    });
+    return Object.entries(totals).sort((a,b) => b[1]-a[1]).map(([label, total]) => ({label, total}));
+}
+
+function _hmTogglePanel(axis) {
+    const panelId = axis === 'row' ? 'hmRowPanel' : 'hmColPanel';
+    const btnId   = axis === 'row' ? 'hmRowPickBtn' : 'hmColPickBtn';
+    const panel   = document.getElementById(panelId);
+    const btn     = document.getElementById(btnId);
+    if (!panel) return;
+    const isOpen  = panel.classList.contains('hm-pp-open');
+    if (isOpen) {
+        panel.classList.remove('hm-pp-open');
+        if (btn) btn.classList.remove('hpb-active');
+    } else {
+        // Build list and init filter from top-N if not set
+        const all = _hmBuildSortedList(axis);
+        const filterRef = axis === 'row' ? _hmRowFilter : _hmColFilter;
+        if (!filterRef) {
+            const topN = parseInt(document.getElementById(axis === 'row' ? 'hmTopRow' : 'hmTopCol').value) || (axis === 'row' ? 15 : 12);
+            const newSet = new Set(all.slice(0, topN === 99999 ? all.length : topN).map(g => g.label));
+            if (axis === 'row') _hmRowFilter = newSet; else _hmColFilter = newSet;
+        }
+        panel._allItems = all;
+        const searchId = axis === 'row' ? 'hmRowSearch' : 'hmColSearch';
+        const searchEl = document.getElementById(searchId);
+        if (searchEl) searchEl.value = '';
+        _hmRenderPickList(axis, all);
+        panel.classList.add('hm-pp-open');
+        if (btn) btn.classList.add('hpb-active');
+    }
+}
+
+function _hmRenderPickList(axis, items) {
+    const listId  = axis === 'row' ? 'hmRowList' : 'hmColList';
+    const hintId  = axis === 'row' ? 'hmRowPickHint' : 'hmColPickHint';
+    const filterRef = axis === 'row' ? _hmRowFilter : _hmColFilter;
+    const listEl  = document.getElementById(listId);
+    if (!listEl) return;
+    listEl.innerHTML = items.map(g => {
+        const safe = g.label.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+        const sel  = filterRef && filterRef.has(g.label);
+        return `<span class="hm-pick-item ${sel ? 'hpi-sel' : ''}" data-axis="${axis}" data-lbl="${safe}">${safe}</span>`;
+    }).join('');
+    const hintEl = document.getElementById(hintId);
+    const panelEl = document.getElementById(axis === 'row' ? 'hmRowPanel' : 'hmColPanel');
+    const total   = (panelEl?._allItems || items).length;
+    if (hintEl) hintEl.textContent = `${filterRef ? filterRef.size : 0} / ${total} seçili`;
+}
+
+function _hmFilterPanel(axis) {
+    const searchId = axis === 'row' ? 'hmRowSearch' : 'hmColSearch';
+    const panelId  = axis === 'row' ? 'hmRowPanel' : 'hmColPanel';
+    const q   = (document.getElementById(searchId)?.value || '').toLowerCase();
+    const all = document.getElementById(panelId)?._allItems || [];
+    const filtered = q ? all.filter(g => g.label.toLowerCase().includes(q)) : all;
+    _hmRenderPickList(axis, filtered);
+}
+
+function _hmPickAll(axis) {
+    const panelId = axis === 'row' ? 'hmRowPanel' : 'hmColPanel';
+    const all = document.getElementById(panelId)?._allItems || [];
+    const newSet = new Set(all.map(g => g.label));
+    if (axis === 'row') _hmRowFilter = newSet; else _hmColFilter = newSet;
+    _hmFilterPanel(axis);
+    renderHeatmap();
+}
+
+function _hmPickClear(axis) {
+    if (axis === 'row') _hmRowFilter = new Set(); else _hmColFilter = new Set();
+    _hmFilterPanel(axis);
+    renderHeatmap();
+}
+
+// Delegated click for hm pick items
+(function _hmPickListener() {
+    document.addEventListener('click', function(e) {
+        const item = e.target.closest('.hm-pick-item[data-axis]');
+        if (!item) return;
+        e.preventDefault();
+        const axis  = item.getAttribute('data-axis');
+        const label = item.getAttribute('data-lbl')
+            ?.replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&lt;/g,'<');
+        if (!label || !axis) return;
+        const filterRef = axis === 'row' ? _hmRowFilter : _hmColFilter;
+        if (!filterRef) return;
+        if (filterRef.has(label)) filterRef.delete(label);
+        else filterRef.add(label);
+        item.classList.toggle('hpi-sel', filterRef.has(label));
+        const hintId = axis === 'row' ? 'hmRowPickHint' : 'hmColPickHint';
+        const panelId = axis === 'row' ? 'hmRowPanel' : 'hmColPanel';
+        const total   = document.getElementById(panelId)?._allItems?.length || 0;
+        const hintEl  = document.getElementById(hintId);
+        if (hintEl) hintEl.textContent = `${filterRef.size} / ${total} seçili`;
+        renderHeatmap();
+    });
+})();
+
 function renderHeatmap() {
     const wrap     = document.getElementById('hmTableWrap');
     const insightEl= document.getElementById('hmInsight');
@@ -2891,12 +3072,12 @@ function renderHeatmap() {
         cell[rv][cv]  = (cell[rv][cv] || 0) + v;
     });
 
-    const rows = Object.entries(rowTotals)
-        .filter(e => e[0] !== '—' && e[0] !== '')
-        .sort((a,b) => b[1]-a[1]).slice(0, topRow).map(e => e[0]);
-    const cols = Object.entries(colTotals)
-        .filter(e => e[0] !== '—' && e[0] !== '')
-        .sort((a,b) => b[1]-a[1]).slice(0, topCol).map(e => e[0]);
+    const rows = _hmRowFilter && _hmRowFilter.size > 0
+        ? Object.entries(rowTotals).filter(e => _hmRowFilter.has(e[0])).sort((a,b) => b[1]-a[1]).map(e => e[0])
+        : Object.entries(rowTotals).filter(e => e[0] !== '—' && e[0] !== '').sort((a,b) => b[1]-a[1]).slice(0, topRow).map(e => e[0]);
+    const cols = _hmColFilter && _hmColFilter.size > 0
+        ? Object.entries(colTotals).filter(e => _hmColFilter.has(e[0])).sort((a,b) => b[1]-a[1]).map(e => e[0])
+        : Object.entries(colTotals).filter(e => e[0] !== '—' && e[0] !== '').sort((a,b) => b[1]-a[1]).slice(0, topCol).map(e => e[0]);
 
     if (!rows.length || !cols.length) {
         wrap.innerHTML = '<p style="color:#aaa;padding:20px;">Bu kombinasyon için yeterli veri yok — farklı alanlar deneyin.</p>';
@@ -2956,7 +3137,8 @@ function renderHeatmap() {
     // ── Tablo HTML ─────────────────────────────────────────────────────────────
     const FIELD_LABELS = {
         cariAdi:'Cari Adı', hataTipi:'Hata Tipi', hataKaynagi:'Hata Kaynağı',
-        tespitYeri:'Tespit Yeri', stokAdi:'Stok Adı', uygunsuzlukTuru:'Uyg. Türü'
+        tespitYeri:'Tespit Yeri', stokAdi:'Stok Adı', uygunsuzlukTuru:'Uyg. Türü',
+        tipi:'Tipi', makine:'Makine', cariTipi:'Cari Tipi'
     };
 
     let html = `<table class="hm-table"><thead><tr>
@@ -3013,8 +3195,13 @@ function renderHeatmap() {
 
 // Basit, güvenli alan okuyucu (tüm olası key formatlarını dener)
 function _hmGet(row, key) {
+    // Derived: cariTipi (Müşteri / Tedarikçi)
+    if (key === 'cariTipi') {
+        const cari = row.cariAdi || row['Cari Adı'] || row['cari_adi'] || '';
+        return cari ? (musteriSet.has(cari) ? 'Müşteri' : 'Tedarikçi') : '—';
+    }
     const direct = row[key];
-    if (direct && direct !== '') return String(direct).trim();
+    if (direct !== undefined && direct !== null && String(direct).trim() !== '') return String(direct).trim();
     // camelCase → fallback haritası
     const alt = {
         cariAdi:         row['Cari Adı']         || row['cari_adi']       || '',
@@ -3023,6 +3210,8 @@ function _hmGet(row, key) {
         tespitYeri:      row['Tespit Yeri']       || row['tespit_yeri']    || '',
         stokAdi:         row['Stok Adı']          || row['stok_adi']       || '',
         uygunsuzlukTuru: row['Uygunsuzluk Türü']  || row['uyg_turu']       || '',
+        tipi:            row['Tipi']              || row['tipi']           || '',
+        makine:          row['Makine']            || row['makine']         || '',
     };
     const v = alt[key] || '';
     return String(v).trim() || '(Belirtilmemiş)';
