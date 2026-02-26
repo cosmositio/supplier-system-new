@@ -351,6 +351,20 @@ body.report-editing [data-ed]:focus {
     padding:4px 10px; font-size:.74rem; font-weight:700; cursor:pointer; flex-shrink:0;
 }
 .kr-src-del:hover { background:#fecaca; }
+/* ── HIDDEN SECTIONS FLOATING BADGE ── */
+#kr-hidden-badge {
+    position:fixed; bottom:22px; right:22px; z-index:9000;
+    background:#1e40af; color:#fff; border-radius:28px;
+    padding:11px 20px; display:flex; align-items:center; gap:9px;
+    font-size:.82rem; font-weight:700;
+    box-shadow:0 4px 20px rgba(30,64,175,.4);
+    border:none; cursor:pointer;
+    transition:opacity .2s, transform .2s, background .15s;
+    animation:krbadgeIn .25s ease;
+}
+#kr-hidden-badge:hover { background:#1d4ed8; transform:translateY(-3px); }
+#kr-hidden-badge.kr-badge-hidden { display:none; }
+@keyframes krbadgeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 
 </style>
 </head>
@@ -2672,11 +2686,13 @@ async function krHideSection(id) {
     const hidden = await _krLoadHidden();
     hidden.add(id);
     _krSaveHidden(hidden);
+    _krUpdateHiddenBadge();
 }
 
 async function krShowAllSections() {
     document.querySelectorAll('.section[id]').forEach(el => el.style.display = '');
     _krSaveHidden(new Set());
+    _krUpdateHiddenBadge();
 }
 
 async function _krInjectHideButtons() {
@@ -2690,12 +2706,28 @@ async function _krInjectHideButtons() {
         if (old) old.remove();
         const btn = document.createElement('button');
         btn.className   = 'kr-hide-btn no-print';
-        btn.title       = 'Bu bölümü gizle (Tüm Bölümler butonuyla geri açabilirsiniz)';
+        btn.title       = 'Bu bölümü gizle (sağ altta çıkan rozetten geri açabilirsiniz)';
         btn.textContent = '✕';
         btn.setAttribute('onclick', `krHideSection('${id}')`);
         hdr.appendChild(btn);
         if (hidden.has(id)) sec.style.display = 'none';
     });
+    _krUpdateHiddenBadge();
+}
+
+function _krUpdateHiddenBadge() {
+    const all    = document.querySelectorAll('.section[id]');
+    let count = 0;
+    all.forEach(el => { if (el.style.display === 'none') count++; });
+    const badge   = document.getElementById('kr-hidden-badge');
+    const countEl = document.getElementById('kr-hidden-count');
+    if (!badge) return;
+    if (count > 0) {
+        badge.classList.remove('kr-badge-hidden');
+        if (countEl) countEl.textContent = count;
+    } else {
+        badge.classList.add('kr-badge-hidden');
+    }
 }
 
 // ─────────────────────────────────────────────
@@ -2777,5 +2809,14 @@ function _krToggleFbTable(h4el) {
     if (chevron) chevron.classList.toggle('collapsed', collapsed);
 }
 </script>
+
+<!-- GİZLİ BÖLÜMLER FLOATING BADGE -->
+<button id="kr-hidden-badge" class="no-print kr-badge-hidden"
+    onclick="krShowAllSections()"
+    title="Gizlenen bölümleri geri göster">
+    <span style="font-size:1.15rem;">👁</span>
+    <span id="kr-hidden-count">0</span>&nbsp;bölüm gizlendi — Tümünü Göster
+</button>
+
 </body>
 </html>
