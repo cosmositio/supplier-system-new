@@ -641,6 +641,14 @@
         .bb-ctrl-group select:focus { border-color:#7c3aed; }
         .bb-chart-area { position:relative; height:480px; margin-top:18px; }
         .bb-insight { margin-top:14px; padding:12px 16px; background:#f3e8ff; border-radius:10px; font-size:0.83em; color:#4a0a6b; border-left:4px solid #9333ea; }
+        /* Grouped/Stacked Bar */
+        .gb-controls { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; padding:14px 16px; background:#f0fdf4; border-radius:10px; border:1px solid #bbf7d0; }
+        .gb-ctrl-group { display:flex; flex-direction:column; gap:4px; }
+        .gb-ctrl-group label { font-size:.75rem; font-weight:600; color:#15803d; }
+        .gb-ctrl-group select, .gb-ctrl-group input[type=range] { padding:6px 10px; border:1.5px solid #86efac; border-radius:7px; font-size:.84rem; background:#fff; outline:none; color:#14532d; }
+        .gb-ctrl-group select:focus { border-color:#16a34a; }
+        .gb-chart-area { position:relative; height:500px; margin-top:18px; }
+        .gb-insight { margin-top:14px; padding:12px 16px; background:#dcfce7; border-radius:10px; font-size:0.83em; color:#14532d; border-left:4px solid #16a34a; }
     </style>
 </head>
 <body>
@@ -801,6 +809,7 @@
             <button class="tab-btn" onclick="switchTab('radar')">🕷️ Radar Analizi</button>
             <button class="tab-btn" onclick="switchTab('heatmap')">🌡️ Isı Haritası</button>
             <button class="tab-btn" onclick="switchTab('bubble')">🫧 Kabarcık Grafiği</button>
+            <button class="tab-btn" onclick="switchTab('bar')">📦 Gruplu / Yigilmis Bar</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
@@ -1181,6 +1190,98 @@
             </div>
             <div id="bubbleInsight" class="bb-insight" style="display:none;"></div>
         </div>
+
+        <!-- Grouped/Stacked Bar Tab -->
+        <div class="tab-panel" id="tab-bar">
+            <div style="font-size:1.05rem;font-weight:800;color:#15803d;display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                📦 Gruplu / Yığılmış Bar Grafiği
+                <span style="font-size:.75rem;font-weight:400;color:#888;background:#dcfce7;padding:2px 10px;border-radius:20px;">Ana grubu renkli katmanlara bölerek hem toplamı hem dağılımı göster</span>
+            </div>
+            <div class="gb-controls">
+                <div class="gb-ctrl-group">
+                    <label>Ana Grup (X ekseni)</label>
+                    <select id="gbGroupBy" onchange="renderGroupedBar()">
+                        <option value="cariAdi">Cari Adı</option>
+                        <option value="hataTipi">Hata Tipi</option>
+                        <option value="hataKaynagi">Hata Kaynağı</option>
+                        <option value="tespitYeri">Tespit Yeri</option>
+                        <option value="stokAdi">Stok Adı</option>
+                        <option value="makine">Makine</option>
+                        <option value="tipi">Tipi</option>
+                        <option value="uygunsuzlukTuru">Uyg. Türü</option>
+                    </select>
+                </div>
+                <div class="gb-ctrl-group">
+                    <label>Katman (Renk Boyutu)</label>
+                    <select id="gbStackBy" onchange="renderGroupedBar()">
+                        <option value="hataTipi">Hata Tipi</option>
+                        <option value="hataKaynagi">Hata Kaynağı</option>
+                        <option value="tespitYeri">Tespit Yeri</option>
+                        <option value="cariAdi">Cari Adı</option>
+                        <option value="stokAdi">Stok Adı</option>
+                        <option value="makine">Makine</option>
+                        <option value="tipi">Tipi</option>
+                        <option value="uygunsuzlukTuru">Uyg. Türü</option>
+                    </select>
+                </div>
+                <div class="gb-ctrl-group">
+                    <label>Metrik</label>
+                    <select id="gbMetric" onchange="renderGroupedBar()">
+                        <option value="hataliMiktar">Hatalı Miktar</option>
+                        <option value="kayitSayisi">Kayıt Sayısı</option>
+                    </select>
+                </div>
+                <div class="gb-ctrl-group">
+                    <label>Mod</label>
+                    <select id="gbMode" onchange="renderGroupedBar()">
+                        <option value="stacked">📊 Yığılmış (Stacked)</option>
+                        <option value="grouped">📦 Yan Yana (Grouped)</option>
+                        <option value="percent">📈 % Yığılmış (100%)</option>
+                    </select>
+                </div>
+                <div class="gb-ctrl-group">
+                    <label>Sıralama</label>
+                    <select id="gbSort" onchange="renderGroupedBar()">
+                        <option value="desc">Toplama Göre ↓</option>
+                        <option value="asc">Toplama Göre ↑</option>
+                        <option value="alpha">Alfabetik</option>
+                    </select>
+                </div>
+                <div class="gb-ctrl-group">
+                    <label>Top Grup</label>
+                    <select id="gbTopGroup" onchange="renderGroupedBar()">
+                        <option value="10">10</option>
+                        <option value="15" selected>15</option>
+                        <option value="20">20</option>
+                        <option value="30">30</option>
+                        <option value="99999">Tümü</option>
+                    </select>
+                </div>
+                <div class="gb-ctrl-group">
+                    <label>Top Katman</label>
+                    <select id="gbTopStack" onchange="renderGroupedBar()">
+                        <option value="5">5</option>
+                        <option value="8" selected>8</option>
+                        <option value="10">10</option>
+                        <option value="15">15</option>
+                        <option value="99999">Tümü</option>
+                    </select>
+                </div>
+                <div class="gb-ctrl-group">
+                    <label>Yön</label>
+                    <select id="gbDir" onchange="renderGroupedBar()">
+                        <option value="vertical">Dikey (↕)</option>
+                        <option value="horizontal">Yatay (↔)</option>
+                    </select>
+                </div>
+                <button class="export-btn" onclick="downloadBarPNG()" style="align-self:flex-end;background:#16a34a;border-color:#15803d;">⬇ PNG İndir</button>
+            </div>
+            <div id="barNoData" style="display:none;padding:30px;text-align:center;color:#aaa;">⚠️ Veri yok — filtre uygulayın.</div>
+            <div class="gb-chart-area" id="barChartWrap" style="display:none;">
+                <canvas id="barChart"></canvas>
+            </div>
+            <div id="barInsight" class="gb-insight" style="display:none;"></div>
+        </div>
     </div>
 
     <!-- Empty state -->
@@ -1442,6 +1543,7 @@ function applyFilters() {
     radarBuildSelector();
     if (document.getElementById('tab-heatmap').classList.contains('active')) renderHeatmap();
     if (document.getElementById('tab-bubble').classList.contains('active'))  renderBubble();
+    if (document.getElementById('tab-bar').classList.contains('active'))     renderGroupedBar();
     showToast(`${filteredData.length} kayıt filtrelendi`, 'success');
 }
 
@@ -1467,6 +1569,7 @@ function resetFilters() {
     radarBuildSelector();
     if (document.getElementById('tab-heatmap').classList.contains('active')) renderHeatmap();
     if (document.getElementById('tab-bubble').classList.contains('active'))  renderBubble();
+    if (document.getElementById('tab-bar').classList.contains('active'))     renderGroupedBar();
     showToast('Filtreler sıfırlandı');
 }
 
@@ -2630,7 +2733,7 @@ function exportTableExcel() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble'];
+    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', names[i] === name);
     });
@@ -2640,6 +2743,7 @@ function switchTab(name) {
     if (name === 'radar')   { radarBuildSelector(); }
     if (name === 'heatmap') { renderHeatmap(); }
     if (name === 'bubble')  { renderBubble(); }
+    if (name === 'bar')     { renderGroupedBar(); }
 }
 
 // ─── RADAR ANALİZİ ───────────────────────────────────────────────────────────
@@ -3441,6 +3545,175 @@ function downloadBubblePNG() {
     const a = document.createElement('a');
     a.href = bubbleChartInst.toBase64Image('image/png', 1);
     a.download = 'kabarcik-grafigi.png';
+    a.click();
+}
+
+// ─── GRUPLU / YIĞILMIŞ BAR GRAFİĞİ ─────────────────────────────────────────
+let barChartInst = null;
+
+const GB_PALETTE = [
+    '#16a34a','#2563eb','#dc2626','#d97706','#7c3aed',
+    '#0891b2','#db2777','#65a30d','#9333ea','#0f766e',
+    '#c2410c','#1d4ed8','#be123c','#b45309','#047857',
+];
+
+function renderGroupedBar() {
+    const noDataEl  = document.getElementById('barNoData');
+    const wrapEl    = document.getElementById('barChartWrap');
+    const insightEl = document.getElementById('barInsight');
+    if (!wrapEl) return;
+
+    if (!filteredData || !filteredData.length) {
+        noDataEl.style.display = 'block'; wrapEl.style.display = 'none';
+        if (insightEl) insightEl.style.display = 'none';
+        return;
+    }
+
+    const groupKey  = document.getElementById('gbGroupBy').value;
+    const stackKey  = document.getElementById('gbStackBy').value;
+    const metric    = document.getElementById('gbMetric').value;
+    const mode      = document.getElementById('gbMode').value;       // stacked | grouped | percent
+    const sortMode  = document.getElementById('gbSort').value;
+    const topGroup  = parseInt(document.getElementById('gbTopGroup').value) || 15;
+    const topStack  = parseInt(document.getElementById('gbTopStack').value) || 8;
+    const dir       = document.getElementById('gbDir').value;        // vertical | horizontal
+
+    // Aggregate: pivot[group][stack] = value
+    const rowTotals = {}, stackTotals = {}, pivot = {};
+    filteredData.forEach(r => {
+        const g = _hmGet(r, groupKey);
+        const s = _hmGet(r, stackKey);
+        const v = metric === 'hataliMiktar' ? (parseFloat(r.hataliMiktar) || 0) : 1;
+        rowTotals[g]   = (rowTotals[g]   || 0) + v;
+        stackTotals[s] = (stackTotals[s] || 0) + v;
+        if (!pivot[g]) pivot[g] = {};
+        pivot[g][s] = (pivot[g][s] || 0) + v;
+    });
+
+    // Top groups
+    let groups = Object.entries(rowTotals)
+        .filter(([k]) => k !== '—' && k !== '(Belirtilmemiş)')
+        .sort(sortMode === 'asc' ? (a,b) => a[1]-b[1] : sortMode === 'alpha' ? (a,b) => a[0].localeCompare(b[0],'tr') : (a,b) => b[1]-a[1])
+        .slice(0, topGroup >= 99999 ? undefined : topGroup)
+        .map(([k]) => k);
+
+    // Top stacks
+    const stacks = Object.entries(stackTotals)
+        .filter(([k]) => k !== '—' && k !== '(Belirtilmemiş)')
+        .sort((a,b) => b[1]-a[1])
+        .slice(0, topStack >= 99999 ? undefined : topStack)
+        .map(([k]) => k);
+
+    if (!groups.length || !stacks.length) {
+        noDataEl.style.display = 'block'; wrapEl.style.display = 'none';
+        if (insightEl) insightEl.style.display = 'none';
+        return;
+    }
+
+    const metricLabel = metric === 'hataliMiktar' ? 'Hatalı Miktar' : 'Kayıt Sayısı';
+    const isPercent   = mode === 'percent';
+    const isHoriz     = dir === 'horizontal';
+
+    // Build datasets (one per stack)
+    const datasets = stacks.map((s, i) => {
+        const color = GB_PALETTE[i % GB_PALETTE.length];
+        const rawData = groups.map(g => pivot[g]?.[s] || 0);
+        let data = rawData;
+        if (isPercent) {
+            data = groups.map((g, gi) => {
+                const rowSum = stacks.reduce((acc, st) => acc + (pivot[g]?.[st] || 0), 0);
+                return rowSum > 0 ? Math.round((rawData[gi] / rowSum) * 1000) / 10 : 0;
+            });
+        }
+        return {
+            label: s,
+            data,
+            _rawData: rawData,
+            backgroundColor: color + 'cc',
+            borderColor: color,
+            borderWidth: 1,
+            borderRadius: mode === 'grouped' ? 3 : 0,
+            borderSkipped: false,
+        };
+    });
+
+    noDataEl.style.display = 'none';
+    wrapEl.style.display   = 'block';
+
+    // Dynamic height for horizontal mode
+    if (isHoriz) {
+        wrapEl.style.height = Math.max(400, groups.length * 28 + 120) + 'px';
+    } else {
+        wrapEl.style.height = '500px';
+    }
+
+    if (barChartInst) { barChartInst.destroy(); barChartInst = null; }
+    const ctx = document.getElementById('barChart').getContext('2d');
+
+    const fmtTick = v => isPercent ? v + '%' : v >= 1000 ? (v/1000).toLocaleString('tr-TR',{maximumFractionDigits:1})+'K' : v.toLocaleString('tr-TR',{maximumFractionDigits:0});
+    const tr20 = s => String(s).length > 20 ? String(s).slice(0,19)+'…' : String(s);
+
+    barChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: groups.map(tr20), datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: isHoriz ? 'y' : 'x',
+            plugins: {
+                legend: { position: 'top', labels: { font:{ size:11 }, padding:10, boxWidth:13 } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const ds = ctx.dataset;
+                            const raw = ds._rawData?.[ctx.dataIndex] ?? ctx.parsed[isHoriz ? 'x' : 'y'];
+                            const fmtV = v => v >= 1000 ? (v/1000).toLocaleString('tr-TR',{maximumFractionDigits:1})+'K' : v.toLocaleString('tr-TR',{maximumFractionDigits:1});
+                            return isPercent
+                                ? `${ds.label}: ${ctx.parsed[isHoriz?'x':'y']}% (${fmtV(raw)})`
+                                : `${ds.label}: ${fmtV(raw)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    stacked: mode !== 'grouped',
+                    grid: { color: '#f1f5f9' },
+                    ticks: isHoriz
+                        ? { callback: fmtTick }
+                        : { maxRotation: 40, font:{ size:11 } },
+                    title: isHoriz ? { display:true, text: isPercent ? '%' : metricLabel, font:{ size:11 } } : undefined,
+                    max: isPercent && !isHoriz ? 100 : undefined,
+                },
+                y: {
+                    stacked: mode !== 'grouped',
+                    grid: { color: '#f1f5f9' },
+                    ticks: isHoriz
+                        ? { font:{ size:11 } }
+                        : { callback: fmtTick },
+                    title: !isHoriz ? { display:true, text: isPercent ? '%' : metricLabel, font:{ size:11 } } : undefined,
+                    max: isPercent && isHoriz ? 100 : undefined,
+                },
+            }
+        }
+    });
+
+    // Insight
+    if (insightEl) {
+        const topG = groups[0];
+        const topGTotal = rowTotals[topG] || 0;
+        const topS = stacks[0];
+        const fmtV = v => v >= 1000 ? (v/1000).toLocaleString('tr-TR',{maximumFractionDigits:1})+'K' : v.toLocaleString('tr-TR',{maximumFractionDigits:1});
+        insightEl.innerHTML = `💡 En yüksek toplam: <b>${topG}</b> (${fmtV(topGTotal)}) &nbsp;|  En dominant katman: <b>${topS}</b> (toplam ${fmtV(stackTotals[topS])}) &nbsp;|  ${groups.length} grup, ${stacks.length} katman`;
+        insightEl.style.display = 'block';
+    }
+}
+
+function downloadBarPNG() {
+    if (!barChartInst) return;
+    const a = document.createElement('a');
+    a.href = barChartInst.toBase64Image('image/png', 1);
+    a.download = 'gruplu-bar-grafigi.png';
     a.click();
 }
 
