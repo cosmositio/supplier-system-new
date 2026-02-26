@@ -2371,15 +2371,22 @@ function runReport(payload) {
     const uHataTipi  = new Set(rows.map(r=>r.hataTipi).filter(Boolean)).size;
 
     // ── KPI CARDS ──
+    const avgH       = totalRec ? (totalH/totalRec).toFixed(1) : 0;
+    const batchCount = (payload.batches || []).length;
     const kpis = [
-        { val: fmtN(totalRec),    lbl:'Toplam Kayıt',       color:'#2563eb' },
-        { val: fmtN(totalH),      lbl:'Toplam Hatalı Mikt.',color:'#dc2626' },
-        { val: fmtN(icH),         lbl:'İç Başarısızlık',    color:'#1d4ed8' },
-        { val: fmtN(disH),        lbl:'Dış Başarısızlık',   color:'#c2410c' },
-        { val: uTedarikci,        lbl:'Farklı Tedarikçi',   color:'#7c3aed' },
-        { val: uMalzeme,          lbl:'Farklı Malzeme',     color:'#0891b2' },
-        { val: uHataTipi,         lbl:'Farklı Hata Tipi',   color:'#be185d' },
-        { val: icPct+'%',         lbl:'İç Başarısızlık %',  color:'#16a34a' },
+        { val: fmtN(totalRec),    lbl:'Toplam Kayıt',         color:'#2563eb' },
+        { val: fmtN(totalH),      lbl:'Toplam Hatalı Mikt.',  color:'#dc2626' },
+        { val: fmtN(icH),         lbl:'İç Başarısızlık',      color:'#1d4ed8' },
+        { val: fmtN(disH),        lbl:'Dış Başarısızlık',      color:'#c2410c' },
+        { val: fmtN(tedH),        lbl:'Tedarikçi Başarısızlık', color:'#6d28d9' },
+        { val: icPct+'%',         lbl:'İç Başarısızlık %',    color:'#16a34a' },
+        { val: disPct+'%',        lbl:'Dış Başarısızlık %',    color:'#ea580c' },
+        { val: tedPct+'%',        lbl:'Tedarikçi %',          color:'#7c3aed' },
+        { val: uTedarikci,        lbl:'Farklı Tedarikçi',    color:'#0e7490' },
+        { val: uMalzeme,          lbl:'Farklı Malzeme',      color:'#0891b2' },
+        { val: uHataTipi,         lbl:'Farklı Hata Tipi',    color:'#be185d' },
+        { val: fmtN(avgH,1),      lbl:'Ort. Hatalı Mikt.',   color:'#92400e' },
+        ...(batchCount > 1 ? [{ val: batchCount, lbl:'Birleşen Filtre', color:'#1e3a8a' }] : []),
     ];
     document.getElementById('kpiGrid').innerHTML = kpis.map(k => `
         <div class="kpi-card" style="border-top-color:${k.color}">
@@ -2684,7 +2691,7 @@ function _krRenderSources(payload) {
     const old = document.getElementById('kr-sources-panel');
     if (old) old.remove();
     const batches = payload.batches;
-    if (!batches || batches.length < 2) return;
+    if (!batches || !batches.length) return;
 
     const kpiGrid = document.getElementById('kpiGrid');
     if (!kpiGrid) return;

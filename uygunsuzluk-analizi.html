@@ -2000,16 +2000,12 @@ async function openKapsamliRapor() {
         return o;
     }).filter(r => !existingSigs.has(rowSig(r)));
 
-    if (!newSlim.length) {
-        showToast('Bu filtredeki kayıtlar zaten raporda mevcut — yeni veri eklenmedi.', 'warn');
-        if (!window._kapsamliWin || window._kapsamliWin.closed)
-            window._kapsamliWin = window.open('kapsamli-rapor.html', 'kapsamliRapor');
-        else window._kapsamliWin.focus();
-        return;
-    }
+    // Yeni benzersiz satır yoksa batch metaverisini yine de kaydet
+    const dupNotice = newSlim.length === 0
+        ? ` (0 yeni — tüm satırlar zaten mevcut; filtre işaretlendi)` : '';
 
     allRows = [...allRows, ...newSlim];
-    batches = [...batches, newBatch];
+    batches = [...batches, { ...newBatch, rowCount: newSlim.length, dupNotice: !!dupNotice }];
 
     // Tüm satırlar üzerinden Pareto gruplarını yeniden hesapla
     const _pgMetric = document.getElementById('paretoMetric').value;
@@ -2053,7 +2049,7 @@ async function openKapsamliRapor() {
 
     try {
         await _rIdbSave(payload);
-        showToast(`✅ ${newSlim.length} kayıt eklendi — raporda toplam ${allRows.length} kayıt (${batches.length} filtre)`, 'success');
+        showToast(`✅ ${newSlim.length} kayıt eklendi${dupNotice} — raporda toplam ${allRows.length} kayıt (${batches.length} filtre)`, newSlim.length === 0 ? 'warn' : 'success');
         if (!window._kapsamliWin || window._kapsamliWin.closed)
             window._kapsamliWin = window.open('kapsamli-rapor.html', 'kapsamliRapor');
         else
