@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📅 Calendar Heatmap – Tedarikçi Sistemi</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            color: #333;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 18px 36px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+        }
+        .header h1 { font-size: 1.55em; display: flex; align-items: center; gap: 10px; }
+        .header p { opacity: 0.85; font-size: 0.88em; margin-top: 3px; }
+        .back-btn {
+            background: rgba(255,255,255,0.18);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.4);
+            padding: 9px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.2s;
+            text-decoration: none;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.28); }
+
+        /* ── Tabs ── */
+        .tabs-bar {
+            background: white;
+            border-bottom: 2px solid #e0e0e0;
+            padding: 0 36px;
+            display: flex;
+            gap: 0;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+        }
+        .tab-btn {
+            padding: 14px 28px;
+            border: none;
+            background: none;
+            font-size: 0.97em;
+            font-weight: 600;
+            color: #888;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .tab-btn.active { color: #1e3c72; border-bottom-color: #1e3c72; }
+        .tab-btn:hover:not(.active) { color: #333; }
+
+        /* ── Container ── */
+        .container { max-width: 1400px; margin: 24px auto; padding: 0 24px; }
+
+        /* ── Card ── */
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            padding: 28px 32px;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 1.1em;
+            font-weight: 700;
+            color: #1e3c72;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 12px;
+        }
+
+        /* ── Controls Row ── */
+        .controls-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 22px;
+        }
+        .controls-row label { font-weight: 600; color: #555; font-size: 0.9em; }
+        .controls-row select, .controls-row input[type=number] {
+            padding: 8px 14px;
+            border: 1.5px solid #d0d0d0;
+            border-radius: 8px;
+            font-size: 0.92em;
+            background: #fafafa;
+            color: #333;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .controls-row select:focus, .controls-row input:focus { border-color: #1e3c72; }
+
+        /* ── Stats Cards ── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+        .stat-box {
+            background: #f8f9ff;
+            border: 1px solid #e0e6ff;
+            border-radius: 10px;
+            padding: 16px 18px;
+            text-align: center;
+        }
+        .stat-box .val {
+            font-size: 1.6em;
+            font-weight: 700;
+            color: #1e3c72;
+            line-height: 1;
+        }
+        .stat-box .lbl {
+            font-size: 0.78em;
+            color: #777;
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        /* ── GitHub-style Calendar ── */
+        .cal-wrapper { overflow-x: auto; padding-bottom: 8px; }
+        .cal-outer { display: inline-flex; flex-direction: column; gap: 0; min-width: max-content; }
+        .cal-month-labels {
+            display: flex;
+            margin-left: 32px;
+            margin-bottom: 4px;
+        }
+        .cal-month-label {
+            font-size: 0.75em;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .cal-body { display: flex; gap: 0; }
+        .cal-day-labels {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-right: 6px;
+            margin-top: 2px;
+        }
+        .cal-day-label {
+            height: 14px;
+            font-size: 0.7em;
+            color: #888;
+            line-height: 14px;
+            width: 26px;
+            text-align: right;
+        }
+        .cal-grid {
+            display: flex;
+            gap: 3px;
+        }
+        .cal-week {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .cal-cell {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            background: #ebedf0;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+            position: relative;
+        }
+        .cal-cell:hover {
+            transform: scale(1.35);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+        /* Activity levels */
+        .cal-cell.l0 { background: #ebedf0; }
+        .cal-cell.l1 { background: #c6e48b; }
+        .cal-cell.l2 { background: #7bc96f; }
+        .cal-cell.l3 { background: #239a3b; }
+        .cal-cell.l4 { background: #196127; }
+        .cal-cell.future { background: #f5f5f5; cursor: default; }
+        .cal-cell.outside { background: transparent; cursor: default; pointer-events: none; }
+
+        /* ── Legend ── */
+        .legend-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 16px;
+            justify-content: flex-end;
+        }
+        .legend-row span { font-size: 0.78em; color: #777; }
+        .legend-cell {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+        }
+
+        /* ── Tooltip ── */
+        #heatTooltip {
+            position: fixed;
+            background: #1a1a2e;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.82em;
+            pointer-events: none;
+            z-index: 9999;
+            display: none;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            line-height: 1.6;
+            max-width: 220px;
+            white-space: nowrap;
+        }
+        #heatTooltip:after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #1a1a2e;
+            border-bottom: none;
+        }
+
+        /* ── Performance Matrix ── */
+        .matrix-scroll { overflow-x: auto; overflow-y: auto; max-height: 680px; }
+        .matrix-table {
+            border-collapse: separate;
+            border-spacing: 3px;
+            min-width: max-content;
+            font-size: 0.82em;
+        }
+        .matrix-table th {
+            background: #1e3c72;
+            color: white;
+            padding: 8px 12px;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            white-space: nowrap;
+            letter-spacing: 0.3px;
+        }
+        .matrix-table th:first-child {
+            left: 0;
+            z-index: 7;
+            min-width: 180px;
+            max-width: 260px;
+        }
+        .matrix-table td:first-child {
+            background: #f7f9ff;
+            font-weight: 600;
+            color: #1e3c72;
+            white-space: nowrap;
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            padding: 6px 12px;
+            border-right: 2px solid #dde3f0;
+            max-width: 260px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .matrix-cell {
+            width: 52px;
+            height: 36px;
+            border-radius: 6px;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: 700;
+            font-size: 0.9em;
+            cursor: help;
+            transition: transform 0.1s, filter 0.1s;
+        }
+        .matrix-cell:hover { transform: scale(1.12); filter: brightness(1.08); z-index: 10; position: relative; }
+        .matrix-cell.no-data { background: #f0f0f0; color: #bbb; font-weight: 400; font-size: 0.75em; }
+
+        /* ── 8D Matrix ── */
+        .d8-matrix-cell {
+            width: 40px;
+            height: 34px;
+            border-radius: 6px;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: 700;
+            cursor: help;
+            transition: transform 0.1s;
+        }
+        .d8-matrix-cell:hover { transform: scale(1.18); z-index: 10; position: relative; }
+
+        /* ── Upload area for matrix tab ── */
+        .upload-area {
+            border: 2px dashed #1e3c72;
+            border-radius: 10px;
+            padding: 32px 20px;
+            text-align: center;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .upload-area:hover { background: #e9ecef; border-color: #2a5298; }
+        .upload-area.dragover { background: #d1e7ff; border-color: #0066cc; }
+        .upload-icon { font-size: 2.5em; margin-bottom: 10px; }
+
+        /* ── Tab panels ── */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Loading ── */
+        .loading-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #1e3c72;
+            font-weight: 600;
+            padding: 20px 0;
+        }
+        .spinner {
+            width: 22px; height: 22px;
+            border: 3px solid #c7d4f0;
+            border-top-color: #1e3c72;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Empty state ── */
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: #aaa;
+        }
+        .empty-state .icon { font-size: 3.5em; margin-bottom: 14px; }
+        .empty-state p { font-size: 0.95em; margin-top: 6px; }
+
+        /* ── Activity type chips ── */
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .chip-dot { width: 9px; height: 9px; border-radius: 50%; }
+
+        /* ── Responsive ── */
+        @media (max-width: 700px) {
+            .header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .container { padding: 0 10px; }
+            .card { padding: 18px 14px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Tooltip -->
+<div id="heatTooltip"></div>
+
+<!-- Header -->
+<div class="header">
+    <div>
+        <h1>📅 Calendar Heatmap</h1>
+        <p>Tedarikçi Aktivite & Performans Isı Haritası</p>
+    </div>
+    <a href="index.html" class="back-btn">← Ana Sayfa</a>
+</div>
+
+<!-- Tabs -->
+<div class="tabs-bar">
+    <button class="tab-btn active" onclick="switchTab('activity')">📊 Aktivite Takvimi</button>
+    <button class="tab-btn" onclick="switchTab('performance')">🌡️ Performans Isı Haritası</button>
+    <button class="tab-btn" onclick="switchTab('d8matrix')">📋 8D Rapor Matrisi</button>
+</div>
+
+<div class="container">
+
+    <!-- ════════════ TAB 1: Activity Calendar ════════════ -->
+    <div id="panel-activity" class="tab-panel active">
+
+        <!-- Stats -->
+        <div class="stats-row" id="actStats">
+            <div class="stat-box"><div class="val" id="st-total">–</div><div class="lbl">Toplam Aktivite</div></div>
+            <div class="stat-box"><div class="val" id="st-8d">–</div><div class="lbl">8D Rapor</div></div>
+            <div class="stat-box"><div class="val" id="st-versions">–</div><div class="lbl">Kayıtlı Sürüm</div></div>
+            <div class="stat-box"><div class="val" id="st-docs">–</div><div class="lbl">Doküman Yükleme</div></div>
+            <div class="stat-box"><div class="val" id="st-active-days">–</div><div class="lbl">Aktif Gün</div></div>
+            <div class="stat-box"><div class="val" id="st-streak">–</div><div class="lbl">En Uzun Seri (gün)</div></div>
+        </div>
+
+        <!-- Calendar Card -->
+        <div class="card">
+            <div class="card-title">🗓️ Günlük Aktivite Takvimi</div>
+            <div class="controls-row">
+                <label>Yıl:</label>
+                <select id="yearSelect" onchange="renderActivityCalendar()"></select>
+                <label style="margin-left: 12px;">Göster:</label>
+                <select id="actTypeSelect" onchange="renderActivityCalendar()">
+                    <option value="all">Tüm Aktiviteler</option>
+                    <option value="8d">Yalnızca 8D Raporlar</option>
+                    <option value="versions">Yalnızca Kayıtlı Sürümler</option>
+                    <option value="docs">Yalnızca Dokümanlar</option>
+                </select>
+                <div id="actLoadingIndicator" class="loading-bar" style="display:none;">
+                    <div class="spinner"></div> <span>Veriler yükleniyor…</span>
+                </div>
+            </div>
+
+            <div id="calendarContainer">
+                <div class="empty-state">
+                    <div class="icon">⏳</div>
+                    <div style="font-size:1.1em; font-weight:600; color:#555;">Veriler Yükleniyor…</div>
+                    <p>IndexedDB'den aktivite geçmişi okunuyor.</p>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="legend-row">
+                <span>Az</span>
+                <div class="legend-cell" style="background:#ebedf0"></div>
+                <div class="legend-cell" style="background:#c6e48b"></div>
+                <div class="legend-cell" style="background:#7bc96f"></div>
+                <div class="legend-cell" style="background:#239a3b"></div>
+                <div class="legend-cell" style="background:#196127"></div>
+                <span>Çok</span>
+            </div>
+        </div>
+
+        <!-- Monthly breakdown -->
+        <div class="card">
+            <div class="card-title">📆 Aylık Aktivite Özeti</div>
+            <div id="monthlyBreakdown" style="overflow-x:auto;"></div>
+        </div>
+    </div>
+
+    <!-- ════════════ TAB 2: Performance Heatmap ════════════ -->
+    <div id="panel-performance" class="tab-panel">
+
+        <div class="card">
+            <div class="card-title">📥 Excel Dosyası Yükle</div>
+            <p style="color:#666; font-size:0.9em; margin-bottom:16px;">Tedarikçi performans verilerini içeren Excel dosyasını yükleyin (Ana sayfada kullandığınız dosya).</p>
+            <div class="upload-area" id="perfUploadArea" onclick="document.getElementById('perfFileInput').click()"
+                ondragover="event.preventDefault(); this.classList.add('dragover')"
+                ondragleave="this.classList.remove('dragover')"
+                ondrop="handlePerfDrop(event)">
+                <div class="upload-icon">📊</div>
+                <div style="font-weight:600; color:#1e3c72; font-size:1.05em;">Excel Dosyası Seç veya Sürükle</div>
+                <div style="color:#888; font-size:0.85em; margin-top:6px;">.xlsx veya .xls formatı</div>
+            </div>
+            <input type="file" id="perfFileInput" accept=".xlsx,.xls" style="display:none" onchange="loadPerfExcel(event)">
+            <div id="perfUploadStatus" style="margin-top:12px;"></div>
+        </div>
+
+        <div id="perfHeatmapCard" style="display:none;">
+            <div class="card">
+                <div class="card-title">🌡️ Tedarikçi × Ay Performans Isı Haritası</div>
+                <div class="controls-row">
+                    <label>Metrik:</label>
+                    <select id="perfMetricSelect" onchange="renderPerfMatrix()">
+                        <option value="ppm">İade PPM</option>
+                        <option value="iade">İade Adet</option>
+                        <option value="sevk">Sevkiyat</option>
+                        <option value="hata">Hata Adedi</option>
+                    </select>
+                    <label style="margin-left:12px;">Max PPM (renk skalası):</label>
+                    <input type="number" id="ppmScale" value="5000" min="100" step="100" style="width:100px" onchange="renderPerfMatrix()">
+                    <label style="margin-left:12px;">Min sevkiyat (filtre):</label>
+                    <input type="number" id="minSevk" value="0" min="0" step="1" style="width:80px" onchange="renderPerfMatrix()">
+                </div>
+                <div class="matrix-scroll">
+                    <table class="matrix-table" id="perfMatrixTable"></table>
+                </div>
+                <!-- Color scale legend -->
+                <div style="display:flex; align-items:center; gap:8px; margin-top:16px; flex-wrap:wrap;">
+                    <span style="font-size:0.78em; color:#777; font-weight:600;">Veri Yok</span>
+                    <div style="width:18px;height:18px;border-radius:4px;background:#f0f0f0;"></div>
+                    <span style="font-size:0.78em; color:#777; margin-left:8px; font-weight:600;">Düşük PPM →</span>
+                    <div style="background:linear-gradient(to right,#43a047,#ffee58,#e53935); width:140px; height:18px; border-radius:4px;"></div>
+                    <span style="font-size:0.78em; color:#777; font-weight:600;">← Yüksek PPM</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════ TAB 3: 8D Report Matrix ════════════ -->
+    <div id="panel-d8matrix" class="tab-panel">
+        <div class="card">
+            <div class="card-title">📋 Tedarikçi × Ay 8D Rapor Matrisi</div>
+            <p style="color:#666; font-size:0.9em; margin-bottom:16px;">
+                IndexedDB'deki 8D raporlarını tedarikçiye ve oluşturulma ayına göre gruplar.
+                Renk yoğunluğu, o ay kaç rapor oluşturulduğunu gösterir.
+            </p>
+            <div class="controls-row">
+                <label>Yıl:</label>
+                <select id="d8YearSelect" onchange="renderD8Matrix()"></select>
+            </div>
+            <div id="d8LoadingIndicator" class="loading-bar" style="display:none;">
+                <div class="spinner"></div><span>8D verileri yükleniyor…</span>
+            </div>
+            <div id="d8MatrixContainer">
+                <div class="empty-state">
+                    <div class="icon">📋</div>
+                    <div style="font-size:1.1em; font-weight:600; color:#555;">8D Raporları Yükleniyor…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /container -->
+
+<script>
+// ═══════════════════════════════════════════════════════
+// 1. DATABASE HELPERS
+// ═══════════════════════════════════════════════════════
+const DB_NAME = 'SupplierDataDB';
+const STORE_HISTORY   = 'supplierHistory';   // save versions
+const STORE_8D        = 'report8D';          // 8D reports
+const STORE_DOCS      = 'supplierDocuments'; // documents
+
+let db = null;
+
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME);
+        req.onsuccess  = e => { db = e.target.result; resolve(db); };
+        req.onerror    = e => reject(e.target.error);
+        req.onupgradeneeded = e => { db = e.target.result; resolve(db); };
+    });
+}
+
+function readAllFromStore(storeName) {
+    return new Promise((resolve) => {
+        if (!db || !db.objectStoreNames.contains(storeName)) { resolve([]); return; }
+        try {
+            const tx  = db.transaction([storeName], 'readonly');
+            const st  = tx.objectStore(storeName);
+            const req = st.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror   = () => resolve([]);
+        } catch { resolve([]); }
+    });
+}
+
+// ═══════════════════════════════════════════════════════
+// 2. DATA AGGREGATION
+// ═══════════════════════════════════════════════════════
+let activityData = {};  // { 'YYYY-MM-DD': { total, d8, versions, docs } }
+let d8Data       = [];  // raw 8D records
+let histData     = [];  // raw history records
+let docData      = [];  // raw doc records
+
+function toDateKey(ts) {
+    try {
+        const d = new Date(ts);
+        if (isNaN(d)) return null;
+        return d.toISOString().slice(0, 10); // YYYY-MM-DD
+    } catch { return null; }
+}
+
+function extractDocTimestamps(docsRecord) {
+    // Documents store: { normalizedName, supplierName, documents: { docType: [{ files: [{ timestamp }] }] } }
+    const timestamps = [];
+    if (!docsRecord || !docsRecord.documents) return timestamps;
+    try {
+        Object.values(docsRecord.documents).forEach(docArr => {
+            if (!Array.isArray(docArr)) return;
+            docArr.forEach(docEntry => {
+                if (docEntry && Array.isArray(docEntry.files)) {
+                    docEntry.files.forEach(f => {
+                        if (f && f.timestamp) timestamps.push(f.timestamp);
+                    });
+                }
+            });
+        });
+    } catch {}
+    return timestamps;
+}
+
+async function loadAllActivityData() {
+    await openDB();
+    [d8Data, histData, docData] = await Promise.all([
+        readAllFromStore(STORE_8D),
+        readAllFromStore(STORE_HISTORY),
+        readAllFromStore(STORE_DOCS),
+    ]);
+
+    activityData = {};
+
+    function addDay(key, type) {
+        if (!key) return;
+        if (!activityData[key]) activityData[key] = { total:0, d8:0, versions:0, docs:0 };
+        activityData[key][type]++;
+        activityData[key].total++;
+    }
+
+    d8Data.forEach(r => { if (r.timestamp) addDay(toDateKey(r.timestamp), 'd8'); });
+    histData.forEach(r => { if (r.timestamp) addDay(toDateKey(r.timestamp), 'versions'); });
+    docData.forEach(r => extractDocTimestamps(r).forEach(ts => addDay(toDateKey(ts), 'docs')));
+}
+
+// ═══════════════════════════════════════════════════════
+// 3. YEAR SELECTOR POPULATION
+// ═══════════════════════════════════════════════════════
+function populateYearSelects() {
+    const currentYear = new Date().getFullYear();
+    const allDates = Object.keys(activityData);
+    const years = new Set(allDates.map(d => parseInt(d.slice(0,4))).filter(y => !isNaN(y)));
+    years.add(currentYear);
+    const sortedYears = [...years].sort((a,b) => b - a);
+
+    ['yearSelect', 'd8YearSelect'].forEach(id => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = '';
+        sortedYears.forEach(y => {
+            const opt = document.createElement('option');
+            opt.value = y; opt.textContent = y;
+            if (y === currentYear) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    });
+}
+
+// ═══════════════════════════════════════════════════════
+// 4. ACTIVITY CALENDAR RENDER
+// ═══════════════════════════════════════════════════════
+const MONTHS_TR = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+const DAYS_TR   = ['Pt','Sa','Ça','Pe','Cu','Ct','Pz'];
+
+function getLevel(count, maxCount) {
+    if (count === 0) return 0;
+    if (count <= maxCount * 0.15) return 1;
+    if (count <= maxCount * 0.35) return 2;
+    if (count <= maxCount * 0.60) return 3;
+    return 4;
+}
+
+function renderActivityCalendar() {
+    const year       = parseInt(document.getElementById('yearSelect').value) || new Date().getFullYear();
+    const actType    = document.getElementById('actTypeSelect').value;
+    const today      = new Date();
+    const container  = document.getElementById('calendarContainer');
+
+    // Filter activityData by type
+    const filtered = {};
+    Object.entries(activityData).forEach(([date, vals]) => {
+        let count = 0;
+        if      (actType === 'all')      count = vals.total;
+        else if (actType === '8d')       count = vals.d8;
+        else if (actType === 'versions') count = vals.versions;
+        else if (actType === 'docs')     count = vals.docs;
+        if (count > 0) filtered[date] = count;
+    });
+
+    // Max for this year
+    const maxCount = Object.entries(filtered)
+        .filter(([d]) => d.startsWith(String(year)))
+        .reduce((a,[,c]) => Math.max(a,c), 1);
+
+    // Build week grid for the year
+    // Start from first Sunday on or before Jan 1
+    const jan1 = new Date(year, 0, 1);
+    const startOffset = jan1.getDay(); // 0=Sun
+    const startDate = new Date(jan1);
+    startDate.setDate(startDate.getDate() - startOffset);
+
+    const dec31 = new Date(year, 11, 31);
+    const endOffset = 6 - dec31.getDay();
+    const endDate = new Date(dec31);
+    endDate.setDate(endDate.getDate() + endOffset);
+
+    // Build weeks array
+    const weeks = [];
+    let currentWeek = [];
+    let d = new Date(startDate);
+
+    let monthLabelPositions = {}; // weekIndex -> month name
+
+    while (d <= endDate) {
+        if (currentWeek.length === 7) { weeks.push(currentWeek); currentWeek = []; }
+        const inYear = d.getFullYear() === year;
+        const dateKey = d.toISOString().slice(0,10);
+        const count = filtered[dateKey] || 0;
+        const isFuture = d > today;
+        currentWeek.push({ date: new Date(d), dateKey, count, inYear, isFuture });
+
+        // Record month label at first day of month in first row we see it
+        if (d.getDate() === 1 && inYear) {
+            monthLabelPositions[weeks.length] = MONTHS_TR[d.getMonth()];
+        }
+        d.setDate(d.getDate() + 1);
+    }
+    if (currentWeek.length > 0) {
+        while (currentWeek.length < 7) currentWeek.push(null);
+        weeks.push(currentWeek);
+    }
+
+    // Render
+    const calOuter = document.createElement('div');
+    calOuter.className = 'cal-outer';
+
+    // Month label row
+    const monthLabelRow = document.createElement('div');
+    monthLabelRow.className = 'cal-month-labels';
+    for (let wi = 0; wi < weeks.length; wi++) {
+        const lbl = document.createElement('div');
+        lbl.className = 'cal-month-label';
+        lbl.style.width = '17px';
+        lbl.style.marginRight = '3px';
+        lbl.textContent = monthLabelPositions[wi] || '';
+        monthLabelRow.appendChild(lbl);
+    }
+    calOuter.appendChild(monthLabelRow);
+
+    // Body (day labels + grid)
+    const calBody = document.createElement('div');
+    calBody.className = 'cal-body';
+
+    // Day labels
+    const dayLabels = document.createElement('div');
+    dayLabels.className = 'cal-day-labels';
+    // 0=Sun in JS, but we want Mon first display
+    const dayNames = ['', 'Pt', '', 'Ça', '', 'Cu', ''];
+    dayNames.forEach(name => {
+        const lbl = document.createElement('div');
+        lbl.className = 'cal-day-label';
+        lbl.textContent = name;
+        dayLabels.appendChild(lbl);
+    });
+    calBody.appendChild(dayLabels);
+
+    // Grid columns (weeks)
+    const grid = document.createElement('div');
+    grid.className = 'cal-grid';
+
+    const tooltip = document.getElementById('heatTooltip');
+
+    weeks.forEach(week => {
+        const weekCol = document.createElement('div');
+        weekCol.className = 'cal-week';
+        week.forEach((day, dayIdx) => {
+            const cell = document.createElement('div');
+            cell.className = 'cal-cell';
+            if (!day || !day.inYear) {
+                cell.classList.add('outside');
+            } else if (day.isFuture) {
+                cell.classList.add('future');
+            } else {
+                cell.classList.add('l' + getLevel(day.count, maxCount));
+            }
+
+            if (day && day.inYear && !day.isFuture) {
+                const dateStr = day.date.toLocaleDateString('tr-TR', { day:'numeric', month:'long', year:'numeric', weekday:'long' });
+                const actCount = activityData[day.dateKey] || { total:0, d8:0, versions:0, docs:0 };
+
+                cell.addEventListener('mouseenter', (e) => {
+                    let inner = `<strong>${dateStr}</strong><br>`;
+                    if (actType === 'all' || actType === '8d')       inner += `📋 8D Rapor: ${actCount.d8}<br>`;
+                    if (actType === 'all' || actType === 'versions')  inner += `💾 Sürüm: ${actCount.versions}<br>`;
+                    if (actType === 'all' || actType === 'docs')      inner += `📄 Doküman: ${actCount.docs}<br>`;
+                    inner += `<strong>Toplam: ${(actType === 'all' ? actCount.total : day.count)}</strong>`;
+                    tooltip.innerHTML = inner;
+                    tooltip.style.display = 'block';
+                });
+                cell.addEventListener('mousemove', (e) => {
+                    const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+                    let x = e.clientX - tw/2, y = e.clientY - th - 14;
+                    if (x < 4) x = 4;
+                    if (x + tw > window.innerWidth - 4) x = window.innerWidth - tw - 4;
+                    if (y < 4) y = e.clientY + 18;
+                    tooltip.style.left = x + 'px';
+                    tooltip.style.top  = y + 'px';
+                });
+                cell.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+            }
+            weekCol.appendChild(cell);
+        });
+        grid.appendChild(weekCol);
+    });
+
+    calBody.appendChild(grid);
+    calOuter.appendChild(calBody);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'cal-wrapper';
+    wrapper.appendChild(calOuter);
+
+    container.innerHTML = '';
+    container.appendChild(wrapper);
+
+    // Update stats
+    updateActivityStats(year, actType);
+
+    // Monthly breakdown
+    renderMonthlyBreakdown(year, actType);
+}
+
+function updateActivityStats(year, actType) {
+    const prefix = String(year) + '-';
+    let total=0, d8=0, versions=0, docs=0, activeDays=0;
+    let dates = [];
+
+    Object.entries(activityData).filter(([d]) => d.startsWith(prefix)).forEach(([date, vals]) => {
+        total    += vals.total;
+        d8       += vals.d8;
+        versions += vals.versions;
+        docs     += vals.docs;
+        let cnt = actType === 'all' ? vals.total : actType === '8d' ? vals.d8 : actType === 'versions' ? vals.versions : vals.docs;
+        if (cnt > 0) { activeDays++; dates.push(date); }
+    });
+
+    // Streak
+    dates.sort();
+    let streak = 0, maxStreak = 0, curStreak = 0;
+    for (let i = 0; i < dates.length; i++) {
+        if (i === 0) { curStreak = 1; }
+        else {
+            const prev = new Date(dates[i-1]), cur = new Date(dates[i]);
+            const diff = (cur - prev) / 86400000;
+            curStreak = diff === 1 ? curStreak + 1 : 1;
+        }
+        maxStreak = Math.max(maxStreak, curStreak);
+    }
+
+    document.getElementById('st-total').textContent    = total.toLocaleString('tr-TR');
+    document.getElementById('st-8d').textContent       = d8.toLocaleString('tr-TR');
+    document.getElementById('st-versions').textContent = versions.toLocaleString('tr-TR');
+    document.getElementById('st-docs').textContent     = docs.toLocaleString('tr-TR');
+    document.getElementById('st-active-days').textContent = activeDays;
+    document.getElementById('st-streak').textContent   = maxStreak;
+}
+
+function renderMonthlyBreakdown(year, actType) {
+    const container = document.getElementById('monthlyBreakdown');
+    const prefix = String(year) + '-';
+    const monthCounts = new Array(12).fill(0);
+    const monthLabels = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+
+    Object.entries(activityData).filter(([d]) => d.startsWith(prefix)).forEach(([date, vals]) => {
+        const m = parseInt(date.slice(5,7)) - 1;
+        let cnt = actType === 'all' ? vals.total : actType === '8d' ? vals.d8 : actType === 'versions' ? vals.versions : vals.docs;
+        monthCounts[m] += cnt;
+    });
+
+    const maxM = Math.max(...monthCounts, 1);
+    const today = new Date();
+
+    let html = '<table style="border-collapse:collapse; width:100%;">';
+    html += '<tr>';
+    monthLabels.forEach((m, i) => {
+        html += `<th style="text-align:center; padding:6px 4px; font-size:0.78em; color:#888; text-transform:uppercase; font-weight:600; width:${100/12}%;">${m}</th>`;
+    });
+    html += '</tr><tr>';
+
+    monthCounts.forEach((cnt, i) => {
+        const pct = cnt / maxM;
+        const h = Math.max(6, Math.round(pct * 80));
+        const color = cnt === 0 ? '#ebedf0' : pct < 0.2 ? '#c6e48b' : pct < 0.5 ? '#7bc96f' : pct < 0.8 ? '#239a3b' : '#196127';
+        const isCurrent = today.getFullYear() === year && today.getMonth() === i;
+        html += `<td style="vertical-align:bottom; text-align:center; padding:2px 4px; position:relative;">
+            <div title="${monthLabels[i]}: ${cnt} aktivite" style="background:${color}; height:${h}px; border-radius:4px 4px 0 0; margin:0 auto; width:80%; ${isCurrent ? 'outline:2px solid #1e3c72;' : ''} cursor:help; transition:height 0.3s;"></div>
+        </td>`;
+    });
+    html += '</tr><tr>';
+    monthCounts.forEach((cnt, i) => {
+        html += `<td style="text-align:center; font-size:0.78em; color:#666; padding:4px 2px; font-weight:600;">${cnt > 0 ? cnt : '–'}</td>`;
+    });
+    html += '</tr></table>';
+
+    container.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+// 5. PERFORMANCE HEATMAP (Excel-based)
+// ═══════════════════════════════════════════════════════
+let perfSuppliers = []; // { name, monthlyPPM[12], monthlyIade[12], monthlySevk[12], monthlyHata[12] }
+
+function handlePerfDrop(e) {
+    e.preventDefault();
+    document.getElementById('perfUploadArea').classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) processPerfFile(file);
+}
+
+function loadPerfExcel(event) {
+    const file = event.target.files[0];
+    if (file) processPerfFile(file);
+}
+
+function processPerfFile(file) {
+    const status = document.getElementById('perfUploadStatus');
+    status.innerHTML = '<div class="loading-bar"><div class="spinner"></div><span>Excel okunuyor…</span></div>';
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+            parsePerfData(rows);
+            status.innerHTML = `<div style="color:#2e7d32; font-weight:600;">✅ ${file.name} başarıyla yüklendi! ${perfSuppliers.length} tedarikçi bulundu.</div>`;
+            document.getElementById('perfHeatmapCard').style.display = 'block';
+            renderPerfMatrix();
+        } catch(err) {
+            status.innerHTML = `<div style="color:#c62828;">❌ Hata: ${err.message}</div>`;
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function parsePerfData(rows) {
+    if (!rows || rows.length < 2) return;
+    const header = rows[0].map(h => String(h || '').trim().toLowerCase());
+
+    // Find supplier column
+    let supplierCol = header.findIndex(h => h.includes('tedarik') || h.includes('firma') || h.includes('supplier'));
+    if (supplierCol < 0) supplierCol = 0;
+
+    // Find monthly columns (PPM, Sevkiyat, İade, Hata)
+    // Try to detect month columns: e.g. "Ocak PPM", "1. Ay", "Jan Return", etc.
+    const monthPatterns = [
+        /oca|jan|1\.?\s*ay/i,
+        /şub|feb|2\.?\s*ay/i,
+        /mar|3\.?\s*ay/i,
+        /nis|apr|4\.?\s*ay/i,
+        /may|5\.?\s*ay/i,
+        /haz|jun|6\.?\s*ay/i,
+        /tem|jul|7\.?\s*ay/i,
+        /ağu|aug|8\.?\s*ay/i,
+        /eyl|sep|9\.?\s*ay/i,
+        /eki|oct|10\.?\s*ay/i,
+        /kas|nov|11\.?\s*ay/i,
+        /ara|dec|12\.?\s*ay/i,
+    ];
+
+    // Find PPM, İade, Sevkiyat, Hata columns per month
+    const monthlyColMap = { ppm: [], iade: [], sevk: [], hata: [] };
+
+    // First pass: look for columns with month patterns
+    for (let m = 0; m < 12; m++) {
+        let ppmCol=-1, iadeCol=-1, sevkCol=-1, hataCol=-1;
+        header.forEach((h, ci) => {
+            if (!monthPatterns[m].test(h)) return;
+            if (/ppm/i.test(h) || /iade.*ppm|ppm.*iade/i.test(h)) ppmCol = ci;
+            else if (/iade|return/i.test(h)) iadeCol = ci;
+            else if (/sevk|ship/i.test(h)) sevkCol = ci;
+            else if (/hata|error|defect/i.test(h)) hataCol = ci;
+        });
+        monthlyColMap.ppm.push(ppmCol);
+        monthlyColMap.iade.push(iadeCol);
+        monthlyColMap.sevk.push(sevkCol);
+        monthlyColMap.hata.push(hataCol);
+    }
+
+    // If monthly detection failed, try to find generic iade/sevk and compute PPM
+    const iadeCol  = header.findIndex(h => /toplam.*iade|iade.*toplam|total.*return/i.test(h) || (/iade/i.test(h) && monthlyColMap.iade.every(x => x<0)));
+    const sevkCol  = header.findIndex(h => /toplam.*sevk|sevk.*toplam|total.*ship/i.test(h) || (/sevk/i.test(h) && monthlyColMap.sevk.every(x => x<0)));
+    const ppmCol   = header.findIndex(h => /^ppm$|toplam.*ppm|ppm.*toplam/i.test(h));
+    const hataCol  = header.findIndex(h => /toplam.*hata|hata.*toplam|total.*error/i.test(h));
+
+    const supplierMap = new Map();
+
+    for (let ri = 1; ri < rows.length; ri++) {
+        const row = rows[ri];
+        const name = String(row[supplierCol] || '').trim();
+        if (!name) continue;
+
+        if (!supplierMap.has(name)) {
+            supplierMap.set(name, {
+                name,
+                monthlyPPM:  new Array(12).fill(null),
+                monthlyIade: new Array(12).fill(null),
+                monthlySevk: new Array(12).fill(null),
+                monthlyHata: new Array(12).fill(null),
+                totalIade: 0, totalSevk: 0, totalHata: 0
+            });
+        }
+        const sup = supplierMap.get(name);
+
+        // Try monthly columns
+        for (let m = 0; m < 12; m++) {
+            if (monthlyColMap.ppm[m]  >= 0) sup.monthlyPPM[m]  = (sup.monthlyPPM[m]  || 0) + (parseFloat(row[monthlyColMap.ppm[m]])  || 0);
+            if (monthlyColMap.iade[m] >= 0) sup.monthlyIade[m] = (sup.monthlyIade[m] || 0) + (parseFloat(row[monthlyColMap.iade[m]]) || 0);
+            if (monthlyColMap.sevk[m] >= 0) sup.monthlySevk[m] = (sup.monthlySevk[m] || 0) + (parseFloat(row[monthlyColMap.sevk[m]]) || 0);
+            if (monthlyColMap.hata[m] >= 0) sup.monthlyHata[m] = (sup.monthlyHata[m] || 0) + (parseFloat(row[monthlyColMap.hata[m]]) || 0);
+        }
+
+        // Fallback: global columns
+        if (iadeCol >= 0)  sup.totalIade += parseFloat(row[iadeCol])  || 0;
+        if (sevkCol >= 0)  sup.totalSevk += parseFloat(row[sevkCol])  || 0;
+        if (hataCol >= 0)  sup.totalHata += parseFloat(row[hataCol])  || 0;
+        if (ppmCol  >= 0 && monthlyColMap.ppm.every(x => x < 0))  {
+            const v = parseFloat(row[ppmCol]) || 0;
+            for (let m=0; m<12; m++) if (sup.monthlyPPM[m] === null) sup.monthlyPPM[m] = v;
+        }
+    }
+
+    perfSuppliers = [...supplierMap.values()];
+
+    // Compute PPM from iade/sevk if not available
+    perfSuppliers.forEach(sup => {
+        for (let m = 0; m < 12; m++) {
+            if (sup.monthlyPPM[m] === null && sup.monthlySevk[m] > 0 && sup.monthlyIade[m] !== null) {
+                sup.monthlyPPM[m] = (sup.monthlyIade[m] / sup.monthlySevk[m]) * 1e6;
+            }
+        }
+    });
+}
+
+function ppmColor(ppm, maxPPM) {
+    if (ppm === null) return { bg: '#f0f0f0', fg: '#bbb' };
+    const r = Math.min(1, ppm / maxPPM);
+    const R = Math.round(67  + r * (229 - 67));
+    const G = Math.round(160 + r * (83  - 160));
+    const B = Math.round(71  + r * (53  - 71));
+    const fg = r > 0.6 ? '#fff' : '#333';
+    return { bg: `rgb(${R},${G},${B})`, fg };
+}
+
+function valueColor(val, maxVal) {
+    if (val === null || maxVal === 0) return { bg: '#f0f0f0', fg: '#bbb' };
+    const r = Math.min(1, val / maxVal);
+    const R = Math.round(235 - r * 125);
+    const G = Math.round(235 - r * 75);
+    const B = Math.round(255 - r * 170);
+    const fg = r > 0.6 ? '#fff' : '#333';
+    return { bg: `rgb(${R},${G},${B})`, fg };
+}
+
+function renderPerfMatrix() {
+    if (!perfSuppliers.length) return;
+    const metric   = document.getElementById('perfMetricSelect').value;
+    const maxPPM   = parseFloat(document.getElementById('ppmScale').value) || 5000;
+    const minSevk  = parseFloat(document.getElementById('minSevk').value) || 0;
+    const monthNames = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+    const tooltip  = document.getElementById('heatTooltip');
+
+    const table = document.getElementById('perfMatrixTable');
+    table.innerHTML = '';
+
+    // Header row
+    let hRow = '<tr><th>Tedarikçi</th>';
+    monthNames.forEach(m => hRow += `<th style="min-width:52px;">${m}</th>`);
+    hRow += '<th>Ort.</th></tr>';
+    table.innerHTML = hRow;
+
+    // Filter by minSevk
+    const shown = perfSuppliers.filter(s => {
+        const totalS = s.monthlySevk.reduce((a,v) => a + (v||0), 0) || s.totalSevk;
+        return totalS >= minSevk;
+    });
+
+    // Find max for non-PPM metrics
+    let maxVal = 1;
+    if (metric !== 'ppm') {
+        shown.forEach(s => {
+            const arr = metric === 'iade' ? s.monthlyIade : metric === 'sevk' ? s.monthlySevk : s.monthlyHata;
+            arr.forEach(v => { if (v !== null && v > maxVal) maxVal = v; });
+        });
+    }
+
+    shown.forEach(sup => {
+        const arr = metric === 'ppm' ? sup.monthlyPPM : metric === 'iade' ? sup.monthlyIade : metric === 'sevk' ? sup.monthlySevk : sup.monthlyHata;
+        const validVals = arr.filter(v => v !== null && v > 0);
+        const avg = validVals.length ? validVals.reduce((a,v)=>a+v,0)/validVals.length : null;
+
+        let rowHtml = `<td title="${sup.name}">${sup.name.length > 28 ? sup.name.slice(0,26)+'…' : sup.name}</td>`;
+        arr.forEach((val, mi) => {
+            const hasData = val !== null && val >= 0;
+            let clr;
+            if (!hasData || (metric !== 'sevk' && val === 0)) {
+                rowHtml += `<td class="matrix-cell no-data" title="${monthNames[mi]}: veri yok">–</td>`;
+                return;
+            }
+            if (metric === 'ppm') clr = ppmColor(val, maxPPM);
+            else                  clr = valueColor(val, maxVal);
+            const dispVal = metric === 'ppm' ? Math.round(val).toLocaleString('tr-TR') : val.toLocaleString('tr-TR', {maximumFractionDigits:0});
+            rowHtml += `<td class="matrix-cell" style="background:${clr.bg};color:${clr.fg};"
+                title="${sup.name} – ${monthNames[mi]}: ${dispVal}${metric==='ppm'?' PPM':''}">${dispVal}</td>`;
+        });
+        // Avg
+        if (avg !== null) {
+            let clrA = metric === 'ppm' ? ppmColor(avg, maxPPM) : valueColor(avg, maxVal);
+            const dispA = Math.round(avg).toLocaleString('tr-TR');
+            rowHtml += `<td class="matrix-cell" style="background:${clrA.bg};color:${clrA.fg};font-weight:800;" title="Yıllık ortalama">${dispA}</td>`;
+        } else {
+            rowHtml += `<td class="matrix-cell no-data">–</td>`;
+        }
+        const tr = document.createElement('tr');
+        tr.innerHTML = rowHtml;
+
+        // Tooltip on cells
+        tr.querySelectorAll('.matrix-cell:not(.no-data)').forEach(cell => {
+            cell.addEventListener('mouseenter', (e) => {
+                tooltip.innerHTML = cell.title;
+                tooltip.style.display = 'block';
+            });
+            cell.addEventListener('mousemove', (e) => {
+                const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+                let x = e.clientX - tw/2, y = e.clientY - th - 14;
+                if (x < 4) x = 4;
+                if (x + tw > window.innerWidth - 4) x = window.innerWidth - tw - 4;
+                if (y < 4) y = e.clientY + 18;
+                tooltip.style.left = x + 'px'; tooltip.style.top = y + 'px';
+            });
+            cell.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+        });
+
+        table.appendChild(tr);
+    });
+}
+
+// ═══════════════════════════════════════════════════════
+// 6. 8D REPORT MATRIX
+// ═══════════════════════════════════════════════════════
+function d8Color(count) {
+    if (count === 0) return { bg: '#ebedf0', fg: '#aaa' };
+    if (count === 1) return { bg: '#fce4ec', fg: '#c62828' };
+    if (count === 2) return { bg: '#ef9a9a', fg: '#b71c1c' };
+    if (count <= 4)  return { bg: '#e53935', fg: '#fff' };
+    return { bg: '#b71c1c', fg: '#fff' };
+}
+
+function renderD8Matrix() {
+    const year = parseInt(document.getElementById('d8YearSelect').value);
+    const container = document.getElementById('d8MatrixContainer');
+    const tooltip   = document.getElementById('heatTooltip');
+    const monthNames = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+    const monthShort = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+
+    // Filter 8D by year
+    const yearStr = String(year);
+    const filtered = d8Data.filter(r => r.timestamp && r.timestamp.startsWith(yearStr));
+
+    if (!filtered.length) {
+        container.innerHTML = `<div class="empty-state">
+            <div class="icon">📭</div>
+            <div style="font-size:1.05em; font-weight:600; color:#555;">${year} yılında 8D raporu bulunamadı</div>
+            <p>8D raporu oluşturmak için ana sayfayı kullanın.</p>
+        </div>`;
+        return;
+    }
+
+    // Build supplier × month matrix
+    const matrix = new Map(); // supplierName -> [12 counts]
+    filtered.forEach(r => {
+        const name = r.supplierName || 'Bilinmeyen';
+        const month = new Date(r.timestamp).getMonth();
+        if (!matrix.has(name)) matrix.set(name, new Array(12).fill(0));
+        matrix.get(name)[month]++;
+    });
+
+    const rows = [...matrix.entries()].sort((a,b) => {
+        const ta = a[1].reduce((s,v)=>s+v,0), tb = b[1].reduce((s,v)=>s+v,0);
+        return tb - ta;
+    });
+
+    let html = '<div class="matrix-scroll"><table class="matrix-table">';
+    html += '<tr><th>Tedarikçi</th>';
+    monthShort.forEach(m => html += `<th style="min-width:40px;">${m}</th>`);
+    html += '<th>Top.</th></tr>';
+
+    rows.forEach(([name, counts]) => {
+        const total = counts.reduce((s,v)=>s+v,0);
+        html += `<tr><td title="${name}">${name.length > 30 ? name.slice(0,28)+'…' : name}</td>`;
+        counts.forEach((cnt, mi) => {
+            const clr = d8Color(cnt);
+            const title = `${name} – ${monthNames[mi]}: ${cnt} rapor`;
+            if (cnt === 0) {
+                html += `<td class="d8-matrix-cell no-data" style="background:#f5f5f5;" title="${title}">–</td>`;
+            } else {
+                html += `<td class="d8-matrix-cell" style="background:${clr.bg};color:${clr.fg};" title="${title}">${cnt}</td>`;
+            }
+        });
+        html += `<td style="font-weight:700; color:#1e3c72; padding:6px 10px;">${total}</td>`;
+        html += '</tr>';
+    });
+
+    // Totals row
+    const monthTotals = new Array(12).fill(0);
+    rows.forEach(([,counts]) => counts.forEach((c,i) => monthTotals[i]+=c));
+    html += '<tr style="background:#f0f4ff;">';
+    html += '<td style="font-weight:700; color:#1e3c72; background:#e8eeff; position:sticky; left:0;">TOPLAM</td>';
+    monthTotals.forEach((cnt, mi) => {
+        const clr = d8Color(cnt);
+        html += `<td class="d8-matrix-cell" style="background:${cnt>0?clr.bg:'#f5f5f5'};color:${cnt>0?clr.fg:'#aaa'};" title="${monthNames[mi]} toplam: ${cnt}">${cnt || '–'}</td>`;
+    });
+    const grandTotal = monthTotals.reduce((s,v)=>s+v,0);
+    html += `<td style="font-weight:800; color:#1e3c72;">${grandTotal}</td>`;
+    html += '</tr>';
+
+    html += '</table></div>';
+
+    // Color legend
+    html += `<div style="display:flex; align-items:center; gap:10px; margin-top:16px; flex-wrap:wrap;">
+        <span style="font-size:0.8em; color:#777; font-weight:600;">8D Rapor Yoğunluğu:</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+            <div style="width:16px;height:16px;border-radius:4px;background:#ebedf0;"></div><span style="font-size:0.78em;">0</span>
+            <div style="width:16px;height:16px;border-radius:4px;background:#fce4ec;"></div><span style="font-size:0.78em;">1</span>
+            <div style="width:16px;height:16px;border-radius:4px;background:#ef9a9a;"></div><span style="font-size:0.78em;">2</span>
+            <div style="width:16px;height:16px;border-radius:4px;background:#e53935;"></div><span style="font-size:0.78em;">3-4</span>
+            <div style="width:16px;height:16px;border-radius:4px;background:#b71c1c;"></div><span style="font-size:0.78em;">5+</span>
+        </div>
+        <span style="font-size:0.8em; color:#666; margin-left:8px;">Toplam: <strong>${grandTotal}</strong> rapor | <strong>${rows.length}</strong> tedarikçi</span>
+    </div>`;
+
+    container.innerHTML = html;
+
+    // Attach tooltips
+    container.querySelectorAll('[title]').forEach(el => {
+        el.addEventListener('mouseenter', () => { tooltip.innerHTML = el.title; tooltip.style.display='block'; });
+        el.addEventListener('mousemove', e => {
+            const tw=tooltip.offsetWidth, th=tooltip.offsetHeight;
+            let x=e.clientX-tw/2, y=e.clientY-th-14;
+            if(x<4)x=4; if(x+tw>window.innerWidth-4)x=window.innerWidth-tw-4; if(y<4)y=e.clientY+18;
+            tooltip.style.left=x+'px'; tooltip.style.top=y+'px';
+        });
+        el.addEventListener('mouseleave', () => tooltip.style.display='none');
+    });
+}
+
+// ═══════════════════════════════════════════════════════
+// 7. TAB SWITCHING
+// ═══════════════════════════════════════════════════════
+function switchTab(id) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        const ids = ['activity', 'performance', 'd8matrix'];
+        b.classList.toggle('active', ids[i] === id);
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + id).classList.add('active');
+
+    if (id === 'd8matrix' && d8Data.length >= 0) renderD8Matrix();
+}
+
+// ═══════════════════════════════════════════════════════
+// 8. INIT
+// ═══════════════════════════════════════════════════════
+(async function init() {
+    document.getElementById('actLoadingIndicator').style.display = 'flex';
+
+    try {
+        await loadAllActivityData();
+    } catch(e) {
+        console.warn('Veri yükleme hatası:', e);
+    }
+
+    populateYearSelects();
+    renderActivityCalendar();
+    renderD8Matrix();
+
+    document.getElementById('actLoadingIndicator').style.display = 'none';
+})();
+</script>
+</body>
+</html>

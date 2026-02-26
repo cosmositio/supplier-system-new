@@ -684,6 +684,18 @@
         .tm-pick-item.tmpi-sel { background:#0369a1; border-color:#075985; color:#fff; font-weight:600; }
         .tm-pick-item input[type=checkbox] { width:13px; height:13px; accent-color:#0369a1; flex-shrink:0; pointer-events:none; }
         .tm-pick-val { font-size:.7rem; opacity:.72; margin-left:2px; }
+
+        /* Calendar Heatmap */
+        .cal-controls { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:14px; background:#fafafa; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; }
+        .cal-ctrl-group { display:flex; flex-direction:column; gap:4px; min-width:120px; }
+        .cal-ctrl-group label { font-size:.73rem; font-weight:700; color:#475569; }
+        .cal-ctrl-group select { padding:6px 10px; border:1.5px solid #cbd5e1; border-radius:7px; font-size:.83rem; outline:none; background:#fff; }
+        .cal-ctrl-group select:focus { border-color:#6366f1; }
+        #calContainer { overflow-x:auto; padding-bottom:8px; }
+        #calSvg { display:block; min-width:600px; }
+        .cal-insight { margin-top:14px; padding:12px 16px; background:#eef2ff; border-radius:10px; font-size:0.83em; color:#312e81; border-left:4px solid #6366f1; }
+        .cal-legend { display:flex; align-items:center; gap:5px; margin-top:12px; font-size:.76rem; color:#64748b; flex-wrap:wrap; }
+        .cal-legend-box { width:14px; height:14px; border-radius:3px; flex-shrink:0; }
         .sc-pick-panel { margin-top:14px; background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:10px 14px; }
         .sc-pick-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
         .sc-pick-header label { font-size:.75rem; font-weight:700; color:#c2410c; white-space:nowrap; }
@@ -905,6 +917,7 @@
             <button class="tab-btn" onclick="switchTab('boxplot')">📦 Kutu Grafik (Box Plot)</button>
             <button class="tab-btn" onclick="switchTab('scatter')">📀 Dağılım (Scatter)</button>
             <button class="tab-btn" onclick="switchTab('treemap')">🗺️ Treemap</button>
+            <button class="tab-btn" onclick="switchTab('calendar')">🔥 Takvim Isı Haritası</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
@@ -1706,6 +1719,45 @@
             </div>
         </div>
 
+        </div>
+
+        <!-- Calendar Heatmap Tab -->
+        <div class="tab-panel" id="tab-calendar">
+            <div style="font-size:1.05rem;font-weight:800;color:#4f46e5;display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                🔥 Takvim Isı Haritası
+                <span style="font-size:.75rem;font-weight:400;color:#888;background:#eef2ff;padding:2px 10px;border-radius:20px;">Günlük uygunsuzluk yoğunluğunu takvim üzerinde gösterir</span>
+            </div>
+            <div class="cal-controls">
+                <div class="cal-ctrl-group">
+                    <label>Yıl</label>
+                    <select id="calYear" onchange="renderCalendar()"></select>
+                </div>
+                <div class="cal-ctrl-group">
+                    <label>Metrik</label>
+                    <select id="calMetric" onchange="renderCalendar()">
+                        <option value="hataliMiktar">Hatalı Miktar</option>
+                        <option value="kayitSayisi">Kayıt Sayısı</option>
+                    </select>
+                </div>
+                <div class="cal-ctrl-group">
+                    <label>Renk Tema</label>
+                    <select id="calTheme" onchange="renderCalendar()">
+                        <option value="indigo">Indigo (Varsayılan)</option>
+                        <option value="orange">Turuncu</option>
+                        <option value="green">Yeşil</option>
+                        <option value="red">Kırmızı</option>
+                        <option value="purple">Mor</option>
+                    </select>
+                </div>
+            </div>
+            <div id="calNoData" style="display:none;padding:30px;text-align:center;color:#aaa;">⚠️ Tarih verisi bulunamadı — filtre uygulayın.</div>
+            <div id="calContainer">
+                <svg id="calSvg"></svg>
+            </div>
+            <div class="cal-legend" id="calLegend"></div>
+            <div id="calInsight" class="cal-insight" style="display:none;"></div>
+        </div>
+
     <!-- Empty state -->
     <div class="empty-state" id="emptyState">
         <div class="icon">📥</div>
@@ -1746,6 +1798,7 @@ function _refreshAllCharts() {
     renderBoxPlot();
     renderScatter();
     renderTreemap();
+    renderCalendar();
 }
 
 function toggleBreakdownAll() {
@@ -3205,7 +3258,7 @@ function exportTableExcel() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap'];
+    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap', 'calendar'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', names[i] === name);
     });
@@ -3219,7 +3272,8 @@ function switchTab(name) {
     if (name === 'sankey')  { renderSankey(); }
     if (name === 'boxplot') { renderBoxPlot(); }
     if (name === 'scatter') { renderScatter(); }
-    if (name === 'treemap') { renderTreemap(); }
+    if (name === 'treemap')  { renderTreemap(); }
+    if (name === 'calendar') { renderCalendar(); }
 }
 
 // ─── RADAR ANALİZİ ───────────────────────────────────────────────────────────
@@ -5038,7 +5092,7 @@ function _scPickClear() {
     });
 })();
 
-// ─── TREEMAP ─────────────────────────────────────────────────────────────────
+// ─── TREEMAP ───
 let treemapChartInst = null;
 let _tmGroupFilter   = null;
 
@@ -5261,6 +5315,179 @@ function _tmPickClear() {
         renderTreemap();
     });
 })();
+
+// ─── CALENDAR HEATMAP ──────────────────────────────────────────────
+const CAL_THEMES = {
+    indigo: ['#eef2ff','#c7d2fe','#818cf8','#4f46e5','#3730a3'],
+    orange: ['#fff7ed','#fed7aa','#fb923c','#ea580c','#9a3412'],
+    green:  ['#f0fdf4','#bbf7d0','#4ade80','#16a34a','#14532d'],
+    red:    ['#fff1f2','#fecdd3','#f87171','#dc2626','#7f1d1d'],
+    purple: ['#faf5ff','#e9d5ff','#c084fc','#9333ea','#581c87'],
+};
+const CAL_DAYS_TR  = ['İEİ','İSİ','ÇAR','İPİ','İÇİ','ÇMİ','CRT'];
+const CAL_MONTHS_TR= ['Oca','Shu','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+
+function _calFillYearSelect() {
+    const sel = document.getElementById('calYear');
+    if (!sel) return;
+    const years = new Set();
+    _effectiveData().forEach(r => {
+        const d = parseDateStr(r.uygunsuzlukTarih);
+        if (d) years.add(d.slice(0, 4));
+    });
+    const sorted = [...years].sort().reverse();
+    if (!sorted.length) return;
+    const cur = sel.value;
+    sel.innerHTML = sorted.map(y => `<option value="${y}"${y === cur ? ' selected' : ''}>${y}</option>`).join('');
+    if (!sel.value) sel.value = sorted[0];
+}
+
+function renderCalendar() {
+    const data = _effectiveData();
+    const noEl  = document.getElementById('calNoData');
+    const svgEl = document.getElementById('calSvg');
+    const legEl = document.getElementById('calLegend');
+    const insEl = document.getElementById('calInsight');
+    if (!svgEl) return;
+
+    _calFillYearSelect();
+
+    const year   = document.getElementById('calYear')?.value;
+    const metric = document.getElementById('calMetric')?.value || 'hataliMiktar';
+    const theme  = document.getElementById('calTheme')?.value  || 'indigo';
+    const colors = CAL_THEMES[theme] || CAL_THEMES.indigo;
+    const metricLabel = metric === 'hataliMiktar' ? 'Hatalı Miktar' : 'Kayıt Sayısı';
+
+    if (!year) { noEl.style.display='block'; svgEl.innerHTML=''; if(insEl) insEl.style.display='none'; return; }
+
+    // Build day map
+    const dayMap = {};
+    data.forEach(r => {
+        const d = parseDateStr(r.uygunsuzlukTarih);
+        if (!d || !d.startsWith(year)) return;
+        const v = metric === 'hataliMiktar' ? (Number(r.hataliMiktar) || 0) : 1;
+        dayMap[d] = (dayMap[d] || 0) + v;
+    });
+
+    if (!Object.keys(dayMap).length) { noEl.style.display='block'; svgEl.innerHTML=''; if(insEl) insEl.style.display='none'; return; }
+    noEl.style.display = 'none';
+
+    // Color scale (quantile-based, 5 levels)
+    const vals = Object.values(dayMap).filter(v => v > 0).sort((a,b) => a-b);
+    const q = [0, 0.25, 0.5, 0.75, 1].map(p => {
+        if (!vals.length) return 0;
+        const i = Math.min(Math.floor(p * vals.length), vals.length - 1);
+        return vals[i];
+    });
+    function colorOf(v) {
+        if (!v || v === 0) return colors[0];
+        if (v <= q[1]) return colors[1];
+        if (v <= q[2]) return colors[2];
+        if (v <= q[3]) return colors[3];
+        return colors[4];
+    }
+
+    // Layout constants
+    const CW = 14, CH = 14, GAP = 2;
+    const STEP  = CW + GAP;
+    const LEFT  = 36; // space for day labels
+    const TOP   = 24; // space for month labels
+    const BOT   = 10;
+
+    // Jan 1 of year
+    const jan1 = new Date(parseInt(year), 0, 1);
+    // JS: 0=Sun..6=Sat; we want Mon=0..Sun=6
+    const startDow = (jan1.getDay() + 6) % 7;
+    const isLeap   = (y => (y%4===0&&y%100!==0)||y%400===0)(parseInt(year));
+    const totalDays = isLeap ? 366 : 365;
+    const totalWeeks = Math.ceil((startDow + totalDays) / 7);
+    const svgW = LEFT + totalWeeks * STEP + GAP;
+    const svgH = TOP + 7 * STEP + BOT;
+
+    const ns = 'http://www.w3.org/2000/svg';
+    function el(tag, attrs, text) {
+        const e = document.createElementNS(ns, tag);
+        for (const [k,v] of Object.entries(attrs)) e.setAttribute(k, v);
+        if (text !== undefined) e.textContent = text;
+        return e;
+    }
+
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('id', 'calSvg');
+    svg.setAttribute('width', svgW);
+    svg.setAttribute('height', svgH);
+    svg.style.display = 'block';
+    svg.style.minWidth = '600px';
+
+    // Day-of-week labels
+    [1, 3, 5].forEach(d => {
+        svg.appendChild(el('text', {
+            x: LEFT - 4, y: TOP + d * STEP + CW - 3,
+            'text-anchor': 'end', 'font-size': '10', fill: '#94a3b8'
+        }, CAL_DAYS_TR[d]));
+    });
+
+    // Month labels + day cells
+    let lastMonth = -1;
+    for (let di = 0; di < totalDays; di++) {
+        const d    = new Date(parseInt(year), 0, di + 1);
+        const dow  = (d.getDay() + 6) % 7; // Mon=0
+        const week = Math.floor((startDow + di) / 7);
+        const cx   = LEFT + week * STEP;
+        const cy   = TOP + dow * STEP;
+        const iso  = d.toISOString().slice(0, 10);
+        const val  = dayMap[iso] || 0;
+        const fill = colorOf(val);
+
+        // Month label at first day of month
+        if (d.getDate() === 1 || di === 0) {
+            const mn = d.getMonth();
+            if (mn !== lastMonth) {
+                svg.appendChild(el('text', {
+                    x: cx, y: TOP - 6,
+                    'font-size': '10', fill: '#64748b', 'font-weight': '600'
+                }, CAL_MONTHS_TR[mn]));
+                lastMonth = mn;
+            }
+        }
+
+        // Cell
+        const rect = el('rect', {
+            x: cx, y: cy, width: CW, height: CH,
+            rx: 3, ry: 3, fill,
+            stroke: fill === colors[0] ? '#e2e8f0' : 'none',
+            'stroke-width': '0.5'
+        });
+        // Tooltip via title
+        const dStr  = d.toLocaleDateString('tr-TR', { weekday:'short', day:'numeric', month:'long' });
+        const valStr = val > 0 ? val.toLocaleString('tr', { maximumFractionDigits: 1 }) : '0';
+        rect.appendChild(el('title', {}, `${dStr}\n${metricLabel}: ${valStr}`));
+        svg.appendChild(rect);
+    }
+
+    // Replace existing SVG
+    const old = document.getElementById('calSvg');
+    old.parentNode.replaceChild(svg, old);
+
+    // Legend
+    if (legEl) {
+        legEl.innerHTML = `
+            <span>Az</span>
+            ${colors.map((c,i) => `<span class="cal-legend-box" style="background:${c};border:1px solid #e2e8f0;"></span>`).join('')}
+            <span>Fazla</span>
+            <span style="margin-left:12px;">— hedef alanlar: ${metricLabel}</span>`;
+    }
+
+    // Insight
+    if (insEl) {
+        const activeDays = Object.keys(dayMap).length;
+        const total = Object.values(dayMap).reduce((s,v)=>s+v,0);
+        const peak  = Object.entries(dayMap).sort((a,b)=>b[1]-a[1])[0];
+        const peakDate = peak ? new Date(peak[0]).toLocaleDateString('tr-TR',{day:'numeric',month:'long'}) : '-';
+        insEl.style.display = 'block';
+        insEl.innerHTML = `📊 <strong>${year}</strong> yılı · Aktif gün: <strong>${activeDays}</strong> · Toplam ${metricLabel}: <strong>${total.toLocaleString('tr',{maximumFractionDigits:1})}</strong> · En yüksek gün: <strong>${peakDate}</strong> (${peak?peak[1].toLocaleString('tr',{maximumFractionDigits:1}):'-'})`;
+    }
+}
 
 // ─── IndexedDB Persistence (localStorage'dan çok daha büyük limit) ─────────────
 const DB_NAME    = 'UygunsuzlukDB';
