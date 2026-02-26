@@ -675,6 +675,41 @@
             margin-top:14px; line-height:1.7;
         }
 
+        /* ── CHORD TAB ── */
+        .chord-wrap { padding:16px; }
+        .chord-controls {
+            display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;
+            padding:14px 16px; background:#fdf4ff; border-radius:10px;
+            border:1px solid #e9d5ff; margin-bottom:18px;
+        }
+        .chord-ctrl-group { display:flex; flex-direction:column; gap:4px; }
+        .chord-ctrl-group label { font-size:.75rem; font-weight:600; color:#6b21a8; }
+        .chord-ctrl-group select, .chord-ctrl-group input {
+            padding:6px 10px; border:1.5px solid #d8b4fe; border-radius:7px;
+            font-size:.88rem; background:#fff; color:#333; outline:none;
+        }
+        .chord-ctrl-group select:focus { border-color:#a855f7; }
+        .chord-body { display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start; justify-content:center; }
+        .chord-svg-wrap { flex:1 1 560px; max-width:680px; overflow:visible; }
+        .chord-legend-wrap {
+            flex:0 0 220px; display:flex; flex-direction:column; gap:6px;
+            max-height:620px; overflow-y:auto;
+        }
+        .chord-leg-item { display:flex; align-items:center; gap:7px; font-size:.8rem; color:#3b0764; padding:4px 0; }
+        .chord-leg-dot { width:14px; height:14px; border-radius:4px; flex-shrink:0; }
+        .chord-insight {
+            background:linear-gradient(135deg,#f3e5f5,#ede7f6);
+            border-left:4px solid #b94fc4; border-radius:0 8px 8px 0;
+            padding:11px 16px; font-size:.85em; color:#4a0a6b;
+            margin-top:14px; line-height:1.7;
+        }
+        .chord-tooltip {
+            position:fixed; background:rgba(30,5,50,.92); color:#fff;
+            padding:8px 12px; border-radius:8px; font-size:.8rem; line-height:1.6;
+            pointer-events:none; z-index:9999; display:none;
+            box-shadow:0 4px 18px rgba(0,0,0,.35);
+        }
+
         /* ── RADAR TAB ── */
         .radar-header { margin-bottom:14px; }
         .radar-controls {
@@ -1069,6 +1104,7 @@
             <button class="tab-btn" onclick="switchTab('cohort')">🔄 Cohort Analizi</button>
             <button class="tab-btn" onclick="switchTab('funnel')">🔺 Funnel Grafiği</button>
             <button class="tab-btn" onclick="switchTab('polar')">🌐 Polar Alan</button>
+            <button class="tab-btn" onclick="switchTab('chord')">🕷️ Chord Diyagramı</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
@@ -2064,6 +2100,51 @@
             </div>
         </div>
 
+        <!-- Chord Tab -->
+        <div class="tab-panel" id="tab-chord">
+            <div class="chord-wrap">
+                <h3 style="margin:0 0 14px;color:#4a0a6b;">🕷️ Chord Diyagramı — Boyutlar Arası Akış</h3>
+                <div class="chord-controls">
+                    <div class="chord-ctrl-group">
+                        <label>1. Boyut:</label>
+                        <select id="chordDim1" onchange="renderChord()">
+                            <option value="hataTipi">Hata Tipi</option>
+                            <option value="tespitYeri">Tespit Yeri</option>
+                            <option value="hataKaynagi">Hata Kaynağı</option>
+                            <option value="cariAdi">Tedarikçi</option>
+                        </select>
+                    </div>
+                    <div class="chord-ctrl-group">
+                        <label>2. Boyut:</label>
+                        <select id="chordDim2" onchange="renderChord()">
+                            <option value="tespitYeri">Tespit Yeri</option>
+                            <option value="hataTipi">Hata Tipi</option>
+                            <option value="hataKaynagi">Hata Kaynağı</option>
+                            <option value="cariAdi">Tedarikçi</option>
+                        </select>
+                    </div>
+                    <div class="chord-ctrl-group">
+                        <label>Metrik:</label>
+                        <select id="chordMetric" onchange="renderChord()">
+                            <option value="hataliMiktar">Hatalı Miktar</option>
+                            <option value="count">Kayıt Sayısı</option>
+                        </select>
+                    </div>
+                    <div class="chord-ctrl-group">
+                        <label>Top N (1. Boyut):</label>
+                        <input type="number" id="chordTopN" value="8" min="2" max="16" style="width:65px" onchange="renderChord()">
+                    </div>
+                </div>
+                <div id="chordNoData" style="display:none;padding:30px;text-align:center;color:#aaa;">⚠️ Veri bulunamadı.</div>
+                <div class="chord-body">
+                    <div class="chord-svg-wrap" id="chordSvgWrap"></div>
+                    <div class="chord-legend-wrap" id="chordLegend"></div>
+                </div>
+                <div class="chord-insight" id="chordInsight" style="display:none;"></div>
+            </div>
+        </div>
+        <div class="chord-tooltip" id="chordTooltip"></div>
+
     <!-- Empty state -->
     <div class="empty-state" id="emptyState">
         <div class="icon">📥</div>
@@ -2108,6 +2189,7 @@ function _refreshAllCharts() {
     renderCohort();
     renderFunnel();
     renderPolarArea();
+    renderChord();
 }
 
 function toggleBreakdownAll() {
@@ -3567,7 +3649,7 @@ function exportTableExcel() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap', 'calendar', 'cohort', 'funnel', 'polar'];
+    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap', 'calendar', 'cohort', 'funnel', 'polar', 'chord'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', names[i] === name);
     });
@@ -3586,6 +3668,7 @@ function switchTab(name) {
     if (name === 'cohort')   { renderCohort(); }
     if (name === 'funnel')   { renderFunnel(); }
     if (name === 'polar')    { renderPolarArea(); }
+    if (name === 'chord')    { renderChord(); }
 }
 
 // ─── RADAR ANALİZİ ───────────────────────────────────────────────────────────
@@ -6438,6 +6521,206 @@ function renderPolarArea() {
             En baskın: <strong>${top1[0]}</strong> (%${top1Pct}) &nbsp;|&nbsp;
             İlk ${n3} kategori toplam ${metLbl}ın <strong>%${top3Pct}</strong>'ini oluşturuyor &nbsp;|&nbsp;
             Toplam: <strong>${total.toLocaleString('tr-TR',{maximumFractionDigits:0})}</strong>`;
+    }
+}
+
+// ─── CHORD DİYAGRAMI ─────────────────────────────────────────────────────────
+function renderChord() {
+    const data      = _effectiveData();
+    const dim1      = document.getElementById('chordDim1')?.value   || 'hataTipi';
+    const dim2      = document.getElementById('chordDim2')?.value   || 'tespitYeri';
+    const metric    = document.getElementById('chordMetric')?.value || 'hataliMiktar';
+    const topN      = Math.max(2, parseInt(document.getElementById('chordTopN')?.value) || 8);
+    const noDataEl  = document.getElementById('chordNoData');
+    const svgWrap   = document.getElementById('chordSvgWrap');
+    const legendEl  = document.getElementById('chordLegend');
+    const insightEl = document.getElementById('chordInsight');
+    const tooltip   = document.getElementById('chordTooltip');
+    if (!svgWrap) return;
+
+    // ── 1. Aggregate flows dim1 → dim2 ────────────────────────────────────
+    const flowMap = {};  // flowMap[a][b] = value
+    const tot1 = {}, tot2 = {};
+    data.forEach(r => {
+        const a = (r[dim1] || '(Belirtilmemiş)').toString().trim() || '(Belirtilmemiş)';
+        const b = (r[dim2] || '(Belirtilmemiş)').toString().trim() || '(Belirtilmemiş)';
+        const v = metric === 'hataliMiktar' ? (Number(r.hataliMiktar) || 0) : 1;
+        if (!flowMap[a]) flowMap[a] = {};
+        flowMap[a][b] = (flowMap[a][b] || 0) + v;
+        tot1[a] = (tot1[a] || 0) + v;
+        tot2[b] = (tot2[b] || 0) + v;
+    });
+
+    const top1 = Object.entries(tot1).sort((x,y) => y[1]-x[1]).slice(0, topN).map(([k])=>k);
+    const top2 = Object.keys(
+        top1.reduce((acc, a) => { Object.keys(flowMap[a]||{}).forEach(b => { acc[b] = (acc[b]||0) + (flowMap[a][b]||0); }); return acc; }, {})
+    ).sort((x,y) => (tot2[y]||0)-(tot2[x]||0)).slice(0, topN);
+
+    if (!top1.length || !top2.length) {
+        noDataEl.style.display = 'block'; svgWrap.innerHTML = ''; legendEl.innerHTML = '';
+        if (insightEl) insightEl.style.display = 'none'; return;
+    }
+    noDataEl.style.display = 'none';
+
+    // ── 2. Build unified node list: dim1 nodes then dim2 nodes ────────────
+    // Nodes arranged clockwise around a circle
+    const DIM1_PALETTE = ['#4a0a6b','#6d28d9','#8b5cf6','#b94fc4','#c084fc','#e879f9','#f0abfc','#a21caf','#7c3aed','#5b21b6','#9333ea','#db2777','#4f46e5','#0891b2','#0d9488','#047857'];
+    const DIM2_PALETTE = ['#065f46','#0d9488','#0284c7','#1d4ed8','#4338ca','#7c3aed','#a21caf','#be123c','#b45309','#4d7c0f','#0e7490','#1e40af','#5b21b6','#831843','#78350f','#166534'];
+
+    const nodes = [
+        ...top1.map((k, i) => ({ id: k, dim: 1, color: DIM1_PALETTE[i % DIM1_PALETTE.length] })),
+        ...top2.map((k, i) => ({ id: k, dim: 2, color: DIM2_PALETTE[i % DIM2_PALETTE.length] })),
+    ];
+    const nodeIdx = {};
+    nodes.forEach((n, i) => { nodeIdx[n.id + '|' + n.dim] = i; });
+
+    // Total value per node (for arc sizing)
+    nodes.forEach(n => {
+        if (n.dim === 1) {
+            n.total = top2.reduce((s, b) => s + (flowMap[n.id]?.[b] || 0), 0);
+        } else {
+            n.total = top1.reduce((s, a) => s + (flowMap[a]?.[n.id] || 0), 0);
+        }
+    });
+    const grandTotal = nodes.reduce((s, n) => s + n.total, 0);
+    if (grandTotal === 0) {
+        noDataEl.style.display = 'block'; svgWrap.innerHTML = ''; legendEl.innerHTML = '';
+        if (insightEl) insightEl.style.display = 'none'; return;
+    }
+
+    // ── 3. Layout ──────────────────────────────────────────────────────────
+    const SIZE = 580;
+    const CX = SIZE / 2, CY = SIZE / 2;
+    const R_OUT = 250, R_IN = 218;  // outer/inner radius of arcs
+    const GAP_ANGLE = 0.018;         // radians gap between arcs
+    const totalGap = GAP_ANGLE * nodes.length;
+    const totalArc = 2 * Math.PI - totalGap;
+
+    // Assign start/end angles
+    let cursor = -Math.PI / 2;  // start at top
+    nodes.forEach(n => {
+        n.startAngle = cursor;
+        n.spanAngle  = (n.total / grandTotal) * totalArc;
+        n.endAngle   = cursor + n.spanAngle;
+        n.midAngle   = (n.startAngle + n.endAngle) / 2;
+        cursor = n.endAngle + GAP_ANGLE;
+    });
+
+    // ── 4. SVG helpers ─────────────────────────────────────────────────────
+    function pt(r, a) { return [CX + r * Math.cos(a), CY + r * Math.sin(a)]; }
+    function arcPath(r, a1, a2) {
+        const [x1, y1] = pt(r, a1), [x2, y2] = pt(r, a2);
+        const large = (a2 - a1) > Math.PI ? 1 : 0;
+        return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+    }
+    function chordPath(a1s, a1e, a2s, a2e) {
+        // cubic bezier chord connecting two arcs through centre
+        const [sx1, sy1] = pt(R_IN, a1s), [sx2, sy2] = pt(R_IN, a1e);
+        const [tx1, ty1] = pt(R_IN, a2s), [tx2, ty2] = pt(R_IN, a2e);
+        return `M ${sx1.toFixed(2)} ${sy1.toFixed(2)}
+                A ${R_IN} ${R_IN} 0 0 1 ${sx2.toFixed(2)} ${sy2.toFixed(2)}
+                C ${(CX*0.3+sx2*0.7).toFixed(2)} ${(CY*0.3+sy2*0.7).toFixed(2)},
+                  ${(CX*0.3+tx1*0.7).toFixed(2)} ${(CY*0.3+ty1*0.7).toFixed(2)},
+                  ${tx1.toFixed(2)} ${ty1.toFixed(2)}
+                A ${R_IN} ${R_IN} 0 0 1 ${tx2.toFixed(2)} ${ty2.toFixed(2)}
+                C ${(CX*0.3+tx2*0.7).toFixed(2)} ${(CY*0.3+ty2*0.7).toFixed(2)},
+                  ${(CX*0.3+sx1*0.7).toFixed(2)} ${(CY*0.3+sy1*0.7).toFixed(2)},
+                  ${sx1.toFixed(2)} ${sy1.toFixed(2)} Z`;
+    }
+
+    // ── 5. Build chord segments ────────────────────────────────────────────
+    // Per-node cursor tracking for sub-arcs (where chords attach)
+    const nodeSubCursor = {};
+    nodes.forEach(n => { nodeSubCursor[n.id + '|' + n.dim] = n.startAngle; });
+
+    const chords = [];
+    top1.forEach(a => {
+        const nA = nodes.find(n => n.id === a && n.dim === 1);
+        if (!nA || nA.total === 0) return;
+        top2.forEach(b => {
+            const v = flowMap[a]?.[b] || 0;
+            if (v === 0) return;
+            const nB = nodes.find(n => n.id === b && n.dim === 2);
+            if (!nB || nB.total === 0) return;
+            const keyA = a + '|1', keyB = b + '|2';
+            const spanA = (v / grandTotal) * totalArc;
+            const spanB = (v / grandTotal) * totalArc;
+            const a1s = nodeSubCursor[keyA], a1e = a1s + spanA;
+            const a2s = nodeSubCursor[keyB], a2e = a2s + spanB;
+            nodeSubCursor[keyA] = a1e;
+            nodeSubCursor[keyB] = a2e;
+            chords.push({ a, b, v, a1s, a1e, a2s, a2e, color: nA.color });
+        });
+    });
+
+    // ── 6. Render SVG ─────────────────────────────────────────────────────
+    const metLbl = metric === 'hataliMiktar' ? 'Hatalı Miktar' : 'Kayıt Sayısı';
+    const DIM_LABELS = { hataTipi:'Hata Tipi', tespitYeri:'Tespit Yeri', hataKaynagi:'Hata Kaynağı', cariAdi:'Tedarikçi' };
+
+    let chordsSvg = chords.map((c, ci) => {
+        const path = chordPath(c.a1s, c.a1e, c.a2s, c.a2e);
+        const vStr = c.v.toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+        const tip  = `${c.a} → ${c.b}: ${vStr} ${metLbl}`;
+        return `<path class="chord-ribbon" d="${path}" fill="${c.color}" fill-opacity="0.42" stroke="${c.color}" stroke-width="0.5"
+            onmouseenter="(function(e){var t=document.getElementById('chordTooltip');t.style.display='block';t.innerHTML='${tip.replace(/'/g,"&#39;")}';t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY-10)+'px';})(event)"
+            onmousemove="(function(e){var t=document.getElementById('chordTooltip');t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY-10)+'px';})(event)"
+            onmouseleave="document.getElementById('chordTooltip').style.display='none'"
+            style="cursor:pointer;transition:fill-opacity .15s"/>`;
+    }).join('\n');
+
+    let arcsSvg = nodes.map(n => {
+        if (n.spanAngle < 0.001) return '';
+        const arc   = arcPath(R_OUT, n.startAngle, n.endAngle);
+        const arcI  = arcPath(R_IN,  n.startAngle, n.endAngle);
+        const [px, py] = pt(R_OUT + 18, n.midAngle);
+        const anchor = Math.abs(n.midAngle) < 0.1 || Math.abs(n.midAngle - Math.PI) < 0.1 ? 'middle'
+                     : (Math.cos(n.midAngle) > 0 ? 'start' : 'end');
+        const label = n.id.length > 18 ? n.id.slice(0, 16) + '…' : n.id;
+        const vStr  = n.total.toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+        const tip   = `${n.id} (${DIM_LABELS[n.dim===1?dim1:dim2]}): ${vStr} ${metLbl}`.replace(/'/g,'&#39;');
+        return `
+        <path d="${arc} L ${pt(R_IN, n.endAngle).map(v=>v.toFixed(2)).join(' ')}
+                  ${arcI.replace('M','').split('A')[0]} A ${R_IN} ${R_IN} 0 ${n.spanAngle>Math.PI?1:0} 0 ${pt(R_IN,n.startAngle).map(v=>v.toFixed(2)).join(' ')} Z"
+              fill="${n.color}" stroke="#fff" stroke-width="1"
+              fill-opacity="0.9"
+              onmouseenter="(function(e){var t=document.getElementById('chordTooltip');t.style.display='block';t.innerHTML='${tip}';t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY-10)+'px';})(event)"
+              onmousemove="(function(e){var t=document.getElementById('chordTooltip');t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY-10)+'px';})(event)"
+              onmouseleave="document.getElementById('chordTooltip').style.display='none'"
+              style="cursor:pointer"/>
+        <text x="${px.toFixed(2)}" y="${py.toFixed(2)}" text-anchor="${anchor}" dominant-baseline="middle"
+              font-size="11" fill="#2e1065" font-family="Arial,sans-serif" font-weight="700"
+              paint-order="stroke" stroke="#fff" stroke-width="3">${label}</text>`;
+    }).join('\n');
+
+    svgWrap.innerHTML = `
+        <svg viewBox="0 0 ${SIZE} ${SIZE}" style="width:100%;max-width:${SIZE}px;display:block;overflow:visible;">
+            <circle cx="${CX}" cy="${CY}" r="${R_IN}" fill="#f9f5ff" opacity="0.6"/>
+            ${chordsSvg}
+            ${arcsSvg}
+            <text x="${CX}" y="${CY - 10}" text-anchor="middle" font-size="11" fill="#6b21a8" font-family="Arial,sans-serif" font-weight="700">${DIM_LABELS[dim1]}</text>
+            <text x="${CX}" y="${CY + 10}" text-anchor="middle" font-size="11" fill="#065f46" font-family="Arial,sans-serif" font-weight="700">↕</text>
+            <text x="${CX}" y="${CY + 26}" text-anchor="middle" font-size="11" fill="#065f46" font-family="Arial,sans-serif" font-weight="700">${DIM_LABELS[dim2]}</text>
+        </svg>`;
+
+    // ── 7. Legend ──────────────────────────────────────────────────────────
+    if (legendEl) {
+        const dim1items = top1.map((k, i) => ({name: k, color: DIM1_PALETTE[i % DIM1_PALETTE.length], total: tot1[k]||0, dim: DIM_LABELS[dim1]}));
+        const dim2items = top2.map((k, i) => ({name: k, color: DIM2_PALETTE[i % DIM2_PALETTE.length], total: tot2[k]||0, dim: DIM_LABELS[dim2]}));
+        legendEl.innerHTML =
+            `<div style="font-size:.75rem;font-weight:800;color:#4a0a6b;padding:2px 0 4px;">${DIM_LABELS[dim1]}</div>` +
+            dim1items.map(it => `<div class="chord-leg-item"><div class="chord-leg-dot" style="background:${it.color}"></div><span title="${it.name}">${it.name.length>22?it.name.slice(0,20)+'…':it.name} <em style="color:#a855f7">(${it.total.toLocaleString('tr-TR',{maximumFractionDigits:0})})</em></span></div>`).join('') +
+            `<div style="font-size:.75rem;font-weight:800;color:#065f46;padding:8px 0 4px;">${DIM_LABELS[dim2]}</div>` +
+            dim2items.map(it => `<div class="chord-leg-item"><div class="chord-leg-dot" style="background:${it.color};border-radius:50%"></div><span title="${it.name}">${it.name.length>22?it.name.slice(0,20)+'…':it.name} <em style="color:#0d9488">(${it.total.toLocaleString('tr-TR',{maximumFractionDigits:0})})</em></span></div>`).join('');
+    }
+
+    // ── 8. Insight ─────────────────────────────────────────────────────────
+    if (insightEl) {
+        const topFlow = [...chords].sort((a,b)=>b.v-a.v)[0];
+        insightEl.style.display = 'block';
+        insightEl.innerHTML = `🕸️ <strong>${top1.length}</strong> ${DIM_LABELS[dim1]} × <strong>${top2.length}</strong> ${DIM_LABELS[dim2]} çifti gösteriliyor &nbsp;|&nbsp;
+            Toplam: <strong>${grandTotal.toLocaleString('tr-TR',{maximumFractionDigits:0})}</strong> ${metLbl} &nbsp;|&nbsp;
+            ${topFlow ? `En yüksek akış: <strong>${topFlow.a} → ${topFlow.b}</strong> (${topFlow.v.toLocaleString('tr-TR',{maximumFractionDigits:0})} ${metLbl})` : ''}
+            &nbsp;| Chord üzerinden hover yaparak detay görebilirsiniz.`;
     }
 }
 
