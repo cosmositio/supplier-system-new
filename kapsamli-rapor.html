@@ -180,7 +180,16 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .fb-group-name { font-weight:700; font-size:.95rem; color:#1e2535; flex:1; min-width:80px; }
 .fb-group-badge2 { padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#eff6ff; color:#1d4ed8; }
 .fb-group-table { padding:16px 20px 20px; border-top:1.5px solid #f1f5f9; background:#fafbfc; }
-.fb-group-table h4 { font-size:.82rem; font-weight:700; color:#475569; margin:0 0 10px; }
+.fb-group-table h4 {
+    font-size:.82rem; font-weight:700; color:#475569; margin:0 0 10px;
+    display:flex; align-items:center; gap:8px; cursor:pointer;
+    user-select:none; padding:7px 10px; border-radius:8px; transition:background .15s;
+}
+.fb-group-table h4:hover { background:#e2e8f0; }
+.fb-table-chevron { margin-left:auto; font-size:.9rem; transition:transform .25s; display:inline-block; }
+.fb-table-chevron.collapsed { transform:rotate(-90deg); }
+.fb-table-body { overflow:hidden; transition:max-height .35s ease, opacity .25s ease; max-height:2000px; opacity:1; }
+.fb-table-body.collapsed { max-height:0; opacity:0; pointer-events:none; }
 .fb-header  { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
 .fb-effect-tag { background:#fef2f2; color:#b91c1c; border:1.5px solid #fca5a5; border-radius:20px; padding:3px 14px; font-size:.75rem; font-weight:700; max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fb-svg-wrap { background:#f8fafc; border-radius:12px; border:1.5px solid #e2e8f0; overflow-x:auto; }
@@ -1460,7 +1469,11 @@ function renderMultipleFishbones(groups, allRows) {
                 <div class="fb-edit-panels no-print" id="fbEditPanels_${i}"></div>
             </div>
             <div class="fb-group-table">
-                <h4>📋 ${esc(g.label)} — En Yüksek Hatalı Miktar (ilk ${Math.min(20, rows.length)} kayıt)</h4>
+                <h4 onclick="_krToggleFbTable(this)">
+                    <span>📋 ${esc(g.label)} — En Yüksek Hatalı Miktar (ilk ${Math.min(20, rows.length)} kayıt)</span>
+                    <span class="fb-table-chevron">▾</span>
+                </h4>
+                <div class="fb-table-body">
                 <div style="overflow-x:auto;">
                 <table class="ap-table" style="font-size:.78rem;">
                     <thead><tr>
@@ -1469,6 +1482,7 @@ function renderMultipleFishbones(groups, allRows) {
                     </tr></thead>
                     <tbody>${tableBody}</tbody>
                 </table>
+                </div>
                 </div>
             </div>
         </div>`;
@@ -2754,6 +2768,14 @@ async function krRemoveBatch(batchId) {
 document.addEventListener('click', e => {
     if (e.target.id === 'krSnapModal') document.getElementById('krSnapModal').classList.remove('open');
 });
+
+function _krToggleFbTable(h4el) {
+    const body    = h4el.nextElementSibling;
+    const chevron = h4el.querySelector('.fb-table-chevron');
+    if (!body) return;
+    const collapsed = body.classList.toggle('collapsed');
+    if (chevron) chevron.classList.toggle('collapsed', collapsed);
+}
 </script>
 </body>
 </html>
