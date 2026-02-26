@@ -663,6 +663,19 @@
         .sc-ctrl-group select:focus { border-color:#ea580c; }
         .sc-chart-area { position:relative; height:500px; margin-top:18px; }
         .sc-insight { margin-top:14px; padding:12px 16px; background:#ffedd5; border-radius:10px; font-size:0.83em; color:#7c2d12; border-left:4px solid #ea580c; }
+        .sc-pick-panel { margin-top:14px; background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:10px 14px; }
+        .sc-pick-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+        .sc-pick-header label { font-size:.75rem; font-weight:700; color:#c2410c; white-space:nowrap; }
+        .sc-pick-search { flex:1; min-width:120px; padding:5px 9px; border:1.5px solid #fdba74; border-radius:7px; font-size:.8rem; outline:none; }
+        .sc-pick-search:focus { border-color:#ea580c; }
+        .sc-pick-hint { font-size:.72rem; color:#ea580c; font-weight:600; white-space:nowrap; }
+        .sc-pick-list { display:flex; flex-wrap:wrap; gap:4px; max-height:160px; overflow-y:auto; padding-top:2px; }
+        .sc-pick-item { display:flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; border:1.5px solid #fed7aa; background:#fff; font-size:.79rem; cursor:pointer; user-select:none; color:#7c2d12; transition:background .12s,border-color .12s; }
+        .sc-pick-item:hover { background:#ffedd5; border-color:#fb923c; }
+        .sc-pick-item.scpi-sel { background:#ea580c; border-color:#c2410c; color:#fff; font-weight:600; }
+        .sc-pick-item input[type=checkbox] { width:13px; height:13px; accent-color:#ea580c; flex-shrink:0; pointer-events:none; }
+        .sc-pick-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+        .sc-pick-val { font-size:.7rem; opacity:.72; margin-left:2px; }
         /* Box Plot */
         .bp-controls { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; padding:14px 16px; background:#f0fdfa; border-radius:10px; border:1px solid #99f6e4; }
         .bp-ctrl-group { display:flex; flex-direction:column; gap:4px; }
@@ -1518,7 +1531,7 @@
                 </div>
                 <div class="sc-ctrl-group">
                     <label>Renk Grupla</label>
-                    <select id="scColorBy" onchange="renderScatter()">
+                    <select id="scColorBy" onchange="_scColorByChange()">
                         <option value="hataTipi">Hata Tipi</option>
                         <option value="cariAdi">Cari Adı</option>
                         <option value="hataKaynagi">Hata Kaynağı</option>
@@ -1575,6 +1588,16 @@
                 <canvas id="scChart"></canvas>
             </div>
             <div id="scInsight" class="sc-insight" style="display:none;"></div>
+            <div id="scPickerPanel" class="sc-pick-panel">
+                <div class="sc-pick-header">
+                    <label>🔍 Renk Gruplarını Seç</label>
+                    <input type="text" class="sc-pick-search" id="scPickSearch" placeholder="Ara..." oninput="_scFilterPicker()">
+                    <button style="background:#ea580c;color:#fff;border:none;border-radius:7px;padding:4px 11px;font-size:.76rem;cursor:pointer;" onclick="_scPickAll()">Tümü</button>
+                    <button style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:7px;padding:4px 11px;font-size:.76rem;cursor:pointer;" onclick="_scPickClear()">Temizle</button>
+                    <span class="sc-pick-hint" id="scPickHint">—</span>
+                </div>
+                <div class="sc-pick-list" id="scPickList"></div>
+            </div>
         </div>
     </div>
 
@@ -4452,6 +4475,7 @@ function downloadBoxPlotPNG() {
 
 // ─── SCATTER PLOT (DAĞILIM) ──────────────────────────────────────────────────
 let scatterChartInst = null;
+let _scColorFilter   = null; // null = init from all; Set<string> = manual selection
 
 const SC_PALETTE = [
     '#ea580c','#2563eb','#16a34a','#dc2626','#7c3aed',
@@ -4523,16 +4547,23 @@ function renderScatter() {
     const xLabel = AXIS_LABELS[xKey];
     const yLabel = AXIS_LABELS[yKey];
 
-    // Count groups to decide top-N color groups
+    // Count ALL groups (no top-N limit yet) for the picker
     const groupCount = {};
     filteredData.forEach(r => {
         const g = _hmGet(r, colorKey);
         if (g && g !== '—') groupCount[g] = (groupCount[g] || 0) + 1;
     });
-    const topGroups = Object.entries(groupCount)
+    const allGroups = Object.entries(groupCount)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, topColor >= 99999 ? undefined : topColor)
         .map(([k]) => k);
+
+    // Refresh picker with all groups
+    _scRefreshPicker(allGroups, groupCount);
+
+    // Apply manual filter OR Top-N
+    const topGroups = _scColorFilter !== null
+        ? allGroups.filter(g => _scColorFilter.has(g))
+        : allGroups.slice(0, topColor >= 99999 ? undefined : topColor);
     const topSet = new Set(topGroups);
 
     // Bucket rows
@@ -4680,6 +4711,93 @@ function downloadScatterPNG() {
     a.download = 'dagilim-grafigi.png';
     a.click();
 }
+
+function _scColorByChange() {
+    _scColorFilter = null; // reset when color axis changes
+    renderScatter();
+}
+
+function _scRefreshPicker(allGroups, groupCount) {
+    const panelEl = document.getElementById('scPickerPanel');
+    if (!panelEl) return;
+    const items = allGroups.map((g, i) => ({ label: g, count: groupCount[g] || 0, colorIdx: i }));
+    panelEl._allItems = items;
+    if (_scColorFilter === null) {
+        _scColorFilter = new Set(items.map(g => g.label));
+    }
+    _scFilterPicker();
+}
+
+function _scRenderPickList(items) {
+    const listEl = document.getElementById('scPickList');
+    const hintEl = document.getElementById('scPickHint');
+    if (!listEl) return;
+    listEl.innerHTML = items.map(g => {
+        const safe  = g.label.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+        const sel   = _scColorFilter && _scColorFilter.has(g.label);
+        const color = SC_PALETTE[g.colorIdx % SC_PALETTE.length];
+        return `<div class="sc-pick-item ${sel ? 'scpi-sel' : ''}" data-sclbl="${safe}">
+            <input type="checkbox" ${sel ? 'checked' : ''}>
+            <span class="sc-pick-dot" style="background:${sel ? '#fff' : color};"></span>
+            <span title="${safe}">${safe.length > 24 ? safe.slice(0,23)+'…' : safe}</span>
+            <span class="sc-pick-val">${g.count}</span>
+        </div>`;
+    }).join('');
+    const panelEl = document.getElementById('scPickerPanel');
+    const total   = panelEl?._allItems?.length || 0;
+    if (hintEl) hintEl.textContent = `${_scColorFilter ? _scColorFilter.size : 0} / ${total} seçili`;
+}
+
+function _scFilterPicker() {
+    const q   = (document.getElementById('scPickSearch')?.value || '').toLowerCase();
+    const all = document.getElementById('scPickerPanel')?._allItems || [];
+    const filtered = q ? all.filter(g => g.label.toLowerCase().includes(q)) : all;
+    _scRenderPickList(filtered);
+}
+
+function _scPickAll() {
+    const all = document.getElementById('scPickerPanel')?._allItems || [];
+    _scColorFilter = new Set(all.map(g => g.label));
+    _scFilterPicker();
+    renderScatter();
+}
+
+function _scPickClear() {
+    _scColorFilter = new Set();
+    _scFilterPicker();
+    renderScatter();
+}
+
+// Delegated click for scatter color picker
+(function _scPickListener() {
+    document.addEventListener('click', function(e) {
+        const item = e.target.closest('.sc-pick-item[data-sclbl]');
+        if (!item) return;
+        e.preventDefault();
+        const label = item.getAttribute('data-sclbl')
+            ?.replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&lt;/g,'<');
+        if (!label || !_scColorFilter) return;
+        if (_scColorFilter.has(label)) _scColorFilter.delete(label);
+        else _scColorFilter.add(label);
+        const chk = item.querySelector('input[type=checkbox]');
+        const sel = _scColorFilter.has(label);
+        item.classList.toggle('scpi-sel', sel);
+        if (chk) chk.checked = sel;
+        // update dot color
+        const dot = item.querySelector('.sc-pick-dot');
+        if (dot) {
+            const panelEl = document.getElementById('scPickerPanel');
+            const allItems = panelEl?._allItems || [];
+            const entry = allItems.find(g => g.label === label);
+            dot.style.background = sel ? '#fff' : (entry ? SC_PALETTE[entry.colorIdx % SC_PALETTE.length] : '#ccc');
+        }
+        const panelEl = document.getElementById('scPickerPanel');
+        const total   = panelEl?._allItems?.length || 0;
+        const hintEl  = document.getElementById('scPickHint');
+        if (hintEl) hintEl.textContent = `${_scColorFilter.size} / ${total} seçili`;
+        renderScatter();
+    });
+})();
 
 // ─── IndexedDB Persistence (localStorage'dan çok daha büyük limit) ─────────────
 const DB_NAME    = 'UygunsuzlukDB';
