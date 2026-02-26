@@ -635,6 +635,14 @@
         .hm-pick-item:hover { border-color:#0ea5e9; background:#e0f4ff; }
         .hm-pick-item.hpi-sel { background:#0369a1; border-color:#0369a1; color:#fff; font-weight:700; }
         .hm-pick-item.hpi-sel:hover { background:#075985; }
+        /* Bubble Chart */
+        .bb-controls { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; padding:14px 16px; background:#f5f3ff; border-radius:10px; border:1px solid #ddd6fe; }
+        .bb-ctrl-group { display:flex; flex-direction:column; gap:4px; }
+        .bb-ctrl-group label { font-size:.75rem; font-weight:600; color:#5b21b6; }
+        .bb-ctrl-group select { padding:6px 10px; border:1.5px solid #c4b5fd; border-radius:7px; font-size:.84rem; background:#fff; outline:none; color:#3b0764; }
+        .bb-ctrl-group select:focus { border-color:#7c3aed; }
+        .bb-chart-area { position:relative; height:480px; margin-top:18px; }
+        .bb-insight { margin-top:14px; padding:12px 16px; background:#f3e8ff; border-radius:10px; font-size:0.83em; color:#4a0a6b; border-left:4px solid #9333ea; }
     </style>
 </head>
 <body>
@@ -794,6 +802,7 @@
             <button class="tab-btn" onclick="switchTab('table')">📄 Veri Tablosu</button>
             <button class="tab-btn" onclick="switchTab('radar')">🕷️ Radar Analizi</button>
             <button class="tab-btn" onclick="switchTab('heatmap')">🌡️ Isı Haritası</button>
+            <button class="tab-btn" onclick="switchTab('bubble')">🫧 Kabarcık Grafiği</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
@@ -1112,6 +1121,69 @@
             </div>
             <div id="hmInsight" style="margin-top:14px;padding:12px 16px;background:#e0f0ff;border-radius:10px;font-size:0.83em;color:#0f4c81;border-left:4px solid #2196f3;display:none;"></div>
         </div>
+
+        <!-- Bubble Chart Tab -->
+        <div class="tab-panel" id="tab-bubble">
+            <div style="font-size:1.05rem;font-weight:800;color:#5b21b6;display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                🫧 Kabarcık Grafiği
+                <span style="font-size:.75rem;font-weight:400;color:#888;background:#f3e8ff;padding:2px 10px;border-radius:20px;">Her kabarcık bir grubu temsil eder — X, Y ve boyut farklı metriklerle belirlenir</span>
+            </div>
+            <div class="bb-controls">
+                <div class="bb-ctrl-group">
+                    <label>Gruplama (Kabarcık)</label>
+                    <select id="bbGroupBy" onchange="renderBubble()">
+                        <option value="cariAdi">Cari Adı</option>
+                        <option value="hataTipi">Hata Tipi</option>
+                        <option value="hataKaynagi">Hata Kaynağı</option>
+                        <option value="tespitYeri">Tespit Yeri</option>
+                        <option value="stokAdi">Stok Adı</option>
+                        <option value="makine">Makine</option>
+                        <option value="tipi">Tipi</option>
+                        <option value="uygunsuzlukTuru">Uyg. Türü</option>
+                    </select>
+                </div>
+                <div class="bb-ctrl-group">
+                    <label>X Ekseni</label>
+                    <select id="bbXAxis" onchange="renderBubble()">
+                        <option value="kayitSayisi">Kayıt Sayısı</option>
+                        <option value="hataliMiktar">Hatalı Miktar</option>
+                        <option value="ortHataliMiktar">Ort. Hatalı Miktar</option>
+                    </select>
+                </div>
+                <div class="bb-ctrl-group">
+                    <label>Y Ekseni</label>
+                    <select id="bbYAxis" onchange="renderBubble()">
+                        <option value="hataliMiktar">Hatalı Miktar</option>
+                        <option value="kayitSayisi">Kayıt Sayısı</option>
+                        <option value="ortHataliMiktar">Ort. Hatalı Miktar</option>
+                    </select>
+                </div>
+                <div class="bb-ctrl-group">
+                    <label>Kabarcık Boyutu</label>
+                    <select id="bbRAxis" onchange="renderBubble()">
+                        <option value="hataliMiktar">Hatalı Miktar</option>
+                        <option value="kayitSayisi">Kayıt Sayısı</option>
+                        <option value="ortHataliMiktar">Ort. Hatalı Miktar</option>
+                    </select>
+                </div>
+                <div class="bb-ctrl-group">
+                    <label>Top N Grup</label>
+                    <select id="bbTopN" onchange="renderBubble()">
+                        <option value="10">10</option>
+                        <option value="15">15</option>
+                        <option value="20" selected>20</option>
+                        <option value="30">30</option>
+                        <option value="99999">Tümü</option>
+                    </select>
+                </div>
+                <button class="export-btn" onclick="downloadBubblePNG()" style="align-self:flex-end;">⬇ PNG İndir</button>
+            </div>
+            <div id="bubbleNoData" style="display:none;padding:30px;text-align:center;color:#aaa;">⚠️ En az bir veri gerekli — filtre uygulayın.</div>
+            <div class="bb-chart-area" id="bubbleChartWrap" style="display:none;">
+                <canvas id="bubbleChart"></canvas>
+            </div>
+            <div id="bubbleInsight" class="bb-insight" style="display:none;"></div>
+        </div>
     </div>
 
     <!-- Empty state -->
@@ -1372,6 +1444,7 @@ function applyFilters() {
     _radarSelected.clear();
     radarBuildSelector();
     if (document.getElementById('tab-heatmap').classList.contains('active')) renderHeatmap();
+    if (document.getElementById('tab-bubble').classList.contains('active'))  renderBubble();
     showToast(`${filteredData.length} kayıt filtrelendi`, 'success');
 }
 
@@ -1396,6 +1469,7 @@ function resetFilters() {
     _radarSelected.clear();
     radarBuildSelector();
     if (document.getElementById('tab-heatmap').classList.contains('active')) renderHeatmap();
+    if (document.getElementById('tab-bubble').classList.contains('active'))  renderBubble();
     showToast('Filtreler sıfırlandı');
 }
 
@@ -2559,7 +2633,7 @@ function exportTableExcel() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap'];
+    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', names[i] === name);
     });
@@ -2568,6 +2642,7 @@ function switchTab(name) {
     if (name === 'pareto' && paretoChartInst) paretoChartInst.resize();
     if (name === 'radar')   { radarBuildSelector(); }
     if (name === 'heatmap') { renderHeatmap(); }
+    if (name === 'bubble')  { renderBubble(); }
 }
 
 // ─── RADAR ANALİZİ ───────────────────────────────────────────────────────────
@@ -3215,6 +3290,154 @@ function _hmGet(row, key) {
     };
     const v = alt[key] || '';
     return String(v).trim() || '(Belirtilmemiş)';
+}
+
+// ─── KABARCIK (BUBBLE) GRAFİĞİ ───────────────────────────────────────────────
+let bubbleChartInst = null;
+
+const BB_METRIC_LABELS = {
+    kayitSayisi:    'Kayıt Sayısı',
+    hataliMiktar:   'Hatalı Miktar',
+    ortHataliMiktar:'Ort. Hatalı Miktar',
+};
+
+function _bbMetricVal(entry, key) {
+    if (key === 'kayitSayisi')     return entry.count;
+    if (key === 'hataliMiktar')    return entry.totalH;
+    if (key === 'ortHataliMiktar') return entry.count > 0 ? entry.totalH / entry.count : 0;
+    return 0;
+}
+
+function renderBubble() {
+    const noDataEl  = document.getElementById('bubbleNoData');
+    const wrapEl    = document.getElementById('bubbleChartWrap');
+    const insightEl = document.getElementById('bubbleInsight');
+    if (!wrapEl) return;
+
+    if (!filteredData || !filteredData.length) {
+        noDataEl.style.display = 'block';
+        wrapEl.style.display   = 'none';
+        if (insightEl) insightEl.style.display = 'none';
+        return;
+    }
+
+    const groupKey = document.getElementById('bbGroupBy').value;
+    const xKey     = document.getElementById('bbXAxis').value;
+    const yKey     = document.getElementById('bbYAxis').value;
+    const rKey     = document.getElementById('bbRAxis').value;
+    const topN     = parseInt(document.getElementById('bbTopN').value) || 20;
+
+    // Aggregate per group
+    const agg = {};
+    filteredData.forEach(r => {
+        const g = _hmGet(r, groupKey);
+        if (!agg[g]) agg[g] = { count: 0, totalH: 0 };
+        agg[g].count++;
+        agg[g].totalH += parseFloat(r.hataliMiktar) || 0;
+    });
+
+    const sorted = Object.entries(agg)
+        .filter(([k]) => k !== '—' && k !== '(Belirtilmemiş)' || agg[k].count > 0)
+        .sort((a, b) => _bbMetricVal(b[1], rKey) - _bbMetricVal(a[1], rKey))
+        .slice(0, topN === 99999 ? undefined : topN);
+
+    if (!sorted.length) {
+        noDataEl.style.display = 'block';
+        wrapEl.style.display   = 'none';
+        if (insightEl) insightEl.style.display = 'none';
+        return;
+    }
+
+    const allRVals = sorted.map(([, e]) => _bbMetricVal(e, rKey));
+    const maxR     = Math.max(...allRVals, 1);
+
+    const datasets = sorted.map(([label, entry], i) => {
+        const xVal = _bbMetricVal(entry, xKey);
+        const yVal = _bbMetricVal(entry, yKey);
+        const rRaw = _bbMetricVal(entry, rKey);
+        const r    = Math.max(5, Math.round((rRaw / maxR) * 38));
+        const color = RADAR_PALETTE[i % RADAR_PALETTE.length];
+        return {
+            label,
+            data: [{ x: xVal, y: yVal, r, _rRaw: rRaw }],
+            backgroundColor: color + 'aa',
+            borderColor: color,
+            borderWidth: 1.8,
+            hoverBackgroundColor: color + 'dd',
+        };
+    });
+
+    noDataEl.style.display = 'none';
+    wrapEl.style.display   = 'block';
+
+    if (bubbleChartInst) { bubbleChartInst.destroy(); bubbleChartInst = null; }
+    const ctx = document.getElementById('bubbleChart').getContext('2d');
+    bubbleChartInst = new Chart(ctx, {
+        type: 'bubble',
+        data: { datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: { font: { size: 11 }, padding: 10, boxWidth: 14,
+                        generateLabels: chart => chart.data.datasets.map((ds, i) => ({
+                            text: ds.label.length > 28 ? ds.label.slice(0,27) + '…' : ds.label,
+                            fillStyle: ds.backgroundColor,
+                            strokeStyle: ds.borderColor,
+                            lineWidth: 1.5,
+                            datasetIndex: i,
+                        }))
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const d = ctx.raw;
+                            const fmt = v => v.toLocaleString('tr-TR', { maximumFractionDigits: 1 });
+                            return [
+                                ctx.dataset.label,
+                                `X — ${BB_METRIC_LABELS[xKey]}: ${fmt(d.x)}`,
+                                `Y — ${BB_METRIC_LABELS[yKey]}: ${fmt(d.y)}`,
+                                `Boyut — ${BB_METRIC_LABELS[rKey]}: ${fmt(d._rRaw ?? 0)}`,
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: BB_METRIC_LABELS[xKey], font: { size: 12 } },
+                    ticks: { callback: v => v >= 1000 ? (v/1000).toLocaleString('tr-TR',{maximumFractionDigits:1})+'K' : v.toLocaleString('tr-TR',{maximumFractionDigits:0}) },
+                    grid: { color: '#f1f5f9' },
+                },
+                y: {
+                    title: { display: true, text: BB_METRIC_LABELS[yKey], font: { size: 12 } },
+                    ticks: { callback: v => v >= 1000 ? (v/1000).toLocaleString('tr-TR',{maximumFractionDigits:1})+'K' : v.toLocaleString('tr-TR',{maximumFractionDigits:0}) },
+                    grid: { color: '#f1f5f9' },
+                },
+            }
+        }
+    });
+
+    // Insight
+    if (insightEl) {
+        const top3 = sorted.slice(0, 3).map(([label, e]) => {
+            const rv = _bbMetricVal(e, rKey);
+            return `<b>${label}</b> (${BB_METRIC_LABELS[rKey]}: ${rv.toLocaleString('tr-TR',{maximumFractionDigits:1})})`;
+        }).join(' &nbsp;|&nbsp; ');
+        insightEl.innerHTML = `🔍 En büyük kabarcıklar (${BB_METRIC_LABELS[rKey]}): ${top3}`;
+        insightEl.style.display = 'block';
+    }
+}
+
+function downloadBubblePNG() {
+    if (!bubbleChartInst) return;
+    const a = document.createElement('a');
+    a.href = bubbleChartInst.toBase64Image('image/png', 1);
+    a.download = 'kabarcik-grafigi.png';
+    a.click();
 }
 
 // ─── LocalStorage Persistence ───────────────────────────────────────────────
