@@ -7,6 +7,7 @@
     <link rel="icon" type="image/png" href="assets/favicon.png">
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.12.1/dist/chartjs-chart-sankey.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -641,6 +642,17 @@
         .bb-ctrl-group select:focus { border-color:#7c3aed; }
         .bb-chart-area { position:relative; height:480px; margin-top:18px; }
         .bb-insight { margin-top:14px; padding:12px 16px; background:#f3e8ff; border-radius:10px; font-size:0.83em; color:#4a0a6b; border-left:4px solid #9333ea; }
+        /* Sankey Diyagramı */
+        .sk-controls { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; padding:14px 16px; background:#fffbeb; border-radius:10px; border:1px solid #fde68a; }
+        .sk-ctrl-group { display:flex; flex-direction:column; gap:4px; }
+        .sk-ctrl-group label { font-size:.75rem; font-weight:600; color:#92400e; }
+        .sk-ctrl-group select { padding:6px 10px; border:1.5px solid #fbbf24; border-radius:7px; font-size:.84rem; background:#fff; outline:none; color:#78350f; }
+        .sk-ctrl-group select:focus { border-color:#d97706; }
+        .sk-chart-area { position:relative; margin-top:18px; }
+        .sk-insight { margin-top:14px; padding:12px 16px; background:#fef3c7; border-radius:10px; font-size:0.83em; color:#78350f; border-left:4px solid #d97706; }
+        .sk-legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+        .sk-legend-item { display:flex; align-items:center; gap:5px; font-size:.78rem; color:#444; }
+        .sk-legend-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
         /* Grouped/Stacked Bar */
         .gb-controls { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; padding:14px 16px; background:#f0fdf4; border-radius:10px; border:1px solid #bbf7d0; }
         .gb-ctrl-group { display:flex; flex-direction:column; gap:4px; }
@@ -810,6 +822,7 @@
             <button class="tab-btn" onclick="switchTab('heatmap')">🌡️ Isı Haritası</button>
             <button class="tab-btn" onclick="switchTab('bubble')">🫧 Kabarcık Grafiği</button>
             <button class="tab-btn" onclick="switchTab('bar')">📦 Gruplu / Yigilmis Bar</button>
+            <button class="tab-btn" onclick="switchTab('sankey')">🌊 Sankey Diyagramı</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
@@ -1284,6 +1297,82 @@
         </div>
     </div>
 
+        <!-- Sankey Tab -->
+        <div class="tab-panel" id="tab-sankey">
+            <div style="font-size:1.05rem;font-weight:800;color:#92400e;display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                🌊 Sankey Diyagramı
+                <span style="font-size:.75rem;font-weight:400;color:#888;background:#fef3c7;padding:2px 10px;border-radius:20px;">Bir boyuttan diğerine olan akışları ve oranları görselleştirir</span>
+            </div>
+            <div class="sk-controls">
+                <div class="sk-ctrl-group">
+                    <label>Sol (Kaynak)</label>
+                    <select id="skFrom" onchange="renderSankey()">
+                        <option value="cariAdi">Cari Adı</option>
+                        <option value="hataKaynagi">Hata Kaynağı</option>
+                        <option value="tipi">Tipi</option>
+                        <option value="makine">Makine</option>
+                        <option value="uygunsuzlukTuru">Uyg. Türü</option>
+                        <option value="tespitYeri">Tespit Yeri</option>
+                    </select>
+                </div>
+                <div class="sk-ctrl-group">
+                    <label>Sağ (Hedef)</label>
+                    <select id="skTo" onchange="renderSankey()">
+                        <option value="hataTipi">Hata Tipi</option>
+                        <option value="tespitYeri">Tespit Yeri</option>
+                        <option value="hataKaynagi">Hata Kaynağı</option>
+                        <option value="cariAdi">Cari Adı</option>
+                        <option value="stokAdi">Stok Adı</option>
+                        <option value="uygunsuzlukTuru">Uyg. Türü</option>
+                    </select>
+                </div>
+                <div class="sk-ctrl-group">
+                    <label>Metrik</label>
+                    <select id="skMetric" onchange="renderSankey()">
+                        <option value="hataliMiktar">Hatalı Miktar</option>
+                        <option value="kayitSayisi">Kayıt Sayısı</option>
+                    </select>
+                </div>
+                <div class="sk-ctrl-group">
+                    <label>Top Akış</label>
+                    <select id="skTopN" onchange="renderSankey()">
+                        <option value="15">15</option>
+                        <option value="20" selected>20</option>
+                        <option value="30">30</option>
+                        <option value="50">50</option>
+                        <option value="99999">Tümü</option>
+                    </select>
+                </div>
+                <div class="sk-ctrl-group">
+                    <label>Min Değer (Eşik)</label>
+                    <select id="skMinVal" onchange="renderSankey()">
+                        <option value="0">Tümü</option>
+                        <option value="1">≥ 1</option>
+                        <option value="5">≥ 5</option>
+                        <option value="10">≥ 10</option>
+                        <option value="20">≥ 20</option>
+                        <option value="50">≥ 50</option>
+                    </select>
+                </div>
+                <div class="sk-ctrl-group">
+                    <label>Renk Modu</label>
+                    <select id="skColorMode" onchange="renderSankey()">
+                        <option value="gradient">Gradient</option>
+                        <option value="from">Kaynaktan</option>
+                        <option value="to">Hedefe</option>
+                    </select>
+                </div>
+                <button class="export-btn" onclick="downloadSankeyPNG()" style="align-self:flex-end;background:#d97706;border-color:#b45309;">⬇ PNG İndir</button>
+            </div>
+            <div id="sankeyNoData" style="display:none;padding:30px;text-align:center;color:#aaa;">⚠️ Veri yok — filtre uygulayın veya farklı alanlar seçin.</div>
+            <div class="sk-chart-area" id="sankeyChartWrap" style="display:none;">
+                <canvas id="sankeyChart"></canvas>
+            </div>
+            <div id="sankeyLegend" class="sk-legend" style="display:none;"></div>
+            <div id="sankeyInsight" class="sk-insight" style="display:none;"></div>
+        </div>
+    </div>
+
     <!-- Empty state -->
     <div class="empty-state" id="emptyState">
         <div class="icon">📥</div>
@@ -1544,6 +1633,7 @@ function applyFilters() {
     if (document.getElementById('tab-heatmap').classList.contains('active')) renderHeatmap();
     if (document.getElementById('tab-bubble').classList.contains('active'))  renderBubble();
     if (document.getElementById('tab-bar').classList.contains('active'))     renderGroupedBar();
+    if (document.getElementById('tab-sankey').classList.contains('active'))  renderSankey();
     showToast(`${filteredData.length} kayıt filtrelendi`, 'success');
 }
 
@@ -1570,6 +1660,7 @@ function resetFilters() {
     if (document.getElementById('tab-heatmap').classList.contains('active')) renderHeatmap();
     if (document.getElementById('tab-bubble').classList.contains('active'))  renderBubble();
     if (document.getElementById('tab-bar').classList.contains('active'))     renderGroupedBar();
+    if (document.getElementById('tab-sankey').classList.contains('active'))  renderSankey();
     showToast('Filtreler sıfırlandı');
 }
 
@@ -2733,7 +2824,7 @@ function exportTableExcel() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar'];
+    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', names[i] === name);
     });
@@ -2744,6 +2835,7 @@ function switchTab(name) {
     if (name === 'heatmap') { renderHeatmap(); }
     if (name === 'bubble')  { renderBubble(); }
     if (name === 'bar')     { renderGroupedBar(); }
+    if (name === 'sankey')  { renderSankey(); }
 }
 
 // ─── RADAR ANALİZİ ───────────────────────────────────────────────────────────
@@ -3714,6 +3806,155 @@ function downloadBarPNG() {
     const a = document.createElement('a');
     a.href = barChartInst.toBase64Image('image/png', 1);
     a.download = 'gruplu-bar-grafigi.png';
+    a.click();
+}
+
+// ─── SANKEYDİYAGRAMI ─────────────────────────────────────────────────────────
+let sankeyChartInst = null;
+
+const SK_PALETTE = [
+    '#f59e0b','#ef4444','#3b82f6','#10b981','#8b5cf6',
+    '#ec4899','#06b6d4','#84cc16','#f97316','#6366f1',
+    '#14b8a6','#e11d48','#0ea5e9','#a855f7','#22c55e',
+    '#fb923c','#38bdf8','#4ade80','#c084fc','#f43f5e',
+];
+
+function _skGet(row, key) { return _hmGet(row, key); }
+
+function renderSankey() {
+    const noDataEl  = document.getElementById('sankeyNoData');
+    const wrapEl    = document.getElementById('sankeyChartWrap');
+    const insightEl = document.getElementById('sankeyInsight');
+    const legendEl  = document.getElementById('sankeyLegend');
+    if (!wrapEl) return;
+
+    const hide = () => {
+        noDataEl.style.display = 'block';
+        wrapEl.style.display   = 'none';
+        if (insightEl) insightEl.style.display = 'none';
+        if (legendEl)  legendEl.style.display  = 'none';
+    };
+
+    if (!filteredData || !filteredData.length) { hide(); return; }
+
+    const fromKey   = document.getElementById('skFrom').value;
+    const toKey     = document.getElementById('skTo').value;
+    const metric    = document.getElementById('skMetric').value;
+    const topN      = parseInt(document.getElementById('skTopN').value) || 20;
+    const minVal    = parseFloat(document.getElementById('skMinVal').value) || 0;
+    const colorMode = document.getElementById('skColorMode').value;
+
+    if (fromKey === toKey) {
+        noDataEl.textContent = '⚠️ Sol ve Sağ alanlar aynı olamaz — farklı bir alan seçin.';
+        hide(); return;
+    }
+    noDataEl.textContent = '⚠️ Veri yok — filtre uygulayın veya farklı alanlar seçin.';
+
+    // Aggregate flows
+    const flowMap = {};
+    filteredData.forEach(r => {
+        const f = _skGet(r, fromKey);
+        const t = _skGet(r, toKey);
+        if (!f || f === '—' || !t || t === '—') return;
+        const v = metric === 'hataliMiktar' ? (parseFloat(r.hataliMiktar) || 0) : 1;
+        const key = f + '|||' + t;
+        flowMap[key] = (flowMap[key] || 0) + v;
+    });
+
+    // Filter by min value and sort by flow descending, take topN
+    let flows = Object.entries(flowMap)
+        .filter(([, v]) => v >= minVal)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, topN >= 99999 ? undefined : topN)
+        .map(([k, v]) => {
+            const [from, to] = k.split('|||');
+            return { from, to, flow: v };
+        });
+
+    if (!flows.length) { hide(); return; }
+
+    // Assign colors to unique node names
+    const nodeNames = [...new Set([...flows.map(f => f.from), ...flows.map(f => f.to)])];
+    const colorMap = {};
+    nodeNames.forEach((n, i) => { colorMap[n] = SK_PALETTE[i % SK_PALETTE.length]; });
+
+    const fmtV = v => v >= 1000 ? (v / 1000).toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + 'K' : v.toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+    const metricLabel = metric === 'hataliMiktar' ? 'Hatalı Miktar' : 'Kayıt Sayısı';
+
+    // Dynamic canvas height based on unique source nodes
+    const fromNodes = [...new Set(flows.map(f => f.from))];
+    const canH = Math.max(420, fromNodes.length * 36 + 120);
+
+    noDataEl.style.display = 'none';
+    wrapEl.style.display   = 'block';
+    wrapEl.style.height    = canH + 'px';
+
+    if (sankeyChartInst) { sankeyChartInst.destroy(); sankeyChartInst = null; }
+
+    const canvas = document.getElementById('sankeyChart');
+    canvas.style.height = canH + 'px';
+    const ctx = canvas.getContext('2d');
+
+    sankeyChartInst = new Chart(ctx, {
+        type: 'sankey',
+        data: {
+            datasets: [{
+                data: flows,
+                colorFrom: c => {
+                    const d = c.dataset.data[c.dataIndex];
+                    return d ? (colorMap[d.from] || '#999') : '#999';
+                },
+                colorTo: c => {
+                    const d = c.dataset.data[c.dataIndex];
+                    return d ? (colorMap[d.to] || '#999') : '#999';
+                },
+                colorMode,
+                labels: Object.fromEntries(nodeNames.map(n => [n, n])),
+                size: 'max',
+                borderWidth: 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const d = ctx.dataset.data[ctx.dataIndex];
+                            if (!d) return '';
+                            return `${d.from} → ${d.to}: ${fmtV(d.flow)} ${metricLabel}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Legend
+    if (legendEl) {
+        legendEl.style.display = 'flex';
+        legendEl.innerHTML = nodeNames.map(n =>
+            `<span class="sk-legend-item"><span class="sk-legend-dot" style="background:${colorMap[n]}"></span><span title="${n}">${n.length > 22 ? n.slice(0, 21) + '…' : n}</span></span>`
+        ).join('');
+    }
+
+    // Insight
+    if (insightEl) {
+        const totalFlow = flows.reduce((s, f) => s + f.flow, 0);
+        const top = flows[0];
+        const pct = totalFlow > 0 ? Math.round((top.flow / totalFlow) * 100) : 0;
+        insightEl.innerHTML = `💡 En güçlü akış: <b>${top.from} → ${top.to}</b> (${fmtV(top.flow)}, toplam %${pct}) &nbsp;|&nbsp; ${flows.length} benzersiz akış &nbsp;|&nbsp; ${fromNodes.length} kaynak node &nbsp;|&nbsp; ${[...new Set(flows.map(f => f.to))].length} hedef node`;
+        insightEl.style.display = 'block';
+    }
+}
+
+function downloadSankeyPNG() {
+    if (!sankeyChartInst) return;
+    const a = document.createElement('a');
+    a.href = sankeyChartInst.toBase64Image('image/png', 1);
+    a.download = 'sankey-diyagrami.png';
     a.click();
 }
 
