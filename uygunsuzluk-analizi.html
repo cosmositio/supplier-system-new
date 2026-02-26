@@ -610,6 +610,43 @@
             margin-top:14px; line-height:1.7;
         }
 
+        /* ── POLAR AREA TAB ── */
+        .polar-wrap { padding:16px; }
+        .polar-controls {
+            display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;
+            padding:14px 16px; background:#fdf4ff; border-radius:10px;
+            border:1px solid #e9d5ff; margin-bottom:18px;
+        }
+        .polar-ctrl-group { display:flex; flex-direction:column; gap:4px; }
+        .polar-ctrl-group label { font-size:.75rem; font-weight:600; color:#6b21a8; }
+        .polar-ctrl-group select, .polar-ctrl-group input {
+            padding:6px 10px; border:1.5px solid #d8b4fe; border-radius:7px;
+            font-size:.88rem; background:#fff; color:#333; outline:none;
+        }
+        .polar-ctrl-group select:focus, .polar-ctrl-group input:focus { border-color:#a855f7; }
+        .polar-chart-area { display:flex; flex-wrap:wrap; gap:24px; align-items:flex-start; justify-content:center; }
+        .polar-canvas-wrap { position:relative; flex:0 0 auto; width:440px; height:440px; }
+        .polar-stats-panel {
+            flex:1 1 260px; display:flex; flex-direction:column; gap:10px;
+            min-width:220px; max-width:340px;
+        }
+        .polar-stat-card {
+            background:#fff; border:1.5px solid #e9d5ff; border-radius:12px;
+            padding:10px 14px; display:flex; align-items:center; gap:10px;
+            box-shadow:0 2px 8px rgba(168,85,247,.06);
+        }
+        .polar-stat-dot { width:16px; height:16px; border-radius:50%; flex-shrink:0; }
+        .polar-stat-info { display:flex; flex-direction:column; gap:2px; min-width:0; }
+        .polar-stat-name { font-size:.78rem; font-weight:700; color:#4a0a6b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .polar-stat-val  { font-size:.88rem; font-weight:800; color:#2e1065; }
+        .polar-stat-pct  { font-size:.75rem; color:#a855f7; font-weight:600; }
+        .polar-insight {
+            background:linear-gradient(135deg,#f3e5f5,#ede7f6);
+            border-left:4px solid #b94fc4; border-radius:0 8px 8px 0;
+            padding:11px 16px; font-size:.85em; color:#4a0a6b;
+            margin-top:14px; line-height:1.7;
+        }
+
         /* ── RADAR TAB ── */
         .radar-header { margin-bottom:14px; }
         .radar-controls {
@@ -1003,6 +1040,7 @@
             <button class="tab-btn" onclick="switchTab('calendar')">🔥 Takvim Isı Haritası</button>
             <button class="tab-btn" onclick="switchTab('cohort')">🔄 Cohort Analizi</button>
             <button class="tab-btn" onclick="switchTab('funnel')">🔺 Funnel Grafiği</button>
+            <button class="tab-btn" onclick="switchTab('polar')">🌐 Polar Alan</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
@@ -1940,6 +1978,51 @@
             </div>
         </div>
 
+        <!-- Polar Area Tab -->
+        <div class="tab-panel" id="tab-polar">
+            <div class="polar-wrap">
+                <h3 style="margin:0 0 14px;color:#4a0a6b;">🌐 Polar Alan Grafiği</h3>
+                <div class="polar-controls">
+                    <div class="polar-ctrl-group">
+                        <label>Boyut:</label>
+                        <select id="polarGroupBy" onchange="renderPolarArea()">
+                            <option value="hataTipi">Hata Tipi</option>
+                            <option value="tespitYeri">Tespit Yeri</option>
+                            <option value="hataKaynagi">Hata Kaynağı</option>
+                            <option value="cariAdi">Tedarikçi</option>
+                        </select>
+                    </div>
+                    <div class="polar-ctrl-group">
+                        <label>Metrik:</label>
+                        <select id="polarMetric" onchange="renderPolarArea()">
+                            <option value="hataliMiktar">Hatalı Miktar</option>
+                            <option value="count">Kayıt Sayısı</option>
+                        </select>
+                    </div>
+                    <div class="polar-ctrl-group">
+                        <label>Top N:</label>
+                        <input type="number" id="polarTopN" value="10" min="2" max="20" style="width:65px" onchange="renderPolarArea()">
+                    </div>
+                    <div class="polar-ctrl-group">
+                        <label>İkincil Boyut:</label>
+                        <select id="polarSecondary" onchange="renderPolarArea()">
+                            <option value="none">Yok</option>
+                            <option value="hataTipi">Hata Tipi</option>
+                            <option value="tespitYeri">Tespit Yeri</option>
+                            <option value="hataKaynagi">Hata Kaynağı</option>
+                            <option value="cariAdi">Tedarikçi</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="polarNoData" style="display:none;padding:30px;text-align:center;color:#aaa;">⚠️ Veri bulunamadı.</div>
+                <div class="polar-chart-area">
+                    <div class="polar-canvas-wrap"><canvas id="polarChart"></canvas></div>
+                    <div class="polar-stats-panel" id="polarStatsPanel"></div>
+                </div>
+                <div class="polar-insight" id="polarInsight" style="display:none;"></div>
+            </div>
+        </div>
+
     <!-- Empty state -->
     <div class="empty-state" id="emptyState">
         <div class="icon">📥</div>
@@ -1983,6 +2066,7 @@ function _refreshAllCharts() {
     renderCalendar();
     renderCohort();
     renderFunnel();
+    renderPolarArea();
 }
 
 function toggleBreakdownAll() {
@@ -3442,7 +3526,7 @@ function exportTableExcel() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap', 'calendar', 'cohort', 'funnel'];
+    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap', 'calendar', 'cohort', 'funnel', 'polar'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', names[i] === name);
     });
@@ -3460,6 +3544,7 @@ function switchTab(name) {
     if (name === 'calendar') { renderCalendar(); }
     if (name === 'cohort')   { renderCohort(); }
     if (name === 'funnel')   { renderFunnel(); }
+    if (name === 'polar')    { renderPolarArea(); }
 }
 
 // ─── RADAR ANALİZİ ───────────────────────────────────────────────────────────
@@ -6074,6 +6159,178 @@ function renderFunnel() {
             (${top1[1].toLocaleString('tr-TR', {maximumFractionDigits:0})} ${metLbl}, %${total > 0 ? (top1[1]/total*100).toFixed(1) : 0}) &nbsp;|&nbsp;
             İlk ${n3} kategori toplam ${metLbl}ın <strong>%${top3Pct}</strong>'ini oluşturuyor &nbsp;|&nbsp;
             1. → Son kademe düşüşü: <strong>%${dropOff}</strong>`;
+    }
+}
+
+// ─── POLAR ALAN GRAFİĞİ ──────────────────────────────────────────────────────
+let _polarChartInst = null;
+
+function renderPolarArea() {
+    const data       = _effectiveData();
+    const groupBy    = document.getElementById('polarGroupBy')?.value  || 'hataTipi';
+    const metric     = document.getElementById('polarMetric')?.value   || 'hataliMiktar';
+    const topN       = Math.max(2, parseInt(document.getElementById('polarTopN')?.value) || 10);
+    const secondary  = document.getElementById('polarSecondary')?.value || 'none';
+    const noDataEl   = document.getElementById('polarNoData');
+    const statsPanel = document.getElementById('polarStatsPanel');
+    const insightEl  = document.getElementById('polarInsight');
+    const canvas     = document.getElementById('polarChart');
+    if (!canvas) return;
+
+    // ── Aggregate ─────────────────────────────────────────────────────────
+    const agg = {};
+    data.forEach(r => {
+        const grp = (r[groupBy] || '(Belirtilmemiş)').toString().trim() || '(Belirtilmemiş)';
+        const val = metric === 'hataliMiktar' ? (Number(r.hataliMiktar) || 0) : 1;
+        agg[grp] = (agg[grp] || 0) + val;
+    });
+
+    const entries = Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, topN);
+
+    if (!entries.length) {
+        noDataEl.style.display = 'block';
+        if (statsPanel) statsPanel.innerHTML = '';
+        if (insightEl) insightEl.style.display = 'none';
+        if (_polarChartInst) { _polarChartInst.destroy(); _polarChartInst = null; }
+        return;
+    }
+    noDataEl.style.display = 'none';
+
+    const labels = entries.map(([k]) => k);
+    const values = entries.map(([, v]) => v);
+    const total  = values.reduce((s, v) => s + v, 0);
+
+    // ── Palette: vivid purple spectrum ─────────────────────────────────────
+    const PALETTE = [
+        '#4a0a6b','#6d28d9','#8b5cf6','#b94fc4','#c084fc',
+        '#e879f9','#f0abfc','#a21caf','#7c3aed','#5b21b6',
+        '#9333ea','#db2777','#4f46e5','#0891b2','#0d9488'
+    ];
+    const bgColors     = labels.map((_, i) => PALETTE[i % PALETTE.length] + 'cc'); // 80% opacity
+    const borderColors = labels.map((_, i) => PALETTE[i % PALETTE.length]);
+
+    // ── Secondary dataset (optional inner ring) ───────────────────────────
+    const datasets = [];
+
+    if (secondary !== 'none' && secondary !== groupBy) {
+        const aggSec = {};
+        data.forEach(r => {
+            const grp = (r[secondary] || '(Belirtilmemiş)').toString().trim() || '(Belirtilmemiş)';
+            const val = metric === 'hataliMiktar' ? (Number(r.hataliMiktar) || 0) : 1;
+            aggSec[grp] = (aggSec[grp] || 0) + val;
+        });
+        const secEntries = Object.entries(aggSec).sort((a, b) => b[1] - a[1]).slice(0, topN);
+        const secVals    = secEntries.map(([, v]) => v);
+        const secTot     = secVals.reduce((s, v) => s + v, 0);
+        // Normalise secondary to same total scale so rings are comparable
+        const scale = total > 0 && secTot > 0 ? total / secTot : 1;
+        datasets.push({
+            label: ({'hataTipi':'Hata Tipi','tespitYeri':'Tespit Yeri','hataKaynagi':'Hata Kaynağı','cariAdi':'Tedarikçi'}[secondary] || secondary) + ' (iç halka)',
+            data: secVals.map(v => v * scale),
+            backgroundColor: secEntries.map((_, i) => PALETTE[(i + 5) % PALETTE.length] + '88'),
+            borderColor:     secEntries.map((_, i) => PALETTE[(i + 5) % PALETTE.length]),
+            borderWidth: 1.5,
+        });
+    }
+
+    datasets.unshift({
+        label: ({'hataTipi':'Hata Tipi','tespitYeri':'Tespit Yeri','hataKaynagi':'Hata Kaynağı','cariAdi':'Tedarikçi',hataliMiktar:'Hatalı Miktar',count:'Kayıt Sayısı'}[groupBy] || groupBy),
+        data: values,
+        backgroundColor: bgColors,
+        borderColor: borderColors,
+        borderWidth: 2,
+        hoverBorderWidth: 3,
+    });
+
+    // ── Destroy & rebuild chart ───────────────────────────────────────────
+    if (_polarChartInst) { _polarChartInst.destroy(); _polarChartInst = null; }
+
+    _polarChartInst = new Chart(canvas, {
+        type: 'polarArea',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            animation: { duration: 600 },
+            scales: {
+                r: {
+                    ticks: {
+                        display: true,
+                        backdropColor: 'rgba(255,255,255,0.75)',
+                        font: { size: 10 },
+                        color: '#6b21a8',
+                        maxTicksLimit: 5,
+                        callback: v => v >= 1000 ? (v/1000).toFixed(1)+'K' : v
+                    },
+                    grid: { color: '#e9d5ff' },
+                    angleLines: { color: '#e9d5ff' },
+                    pointLabels: { display: false }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: {
+                        font: { size: 11, weight: '600' },
+                        color: '#3b0764',
+                        padding: 12,
+                        generateLabels(chart) {
+                            return chart.data.labels.map((lbl, i) => ({
+                                text: lbl.length > 22 ? lbl.slice(0, 20) + '…' : lbl,
+                                fillStyle: chart.data.datasets[0].backgroundColor[i],
+                                strokeStyle: chart.data.datasets[0].borderColor[i],
+                                lineWidth: 1.5,
+                                hidden: false,
+                                index: i
+                            }));
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label(ctx) {
+                            const v   = ctx.raw;
+                            const pct = total > 0 ? (v / total * 100).toFixed(1) : '0.0';
+                            const lbl = metric === 'hataliMiktar' ? 'Hatalı Miktar' : 'Kayıt';
+                            return ` ${v.toLocaleString('tr-TR', {maximumFractionDigits:0})} ${lbl}  (%${pct})`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // ── Stats side panel ──────────────────────────────────────────────────
+    if (statsPanel) {
+        const metLbl = metric === 'hataliMiktar' ? 'hatalı miktar' : 'kayıt';
+        statsPanel.innerHTML = entries.map(([name, val], i) => {
+            const pct   = total > 0 ? (val / total * 100).toFixed(1) : '0.0';
+            const short = name.length > 30 ? name.slice(0, 28) + '…' : name;
+            const vStr  = val.toLocaleString('tr-TR', {maximumFractionDigits:0});
+            return `<div class="polar-stat-card">
+                <div class="polar-stat-dot" style="background:${PALETTE[i % PALETTE.length]}"></div>
+                <div class="polar-stat-info">
+                    <span class="polar-stat-name" title="${name}">${i+1}. ${short}</span>
+                    <span class="polar-stat-val">${vStr} <span class="polar-stat-pct">%${pct}</span></span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // ── Insight ────────────────────────────────────────────────────────────
+    if (insightEl) {
+        const top1     = entries[0];
+        const top1Pct  = total > 0 ? (top1[1] / total * 100).toFixed(1) : '0.0';
+        const n3       = Math.min(3, entries.length);
+        const top3Pct  = total > 0 ? (entries.slice(0,n3).reduce((s,[,v])=>s+v,0) / total * 100).toFixed(1) : '0.0';
+        const metLbl   = metric === 'hataliMiktar' ? 'hatalı miktar' : 'kayıt sayısı';
+        const grpLbl   = {'hataTipi':'Hata Tipi','tespitYeri':'Tespit Yeri','hataKaynagi':'Hata Kaynağı','cariAdi':'Tedarikçi'}[groupBy] || groupBy;
+        insightEl.style.display = 'block';
+        insightEl.innerHTML = `🌐 <strong>${entries.length}</strong> ${grpLbl} kategorisi görüntüleniyor &nbsp;|&nbsp;
+            En baskın: <strong>${top1[0]}</strong> (%${top1Pct}) &nbsp;|&nbsp;
+            İlk ${n3} kategori toplam ${metLbl}ın <strong>%${top3Pct}</strong>'ini oluşturuyor &nbsp;|&nbsp;
+            Toplam: <strong>${total.toLocaleString('tr-TR',{maximumFractionDigits:0})}</strong>`;
     }
 }
 
