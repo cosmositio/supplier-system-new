@@ -527,6 +527,64 @@
             .container { padding: 14px 10px; }
         }
 
+        /* ── COHORT TAB ── */
+        .cohort-controls {
+            display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;
+            padding:14px 16px; background:#f0fdf4; border-radius:10px;
+            border:1px solid #bbf7d0; margin-bottom:18px;
+        }
+        .cohort-ctrl-group { display:flex; flex-direction:column; gap:4px; }
+        .cohort-ctrl-group label { font-size:.75rem; font-weight:600; color:#166534; }
+        .cohort-ctrl-group select, .cohort-ctrl-group input {
+            padding:6px 10px; border:1.5px solid #86efac; border-radius:7px;
+            font-size:.88rem; background:#fff; color:#333; outline:none;
+        }
+        .cohort-ctrl-group select:focus, .cohort-ctrl-group input:focus { border-color:#16a34a; }
+        .cohort-table-wrap { overflow-x:auto; overflow-y:auto; max-height:640px; }
+        .cohort-table {
+            border-collapse:separate; border-spacing:3px;
+            font-size:.82em; min-width:max-content;
+        }
+        .cohort-table th {
+            background:#166534; color:#fff; padding:8px 12px;
+            font-weight:700; position:sticky; top:0; z-index:5;
+            white-space:nowrap; letter-spacing:.3px;
+        }
+        .cohort-table th:first-child { left:0; z-index:7; min-width:160px; max-width:260px; }
+        .cohort-table th:nth-child(2) { left:0; z-index:6; min-width:80px; }
+        .cohort-table td:first-child {
+            background:#f0fdf4; font-weight:700; color:#166534;
+            position:sticky; left:0; z-index:2;
+            padding:6px 12px; border-right:2px solid #bbf7d0;
+            white-space:nowrap; max-width:260px;
+            overflow:hidden; text-overflow:ellipsis;
+        }
+        .cohort-cell {
+            width:68px; height:36px; border-radius:7px;
+            text-align:center; vertical-align:middle;
+            font-weight:700; font-size:.88em;
+            cursor:help; transition:transform .1s, filter .1s;
+        }
+        .cohort-cell:hover { transform:scale(1.14); filter:brightness(1.08); z-index:10; position:relative; }
+        .cohort-cell.c0 { background:#f0fdf4; color:#86efac; font-weight:400; font-size:.75em; }
+        .cohort-cell.c1 { background:#bbf7d0; color:#166534; }
+        .cohort-cell.c2 { background:#4ade80; color:#14532d; }
+        .cohort-cell.c3 { background:#16a34a; color:#fff; }
+        .cohort-cell.c4 { background:#166534; color:#fff; }
+        .cohort-cell.high { background:#dc2626; color:#fff; }
+        .cohort-insight {
+            margin-top:16px; padding:12px 18px;
+            background:#f0fdf4; border-left:4px solid #16a34a;
+            border-radius:0 8px 8px 0; font-size:.88em; color:#166534; line-height:1.7;
+        }
+        .cohort-mode-bar { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+        .cohort-mode-btn {
+            padding:5px 14px; border-radius:20px; border:2px solid #16a34a;
+            background:#fff; color:#166534; font-size:.82em; font-weight:700;
+            cursor:pointer; transition:all .2s;
+        }
+        .cohort-mode-btn.active { background:#16a34a; color:#fff; }
+
         /* ── RADAR TAB ── */
         .radar-header { margin-bottom:14px; }
         .radar-controls {
@@ -918,6 +976,7 @@
             <button class="tab-btn" onclick="switchTab('scatter')">📀 Dağılım (Scatter)</button>
             <button class="tab-btn" onclick="switchTab('treemap')">🗺️ Treemap</button>
             <button class="tab-btn" onclick="switchTab('calendar')">🔥 Takvim Isı Haritası</button>
+            <button class="tab-btn" onclick="switchTab('cohort')">🔄 Cohort Analizi</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
@@ -1758,6 +1817,62 @@
             <div id="calInsight" class="cal-insight" style="display:none;"></div>
         </div>
 
+        <!-- ── COHORT TAB ── -->
+        <div class="tab-panel" id="tab-cohort">
+            <div style="font-size:1.05rem;font-weight:800;color:#166534;display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                🔄 Cohort Analizi
+                <span style="font-size:.75rem;font-weight:400;color:#888;background:#f0fdf4;padding:2px 10px;border-radius:20px;">Grubun ilk uygunsuzluk ayından itibaren sonraki aylardaki hata tekrar örüntüsü</span>
+            </div>
+
+            <div class="cohort-controls">
+                <div class="cohort-ctrl-group">
+                    <label>Cohort Grubu</label>
+                    <select id="cohortGroupBy" onchange="renderCohort()">
+                        <option value="cariAdi">Tedarikçi (Cari)</option>
+                        <option value="hataTipi">Hata Tipi</option>
+                        <option value="tespitYeri">Tespit Yeri</option>
+                        <option value="hataKaynagi">Hata Kaynağı</option>
+                    </select>
+                </div>
+                <div class="cohort-ctrl-group">
+                    <label>Metrik</label>
+                    <select id="cohortMetric" onchange="renderCohort()">
+                        <option value="hataliMiktar">Hatalı Miktar</option>
+                        <option value="kayitSayisi">Kayıt Sayısı</option>
+                    </select>
+                </div>
+                <div class="cohort-ctrl-group">
+                    <label>Gösterim</label>
+                    <select id="cohortDisplay" onchange="renderCohort()">
+                        <option value="absolute">Mutlak Değer</option>
+                        <option value="percent">% (Ay 0'a göre)</option>
+                        <option value="cumulative">Kümülatif</option>
+                    </select>
+                </div>
+                <div class="cohort-ctrl-group">
+                    <label>Max Ay Offseti</label>
+                    <input type="number" id="cohortMaxOffset" value="11" min="1" max="23" style="width:70px" onchange="renderCohort()">
+                </div>
+                <div class="cohort-ctrl-group">
+                    <label>Min Ay-0 Değeri</label>
+                    <input type="number" id="cohortMinBase" value="0" min="0" step="1" style="width:80px" onchange="renderCohort()">
+                </div>
+            </div>
+
+            <div class="cohort-mode-bar">
+                <span style="font-size:.82em;color:#555;font-weight:600;align-self:center;">Renk skalası:</span>
+                <button class="cohort-mode-btn active" id="cohortScaleGlobal" onclick="setCohortScale('global')">Global</button>
+                <button class="cohort-mode-btn" id="cohortScaleRow" onclick="setCohortScale('row')">Satır Bazlı</button>
+                <button class="cohort-mode-btn" id="cohortScaleCol" onclick="setCohortScale('col')">Sütun Bazlı</button>
+            </div>
+
+            <div id="cohortNoData" style="display:none;padding:30px;text-align:center;color:#aaa;">⚠️ Tarih ve grup verisi bulunamadı. Filtreleri kontrol edin.</div>
+            <div class="cohort-table-wrap" id="cohortTableWrap">
+                <table class="cohort-table" id="cohortTable"></table>
+            </div>
+            <div class="cohort-insight" id="cohortInsight" style="display:none;"></div>
+        </div>
+
     <!-- Empty state -->
     <div class="empty-state" id="emptyState">
         <div class="icon">📥</div>
@@ -1799,6 +1914,7 @@ function _refreshAllCharts() {
     renderScatter();
     renderTreemap();
     renderCalendar();
+    renderCohort();
 }
 
 function toggleBreakdownAll() {
@@ -3258,7 +3374,7 @@ function exportTableExcel() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap', 'calendar'];
+    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap', 'calendar', 'cohort'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', names[i] === name);
     });
@@ -3272,8 +3388,9 @@ function switchTab(name) {
     if (name === 'sankey')  { renderSankey(); }
     if (name === 'boxplot') { renderBoxPlot(); }
     if (name === 'scatter') { renderScatter(); }
-    if (name === 'treemap')  { renderTreemap(); }
+    if (name === 'treemap') { renderTreemap(); }
     if (name === 'calendar') { renderCalendar(); }
+    if (name === 'cohort')   { renderCohort(); }
 }
 
 // ─── RADAR ANALİZİ ───────────────────────────────────────────────────────────
@@ -5486,6 +5603,218 @@ function renderCalendar() {
         const peakDate = peak ? new Date(peak[0]).toLocaleDateString('tr-TR',{day:'numeric',month:'long'}) : '-';
         insEl.style.display = 'block';
         insEl.innerHTML = `📊 <strong>${year}</strong> yılı · Aktif gün: <strong>${activeDays}</strong> · Toplam ${metricLabel}: <strong>${total.toLocaleString('tr',{maximumFractionDigits:1})}</strong> · En yüksek gün: <strong>${peakDate}</strong> (${peak?peak[1].toLocaleString('tr',{maximumFractionDigits:1}):'-'})`;
+    }
+}
+
+// ─── COHORT ANALİZİ ──────────────────────────────────────────────────────────
+let _cohortScale = 'global'; // 'global' | 'row' | 'col'
+
+function setCohortScale(mode) {
+    _cohortScale = mode;
+    ['global','row','col'].forEach(m => {
+        document.getElementById('cohortScale' + m.charAt(0).toUpperCase() + m.slice(1))
+            .classList.toggle('active', m === mode);
+    });
+    renderCohort();
+}
+
+function renderCohort() {
+    const data      = _effectiveData();
+    const groupBy   = document.getElementById('cohortGroupBy')?.value   || 'cariAdi';
+    const metric    = document.getElementById('cohortMetric')?.value    || 'hataliMiktar';
+    const display   = document.getElementById('cohortDisplay')?.value   || 'absolute';
+    const maxOffset = parseInt(document.getElementById('cohortMaxOffset')?.value) || 11;
+    const minBase   = parseFloat(document.getElementById('cohortMinBase')?.value) || 0;
+    const noDataEl  = document.getElementById('cohortNoData');
+    const tableEl   = document.getElementById('cohortTable');
+    const insightEl = document.getElementById('cohortInsight');
+    if (!tableEl) return;
+
+    function addMonths(ym, n) {
+        const [y, m] = ym.split('-').map(Number);
+        const d = new Date(y, m - 1 + n, 1);
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    }
+
+    // ── 1. Collect per-group monthly totals & first-seen month ─────────────
+    const groupFirstMonth = {};
+    const groupMonthVals  = {};
+
+    data.forEach(r => {
+        const grp = (r[groupBy] || '(Belirtilmemiş)').toString().trim() || '(Belirtilmemiş)';
+        const d   = parseDateStr(r.uygunsuzlukTarih);
+        if (!d) return;
+        const ym  = d.slice(0, 7);
+        const val = metric === 'hataliMiktar' ? (Number(r.hataliMiktar) || 0) : 1;
+        if (!groupFirstMonth[grp] || ym < groupFirstMonth[grp]) groupFirstMonth[grp] = ym;
+        if (!groupMonthVals[grp])  groupMonthVals[grp] = {};
+        groupMonthVals[grp][ym] = (groupMonthVals[grp][ym] || 0) + val;
+    });
+
+    const groups = Object.keys(groupFirstMonth);
+    if (!groups.length) {
+        noDataEl.style.display = 'block';
+        tableEl.innerHTML = '';
+        if (insightEl) insightEl.style.display = 'none';
+        return;
+    }
+    noDataEl.style.display = 'none';
+
+    // ── 2. Build offset matrix ─────────────────────────────────────────────
+    let rows = groups.map(grp => {
+        const first   = groupFirstMonth[grp];
+        const vals    = groupMonthVals[grp];
+        const offsets = [];
+        for (let i = 0; i <= maxOffset; i++) {
+            const ym = addMonths(first, i);
+            offsets.push(vals[ym] !== undefined ? vals[ym] : null);
+        }
+        return { grp, first, base: offsets[0] || 0, offsets };
+    }).filter(r => r.base >= minBase)
+      .sort((a, b) => a.first.localeCompare(b.first) || b.base - a.base);
+
+    if (!rows.length) {
+        noDataEl.style.display = 'block';
+        tableEl.innerHTML = '';
+        if (insightEl) insightEl.style.display = 'none';
+        return;
+    }
+
+    // ── 3. Display value calculator ───────────────────────────────────────
+    function dispVal(row, ci) {
+        const raw = row.offsets[ci];
+        if (raw === null) return null;
+        if (display === 'percent')    return row.base > 0 ? (raw / row.base) * 100 : 0;
+        if (display === 'cumulative') {
+            let cum = 0;
+            for (let i = 0; i <= ci; i++) cum += row.offsets[i] || 0;
+            return cum;
+        }
+        return raw;
+    }
+
+    // ── 4. Color scale ─────────────────────────────────────────────────────
+    const allDispVals = [];
+    rows.forEach(row => {
+        for (let i = 0; i <= maxOffset; i++) {
+            const v = dispVal(row, i);
+            if (v !== null && v > 0) allDispVals.push(v);
+        }
+    });
+    allDispVals.sort((a, b) => a - b);
+    const globalMax = allDispVals.length ? allDispVals[allDispVals.length - 1] : 1;
+
+    const colMaxArr = [];
+    for (let ci = 0; ci <= maxOffset; ci++) {
+        let mx = 0;
+        rows.forEach(row => { const v = dispVal(row, ci); if (v !== null && v > mx) mx = v; });
+        colMaxArr.push(mx || 1);
+    }
+
+    function cellClass(dv, ri, ci) {
+        if (dv === null) return 'c0';
+        if (dv === 0)    return 'c0';
+        let mx;
+        if (_cohortScale === 'global') {
+            mx = globalMax;
+        } else if (_cohortScale === 'row') {
+            const rowVals = rows[ri].offsets.map((_, i) => dispVal(rows[ri], i)).filter(v => v !== null && v > 0);
+            mx = rowVals.length ? Math.max(...rowVals) : 1;
+        } else {
+            mx = colMaxArr[ci];
+        }
+        const r = Math.min(1, dv / mx);
+        if (r < 0.20) return 'c1';
+        if (r < 0.45) return 'c2';
+        if (r < 0.72) return 'c3';
+        return 'c4';
+    }
+
+    // ── 5. Render ─────────────────────────────────────────────────────────
+    const TR_MONTHS   = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+    const metricLbl   = metric === 'hataliMiktar' ? 'Hatalı Miktar' : 'Kayıt Sayısı';
+    const groupLbl    = {cariAdi:'Tedarikçi',hataTipi:'Hata Tipi',tespitYeri:'Tespit Yeri',hataKaynagi:'Hata Kaynağı'}[groupBy] || groupBy;
+
+    let html = '<tr>';
+    html += `<th>${groupLbl}</th>`;
+    html += '<th style="white-space:nowrap;">İlk Ay</th>';
+    html += '<th style="white-space:nowrap;">Ay-0 Değeri</th>';
+    for (let i = 1; i <= maxOffset; i++) html += `<th>+${i}</th>`;
+    html += '</tr>';
+
+    rows.forEach((row, ri) => {
+        const [fy, fm] = row.first.split('-');
+        const firstLbl = TR_MONTHS[parseInt(fm) - 1] + ' ' + fy;
+        const shortGrp = row.grp.length > 26 ? row.grp.slice(0, 24) + '…' : row.grp;
+        const baseDisp = row.base.toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+
+        html += `<tr>`;
+        html += `<td title="${row.grp}">${shortGrp}</td>`;
+        html += `<td style="text-align:center;white-space:nowrap;font-weight:600;color:#555;padding:6px 10px;">${firstLbl}</td>`;
+
+        // Ay-0 cell (always shown as absolute in green)
+        html += `<td class="cohort-cell c3" style="width:78px;" title="${row.grp} – ${firstLbl} (Ay 0): ${baseDisp} ${metricLbl}">${baseDisp}</td>`;
+
+        for (let ci = 1; ci <= maxOffset; ci++) {
+            const raw = row.offsets[ci];
+            const dv  = dispVal(row, ci);
+            const ym  = addMonths(row.first, ci);
+            const [cy, cm] = ym.split('-');
+            const monthStr  = TR_MONTHS[parseInt(cm) - 1] + ' ' + cy;
+            const rawStr    = raw !== null ? raw.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) : '–';
+
+            if (dv === null) {
+                html += `<td class="cohort-cell c0" title="${row.grp} – ${monthStr}: veri yok">–</td>`;
+            } else {
+                const cls     = cellClass(dv, ri, ci);
+                const dispStr = display === 'percent'
+                    ? dv.toFixed(1) + '%'
+                    : dv.toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+                const extraTip = display !== 'absolute' ? ` (${dispStr})` : '';
+                html += `<td class="cohort-cell ${cls}" title="${row.grp} – ${monthStr}&#10;${metricLbl}: ${rawStr}${extraTip}">${dispStr}</td>`;
+            }
+        }
+        html += '</tr>';
+    });
+
+    // Totals row
+    html += '<tr style="background:#e6f4ea;">';
+    html += `<td style="font-weight:800;color:#166534;background:#c8e6c9;position:sticky;left:0;">TOPLAM</td>`;
+    html += `<td style="padding:6px 10px;"></td>`;
+    for (let ci = 0; ci <= maxOffset; ci++) {
+        let sum = 0, cnt = 0;
+        rows.forEach(row => { const v = row.offsets[ci]; if (v !== null) { sum += v; cnt++; } });
+        const sumStr = sum.toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+        html += `<td class="cohort-cell ${ci === 0 ? 'c3' : cellClass(sum, -1, ci)}" title="Tüm gruplar – +${ci} Ay: ${sumStr} ${metricLbl}">${sumStr}</td>`;
+    }
+    html += '</tr>';
+
+    tableEl.innerHTML = html;
+
+    // ── 6. Insight panel ──────────────────────────────────────────────────
+    if (insightEl) {
+        const total = rows.length;
+        const recur1 = rows.filter(r => r.offsets[1] !== null && r.offsets[1] > 0).length;
+        const recur3 = rows.filter(r => {
+            for (let i = 1; i <= Math.min(3, maxOffset); i++) {
+                if (r.offsets[i] !== null && r.offsets[i] > 0) return true;
+            }
+            return false;
+        }).length;
+        const pct1   = total > 0 ? (recur1 / total * 100).toFixed(0) : 0;
+        const pct3   = total > 0 ? (recur3 / total * 100).toFixed(0) : 0;
+        const topRow = [...rows].sort((a, b) => b.base - a.base)[0];
+        const avgBase = rows.reduce((s, r) => s + r.base, 0) / total;
+
+        insightEl.style.display = 'block';
+        insightEl.innerHTML = `
+            🔍 <strong>${total}</strong> grup analiz edildi &nbsp;|&nbsp;
+            <strong>${recur1}</strong> grup (${pct1}%) +1. ayda tekrar uygunsuzluk yaşadı &nbsp;|&nbsp;
+            <strong>${recur3}</strong> grup (${pct3}%) ilk 3 ay içinde tekrarladı &nbsp;|&nbsp;
+            Ortalama Ay-0 ${metricLbl}: <strong>${avgBase.toLocaleString('tr-TR',{maximumFractionDigits:1})}</strong> &nbsp;|&nbsp;
+            En yüksek Ay-0: <strong>${topRow.grp}</strong>
+            (<em>${topRow.base.toLocaleString('tr-TR',{maximumFractionDigits:1})} ${metricLbl}</em>)
+        `;
     }
 }
 
