@@ -599,10 +599,10 @@
             font-size:.88rem; background:#fff; color:#333; outline:none;
         }
         .funnel-ctrl-group select:focus, .funnel-ctrl-group input:focus { border-color:#a855f7; }
-        .funnel-svg-wrap { width:100%; overflow-x:auto; display:flex; justify-content:center; padding:8px 0; }
-        .funnel-legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; justify-content:center; }
-        .funnel-legend-item { display:flex; align-items:center; gap:5px; font-size:.8em; color:#444; }
-        .funnel-legend-dot { width:13px; height:13px; border-radius:3px; flex-shrink:0; }
+        .funnel-svg-wrap { width:100%; overflow-x:auto; display:flex; justify-content:center; padding:8px 0; min-height:120px; }
+        .funnel-legend { display:flex; flex-wrap:wrap; gap:10px 18px; margin-top:16px; justify-content:center; padding:10px 16px; background:#faf5ff; border-radius:10px; border:1px solid #e9d5ff; }
+        .funnel-legend-item { display:flex; align-items:center; gap:6px; font-size:.82em; color:#3b0764; }
+        .funnel-legend-dot { width:14px; height:14px; border-radius:4px; flex-shrink:0; }
         .funnel-insight {
             background:linear-gradient(135deg,#f3e5f5,#ede7f6);
             border-left:4px solid #b94fc4; border-radius:0 8px 8px 0;
@@ -5922,76 +5922,129 @@ function renderFunnel() {
     const total  = stages.reduce((s, [, v]) => s + v, 0);
     const maxVal = stages[0][1];
 
-    // Purple-gradient palette
+    // Purple-gradient palette (dark → light)
     const COLORS = [
-        '#4a0a6b','#6b1a9b','#8b2fc9','#a544d4','#b94fc4',
-        '#c966d0','#da85dc','#e8a5e8','#f2c8f4','#f8e4fb',
-        '#3b0759','#5c1087'
+        '#3b0764','#4a0a6b','#5c1087','#6d28d9','#7c3aed',
+        '#8b5cf6','#a78bfa','#c4b5fd','#ddd6fe','#ede9fe',
+        '#2e1065','#4c1d95'
     ];
 
-    // ── SVG dimensions ────────────────────────────────────────────────────
-    const W        = 660;
-    const BAR_H    = 44;
-    const GAP      = 6;
-    const LABEL_W  = 172;
-    const CHART_W  = W - LABEL_W - 8;
-    const svgH     = stages.length * (BAR_H + GAP) + GAP + 4;
+    // ── Layout constants ───────────────────────────────────────────────────
+    // Left area: row number + category label
+    // Middle area: trapezoid funnel bars (centred taper)
+    // Right area: value+% label (always outside/right of bar) + drop% badge
+    const LABEL_W  = 220;   // category name column
+    const FUNNEL_W = 480;   // funnel drawing area width
+    const RIGHT_W  = 220;   // value label + drop% badge column
+    const TOTAL_W  = LABEL_W + FUNNEL_W + RIGHT_W;
+    const BAR_H    = 54;
+    const GAP      = 8;
+    const svgH     = stages.length * (BAR_H + GAP) + GAP + 10;
 
     // ── Build SVG ─────────────────────────────────────────────────────────
+    let defs = `<defs>`;
+    stages.forEach((_, i) => {
+        defs += `<linearGradient id="fg${i}" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="${COLORS[i % COLORS.length]}" stop-opacity="0.85"/>
+            <stop offset="100%" stop-color="${COLORS[i % COLORS.length]}"/>
+        </linearGradient>`;
+    });
+    defs += `</defs>`;
+
     let svgRows = '';
     stages.forEach(([name, val], i) => {
         const ratio  = maxVal > 0 ? val / maxVal : 0;
-        const barW   = Math.max(36, ratio * CHART_W);
-        const x      = LABEL_W + (CHART_W - barW) / 2;
+        // Real funnel: bar i tapers left+right symmetrically; first bar = full width
+        const barW   = Math.max(60, ratio * FUNNEL_W);
+        const barX   = LABEL_W + (FUNNEL_W - barW) / 2;   // centred in funnel area
         const y      = GAP + i * (BAR_H + GAP);
         const color  = COLORS[i % COLORS.length];
+
         const pct    = total > 0 ? (val / total * 100).toFixed(1) : '0.0';
         const valStr = val.toLocaleString('tr-TR', { maximumFractionDigits: 0 });
 
-        let labelText;
-        if (labelMode === 'pct')         labelText = `${pct}%`;
-        else if (labelMode === 'value')  labelText = valStr;
-        else                             labelText = `${valStr}  (${pct}%)`;
+        let valLabel;
+        if (labelMode === 'pct')        valLabel = `${pct}%`;
+        else if (labelMode === 'value') valLabel = valStr;
+        else                            valLabel = `${valStr}  (${pct}%)`;
 
-        const shortName = name.length > 24 ? name.slice(0, 22) + '…' : name;
-        const textColor = barW < 90 ? color : '#fff';
+        // Category label (right-aligned, left column)
+        const maxLabelChars = 26;
+        const shortName = name.length > maxLabelChars ? name.slice(0, maxLabelChars - 1) + '…' : name;
+        const rankLabel = `${i + 1}.`;
 
-        // Trapezoid connector between this bar and the next (subtle funnel join)
+        // Trapezoid connector to next row
         let connector = '';
         if (i < stages.length - 1) {
             const nRatio = maxVal > 0 ? stages[i + 1][1] / maxVal : 0;
-            const nBarW  = Math.max(36, nRatio * CHART_W);
-            const nX     = LABEL_W + (CHART_W - nBarW) / 2;
-            const curBot  = y + BAR_H;
-            const nxtTop  = curBot + GAP;
-            connector = `<polygon points="${x.toFixed(1)},${curBot} ${(x+barW).toFixed(1)},${curBot} ${(nX+nBarW).toFixed(1)},${nxtTop} ${nX.toFixed(1)},${nxtTop}" fill="${color}" opacity="0.22"/>`;
+            const nBarW  = Math.max(60, nRatio * FUNNEL_W);
+            const nBarX  = LABEL_W + (FUNNEL_W - nBarW) / 2;
+            const curBot = y + BAR_H;
+            const nxtTop = curBot + GAP;
+            // Trapezoid connecting bottom of this bar to top of next bar
+            connector = `<polygon
+                points="${barX.toFixed(1)},${curBot} ${(barX+barW).toFixed(1)},${curBot} ${(nBarX+nBarW).toFixed(1)},${nxtTop} ${nBarX.toFixed(1)},${nxtTop}"
+                fill="${color}" opacity="0.28"/>`;
         }
 
-        // Step-down % label on the right (conversion rate vs previous step)
-        let convLabel = '';
+        // Drop% badge (bottom-left corner, between bars)
+        let dropBadge = '';
         if (i > 0) {
             const prevVal = stages[i - 1][1];
-            const conv = prevVal > 0 ? (val / prevVal * 100).toFixed(0) : 0;
-            convLabel = `<text x="${(LABEL_W + CHART_W + 6).toFixed(1)}" y="${(y + BAR_H/2 + 1).toFixed(1)}"
-                dominant-baseline="middle" font-size="10" fill="#888" font-family="Arial,sans-serif">↓${conv}%</text>`;
+            const dropPct = prevVal > 0 ? ((1 - val / prevVal) * 100).toFixed(0) : 100;
+            const retPct  = prevVal > 0 ? (val / prevVal * 100).toFixed(0) : 0;
+            dropBadge = `
+                <rect x="${(LABEL_W + FUNNEL_W + 10).toFixed(1)}" y="${(y + BAR_H/2 - 11).toFixed(1)}"
+                      width="78" height="22" rx="11" fill="#f3e8ff" stroke="#c084fc" stroke-width="1.2"/>
+                <text x="${(LABEL_W + FUNNEL_W + 49).toFixed(1)}" y="${(y + BAR_H/2 + 1).toFixed(1)}"
+                      text-anchor="middle" dominant-baseline="middle"
+                      font-size="11" fill="#6b21a8" font-family="Arial,sans-serif" font-weight="700">↓${dropPct}%  ↑${retPct}%</text>`;
         }
+
+        // Value label: always rendered to the RIGHT of the bar area
+        const valueLabelX = (LABEL_W + FUNNEL_W / 2).toFixed(1); // centred over funnel
+        // Also render inside bar only if bar is wide enough
+        const insideLabel = barW >= 120
+            ? `<text x="${(barX + barW / 2).toFixed(1)}" y="${(y + BAR_H / 2 + 1).toFixed(1)}"
+                  text-anchor="middle" dominant-baseline="middle"
+                  font-size="13" fill="#fff" font-family="Arial,sans-serif" font-weight="800"
+                  paint-order="stroke" stroke="#0003" stroke-width="3">${valLabel}</text>`
+            : `<text x="${(barX + barW / 2).toFixed(1)}" y="${(y + BAR_H / 2 + 1).toFixed(1)}"
+                  text-anchor="middle" dominant-baseline="middle"
+                  font-size="11" fill="${color}" font-family="Arial,sans-serif" font-weight="700"
+                  paint-order="stroke" stroke="#fff" stroke-width="4">${valLabel}</text>`;
 
         svgRows += `
             ${connector}
-            <rect x="${x.toFixed(1)}" y="${y}" width="${barW.toFixed(1)}" height="${BAR_H}"
-                  rx="5" fill="${color}"/>
-            <text x="${(LABEL_W - 10).toFixed(1)}" y="${(y + BAR_H/2 + 1).toFixed(1)}"
-                  text-anchor="end" dominant-baseline="middle"
-                  font-size="12" fill="#333" font-family="Arial,sans-serif" font-weight="600">${shortName}</text>
-            <text x="${(x + barW/2).toFixed(1)}" y="${(y + BAR_H/2 + 1).toFixed(1)}"
+            <!-- Bar -->
+            <rect x="${barX.toFixed(1)}" y="${y}" width="${barW.toFixed(1)}" height="${BAR_H}"
+                  rx="6" fill="url(#fg${i})"/>
+            <!-- Rank pill -->
+            <rect x="${(LABEL_W - 36).toFixed(1)}" y="${(y + BAR_H/2 - 11).toFixed(1)}"
+                  width="24" height="22" rx="11"
+                  fill="${color}"/>
+            <text x="${(LABEL_W - 24).toFixed(1)}" y="${(y + BAR_H/2 + 1).toFixed(1)}"
                   text-anchor="middle" dominant-baseline="middle"
-                  font-size="11" fill="${textColor}" font-family="Arial,sans-serif" font-weight="700">${labelText}</text>
-            ${convLabel}
+                  font-size="11" fill="#fff" font-family="Arial,sans-serif" font-weight="800">${i + 1}</text>
+            <!-- Category name -->
+            <text x="${(LABEL_W - 44).toFixed(1)}" y="${(y + BAR_H/2 - 6).toFixed(1)}"
+                  text-anchor="end" dominant-baseline="middle"
+                  font-size="13" fill="#2e1065" font-family="Arial,sans-serif" font-weight="700">${shortName}</text>
+            <!-- Value label inside bar -->
+            ${insideLabel}
+            <!-- Drop/retention badge -->
+            ${dropBadge}
         `;
     });
 
     svgWrap.innerHTML = `
-        <svg viewBox="0 0 ${W + 54} ${svgH}" style="max-width:${W + 54}px;width:100%;font-family:Arial,sans-serif;">
+        <svg viewBox="0 0 ${TOTAL_W} ${svgH}"
+             style="width:100%;max-width:${TOTAL_W}px;font-family:Arial,sans-serif;display:block;overflow:visible;">
+            ${defs}
+            <!-- Background track -->
+            <rect x="${LABEL_W}" y="${GAP}" width="${FUNNEL_W}"
+                  height="${svgH - GAP * 2}"
+                  rx="10" fill="#f5f3ff" opacity="0.6"/>
             ${svgRows}
         </svg>`;
 
@@ -6001,7 +6054,7 @@ function renderFunnel() {
             const pct = total > 0 ? (val / total * 100).toFixed(1) : '0.0';
             return `<div class="funnel-legend-item">
                 <div class="funnel-legend-dot" style="background:${COLORS[i % COLORS.length]}"></div>
-                <span>${name} — ${val.toLocaleString('tr-TR', {maximumFractionDigits:0})} (%${pct})</span>
+                <span><strong>${i+1}.</strong> ${name} — ${val.toLocaleString('tr-TR', {maximumFractionDigits:0})} (%${pct})</span>
             </div>`;
         }).join('');
     }
