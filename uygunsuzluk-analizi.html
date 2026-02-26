@@ -3669,12 +3669,8 @@ async function openKapsamliRapor() {
 
     const title = batchLabel + ' — Kalite Raporu';
 
-    // ── Grafik anlık görüntülerini koru (dedup) ──
-    const existing = await _rIdbGet(_RIDB.key);
-    const existingSnaps = (existing && existing.chartSnapshots) || [];
-    const newSnaps = (_pendingSnapshots || []).map(s => ({ ...s, batchId, addedAt: new Date().toISOString() }));
-    const newIds = new Set(newSnaps.map(s => s.id));
-    const allSnaps = [...existingSnaps.filter(s => !newIds.has(s.id)), ...newSnaps];
+    // ── Grafik anlık görüntüleri — tam replace; sadece şu an seçilenler ──
+    const allSnaps = (_pendingSnapshots || []).map(s => ({ ...s, batchId, addedAt: new Date().toISOString() }));
     _pendingSnapshots = [];
 
     // ── REPLACE: her zaman yeni temiz payload kaydet ──
