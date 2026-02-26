@@ -680,7 +680,8 @@
             <button class="tab-btn active" onclick="switchTab('pareto')">📊 Pareto Analizi</button>
             <button class="tab-btn" onclick="switchTab('breakdown')">📋 Hata Tipi Dağılımı</button>
             <button class="tab-btn" onclick="switchTab('table')">📄 Veri Tablosu</button>
-            <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;">📑 Kapsamlı Rapor Oluştur</button>
+            <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
+            <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
         </div>
 
@@ -1938,46 +1939,85 @@ async function uaLoadSnapshot(id) {
 }
 
 // Kapsamlı Rapor — tüm filtrelenmiş veriyi paketleyip rapor sayfasına gönderir
-function openKapsamliRapor() {
+async function openKapsamliRapor() {
     if (!filteredData || !filteredData.length) {
         showToast('Rapor oluşturmak için önce veri yükleyin ve filtreleyin.', 'error');
         return;
     }
-    const fTarih1   = (document.getElementById('fDateStart') || {}).value || '';
-    const fTarih2   = (document.getElementById('fDateEnd')   || {}).value || '';
-    const fHataTipi = (document.getElementById('fHataTipi')  || {}).value || '';
-    const tespitList = [...selectedTespitYeriSet];
+    const fTarih1      = (document.getElementById('fDateStart')   || {}).value || '';
+    const fTarih2      = (document.getElementById('fDateEnd')     || {}).value || '';
+    const fHataTipi    = (document.getElementById('fHataTipi')    || {}).value || '';
+    const fTipi        = (document.getElementById('fTipi')        || {}).value || '';
+    const fHataKaynagi = (document.getElementById('fHataKaynagi') || {}).value || '';
+    const fCariTip     = (document.getElementById('fCariTip')     || {}).value || '';
+    const fStokKodu    = (document.getElementById('fStokKodu')    || {}).value || '';
+    const tespitList   = [...selectedTespitYeriSet];
 
-    // Rapor başlığı — cari ve/veya tespit yeri seçiliyse özelleştirilir
+    const cariTipLabel = fCariTip === 'musteri' ? '★ Müşteri' : fCariTip === 'tedarikci' ? 'Tedarikçi' : '';
     let titleParts = [];
-    if (selectedCari)        titleParts.push(selectedCari);
+    if (fTipi)                   titleParts.push(fTipi);
+    if (cariTipLabel)            titleParts.push(cariTipLabel);
+    if (selectedCari)            titleParts.push(selectedCari);
     if (tespitList.length === 1) titleParts.push(tespitList[0]);
-    if (fHataTipi)           titleParts.push(fHataTipi);
-    const title = titleParts.length
-        ? titleParts.join(' · ') + ' — Kalite Raporu'
-        : 'Kalite Uygunsuzluk Raporu';
+    if (fHataTipi)               titleParts.push(fHataTipi);
+    const batchLabel = titleParts.join(' · ') || 'Tüm Veriler';
 
-    // Hata tipinden dışlananları çıkar (Hata Tipi Dağılımı sekmesindeki checkbox seçimi)
+    // Hata tipinden dışlananları çıkar
     const reportData = excludedHataTipleri.size > 0
         ? filteredData.filter(r => !excludedHataTipleri.has(r.hataTipi || '(Belirtilmemiş)'))
         : filteredData;
 
-    // Yalnızca raporda kullanılan alanları gönder — localStorage limitini aşmamak için
     const RAPOR_FIELDS = ['hataliMiktar','hataTipi','hataKaynagi','cariAdi','stokAdi',
                           'tespitYeri','tipi','uygunsuzlukTarih','uygunsuzlukTuru','partiHacmi'];
-    const slimRows = reportData.map(r => {
-        const o = {};
+    const rowSig = r => RAPOR_FIELDS.map(f => String(r[f] ?? '')).join('|');
+
+    const batchId  = 'b_' + Date.now();
+    const batchFilters = {
+        tarihStart: fTarih1, tarihEnd: fTarih2, tipi: fTipi, cariTip: fCariTip,
+        cari: selectedCari || '', tespitYeri: tespitList, hataTipi: fHataTipi,
+        hataKaynagi: fHataKaynagi, stokKodu: fStokKodu, excludedTypes: [...excludedHataTipleri]
+    };
+    const newBatch = {
+        id: batchId, label: batchLabel, rowCount: reportData.length,
+        addedAt: new Date().toLocaleString('tr-TR'), filters: batchFilters
+    };
+
+    // Mevcut payload'ı yükle ve birleştir
+    const existing     = await _rIdbGet(_RIDB.key);
+    let allRows        = [];
+    let batches        = [];
+    const existingSigs = new Set();
+    if (existing && existing.rows && existing.rows.length) {
+        allRows = existing.rows;
+        batches = existing.batches || [];
+        allRows.forEach(r => existingSigs.add(rowSig(r)));
+    }
+
+    // Yeni satırları etiketle ve tekrar edenleri atla
+    const newSlim = reportData.map(r => {
+        const o = { _batchId: batchId };
         RAPOR_FIELDS.forEach(f => { if (r[f] !== undefined) o[f] = r[f]; });
         return o;
-    });
+    }).filter(r => !existingSigs.has(rowSig(r)));
 
-    // Pareto grupları hesapla — her grup için ayrı fishbone
+    if (!newSlim.length) {
+        showToast('Bu filtredeki kayıtlar zaten raporda mevcut — yeni veri eklenmedi.', 'warn');
+        if (!window._kapsamliWin || window._kapsamliWin.closed)
+            window._kapsamliWin = window.open('kapsamli-rapor.html', 'kapsamliRapor');
+        else window._kapsamliWin.focus();
+        return;
+    }
+
+    allRows = [...allRows, ...newSlim];
+    batches = [...batches, newBatch];
+
+    // Tüm satırlar üzerinden Pareto gruplarını yeniden hesapla
     const _pgMetric = document.getElementById('paretoMetric').value;
     const _pgTopN   = parseInt(document.getElementById('paretoTop').value);
     const _pgThresh = parseInt(document.getElementById('paretoThreshold').value);
     const _pgKey    = document.getElementById('paretoGroup').value;
     const _pgAgg    = {};
-    reportData.forEach(r => {
+    allRows.forEach(r => {
         const k = r[_pgKey] || '(Belirtilmemiş)';
         if (!_pgAgg[k]) _pgAgg[k] = { count: 0, hatali: 0 };
         _pgAgg[k].count++;
@@ -1994,31 +2034,43 @@ function openKapsamliRapor() {
         if ((_pgCum / (_pgTotal || 1)) * 100 >= _pgThresh) { _pgCut = _i + 1; break; }
     }
     const paretoGroups = _pgTopSlice.slice(0, _pgCut).map(e => {
-        const gRows = reportData.filter(r => (r[_pgKey] || '(Belirtilmemiş)') === e.label);
-        const slim2 = gRows.map(r => { const o = {}; RAPOR_FIELDS.forEach(f => { if (r[f] !== undefined) o[f] = r[f]; }); return o; });
-        return { label: e.label, totalHatali: e.hatali, count: e.count, pct: +(e.value / (_pgTotal || 1) * 100).toFixed(1), groupRows: slim2 };
+        const gRows = allRows.filter(r => (r[_pgKey] || '(Belirtilmemiş)') === e.label);
+        return { label: e.label, totalHatali: e.hatali, count: e.count, pct: +(e.value / (_pgTotal||1) * 100).toFixed(1), groupRows: gRows };
     });
 
+    const title = batches.length > 1
+        ? `Birleşik Kalite Raporu — ${batches.length} filtre, ${allRows.length} kayıt`
+        : (batchLabel + ' — Kalite Raporu');
+
     const payload = {
-        rows: slimRows,
-        title,
+        rows: allRows, batches, title,
         generatedAt: new Date().toISOString(),
         paretoGroups,
         paretoGroupKey:  _pgKey,
         paretoThreshold: _pgThresh,
-        filters: {
-            tarihStart:    fTarih1,
-            tarihEnd:      fTarih2,
-            cari:          selectedCari || '',
-            tespitYeri:    tespitList,
-            hataTipi:      fHataTipi,
-            excludedTypes: [...excludedHataTipleri]
-        }
+        filters: batchFilters
     };
 
-    _rIdbSave(payload)
-        .then(() => window.open('kapsamli-rapor.html', '_blank'))
-        .catch(e => showToast('Rapor kaydedilemedi: ' + (e && e.message || e), 'error'));
+    try {
+        await _rIdbSave(payload);
+        showToast(`✅ ${newSlim.length} kayıt eklendi — raporda toplam ${allRows.length} kayıt (${batches.length} filtre)`, 'success');
+        if (!window._kapsamliWin || window._kapsamliWin.closed)
+            window._kapsamliWin = window.open('kapsamli-rapor.html', 'kapsamliRapor');
+        else
+            window._kapsamliWin.location.reload();
+    } catch(e) {
+        showToast('Rapor kaydedilemedi: ' + (e && e.message || e), 'error');
+    }
+}
+
+async function temizleKapsamliRapor() {
+    if (!confirm('Kapsamlı rapordaki tüm birikmiş veri silinsin mi?\nYeni bir rapor başlatmak için Evet\'e basın.')) return;
+    await _rIdbDel(_RIDB.key);
+    if (window._kapsamliWin && !window._kapsamliWin.closed) {
+        window._kapsamliWin.close();
+        window._kapsamliWin = null;
+    }
+    showToast('Rapor temizlendi — artık yeni filtrelerle başlayabilirsiniz.', 'success');
 }
 
 // Özellik 1: Tedarikçi bazında Fishbone — 6M yapısı

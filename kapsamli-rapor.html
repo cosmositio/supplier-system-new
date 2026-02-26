@@ -312,6 +312,37 @@ body.report-editing [data-ed]:focus {
     background:#fff;
     box-shadow:0 0 0 3px rgba(37,99,235,.13);
 }
+/* ── SECTION HIDE ── */
+.section-hdr .kr-hide-btn {
+    margin-left:8px; background:transparent; border:none;
+    cursor:pointer; color:#94a3b8; font-size:1rem; padding:2px 7px;
+    border-radius:6px; line-height:1; transition:all .15s; flex-shrink:0;
+}
+.section-hdr .kr-hide-btn:hover { background:#fee2e2; color:#dc2626; }
+/* ── SOURCES PANEL ── */
+.kr-sources {
+    background:#fff; border-radius:var(--r); box-shadow:var(--shadow);
+    margin-bottom:24px; overflow:hidden; border-left:4px solid #2563eb;
+}
+.kr-sources-hdr {
+    display:flex; align-items:center; gap:10px; padding:13px 20px;
+    background:#eff6ff; border-bottom:1px solid #dbeafe;
+}
+.kr-sources-hdr h3 { font-size:.88rem; font-weight:700; color:#1e3a8a; flex:1; margin:0; }
+.kr-src-row {
+    display:flex; align-items:center; gap:12px; padding:9px 20px;
+    border-bottom:1px solid #f1f5f9; font-size:.81rem; flex-wrap:wrap;
+}
+.kr-src-row:last-child { border-bottom:none; }
+.kr-src-num { font-weight:800; color:#2563eb; min-width:22px; }
+.kr-src-label { font-weight:700; color:var(--c-text); flex:1; min-width:120px; }
+.kr-src-meta { color:var(--c-sub); font-size:.74rem; flex:2; }
+.kr-src-del {
+    background:#fee2e2; color:#dc2626; border:none; border-radius:6px;
+    padding:4px 10px; font-size:.74rem; font-weight:700; cursor:pointer; flex-shrink:0;
+}
+.kr-src-del:hover { background:#fecaca; }
+
 </style>
 </head>
 <body>
@@ -327,6 +358,7 @@ body.report-editing [data-ed]:focus {
         <button class="btn btn-outline no-print" onclick="krSaveSnapshot()" title="Raporu isimle kaydet">💾 Kaydet</button>
         <button class="btn btn-outline no-print" onclick="krOpenSnapshotModal()" title="Kayıtlı raporları listele">📁 Raporlarım</button>
         <button id="btnEditMode" class="btn btn-outline no-print" onclick="toggleEditMode()">✏️ Raporu Düzenle</button>
+        <button class="btn btn-outline no-print" onclick="krShowAllSections()" title="Gizlenen tüm bölümleri tekrar göster">👁 Tüm Bölümler</button>
         <button class="btn btn-outline no-print" onclick="window.print()">🖨️ Yazdır / PDF</button>
         <button class="btn btn-primary" onclick="window.close()">✖ Kapat</button>
     </div>
@@ -2307,9 +2339,13 @@ function runReport(payload) {
 
     const metaItems = [];
     if (filters.tarihStart || filters.tarihEnd) metaItems.push(`📅 ${filters.tarihStart||'—'} / ${filters.tarihEnd||'—'}`);
-    if (filters.cari) metaItems.push(`🏢 ${filters.cari}`);
+    if (filters.tipi)     metaItems.push(`🏷️ Tip: ${filters.tipi}`);
+    if (filters.cariTip)  metaItems.push(`🏢 Cari Tipi: ${filters.cariTip === 'musteri' ? '★ Müşteri' : filters.cariTip === 'tedarikci' ? 'Tedarikçi' : filters.cariTip}`);
+    if (filters.cari)     metaItems.push(`👤 ${filters.cari}`);
     if (filters.tespitYeri?.length) metaItems.push(`📍 ${filters.tespitYeri.join(', ')}`);
     if (filters.hataTipi) metaItems.push(`🔍 ${filters.hataTipi}`);
+    if (filters.hataKaynagi) metaItems.push(`⚙️ ${filters.hataKaynagi}`);
+    if (filters.stokKodu) metaItems.push(`📦 Stok: ${filters.stokKodu}`);
     if (filters.excludedTypes?.length) metaItems.push(`🚫 ${filters.excludedTypes.length} tip hariç tutuldu`);
     metaItems.push(`📊 ${totalRec} kayıt`);
     metaItems.push(`⏱ ${genAt.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} oluşturuldu`);
@@ -2591,6 +2627,120 @@ function runReport(payload) {
 
     // ── Enable edit mode if it was on before re-render ──
     if (_editMode) { _editMode = false; toggleEditMode(); }
+
+    // ── Bölüm gizleme butonlarını ekle + kaynaklar panelini göster ──
+    _krInjectHideButtons();
+    _krRenderSources(payload);
+}
+
+// ─────────────────────────────────────────────
+// BÖLÜM GİZLE / GÖSTER
+// ─────────────────────────────────────────────
+const _KR_HIDE_KEY = 'kr_hidden_sections';
+
+function _krSaveHidden(idsSet) {
+    return _idbPut(_KR_HIDE_KEY, [...idsSet]);
+}
+function _krLoadHidden() {
+    return _idbGet(_KR_HIDE_KEY).then(v => new Set(v || []));
+}
+
+async function krHideSection(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+    const hidden = await _krLoadHidden();
+    hidden.add(id);
+    _krSaveHidden(hidden);
+}
+
+async function krShowAllSections() {
+    document.querySelectorAll('.section[id]').forEach(el => el.style.display = '');
+    _krSaveHidden(new Set());
+}
+
+async function _krInjectHideButtons() {
+    const hidden = await _krLoadHidden();
+    document.querySelectorAll('.section[id]').forEach(sec => {
+        const id  = sec.id;
+        const hdr = sec.querySelector('.section-hdr');
+        if (!hdr) return;
+        // Remove old button if exists (re-render)
+        const old = hdr.querySelector('.kr-hide-btn');
+        if (old) old.remove();
+        const btn = document.createElement('button');
+        btn.className   = 'kr-hide-btn no-print';
+        btn.title       = 'Bu bölümü gizle (Tüm Bölümler butonuyla geri açabilirsiniz)';
+        btn.textContent = '✕';
+        btn.setAttribute('onclick', `krHideSection('${id}')`);
+        hdr.appendChild(btn);
+        if (hidden.has(id)) sec.style.display = 'none';
+    });
+}
+
+// ─────────────────────────────────────────────
+// VERİ KAYNAKLARI (BATCHES) PANELİ
+// ─────────────────────────────────────────────
+function _krRenderSources(payload) {
+    const old = document.getElementById('kr-sources-panel');
+    if (old) old.remove();
+    const batches = payload.batches;
+    if (!batches || batches.length < 2) return;
+
+    const kpiGrid = document.getElementById('kpiGrid');
+    if (!kpiGrid) return;
+
+    const panel = document.createElement('div');
+    panel.id = 'kr-sources-panel';
+    panel.className = 'kr-sources no-print';
+
+    const rows = batches.map((b, i) => {
+        const fs = b.filters || {};
+        const tags = [
+            fs.tipi       ? `Tip: ${fs.tipi}`                                                   : '',
+            fs.cariTip    ? `Cari: ${fs.cariTip === 'musteri' ? '★ Müşteri' : 'Tedarikçi'}`     : '',
+            fs.cari       ? fs.cari                                                              : '',
+            fs.hataTipi   ? `Hata: ${fs.hataTipi}`                                              : '',
+            fs.hataKaynagi? `Kaynak: ${fs.hataKaynagi}`                                         : '',
+            (fs.tarihStart||fs.tarihEnd) ? `${fs.tarihStart||'—'} / ${fs.tarihEnd||'—'}`        : '',
+            fs.tespitYeri?.length ? fs.tespitYeri.join(', ')                                    : '',
+        ].filter(Boolean).join(' · ') || 'Tüm Veriler';
+        return `<div class="kr-src-row">
+            <span class="kr-src-num">${i+1}.</span>
+            <span class="kr-src-label">${esc(b.label)}</span>
+            <span class="kr-src-meta">${esc(tags)} &nbsp;·&nbsp; ${fmtN(b.rowCount)} kayıt &nbsp;·&nbsp; ${esc(b.addedAt)}</span>
+            <button class="kr-src-del" onclick="krRemoveBatch('${b.id}')">✕ Çıkar</button>
+        </div>`;
+    }).join('');
+
+    panel.innerHTML = `
+        <div class="kr-sources-hdr">
+            <h3>📂 Rapor Veri Kaynakları &mdash; ${batches.length} filtre birleştirildi</h3>
+        </div>${rows}`;
+
+    kpiGrid.insertAdjacentElement('afterend', panel);
+}
+
+async function krRemoveBatch(batchId) {
+    if (!confirm('Bu veri kaynağı rapordan çıkarılsın mı?')) return;
+    const existing = await idbLoadRapor();
+    if (!existing) return;
+    const allRows = (existing.rows    || []).filter(r => r._batchId !== batchId);
+    const batches = (existing.batches || []).filter(b => b.id       !== batchId);
+    if (!allRows.length) {
+        alert('Son veri kaynağı kaldırıldı — rapor boş kalacak. Lütfen önce yeni filtre ekleyin.');
+        return;
+    }
+    const newTitle = batches.length > 1
+        ? `Birleşik Kalite Raporu — ${batches.length} filtre, ${allRows.length} kayıt`
+        : (batches[0]?.label ? batches[0].label + ' — Kalite Raporu' : 'Kalite Uygunsuzluk Raporu');
+    const updated  = Object.assign({}, existing, { rows: allRows, batches, title: newTitle });
+    const r = indexedDB.open(_IDB.name, _IDB.ver);
+    r.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
+    r.onsuccess = e => {
+        const tx = e.target.result.transaction(_IDB.store, 'readwrite');
+        tx.objectStore(_IDB.store).put(updated, _IDB.key);
+        tx.oncomplete = () => { _destroyCharts(); runReport(updated); };
+    };
 }
 
 // close snap modal on backdrop click
