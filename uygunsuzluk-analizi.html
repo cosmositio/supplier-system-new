@@ -2616,20 +2616,55 @@ function radarBuildSelector() {
 
 function _radarRenderList(groups) {
     const list   = document.getElementById('radarGroupList');
-    const maxVal = groups[0]?.total || 1;
-    list.innerHTML = groups.map((g, i) => {
+    const allGrps = list._allGroups || groups;
+    const maxVal = (allGrps[0]?.total) || 1;
+    // Color index based on position in FULL list (stable colors)
+    const colorIdx = {};
+    allGrps.forEach((g, i) => { colorIdx[g.label] = i; });
+
+    list.innerHTML = groups.map(g => {
         const pct = Math.round((g.total / maxVal) * 100);
         const sel = _radarSelected.has(g.label);
-        // escape single quotes in label for inline onclick
-        const esc = g.label.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-        return `<div class="radar-group-item ${sel ? 'rgi-selected' : ''}" onclick="_radarToggle(this,'${esc}')">
-            <input type="checkbox" ${sel ? 'checked' : ''} onclick="event.stopPropagation()">
-            <span class="radar-color-dot" style="background:${RADAR_PALETTE[i % RADAR_PALETTE.length]};opacity:${sel?1:.4};"></span>
-            <span class="rgi-label" title="${g.label}">${g.label}</span>
+        const ci  = colorIdx[g.label] ?? 0;
+        // Encode label safely as base64 to avoid any escaping issues
+        const safeLabel = g.label.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+        return `<div class="radar-group-item ${sel ? 'rgi-selected' : ''}" data-lbl="${safeLabel}">
+            <input type="checkbox" class="rgi-chk" ${sel ? 'checked' : ''}>
+            <span class="radar-color-dot" style="background:${RADAR_PALETTE[ci % RADAR_PALETTE.length]};opacity:${sel?1:.35};"></span>
+            <span class="rgi-label" title="${safeLabel}">${safeLabel}</span>
             <span class="rgi-val">${g.total.toLocaleString('tr-TR',{maximumFractionDigits:0})} (${pct}%)</span>
         </div>`;
     }).join('');
 }
+
+// One-time delegated click listener on the list container
+(function _radarInitListener() {
+    document.addEventListener('click', function(e) {
+        const item = e.target.closest('#radarGroupList .radar-group-item');
+        if (!item) return;
+        const label = item.getAttribute('data-lbl')
+            ?.replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&lt;/g,'<');
+        if (!label) return;
+        const chk = item.querySelector('.rgi-chk');
+        if (_radarSelected.has(label)) {
+            _radarSelected.delete(label);
+            item.classList.remove('rgi-selected');
+            if (chk) chk.checked = false;
+            const dot = item.querySelector('.radar-color-dot');
+            if (dot) dot.style.opacity = '.35';
+        } else {
+            _radarSelected.add(label);
+            item.classList.add('rgi-selected');
+            if (chk) chk.checked = true;
+            const dot = item.querySelector('.radar-color-dot');
+            if (dot) dot.style.opacity = '1';
+        }
+        const total = (document.getElementById('radarGroupList')?._allGroups || []).length;
+        const hint  = document.getElementById('radarSelHint');
+        if (hint) hint.textContent = `Seçili: ${_radarSelected.size} / ${total}`;
+        renderRadar();
+    });
+})();
 
 function _radarFilterList() {
     const q    = (document.getElementById('radarGroupSearch')?.value || '').toLowerCase();
@@ -2639,19 +2674,9 @@ function _radarFilterList() {
     _radarRenderList(filtered);
 }
 
+// Keep _radarToggle for backward compat but it's no longer used via inline onclick
 function _radarToggle(el, label) {
-    if (_radarSelected.has(label)) {
-        _radarSelected.delete(label);
-        el.classList.remove('rgi-selected');
-        el.querySelector('input').checked = false;
-    } else {
-        _radarSelected.add(label);
-        el.classList.add('rgi-selected');
-        el.querySelector('input').checked = true;
-    }
-    const total = (document.getElementById('radarGroupList')._allGroups || []).length;
-    document.getElementById('radarSelHint').textContent = `Seçili: ${_radarSelected.size} / ${total}`;
-    renderRadar();
+    /* superseded by delegated listener */
 }
 
 function radarSelectAll() {
