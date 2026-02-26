@@ -989,6 +989,33 @@
         .gb-ctrl-group select:focus { border-color:#16a34a; }
         .gb-chart-area { position:relative; height:500px; margin-top:18px; }
         .gb-insight { margin-top:14px; padding:12px 16px; background:#dcfce7; border-radius:10px; font-size:0.83em; color:#14532d; border-left:4px solid #16a34a; }
+
+        /* ── CHART PICKER MODAL ── */
+        #chartPickerModal { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .2s; }
+        #chartPickerModal.open { opacity:1; pointer-events:all; }
+        .cpm-box { background:#fff; border-radius:16px; width:min(580px,95vw); max-height:85vh; display:flex; flex-direction:column; box-shadow:0 8px 40px rgba(0,0,0,.28); overflow:hidden; }
+        .cpm-head { display:flex; align-items:center; justify-content:space-between; padding:16px 22px; background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; }
+        .cpm-head h3 { font-size:1rem; font-weight:700; margin:0; }
+        .cpm-head .cpm-close { background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer; line-height:1; padding:0; }
+        .cpm-sub { padding:10px 22px 0; font-size:.8rem; color:#64748b; }
+        .cpm-all-row { display:flex; gap:8px; padding:8px 22px; border-bottom:1px solid #f1f5f9; }
+        .cpm-all-btn { padding:4px 13px; border-radius:8px; border:1.5px solid #d1d5db; background:#fff; font-size:.77rem; font-weight:700; cursor:pointer; color:#374151; }
+        .cpm-all-btn:hover { background:#f8fafc; }
+        .cpm-body { overflow-y:auto; padding:14px 18px; display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+        .cpm-item { display:flex; align-items:center; gap:9px; padding:10px 14px; border:1.5px solid #e2e8f0; border-radius:10px; cursor:pointer; user-select:none; transition:all .12s; }
+        .cpm-item:hover { border-color:#93c5fd; background:#f8fbff; }
+        .cpm-item.cpm-selected { border-color:#2563eb; background:#dbeafe; }
+        .cpm-item input[type=checkbox] { width:15px; height:15px; accent-color:#2563eb; cursor:pointer; flex-shrink:0; pointer-events:none; }
+        .cpm-lbl { font-size:.84rem; font-weight:600; color:#1e2535; }
+        .cpm-foot { padding:14px 22px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+        .cpm-sel-count { font-size:.8rem; color:#64748b; }
+        .cpm-btns { display:flex; gap:8px; }
+        .cpm-btn { padding:9px 20px; border-radius:9px; border:none; font-size:.87rem; font-weight:700; cursor:pointer; }
+        .cpm-btn-cancel { background:#f1f5f9; color:#64748b; }
+        .cpm-btn-cancel:hover { background:#e2e8f0; }
+        .cpm-btn-ok { background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; }
+        .cpm-btn-ok:hover { filter:brightness(1.1); }
+        .cpm-btn-ok:disabled { opacity:.45; cursor:not-allowed; }
     </style>
 </head>
 <body>
@@ -1160,7 +1187,7 @@
             <button class="tab-btn" onclick="switchTab('polar')">🌐 Polar Alan</button>
             <button class="tab-btn" onclick="switchTab('chord')">🕷️ Chord Diyagramı</button>
             <button class="tab-btn" onclick="switchTab('beeswarm')">🟣 Beeswarm / Dot Plot</button>
-            <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
+            <button class="tab-btn" onclick="openChartPickerModal()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi ve seçilen grafikleri kapsamlı rapora ekler">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
         </div>
@@ -3587,13 +3614,20 @@ async function openKapsamliRapor() {
         ? `Birleşik Kalite Raporu — ${batches.length} filtre, ${allRows.length} kayıt`
         : (batchLabel + ' — Kalite Raporu');
 
+    // Combine existing + new chart snapshots
+    const existingSnaps = (existing && existing.chartSnapshots) || [];
+    const newSnaps = (_pendingSnapshots || []).map(s => ({ ...s, batchId, addedAt: new Date().toISOString() }));
+    const allSnaps = [...existingSnaps, ...newSnaps];
+    _pendingSnapshots = [];
+
     const payload = {
         rows: allRows, batches, title,
         generatedAt: new Date().toISOString(),
         paretoGroups,
         paretoGroupKey:  _pgKey,
         paretoThreshold: _pgThresh,
-        filters: batchFilters
+        filters: batchFilters,
+        chartSnapshots: allSnaps
     };
 
     try {
@@ -3616,6 +3650,97 @@ async function temizleKapsamliRapor() {
         window._kapsamliWin = null;
     }
     showToast('Rapor temizlendi — artık yeni filtrelerle başlayabilirsiniz.', 'success');
+}
+
+// ─── Chart Picker Modal ───────────────────────────────────────────────────────
+const _CPM_CHARTS = [
+    { id:'pareto',   label:'📊 Pareto Analizi',         canvas:'#paretoChart'  },
+    { id:'radar',    label:'🕷️ Radar Analizi',          canvas:'#radarChart'   },
+    { id:'bubble',   label:'🫧 Kabarcık Grafiği',        canvas:'#bubbleChart'  },
+    { id:'bar',      label:'📊 Gruplu/Yığılmış Bar',    canvas:'#barChart'     },
+    { id:'sankey',   label:'🌊 Sankey Diyagramı',       canvas:'#sankeyChart'  },
+    { id:'boxplot',  label:'📦 Kutu Grafik (Box Plot)', canvas:'#bpChart'      },
+    { id:'scatter',  label:'📀 Dağılım (Scatter)',      canvas:'#scChart'      },
+    { id:'treemap',  label:'🗺️ Treemap',                canvas:'#tmChart'      },
+    { id:'calendar', label:'🔥 Takvim Isı Haritası',   svg:'#calSvg'          },
+    { id:'funnel',   label:'🔽 Funnel Grafiği',         svg:'#funnelSvgWrap'   },
+    { id:'polar',    label:'⭐ Polar Alan',             canvas:'#polarChart'   },
+    { id:'chord',    label:'🔗 Chord Diyagramı',       svg:'#chordSvgWrap'    },
+    { id:'beeswarm', label:'🟣 Beeswarm / Dot Plot',   svg:'#bswSvgWrap'      },
+];
+let _pendingSnapshots = [];
+
+function _cpmUpdateCount() {
+    const n = document.querySelectorAll('#cpmBody .cpm-item.cpm-selected').length;
+    const el = document.getElementById('cpmSelCount');
+    if (el) el.textContent = `${n} grafik seçili`;
+    const btn = document.getElementById('cpmConfirmBtn');
+    if (btn) btn.disabled = n === 0;
+}
+
+function _cpmSelectAll(select) {
+    document.querySelectorAll('#cpmBody .cpm-item').forEach(el => {
+        const cb = el.querySelector('input[type=checkbox]');
+        cb.checked = select;
+        el.classList.toggle('cpm-selected', select);
+    });
+    _cpmUpdateCount();
+}
+
+function openChartPickerModal() {
+    if (!filteredData || !filteredData.length) {
+        showToast('Rapor oluşturmak için önce veri yükleyin.', 'error');
+        return;
+    }
+    const body = document.getElementById('cpmBody');
+    body.innerHTML = _CPM_CHARTS.map(c => `
+        <label class="cpm-item cpm-selected" data-cid="${c.id}">
+            <input type="checkbox" checked onchange="this.closest('.cpm-item').classList.toggle('cpm-selected',this.checked);_cpmUpdateCount()">
+            <span class="cpm-lbl">${c.label}</span>
+        </label>`).join('');
+    _cpmUpdateCount();
+    document.getElementById('chartPickerModal').classList.add('open');
+}
+
+function _svgToDataUrl(container) {
+    const svg = container.tagName && container.tagName.toLowerCase() === 'svg'
+        ? container : container.querySelector('svg');
+    if (!svg || !svg.children.length) return null;
+    try {
+        if (!svg.getAttribute('xmlns')) svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        const xml = new XMLSerializer().serializeToString(svg);
+        return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
+    } catch(e) { return null; }
+}
+
+function _cpmCaptureOne(def) {
+    try {
+        if (def.canvas) {
+            const canvas = document.querySelector(def.canvas);
+            if (!canvas || !canvas.width || canvas.width < 10) return null;
+            return { id: def.id, label: def.label, dataUrl: canvas.toDataURL('image/png'), type: 'png' };
+        } else if (def.svg) {
+            const container = document.querySelector(def.svg);
+            if (!container) return null;
+            const dataUrl = _svgToDataUrl(container);
+            if (!dataUrl) return null;
+            return { id: def.id, label: def.label, dataUrl, type: 'svg' };
+        }
+    } catch(e) { console.warn('Chart capture failed for', def.id, e); }
+    return null;
+}
+
+async function _cpmConfirm() {
+    const selected = _CPM_CHARTS.filter(c => {
+        const item = document.querySelector(`#cpmBody [data-cid="${c.id}"]`);
+        return item && item.classList.contains('cpm-selected');
+    });
+    document.getElementById('chartPickerModal').classList.remove('open');
+    _pendingSnapshots = selected.map(c => _cpmCaptureOne(c)).filter(Boolean);
+    if (_pendingSnapshots.length === 0 && selected.length > 0) {
+        showToast('Seçilen grafikler henüz render edilmemiş — sekmeye bir kez geçip tekrar deneyin.', 'warn');
+    }
+    await openKapsamliRapor();
 }
 
 // Özellik 1: Tedarikçi bazında Fishbone — 6M yapısı
@@ -7350,6 +7475,29 @@ function openFishboneMulti() {
     <div style="display:flex;gap:10px;">
         <button onclick="openFishboneMulti()">🐟 Fishbone'a Gönder</button>
         <button class="multi-cancel-btn" onclick="toggleMultiAnalyze()">İptal</button>
+    </div>
+</div>
+
+<!-- CHART PICKER MODAL -->
+<div id="chartPickerModal" onclick="if(event.target===this)this.classList.remove('open')">
+    <div class="cpm-box">
+        <div class="cpm-head">
+            <h3>📑 Kapsamlı Rapora Ekle &mdash; Grafik Seçin</h3>
+            <button class="cpm-close" onclick="document.getElementById('chartPickerModal').classList.remove('open')">✕</button>
+        </div>
+        <p class="cpm-sub">Kapsamlı rapora eşlik etmesini istediğiniz grafikleri işaretleyin.</p>
+        <div class="cpm-all-row">
+            <button class="cpm-all-btn" onclick="_cpmSelectAll(true)">Tümünü Seç</button>
+            <button class="cpm-all-btn" onclick="_cpmSelectAll(false)">İşareti Kaldır</button>
+        </div>
+        <div class="cpm-body" id="cpmBody"></div>
+        <div class="cpm-foot">
+            <span class="cpm-sel-count" id="cpmSelCount"></span>
+            <div class="cpm-btns">
+                <button class="cpm-btn cpm-btn-cancel" onclick="document.getElementById('chartPickerModal').classList.remove('open')">İptal</button>
+                <button class="cpm-btn cpm-btn-ok" id="cpmConfirmBtn" onclick="_cpmConfirm()">✅ Rapora Ekle</button>
+            </div>
+        </div>
     </div>
 </div>
 </body>

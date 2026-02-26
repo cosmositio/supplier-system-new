@@ -366,6 +366,19 @@ body.report-editing [data-ed]:focus {
 #kr-hidden-badge.kr-badge-hidden { display:none; }
 @keyframes krbadgeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 
+/* ── CHART SNAPSHOTS ── */
+.snap-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(480px,1fr)); gap:20px; margin-top:8px; }
+.snap-card { border:1.5px solid var(--c-border); border-radius:12px; overflow:hidden; background:var(--c-card); }
+.snap-card-head { display:flex; align-items:center; justify-content:space-between; padding:10px 14px;
+    background:#f8faff; border-bottom:1px solid var(--c-border); font-size:.82rem; font-weight:700; color:var(--c-text); }
+.snap-card-head .snap-del { background:none; border:none; cursor:pointer; color:#dc2626; font-size:1rem; padding:2px 4px; border-radius:4px; }
+.snap-card-head .snap-del:hover { background:#fee2e2; }
+.snap-card img { display:block; width:100%; max-height:480px; object-fit:contain; padding:12px; background:#fff; }
+.snap-empty { text-align:center; color:var(--c-sub); font-size:.9rem; padding:40px 20px;
+    background:#f8f9fc; border-radius:10px; border:2px dashed #e2e6ed; }
+#s-snapshots.hidden-sec { display:none; }
+
+html, body { scroll-behavior:smooth; }
 </style>
 </head>
 <body>
@@ -400,6 +413,7 @@ body.report-editing [data-ed]:focus {
     <div class="nav-item" onclick="navScrollTo('s-6m')"><span class="nav-ico">🔧</span> 6M Kaynak Analizi</div>
     <div class="nav-item" onclick="navScrollTo('s-trend')"><span class="nav-ico">📈</span> Aylık Trend</div>
     <div class="nav-item" onclick="navScrollTo('s-aksiyon')"><span class="nav-ico">✅</span> Aksiyon Planı</div>
+    <div class="nav-item" id="nav-snapshots" onclick="navScrollTo('s-snapshots')" style="display:none;"><span class="nav-ico">📷</span> Grafik Anlık Görüntüleri</div>
 </nav>
 
 <!-- MAIN CONTENT -->
@@ -583,6 +597,19 @@ body.report-editing [data-ed]:focus {
                 </thead>
                 <tbody id="aksiyonBody"></tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- CHART SNAPSHOTS -->
+    <div class="section hidden-sec" id="s-snapshots">
+        <div class="section-hdr">
+            <span class="ico">📷</span>
+            <h2>Grafik Anlık Görüntüleri</h2>
+            <span class="hint">Analiz sayfasından eklenen grafik görüntüleri</span>
+            <button class="kr-hide-btn no-print" onclick="krHideSection('s-snapshots')" title="Bu bölümü gizle">🚫</button>
+        </div>
+        <div class="section-body">
+            <div class="snap-grid" id="snapGrid"><div class="snap-empty">Henüz grafik anlık görüntüsü eklenmedi.</div></div>
         </div>
     </div>
 
@@ -894,6 +921,17 @@ async function krLoadSnapshot(id) {
 
 function _destroyCharts() {
     try { Object.values(Chart.instances || {}).forEach(c => { try { c.destroy(); } catch(e) {} }); } catch(e) {}
+}
+
+// ── Delete single chart snapshot ──
+async function krDeleteSnap(idx) {
+    if (!confirm('Bu grafik görüntüsü kaldırılsın mı?')) return;
+    const payload = await _idbGet(_IDB.key);
+    if (!payload || !payload.chartSnapshots) return;
+    payload.chartSnapshots.splice(idx, 1);
+    await _idbPut(_IDB.key, payload);
+    _destroyCharts();
+    runReport(payload);
 }
 
 // ── EDIT MODE ──
@@ -2662,6 +2700,29 @@ function runReport(payload) {
 
     // ── Enable edit mode if it was on before re-render ──
     if (_editMode) { _editMode = false; toggleEditMode(); }
+
+    // ── CHART SNAPSHOTS ───────────────────────────────────────────────────
+    const snaps = payload.chartSnapshots || [];
+    const snapSec  = document.getElementById('s-snapshots');
+    const snapGrid = document.getElementById('snapGrid');
+    const snapNav  = document.getElementById('nav-snapshots');
+    if (snaps.length > 0) {
+        if (snapSec)  snapSec.classList.remove('hidden-sec');
+        if (snapNav)  snapNav.style.display = '';
+        if (snapGrid) snapGrid.innerHTML = snaps.map((s, i) => `
+            <div class="snap-card" id="snap-card-${i}">
+                <div class="snap-card-head">
+                    <span>${s.label || 'Grafik ' + (i + 1)}</span>
+                    <span style="color:var(--c-sub);font-size:.75rem;font-weight:400;">${s.addedAt || ''}</span>
+                    <button class="snap-del no-print" title="Bu görüntüyü kaldır" onclick="krDeleteSnap(${i})">🗑</button>
+                </div>
+                <img src="${s.dataUrl}" alt="${s.label || 'Grafik'}">
+            </div>`).join('');
+    } else {
+        if (snapSec)  snapSec.classList.add('hidden-sec');
+        if (snapNav)  snapNav.style.display = 'none';
+        if (snapGrid) snapGrid.innerHTML = '<div class="snap-empty">Henüz grafik anlık görüntüsü eklenmedi.</div>';
+    }
 
     // ── Bölüm gizleme butonlarını ekle + kaynaklar panelini göster ──
     _krInjectHideButtons();
