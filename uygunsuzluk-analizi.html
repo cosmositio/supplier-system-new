@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.12.1/dist/chartjs-chart-sankey.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot@4.4.3/build/index.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.1.0/dist/chartjs-chart-treemap.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -663,6 +664,26 @@
         .sc-ctrl-group select:focus { border-color:#ea580c; }
         .sc-chart-area { position:relative; height:500px; margin-top:18px; }
         .sc-insight { margin-top:14px; padding:12px 16px; background:#ffedd5; border-radius:10px; font-size:0.83em; color:#7c2d12; border-left:4px solid #ea580c; }
+        /* Treemap */
+        .tm-controls { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:14px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:12px 16px; }
+        .tm-ctrl-group { display:flex; flex-direction:column; gap:4px; min-width:130px; }
+        .tm-ctrl-group label { font-size:.73rem; font-weight:700; color:#0369a1; }
+        .tm-ctrl-group select { padding:6px 10px; border:1.5px solid #7dd3fc; border-radius:7px; font-size:.83rem; outline:none; background:#fff; }
+        .tm-ctrl-group select:focus { border-color:#0369a1; }
+        .tm-chart-area { width:100%; height:480px; }
+        .tm-insight { margin-top:14px; padding:12px 16px; background:#e0f2fe; border-radius:10px; font-size:0.83em; color:#0c4a6e; border-left:4px solid #0369a1; }
+        .tm-pick-panel { margin-top:14px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:10px 14px; }
+        .tm-pick-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+        .tm-pick-header label { font-size:.75rem; font-weight:700; color:#0369a1; white-space:nowrap; }
+        .tm-pick-search { flex:1; min-width:120px; padding:5px 9px; border:1.5px solid #7dd3fc; border-radius:7px; font-size:.8rem; outline:none; }
+        .tm-pick-search:focus { border-color:#0369a1; }
+        .tm-pick-hint { font-size:.72rem; color:#0369a1; font-weight:600; white-space:nowrap; }
+        .tm-pick-list { display:flex; flex-wrap:wrap; gap:4px; max-height:160px; overflow-y:auto; padding-top:2px; }
+        .tm-pick-item { display:flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; border:1.5px solid #bae6fd; background:#fff; font-size:.79rem; cursor:pointer; user-select:none; color:#0c4a6e; transition:background .12s,border-color .12s; }
+        .tm-pick-item:hover { background:#e0f2fe; border-color:#38bdf8; }
+        .tm-pick-item.tmpi-sel { background:#0369a1; border-color:#075985; color:#fff; font-weight:600; }
+        .tm-pick-item input[type=checkbox] { width:13px; height:13px; accent-color:#0369a1; flex-shrink:0; pointer-events:none; }
+        .tm-pick-val { font-size:.7rem; opacity:.72; margin-left:2px; }
         .sc-pick-panel { margin-top:14px; background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:10px 14px; }
         .sc-pick-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
         .sc-pick-header label { font-size:.75rem; font-weight:700; color:#c2410c; white-space:nowrap; }
@@ -883,6 +904,7 @@
             <button class="tab-btn" onclick="switchTab('sankey')">🌊 Sankey Diyagramı</button>
             <button class="tab-btn" onclick="switchTab('boxplot')">📦 Kutu Grafik (Box Plot)</button>
             <button class="tab-btn" onclick="switchTab('scatter')">📀 Dağılım (Scatter)</button>
+            <button class="tab-btn" onclick="switchTab('treemap')">🗺️ Treemap</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
@@ -1627,6 +1649,63 @@
         </div>
     </div>
 
+        <!-- Treemap Tab -->
+        <div class="tab-panel" id="tab-treemap">
+            <div style="font-size:1.05rem;font-weight:800;color:#0369a1;display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                🗺️ Treemap
+                <span style="font-size:.75rem;font-weight:400;color:#888;background:#e0f2fe;padding:2px 10px;border-radius:20px;">Alan büyüklüğü seçili metriği temsil eder</span>
+            </div>
+            <div class="tm-controls">
+                <div class="tm-ctrl-group">
+                    <label>Gruplama</label>
+                    <select id="tmGroupBy" onchange="_tmGroupByChange()">
+                        <option value="hataTipi">Hata Tipi</option>
+                        <option value="cariAdi">Cari Adı</option>
+                        <option value="hataKaynagi">Hata Kaynağı</option>
+                        <option value="tespitYeri">Tespit Yeri</option>
+                        <option value="stokAdi">Stok Adı</option>
+                        <option value="makine">Makine</option>
+                        <option value="tipi">Tipi</option>
+                        <option value="uygunsuzlukTuru">Uyg. Türü</option>
+                    </select>
+                </div>
+                <div class="tm-ctrl-group">
+                    <label>Metrik</label>
+                    <select id="tmMetric" onchange="renderTreemap()">
+                        <option value="hataliMiktar">Hatalı Miktar</option>
+                        <option value="kontrolMiktar">Kontrol Miktar</option>
+                        <option value="kayitSayisi">Kayıt Sayısı</option>
+                    </select>
+                </div>
+                <div class="tm-ctrl-group">
+                    <label>Top N</label>
+                    <select id="tmTopN" onchange="renderTreemap()">
+                        <option value="15">15</option>
+                        <option value="20" selected>20</option>
+                        <option value="30">30</option>
+                        <option value="50">50</option>
+                        <option value="99999">Tümü</option>
+                    </select>
+                </div>
+                <button class="export-btn" onclick="downloadTreemapPNG()" style="align-self:flex-end;background:#0369a1;border-color:#075985;">⬇ PNG İndir</button>
+            </div>
+            <div id="tmNoData" style="display:none;padding:30px;text-align:center;color:#aaa;">⚠️ Veri yok — filtre uygulayın.</div>
+            <div class="tm-chart-area" id="tmChartWrap" style="display:none;">
+                <canvas id="tmChart"></canvas>
+            </div>
+            <div id="tmInsight" class="tm-insight" style="display:none;"></div>
+            <div id="tmPickerPanel" class="tm-pick-panel">
+                <div class="tm-pick-header">
+                    <label>🔍 Grupları Seç</label>
+                    <input type="text" class="tm-pick-search" id="tmPickSearch" placeholder="Ara..." oninput="_tmFilterPicker()">
+                    <button style="background:#0369a1;color:#fff;border:none;border-radius:7px;padding:4px 11px;font-size:.76rem;cursor:pointer;" onclick="_tmPickAll()">Tümü</button>
+                    <button style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:7px;padding:4px 11px;font-size:.76rem;cursor:pointer;" onclick="_tmPickClear()">Temizle</button>
+                    <span class="tm-pick-hint" id="tmPickHint">—</span>
+                </div>
+                <div class="tm-pick-list" id="tmPickList"></div>
+            </div>
+        </div>
+
     <!-- Empty state -->
     <div class="empty-state" id="emptyState">
         <div class="icon">📥</div>
@@ -1666,6 +1745,7 @@ function _refreshAllCharts() {
     renderSankey();
     renderBoxPlot();
     renderScatter();
+    renderTreemap();
 }
 
 function toggleBreakdownAll() {
@@ -3125,7 +3205,7 @@ function exportTableExcel() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter'];
+    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', names[i] === name);
     });
@@ -3139,6 +3219,7 @@ function switchTab(name) {
     if (name === 'sankey')  { renderSankey(); }
     if (name === 'boxplot') { renderBoxPlot(); }
     if (name === 'scatter') { renderScatter(); }
+    if (name === 'treemap') { renderTreemap(); }
 }
 
 // ─── RADAR ANALİZİ ───────────────────────────────────────────────────────────
@@ -4954,6 +5035,230 @@ function _scPickClear() {
         const hintEl  = document.getElementById('scPickHint');
         if (hintEl) hintEl.textContent = `${_scColorFilter.size} / ${total} seçili`;
         renderScatter();
+    });
+})();
+
+// ─── TREEMAP ─────────────────────────────────────────────────────────────────
+let treemapChartInst = null;
+let _tmGroupFilter   = null;
+
+const TM_PALETTE = [
+    '#0369a1','#0891b2','#0d9488','#16a34a','#7c3aed','#dc2626',
+    '#ea580c','#d97706','#db2777','#2563eb','#15803d','#9333ea',
+    '#0f766e','#be123c','#b45309','#1d4ed8','#65a30d','#c2410c',
+];
+
+function _tmGetVal(row, metric) {
+    if (metric === 'hataliMiktar')  return Number(row.hataliMiktar)  || 0;
+    if (metric === 'kontrolMiktar') return Number(row.kontrolMiktar) || 0;
+    return 1; // kayitSayisi
+}
+
+function renderTreemap() {
+    const filteredData = _effectiveData();
+    const noDataEl  = document.getElementById('tmNoData');
+    const wrapEl    = document.getElementById('tmChartWrap');
+    const insightEl = document.getElementById('tmInsight');
+    if (!wrapEl) return;
+
+    const hide = () => {
+        noDataEl.style.display = 'block';
+        wrapEl.style.display   = 'none';
+        if (insightEl) insightEl.style.display = 'none';
+    };
+
+    if (!filteredData || !filteredData.length) { hide(); return; }
+
+    const groupKey = document.getElementById('tmGroupBy').value;
+    const metric   = document.getElementById('tmMetric').value;
+    const topN     = parseInt(document.getElementById('tmTopN').value) || 20;
+
+    const agg = {};
+    filteredData.forEach(r => {
+        const g = _hmGet(r, groupKey);
+        if (!g || g === '\u2014') return;
+        if (!agg[g]) agg[g] = { count: 0, value: 0 };
+        agg[g].count++;
+        agg[g].value += _tmGetVal(r, metric);
+    });
+
+    if (!Object.keys(agg).length) { hide(); return; }
+
+    let entries = Object.entries(agg).sort((a, b) => b[1].value - a[1].value);
+
+    _tmRefreshPicker(entries, metric);
+
+    if (_tmGroupFilter !== null) {
+        entries = entries.filter(([g]) => _tmGroupFilter.has(g));
+    } else if (topN < 99999) {
+        entries = entries.slice(0, topN);
+    }
+
+    if (!entries.length) { hide(); return; }
+
+    noDataEl.style.display = 'none';
+    wrapEl.style.display   = 'block';
+
+    const tree = entries.map(([g, v]) => ({ g, v: v.value, n: v.count }));
+    const total = tree.reduce((s, x) => s + x.v, 0);
+    const metricLabel = metric === 'hataliMiktar' ? 'Hatalı Miktar' : metric === 'kontrolMiktar' ? 'Kontrol Miktar' : 'Kayıt Sayısı';
+
+    if (treemapChartInst) { treemapChartInst.destroy(); treemapChartInst = null; }
+
+    const ctx = document.getElementById('tmChart').getContext('2d');
+    treemapChartInst = new Chart(ctx, {
+        type: 'treemap',
+        data: {
+            datasets: [{
+                label: metricLabel,
+                tree,
+                key: 'v',
+                groups: ['g'],
+                borderColor: 'rgba(255,255,255,0.6)',
+                borderWidth: 2,
+                spacing: 1,
+                padding: 6,
+                backgroundColor(ctx) {
+                    if (ctx.type !== 'data') return 'transparent';
+                    const idx = entries.findIndex(([g]) => g === ctx.raw.g);
+                    return TM_PALETTE[(idx < 0 ? ctx.dataIndex : idx) % TM_PALETTE.length] + 'dd';
+                },
+                labels: {
+                    display: true,
+                    overflow: 'hidden',
+                    formatter(ctx) {
+                        if (ctx.type !== 'data') return '';
+                        const pct = total > 0 ? (ctx.raw.v / total * 100).toFixed(1) : 0;
+                        const lbl = ctx.raw.g || '';
+                        return [
+                            lbl.length > 22 ? lbl.slice(0, 21) + '…' : lbl,
+                            ctx.raw.v.toLocaleString('tr', { maximumFractionDigits: 0 }),
+                            '%' + pct
+                        ];
+                    },
+                    color: '#fff',
+                    font: [{ size: 12, weight: 'bold' }, { size: 11 }, { size: 10 }],
+                }
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title(items) { return items[0]?.raw?.g || ''; },
+                        label(item) {
+                            const d = item.raw;
+                            const pct = total > 0 ? (d.v / total * 100).toFixed(1) : 0;
+                            return [
+                                metricLabel + ': ' + d.v.toLocaleString('tr', { maximumFractionDigits: 1 }),
+                                'Kayıt: ' + d.n,
+                                'Oran: %' + pct
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    if (insightEl) {
+        insightEl.style.display = 'block';
+        const top = entries[0];
+        insightEl.innerHTML = `📊 <strong>${entries.length}</strong> grup &middot; Toplam ${metricLabel}: <strong>${total.toLocaleString('tr', { maximumFractionDigits: 1 })}</strong> &middot; En büyük: <strong>${top[0]}</strong> (%${(top[1].value / total * 100).toFixed(1)})`;
+    }
+}
+
+function downloadTreemapPNG() {
+    if (!treemapChartInst) return;
+    const a = document.createElement('a');
+    a.href = treemapChartInst.toBase64Image('image/png', 1);
+    a.download = 'treemap.png';
+    a.click();
+}
+
+function _tmGroupByChange() {
+    _tmGroupFilter = null;
+    renderTreemap();
+}
+
+function _tmRefreshPicker(sortedEntries, metric) {
+    const panelEl = document.getElementById('tmPickerPanel');
+    if (!panelEl) return;
+    const items = sortedEntries.map(([g, v]) => ({ label: g, count: v.count, value: v.value }));
+    panelEl._allItems = items;
+    if (_tmGroupFilter === null) {
+        _tmGroupFilter = new Set(items.map(i => i.label));
+    }
+    _tmFilterPicker();
+}
+
+function _tmRenderPickList(items) {
+    const listEl = document.getElementById('tmPickList');
+    const hintEl = document.getElementById('tmPickHint');
+    if (!listEl) return;
+    const allItems = document.getElementById('tmPickerPanel')?._allItems || [];
+    listEl.innerHTML = items.map(item => {
+        const safe = item.label.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        const sel  = _tmGroupFilter && _tmGroupFilter.has(item.label);
+        const idx  = allItems.findIndex(i => i.label === item.label);
+        const color = TM_PALETTE[(idx < 0 ? 0 : idx) % TM_PALETTE.length];
+        return `<div class="tm-pick-item ${sel ? 'tmpi-sel' : ''}" data-tmlbl="${safe}">
+            <input type="checkbox" ${sel ? 'checked' : ''}>
+            <span style="width:9px;height:9px;border-radius:2px;background:${sel ? '#fff' : color};flex-shrink:0;display:inline-block;"></span>
+            <span title="${safe}">${safe.length > 26 ? safe.slice(0, 25) + '…' : safe}</span>
+            <span class="tm-pick-val">${item.count}</span>
+        </div>`;
+    }).join('');
+    const total = allItems.length;
+    if (hintEl) hintEl.textContent = `${_tmGroupFilter ? _tmGroupFilter.size : 0} / ${total} seçili`;
+}
+
+function _tmFilterPicker() {
+    const q   = (document.getElementById('tmPickSearch')?.value || '').toLowerCase();
+    const all = document.getElementById('tmPickerPanel')?._allItems || [];
+    _tmRenderPickList(q ? all.filter(i => i.label.toLowerCase().includes(q)) : all);
+}
+
+function _tmPickAll() {
+    const all = document.getElementById('tmPickerPanel')?._allItems || [];
+    _tmGroupFilter = new Set(all.map(i => i.label));
+    _tmFilterPicker();
+    renderTreemap();
+}
+
+function _tmPickClear() {
+    _tmGroupFilter = new Set();
+    _tmFilterPicker();
+    renderTreemap();
+}
+
+(function _tmPickListener() {
+    document.addEventListener('click', function(e) {
+        const item = e.target.closest('.tm-pick-item[data-tmlbl]');
+        if (!item) return;
+        e.preventDefault();
+        const label = item.getAttribute('data-tmlbl')
+            ?.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<');
+        if (!label || !_tmGroupFilter) return;
+        if (_tmGroupFilter.has(label)) _tmGroupFilter.delete(label);
+        else _tmGroupFilter.add(label);
+        const chk = item.querySelector('input[type=checkbox]');
+        const sel = _tmGroupFilter.has(label);
+        item.classList.toggle('tmpi-sel', sel);
+        if (chk) chk.checked = sel;
+        const dot = item.querySelector('span[style*="border-radius:2px"]');
+        if (dot) {
+            const allItems = document.getElementById('tmPickerPanel')?._allItems || [];
+            const idx = allItems.findIndex(i => i.label === label);
+            dot.style.background = sel ? '#fff' : TM_PALETTE[(idx < 0 ? 0 : idx) % TM_PALETTE.length];
+        }
+        const total  = document.getElementById('tmPickerPanel')?._allItems?.length || 0;
+        const hintEl = document.getElementById('tmPickHint');
+        if (hintEl) hintEl.textContent = `${_tmGroupFilter.size} / ${total} seçili`;
+        renderTreemap();
     });
 })();
 
