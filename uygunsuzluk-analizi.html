@@ -993,24 +993,24 @@
         /* ── CHART PICKER MODAL ── */
         #chartPickerModal { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .2s; }
         #chartPickerModal.open { opacity:1; pointer-events:all; }
-        .cpm-box { background:#fff; border-radius:16px; width:min(580px,95vw); max-height:85vh; display:flex; flex-direction:column; box-shadow:0 8px 40px rgba(0,0,0,.28); overflow:hidden; }
-        .cpm-head { display:flex; align-items:center; justify-content:space-between; padding:16px 22px; background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; }
-        .cpm-head h3 { font-size:1rem; font-weight:700; margin:0; }
-        .cpm-head .cpm-close { background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer; line-height:1; padding:0; }
-        .cpm-sub { padding:10px 22px 0; font-size:.8rem; color:#64748b; }
-        .cpm-all-row { display:flex; gap:8px; padding:8px 22px; border-bottom:1px solid #f1f5f9; }
-        .cpm-all-btn { padding:4px 13px; border-radius:8px; border:1.5px solid #d1d5db; background:#fff; font-size:.77rem; font-weight:700; cursor:pointer; color:#374151; }
+        .cpm-box { background:#fff; border-radius:16px; width:min(620px,95vw); max-height:88vh; display:flex; flex-direction:column; box-shadow:0 8px 40px rgba(0,0,0,.28); overflow:hidden; }
+        .cpm-head { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; flex-shrink:0; }
+        .cpm-head h3 { font-size:.95rem; font-weight:700; margin:0; }
+        .cpm-head .cpm-close { background:none; border:none; color:#fff; font-size:1.4rem; cursor:pointer; line-height:1; padding:0 4px; border-radius:4px; }
+        .cpm-head .cpm-close:hover { background:rgba(255,255,255,.2); }
+        .cpm-all-row { display:flex; gap:8px; padding:6px 18px; border-bottom:1px solid #f1f5f9; flex-shrink:0; }
+        .cpm-all-btn { padding:3px 12px; border-radius:8px; border:1.5px solid #d1d5db; background:#fff; font-size:.76rem; font-weight:700; cursor:pointer; color:#374151; }
         .cpm-all-btn:hover { background:#f8fafc; }
-        .cpm-body { overflow-y:auto; padding:14px 18px; display:grid; grid-template-columns:1fr 1fr; gap:9px; }
-        .cpm-item { display:flex; align-items:center; gap:9px; padding:10px 14px; border:1.5px solid #e2e8f0; border-radius:10px; cursor:pointer; user-select:none; transition:all .12s; }
+        .cpm-body { overflow-y:auto; padding:12px 16px; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .cpm-item { display:flex; align-items:center; gap:8px; padding:9px 12px; border:1.5px solid #e2e8f0; border-radius:10px; cursor:pointer; user-select:none; transition:all .12s; }
         .cpm-item:hover { border-color:#93c5fd; background:#f8fbff; }
         .cpm-item.cpm-selected { border-color:#2563eb; background:#dbeafe; }
-        .cpm-item input[type=checkbox] { width:15px; height:15px; accent-color:#2563eb; cursor:pointer; flex-shrink:0; pointer-events:none; }
-        .cpm-lbl { font-size:.84rem; font-weight:600; color:#1e2535; }
-        .cpm-foot { padding:14px 22px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; gap:10px; }
-        .cpm-sel-count { font-size:.8rem; color:#64748b; }
+        .cpm-item input[type=checkbox] { width:14px; height:14px; accent-color:#2563eb; cursor:pointer; flex-shrink:0; pointer-events:none; }
+        .cpm-lbl { font-size:.82rem; font-weight:600; color:#1e2535; }
+        .cpm-foot { padding:12px 20px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-shrink:0; }
+        .cpm-sel-count { font-size:.78rem; color:#64748b; }
         .cpm-btns { display:flex; gap:8px; }
-        .cpm-btn { padding:9px 20px; border-radius:9px; border:none; font-size:.87rem; font-weight:700; cursor:pointer; }
+        .cpm-btn { padding:8px 18px; border-radius:9px; border:none; font-size:.85rem; font-weight:700; cursor:pointer; }
         .cpm-btn-cancel { background:#f1f5f9; color:#64748b; }
         .cpm-btn-cancel:hover { background:#e2e8f0; }
         .cpm-btn-ok { background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; }
@@ -3692,6 +3692,30 @@ function openChartPickerModal() {
         showToast('Rapor oluşturmak için önce veri yükleyin.', 'error');
         return;
     }
+    // Build filter summary
+    const fStart   = (document.getElementById('fDateStart')   || {}).value || '';
+    const fEnd     = (document.getElementById('fDateEnd')     || {}).value || '';
+    const fHT      = (document.getElementById('fHataTipi')    || {}).value || '';
+    const fTipi    = (document.getElementById('fTipi')        || {}).value || '';
+    const fKaynak  = (document.getElementById('fHataKaynagi') || {}).value || '';
+    const fCariTip = (document.getElementById('fCariTip')     || {}).value || '';
+    const tags = [
+        filteredData.length + ' kayıt secildi',
+        (fStart || fEnd) ? '📅 ' + (fStart||'—') + ' → ' + (fEnd||'—') : '',
+        fTipi    ? '🏷️ ' + fTipi    : '',
+        fCariTip ? '🏢 ' + (fCariTip === 'musteri' ? '★ Müşteri' : 'Tedarikçi') : '',
+        selectedCari ? '👤 ' + selectedCari : '',
+        fHT      ? '🔍 ' + fHT      : '',
+        fKaynak  ? '⚙️ ' + fKaynak  : '',
+        selectedTespitYeriSet?.size ? '📍 ' + [...selectedTespitYeriSet].join(', ') : '',
+        excludedHataTipleri?.size   ? '🚫 ' + excludedHataTipleri.size + ' tip hariç' : '',
+    ].filter(Boolean);
+    const infoEl = document.getElementById('cpmFilterInfo');
+    if (infoEl) infoEl.innerHTML = tags.map((t,i) => i===0
+        ? `<strong style="font-size:.85rem;">✅ ${t}</strong>`
+        : `<span style="margin-left:10px;background:#dbeafe;border-radius:20px;padding:2px 9px;">${t}</span>`
+    ).join('');
+
     const body = document.getElementById('cpmBody');
     body.innerHTML = _CPM_CHARTS.map(c => `
         <label class="cpm-item cpm-selected" data-cid="${c.id}">
@@ -3708,23 +3732,53 @@ function _svgToDataUrl(container) {
     if (!svg || !svg.children.length) return null;
     try {
         if (!svg.getAttribute('xmlns')) svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        // Set explicit dimensions if missing
+        const bb = svg.getBoundingClientRect();
+        if (!svg.getAttribute('width')  && bb.width)  svg.setAttribute('width',  bb.width);
+        if (!svg.getAttribute('height') && bb.height) svg.setAttribute('height', bb.height);
         const xml = new XMLSerializer().serializeToString(svg);
         return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
     } catch(e) { return null; }
 }
 
-function _cpmCaptureOne(def) {
+// Convert SVG data URL → PNG via off-screen canvas (async)
+function _svgToPng(svgDataUrl, w, h) {
+    return new Promise(resolve => {
+        try {
+            const img = new Image();
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                c.width  = w || img.naturalWidth  || 900;
+                c.height = h || img.naturalHeight || 520;
+                const ctx = c.getContext('2d');
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, c.width, c.height);
+                ctx.drawImage(img, 0, 0, c.width, c.height);
+                resolve(c.toDataURL('image/png'));
+            };
+            img.onerror = () => resolve(svgDataUrl); // fallback to SVG
+            img.src = svgDataUrl;
+        } catch(e) { resolve(svgDataUrl); }
+    });
+}
+
+async function _cpmCaptureOne(def) {
     try {
         if (def.canvas) {
             const canvas = document.querySelector(def.canvas);
-            if (!canvas || !canvas.width || canvas.width < 10) return null;
-            return { id: def.id, label: def.label, dataUrl: canvas.toDataURL('image/png'), type: 'png' };
+            if (!canvas || canvas.width < 10) return null;
+            const dataUrl = canvas.toDataURL('image/png');
+            // Verify it's not blank (all white/transparent)
+            if (dataUrl === 'data:,') return null;
+            return { id: def.id, label: def.label, dataUrl, type: 'png' };
         } else if (def.svg) {
             const container = document.querySelector(def.svg);
             if (!container) return null;
-            const dataUrl = _svgToDataUrl(container);
-            if (!dataUrl) return null;
-            return { id: def.id, label: def.label, dataUrl, type: 'svg' };
+            const svgUrl = _svgToDataUrl(container);
+            if (!svgUrl) return null;
+            const bb = container.getBoundingClientRect();
+            const pngUrl = await _svgToPng(svgUrl, bb.width || 900, bb.height || 520);
+            return { id: def.id, label: def.label, dataUrl: pngUrl, type: 'png' };
         }
     } catch(e) { console.warn('Chart capture failed for', def.id, e); }
     return null;
@@ -3736,10 +3790,33 @@ async function _cpmConfirm() {
         return item && item.classList.contains('cpm-selected');
     });
     document.getElementById('chartPickerModal').classList.remove('open');
-    _pendingSnapshots = selected.map(c => _cpmCaptureOne(c)).filter(Boolean);
-    if (_pendingSnapshots.length === 0 && selected.length > 0) {
-        showToast('Seçilen grafikler henüz render edilmemiş — sekmeye bir kez geçip tekrar deneyin.', 'warn');
+    if (!selected.length) { await openKapsamliRapor(); return; }
+
+    // Find current active tab to restore later
+    const activePanel = document.querySelector('.tab-panel.active');
+    const origTab = activePanel ? activePanel.id.replace('tab-', '') : 'pareto';
+
+    // Progress toast
+    const toastMsg = (n, tot) => showToast(`⏳ Grafik yakalanıyor… ${n}/${tot}`);
+    toastMsg(0, selected.length);
+
+    const snaps = [];
+    for (let i = 0; i < selected.length; i++) {
+        const def = selected[i];
+        toastMsg(i + 1, selected.length);
+        // Switch to this tab — triggers render inside switchTab()
+        switchTab(def.id);
+        // Wait two animation frames so Chart.js / SVG finishes painting
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        await new Promise(r => setTimeout(r, 280));
+        const snap = await _cpmCaptureOne(def);
+        if (snap) snaps.push(snap);
     }
+
+    // Restore original tab
+    switchTab(origTab);
+
+    _pendingSnapshots = snaps;
     await openKapsamliRapor();
 }
 
@@ -7482,10 +7559,11 @@ function openFishboneMulti() {
 <div id="chartPickerModal" onclick="if(event.target===this)this.classList.remove('open')">
     <div class="cpm-box">
         <div class="cpm-head">
-            <h3>📑 Kapsamlı Rapora Ekle &mdash; Grafik Seçin</h3>
+            <h3>📑 Kapsamlı Rapora Ekle</h3>
             <button class="cpm-close" onclick="document.getElementById('chartPickerModal').classList.remove('open')">✕</button>
         </div>
-        <p class="cpm-sub">Kapsamlı rapora eşlik etmesini istediğiniz grafikleri işaretleyin.</p>
+        <div id="cpmFilterInfo" style="padding:10px 20px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:.8rem;color:#1e3a8a;"></div>
+        <div style="padding:8px 20px 0;font-size:.78rem;color:#64748b;font-weight:600;letter-spacing:.3px;">RAPORA EKİLENECEK GRAFİKLER</div>
         <div class="cpm-all-row">
             <button class="cpm-all-btn" onclick="_cpmSelectAll(true)">Tümünü Seç</button>
             <button class="cpm-all-btn" onclick="_cpmSelectAll(false)">İşareti Kaldır</button>
