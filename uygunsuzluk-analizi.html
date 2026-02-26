@@ -624,22 +624,50 @@
             font-size:.88rem; background:#fff; color:#333; outline:none;
         }
         .polar-ctrl-group select:focus, .polar-ctrl-group input:focus { border-color:#a855f7; }
-        .polar-chart-area { display:flex; flex-wrap:wrap; gap:24px; align-items:flex-start; justify-content:center; }
-        .polar-canvas-wrap { position:relative; flex:0 0 auto; width:440px; height:440px; }
+        .polar-chart-area { display:flex; flex-wrap:nowrap; gap:18px; align-items:flex-start; overflow-x:auto; }
+        /* Selector panel (left) */
+        .polar-sel-panel {
+            flex:0 0 210px; border:1.5px solid #e9d5ff; border-radius:12px;
+            background:#fff; overflow:hidden; box-shadow:0 2px 8px rgba(168,85,247,.08);
+        }
+        .polar-sel-title {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:9px 12px; background:#f5f0ff;
+            border-bottom:1px solid #e9d5ff; font-size:.8rem; font-weight:700; color:#4a0a6b;
+        }
+        .polar-sel-actions { display:flex; gap:5px; }
+        .polar-sel-btn {
+            padding:2px 8px; border-radius:10px; border:1.5px solid #d8b4fe;
+            background:#fff; color:#6b21a8; font-size:.72rem; font-weight:700; cursor:pointer;
+        }
+        .polar-sel-btn:hover { background:#f3e8ff; }
+        .polar-sel-list { max-height:540px; overflow-y:auto; padding:5px 0; }
+        .polar-sel-item {
+            display:flex; align-items:center; gap:8px; padding:6px 12px;
+            cursor:pointer; font-size:.8rem; color:#333; transition:background .12s;
+        }
+        .polar-sel-item:hover { background:#fdf4ff; }
+        .polar-sel-item.psi-active { background:#f3e8ff; }
+        .polar-sel-item input[type=checkbox] { width:14px; height:14px; accent-color:#a855f7; flex-shrink:0; }
+        .polar-sel-dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+        /* Canvas (centre) */
+        .polar-canvas-wrap { flex:1 1 560px; min-width:380px; max-width:700px; height:580px; position:relative; }
+        .polar-canvas-wrap canvas { width:100% !important; height:100% !important; }
+        /* Stats panel (right) */
         .polar-stats-panel {
-            flex:1 1 260px; display:flex; flex-direction:column; gap:10px;
-            min-width:220px; max-width:340px;
+            flex:0 0 240px; display:flex; flex-direction:column; gap:8px;
+            max-height:580px; overflow-y:auto;
         }
         .polar-stat-card {
             background:#fff; border:1.5px solid #e9d5ff; border-radius:12px;
-            padding:10px 14px; display:flex; align-items:center; gap:10px;
-            box-shadow:0 2px 8px rgba(168,85,247,.06);
+            padding:9px 12px; display:flex; align-items:center; gap:9px;
+            box-shadow:0 2px 8px rgba(168,85,247,.06); cursor:default;
         }
-        .polar-stat-dot { width:16px; height:16px; border-radius:50%; flex-shrink:0; }
+        .polar-stat-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
         .polar-stat-info { display:flex; flex-direction:column; gap:2px; min-width:0; }
-        .polar-stat-name { font-size:.78rem; font-weight:700; color:#4a0a6b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .polar-stat-val  { font-size:.88rem; font-weight:800; color:#2e1065; }
-        .polar-stat-pct  { font-size:.75rem; color:#a855f7; font-weight:600; }
+        .polar-stat-name { font-size:.76rem; font-weight:700; color:#4a0a6b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .polar-stat-val  { font-size:.86rem; font-weight:800; color:#2e1065; }
+        .polar-stat-pct  { font-size:.74rem; color:#a855f7; font-weight:600; }
         .polar-insight {
             background:linear-gradient(135deg,#f3e5f5,#ede7f6);
             border-left:4px solid #b94fc4; border-radius:0 8px 8px 0;
@@ -2016,7 +2044,20 @@
                 </div>
                 <div id="polarNoData" style="display:none;padding:30px;text-align:center;color:#aaa;">⚠️ Veri bulunamadı.</div>
                 <div class="polar-chart-area">
+                    <!-- Selector panel -->
+                    <div class="polar-sel-panel" id="polarSelPanel">
+                        <div class="polar-sel-title">
+                            <span>Kategoriler</span>
+                            <div class="polar-sel-actions">
+                                <button class="polar-sel-btn" onclick="_polarSelectAll(true)">Tümü</button>
+                                <button class="polar-sel-btn" onclick="_polarSelectAll(false)">Temizle</button>
+                            </div>
+                        </div>
+                        <div class="polar-sel-list" id="polarSelList"></div>
+                    </div>
+                    <!-- Chart -->
                     <div class="polar-canvas-wrap"><canvas id="polarChart"></canvas></div>
+                    <!-- Stats panel -->
                     <div class="polar-stats-panel" id="polarStatsPanel"></div>
                 </div>
                 <div class="polar-insight" id="polarInsight" style="display:none;"></div>
@@ -6164,6 +6205,59 @@ function renderFunnel() {
 
 // ─── POLAR ALAN GRAFİĞİ ──────────────────────────────────────────────────────
 let _polarChartInst = null;
+let _polarSelected  = new Set();   // seçili kategoriler (boşsa = hepsi)
+let _polarLastGroupBy = null;      // selector'ü yeniden doldurmak için
+
+function _polarSelectAll(select) {
+    const list = document.getElementById('polarSelList');
+    if (!list) return;
+    list.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.checked = select;
+        const lbl = cb.dataset.label;
+        if (select) _polarSelected.add(lbl);
+        else        _polarSelected.delete(lbl);
+    });
+    list.querySelectorAll('.polar-sel-item').forEach(el => el.classList.toggle('psi-active', select));
+    renderPolarArea();
+}
+
+function _polarBuildSelector(allEntries, groupBy) {
+    const list = document.getElementById('polarSelList');
+    if (!list) return;
+    const PALETTE = [
+        '#4a0a6b','#6d28d9','#8b5cf6','#b94fc4','#c084fc',
+        '#e879f9','#f0abfc','#a21caf','#7c3aed','#5b21b6',
+        '#9333ea','#db2777','#4f46e5','#0891b2','#0d9488'
+    ];
+    // Sadece group değişince yeniden inşa et; seçimleri koru
+    if (_polarLastGroupBy !== groupBy) {
+        _polarSelected = new Set(allEntries.map(([k]) => k)); // hepsi seçili başlangıçta
+        _polarLastGroupBy = groupBy;
+    } else {
+        // Yeni gelen ama henüz kayıtlı olmayan ögeleri ekle
+        allEntries.forEach(([k]) => { if (!_polarSelected.has(k) && list.querySelector(`[data-label="${CSS.escape(k)}"]`) === null) _polarSelected.add(k); });
+    }
+    list.innerHTML = allEntries.map(([name], i) => {
+        const checked  = _polarSelected.has(name);
+        const short    = name.length > 22 ? name.slice(0, 20) + '…' : name;
+        const escaped  = name.replace(/"/g, '&quot;');
+        return `<div class="polar-sel-item ${checked ? 'psi-active' : ''}" onclick="_polarToggleItem(this,'${escaped}')">
+            <input type="checkbox" data-label="${escaped}" ${checked ? 'checked' : ''} onclick="event.stopPropagation();_polarToggleItem(this.closest('.polar-sel-item'),'${escaped}')">
+            <div class="polar-sel-dot" style="background:${PALETTE[i % PALETTE.length]}"></div>
+            <span title="${escaped}">${short}</span>
+        </div>`;
+    }).join('');
+}
+
+function _polarToggleItem(el, label) {
+    const cb = el.querySelector('input[type=checkbox]');
+    const active = !el.classList.contains('psi-active');
+    el.classList.toggle('psi-active', active);
+    if (cb) cb.checked = active;
+    if (active) _polarSelected.add(label);
+    else        _polarSelected.delete(label);
+    renderPolarArea();
+}
 
 function renderPolarArea() {
     const data       = _effectiveData();
@@ -6177,10 +6271,23 @@ function renderPolarArea() {
     const canvas     = document.getElementById('polarChart');
     if (!canvas) return;
 
-    // ── Aggregate ─────────────────────────────────────────────────────────
+    // ── Aggregate (tam liste — selector için) ────────────────────────────
+    const aggAll = {};
+    data.forEach(r => {
+        const grp = (r[groupBy] || '(Belirtilmemiş)').toString().trim() || '(Belirtilmemiş)';
+        const val = metric === 'hataliMiktar' ? (Number(r.hataliMiktar) || 0) : 1;
+        aggAll[grp] = (aggAll[grp] || 0) + val;
+    });
+    const allEntries = Object.entries(aggAll).sort((a, b) => b[1] - a[1]).slice(0, topN);
+
+    // Selector listesini güncelle
+    _polarBuildSelector(allEntries, groupBy);
+
+    // ── Seçili kategorilere göre filtrele ─────────────────────────────────
     const agg = {};
     data.forEach(r => {
         const grp = (r[groupBy] || '(Belirtilmemiş)').toString().trim() || '(Belirtilmemiş)';
+        if (_polarSelected.size && !_polarSelected.has(grp)) return;
         const val = metric === 'hataliMiktar' ? (Number(r.hataliMiktar) || 0) : 1;
         agg[grp] = (agg[grp] || 0) + val;
     });
@@ -6250,8 +6357,8 @@ function renderPolarArea() {
         data: { labels, datasets },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
-            animation: { duration: 600 },
+            maintainAspectRatio: false,
+            animation: { duration: 500 },
             scales: {
                 r: {
                     ticks: {
