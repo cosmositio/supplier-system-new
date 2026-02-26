@@ -3614,10 +3614,11 @@ async function openKapsamliRapor() {
         ? `Birleşik Kalite Raporu — ${batches.length} filtre, ${allRows.length} kayıt`
         : (batchLabel + ' — Kalite Raporu');
 
-    // Combine existing + new chart snapshots
+    // Combine existing + new chart snapshots — yeni snapshot aynı id'deki eskiyi ezer
     const existingSnaps = (existing && existing.chartSnapshots) || [];
     const newSnaps = (_pendingSnapshots || []).map(s => ({ ...s, batchId, addedAt: new Date().toISOString() }));
-    const allSnaps = [...existingSnaps, ...newSnaps];
+    const newIds = new Set(newSnaps.map(s => s.id));
+    const allSnaps = [...existingSnaps.filter(s => !newIds.has(s.id)), ...newSnaps];
     _pendingSnapshots = [];
 
     const payload = {
@@ -3767,9 +3768,20 @@ async function _cpmCaptureOne(def) {
         if (def.canvas) {
             const canvas = document.querySelector(def.canvas);
             if (!canvas || canvas.width < 10) return null;
-            const dataUrl = canvas.toDataURL('image/png');
-            // Verify it's not blank (all white/transparent)
-            if (dataUrl === 'data:,') return null;
+            // Retry up to 3 times if canvas appears blank (all transparent/white)
+            let dataUrl = null;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                if (attempt > 0) await new Promise(r => setTimeout(r, 300));
+                dataUrl = canvas.toDataURL('image/png');
+                if (dataUrl === 'data:,' || dataUrl.length < 5000) continue; // too small → blank
+                // Check a few pixels in the center to see if anything was drawn
+                try {
+                    const ctx2 = canvas.getContext('2d');
+                    const px = ctx2.getImageData(Math.floor(canvas.width/2), Math.floor(canvas.height/2), 1, 1).data;
+                    if (px[3] > 0) break; // has non-transparent pixel → not blank
+                } catch(e) { break; }
+            }
+            if (!dataUrl || dataUrl.length < 5000) return null;
             return { id: def.id, label: def.label, dataUrl, type: 'png' };
         } else if (def.svg) {
             const container = document.querySelector(def.svg);
@@ -3796,9 +3808,16 @@ async function _cpmConfirm() {
     const activePanel = document.querySelector('.tab-panel.active');
     const origTab = activePanel ? activePanel.id.replace('tab-', '') : 'pareto';
 
+    // Disable Chart.js animations during capture so we don't catch mid-draw frames
+    const origAnim = Chart.defaults.animation;
+    Chart.defaults.animation = false;
+
     // Progress toast
     const toastMsg = (n, tot) => showToast(`⏳ Grafik yakalanıyor… ${n}/${tot}`);
     toastMsg(0, selected.length);
+
+    // Charts that need extra time to render (heavy data / websocket / layout passes)
+    const _CPM_SLOW = new Set(['sankey','bubble','bar','boxplot','scatter','chord','beeswarm','treemap']);
 
     const snaps = [];
     for (let i = 0; i < selected.length; i++) {
@@ -3806,15 +3825,18 @@ async function _cpmConfirm() {
         toastMsg(i + 1, selected.length);
         // Switch to this tab — triggers render inside switchTab()
         switchTab(def.id);
-        // Wait two animation frames so Chart.js / SVG finishes painting
+        // Wait two animation frames so Chart.js / SVG starts painting
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        await new Promise(r => setTimeout(r, 280));
+        // Heavier charts need more time
+        await new Promise(r => setTimeout(r, _CPM_SLOW.has(def.id) ? 600 : 350));
         const snap = await _cpmCaptureOne(def);
         if (snap) snaps.push(snap);
     }
 
     // Restore original tab
     switchTab(origTab);
+    // Re-enable Chart.js animations
+    Chart.defaults.animation = origAnim;
 
     _pendingSnapshots = snaps;
     await openKapsamliRapor();
