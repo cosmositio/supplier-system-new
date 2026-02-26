@@ -684,6 +684,18 @@
         .bp-ctrl-group select:focus { border-color:#0d9488; }
         .bp-chart-area { position:relative; margin-top:18px; }
         .bp-insight { margin-top:14px; padding:12px 16px; background:#ccfbf1; border-radius:10px; font-size:0.83em; color:#134e4a; border-left:4px solid #0d9488; }
+        .bp-pick-panel { margin-top:14px; background:#f0fdfa; border:1px solid #99f6e4; border-radius:10px; padding:10px 14px; }
+        .bp-pick-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+        .bp-pick-header label { font-size:.75rem; font-weight:700; color:#0f766e; white-space:nowrap; }
+        .bp-pick-search { flex:1; min-width:120px; padding:5px 9px; border:1.5px solid #5eead4; border-radius:7px; font-size:.8rem; outline:none; }
+        .bp-pick-search:focus { border-color:#0d9488; }
+        .bp-pick-hint { font-size:.72rem; color:#0d9488; font-weight:600; white-space:nowrap; }
+        .bp-pick-list { display:flex; flex-wrap:wrap; gap:4px; max-height:160px; overflow-y:auto; padding-top:2px; }
+        .bp-pick-item { display:flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; border:1.5px solid #99f6e4; background:#fff; font-size:.79rem; cursor:pointer; user-select:none; color:#134e4a; transition:background .12s,border-color .12s; }
+        .bp-pick-item:hover { background:#ccfbf1; border-color:#2dd4bf; }
+        .bp-pick-item.bppi-sel { background:#0d9488; border-color:#0f766e; color:#fff; font-weight:600; }
+        .bp-pick-item input[type=checkbox] { width:13px; height:13px; accent-color:#0d9488; flex-shrink:0; pointer-events:none; }
+        .bp-pick-val { font-size:.7rem; opacity:.72; margin-left:2px; }
         .bp-stats-table { margin-top:14px; width:100%; border-collapse:collapse; font-size:.8rem; }
         .bp-stats-table th { background:#0d9488; color:#fff; padding:6px 10px; text-align:left; font-weight:600; }
         .bp-stats-table td { padding:5px 10px; border-bottom:1px solid #e2e8f0; }
@@ -1443,7 +1455,7 @@
             <div class="bp-controls">
                 <div class="bp-ctrl-group">
                     <label>Gruplama</label>
-                    <select id="bpGroupBy" onchange="renderBoxPlot()">
+                    <select id="bpGroupBy" onchange="_bpGroupByChange()">
                         <option value="hataTipi">Hata Tipi</option>
                         <option value="cariAdi">Cari Adı</option>
                         <option value="hataKaynagi">Hata Kaynağı</option>
@@ -1507,6 +1519,16 @@
                     <thead><tr><th>Grup</th><th>N</th><th>Min</th><th>Q1</th><th>Medyan</th><th>Ort.</th><th>Q3</th><th>Maks</th><th>IQR</th></tr></thead>
                     <tbody id="bpStatsTbody"></tbody>
                 </table>
+            </div>
+            <div id="bpPickerPanel" class="bp-pick-panel">
+                <div class="bp-pick-header">
+                    <label>🔍 Grupları Seç</label>
+                    <input type="text" class="bp-pick-search" id="bpPickSearch" placeholder="Ara..." oninput="_bpFilterPicker()">
+                    <button style="background:#0d9488;color:#fff;border:none;border-radius:7px;padding:4px 11px;font-size:.76rem;cursor:pointer;" onclick="_bpPickAll()">Tümü</button>
+                    <button style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:7px;padding:4px 11px;font-size:.76rem;cursor:pointer;" onclick="_bpPickClear()">Temizle</button>
+                    <span class="bp-pick-hint" id="bpPickHint">—</span>
+                </div>
+                <div class="bp-pick-list" id="bpPickList"></div>
             </div>
         </div>
 
@@ -4328,6 +4350,7 @@ function downloadSankeyPNG() {
 
 // ─── BOX PLOT (KUTU GRAFİK) ─────────────────────────────────────────────────────
 let boxPlotChartInst = null;
+let _bpGroupFilter   = null; // null = init from all groups; Set<string> = manual selection
 
 function _bpGetVal(row, metric) {
     if (metric === 'hataliMiktar')  return parseFloat(row.hataliMiktar  || row['Hatalı Miktar']  || 0) || 0;
@@ -4397,7 +4420,7 @@ function renderBoxPlot() {
 
     if (!Object.keys(statsMap).length) { hide(); return; }
 
-    // Sort + slice
+    // Sort all entries
     let entries = Object.entries(statsMap);
     if (sortMode === 'median') entries.sort((a, b) => b[1].median - a[1].median);
     else if (sortMode === 'q3')    entries.sort((a, b) => b[1].q3 - a[1].q3);
@@ -4405,7 +4428,15 @@ function renderBoxPlot() {
     else if (sortMode === 'count') entries.sort((a, b) => b[1].n - a[1].n);
     else entries.sort((a, b) => a[0].localeCompare(b[0], 'tr'));
 
-    if (topN < 99999) entries = entries.slice(0, topN);
+    // Refresh picker with all sorted groups
+    _bpRefreshPicker(entries, statsMap);
+
+    // Apply manual filter OR Top-N
+    if (_bpGroupFilter !== null) {
+        entries = entries.filter(([g]) => _bpGroupFilter.has(g));
+    } else if (topN < 99999) {
+        entries = entries.slice(0, topN);
+    }
 
     const labels = entries.map(([g]) => g);
     const metricLabel = metric === 'hataliMiktar' ? 'Hatalı Miktar' : 'Kontrol Miktar';
@@ -4525,6 +4556,79 @@ function downloadBoxPlotPNG() {
     a.download = 'kutu-grafik.png';
     a.click();
 }
+
+function _bpGroupByChange() {
+    _bpGroupFilter = null;
+    renderBoxPlot();
+}
+
+function _bpRefreshPicker(sortedEntries, statsMap) {
+    const panelEl = document.getElementById('bpPickerPanel');
+    if (!panelEl) return;
+    const items = sortedEntries.map(([g, s]) => ({ label: g, count: s.n }));
+    panelEl._allItems = items;
+    if (_bpGroupFilter === null) {
+        _bpGroupFilter = new Set(items.map(i => i.label));
+    }
+    _bpFilterPicker();
+}
+
+function _bpRenderPickList(items) {
+    const listEl = document.getElementById('bpPickList');
+    const hintEl = document.getElementById('bpPickHint');
+    if (!listEl) return;
+    listEl.innerHTML = items.map(item => {
+        const safe = item.label.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+        const sel  = _bpGroupFilter && _bpGroupFilter.has(item.label);
+        return `<div class="bp-pick-item ${sel ? 'bppi-sel' : ''}" data-bplbl="${safe}">
+            <input type="checkbox" ${sel ? 'checked' : ''}>
+            <span title="${safe}">${safe.length > 26 ? safe.slice(0,25)+'…' : safe}</span>
+            <span class="bp-pick-val">${item.count}</span>
+        </div>`;
+    }).join('');
+    const total = document.getElementById('bpPickerPanel')?._allItems?.length || 0;
+    if (hintEl) hintEl.textContent = `${_bpGroupFilter ? _bpGroupFilter.size : 0} / ${total} seçili`;
+}
+
+function _bpFilterPicker() {
+    const q   = (document.getElementById('bpPickSearch')?.value || '').toLowerCase();
+    const all = document.getElementById('bpPickerPanel')?._allItems || [];
+    _bpRenderPickList(q ? all.filter(i => i.label.toLowerCase().includes(q)) : all);
+}
+
+function _bpPickAll() {
+    const all = document.getElementById('bpPickerPanel')?._allItems || [];
+    _bpGroupFilter = new Set(all.map(i => i.label));
+    _bpFilterPicker();
+    renderBoxPlot();
+}
+
+function _bpPickClear() {
+    _bpGroupFilter = new Set();
+    _bpFilterPicker();
+    renderBoxPlot();
+}
+
+(function _bpPickListener() {
+    document.addEventListener('click', function(e) {
+        const item = e.target.closest('.bp-pick-item[data-bplbl]');
+        if (!item) return;
+        e.preventDefault();
+        const label = item.getAttribute('data-bplbl')
+            ?.replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&lt;/g,'<');
+        if (!label || !_bpGroupFilter) return;
+        if (_bpGroupFilter.has(label)) _bpGroupFilter.delete(label);
+        else _bpGroupFilter.add(label);
+        const chk = item.querySelector('input[type=checkbox]');
+        const sel = _bpGroupFilter.has(label);
+        item.classList.toggle('bppi-sel', sel);
+        if (chk) chk.checked = sel;
+        const total = document.getElementById('bpPickerPanel')?._allItems?.length || 0;
+        const hintEl = document.getElementById('bpPickHint');
+        if (hintEl) hintEl.textContent = `${_bpGroupFilter.size} / ${total} seçili`;
+        renderBoxPlot();
+    });
+})();
 
 // ─── SCATTER PLOT (DAĞILIM) ──────────────────────────────────────────────────
 let scatterChartInst = null;
