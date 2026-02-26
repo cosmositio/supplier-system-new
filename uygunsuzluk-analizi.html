@@ -585,6 +585,31 @@
         }
         .cohort-mode-btn.active { background:#16a34a; color:#fff; }
 
+        /* ── FUNNEL TAB ── */
+        .funnel-wrap { padding:16px; }
+        .funnel-controls {
+            display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;
+            padding:14px 16px; background:#fdf4ff; border-radius:10px;
+            border:1px solid #e9d5ff; margin-bottom:18px;
+        }
+        .funnel-ctrl-group { display:flex; flex-direction:column; gap:4px; }
+        .funnel-ctrl-group label { font-size:.75rem; font-weight:600; color:#6b21a8; }
+        .funnel-ctrl-group select, .funnel-ctrl-group input {
+            padding:6px 10px; border:1.5px solid #d8b4fe; border-radius:7px;
+            font-size:.88rem; background:#fff; color:#333; outline:none;
+        }
+        .funnel-ctrl-group select:focus, .funnel-ctrl-group input:focus { border-color:#a855f7; }
+        .funnel-svg-wrap { width:100%; overflow-x:auto; display:flex; justify-content:center; padding:8px 0; }
+        .funnel-legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; justify-content:center; }
+        .funnel-legend-item { display:flex; align-items:center; gap:5px; font-size:.8em; color:#444; }
+        .funnel-legend-dot { width:13px; height:13px; border-radius:3px; flex-shrink:0; }
+        .funnel-insight {
+            background:linear-gradient(135deg,#f3e5f5,#ede7f6);
+            border-left:4px solid #b94fc4; border-radius:0 8px 8px 0;
+            padding:11px 16px; font-size:.85em; color:#4a0a6b;
+            margin-top:14px; line-height:1.7;
+        }
+
         /* ── RADAR TAB ── */
         .radar-header { margin-bottom:14px; }
         .radar-controls {
@@ -977,6 +1002,7 @@
             <button class="tab-btn" onclick="switchTab('treemap')">🗺️ Treemap</button>
             <button class="tab-btn" onclick="switchTab('calendar')">🔥 Takvim Isı Haritası</button>
             <button class="tab-btn" onclick="switchTab('cohort')">🔄 Cohort Analizi</button>
+            <button class="tab-btn" onclick="switchTab('funnel')">🔺 Funnel Grafiği</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
@@ -1873,6 +1899,47 @@
             <div class="cohort-insight" id="cohortInsight" style="display:none;"></div>
         </div>
 
+        <!-- Funnel Tab -->
+        <div class="tab-panel" id="tab-funnel">
+            <div class="funnel-wrap">
+                <h3 style="margin:0 0 14px;color:#4a0a6b;">🔺 Funnel (Huni) Grafiği</h3>
+                <div class="funnel-controls">
+                    <div class="funnel-ctrl-group">
+                        <label>Boyut:</label>
+                        <select id="funnelGroupBy" onchange="renderFunnel()">
+                            <option value="hataTipi">Hata Tipi</option>
+                            <option value="tespitYeri">Tespit Yeri</option>
+                            <option value="hataKaynagi">Hata Kaynağı</option>
+                            <option value="cariAdi">Tedarikçi</option>
+                        </select>
+                    </div>
+                    <div class="funnel-ctrl-group">
+                        <label>Metrik:</label>
+                        <select id="funnelMetric" onchange="renderFunnel()">
+                            <option value="hataliMiktar">Hatalı Miktar</option>
+                            <option value="count">Kayıt Sayısı</option>
+                        </select>
+                    </div>
+                    <div class="funnel-ctrl-group">
+                        <label>Top N:</label>
+                        <input type="number" id="funnelTopN" value="8" min="2" max="20" style="width:65px" onchange="renderFunnel()">
+                    </div>
+                    <div class="funnel-ctrl-group">
+                        <label>Etiket:</label>
+                        <select id="funnelLabel" onchange="renderFunnel()">
+                            <option value="both">Değer + %</option>
+                            <option value="value">Sadece Değer</option>
+                            <option value="pct">Sadece %</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="funnelNoData" style="display:none;padding:30px;text-align:center;color:#aaa;">⚠️ Veri bulunamadı.</div>
+                <div class="funnel-svg-wrap" id="funnelSvgWrap"></div>
+                <div class="funnel-legend" id="funnelLegend"></div>
+                <div class="funnel-insight" id="funnelInsight" style="display:none;"></div>
+            </div>
+        </div>
+
     <!-- Empty state -->
     <div class="empty-state" id="emptyState">
         <div class="icon">📥</div>
@@ -1915,6 +1982,7 @@ function _refreshAllCharts() {
     renderTreemap();
     renderCalendar();
     renderCohort();
+    renderFunnel();
 }
 
 function toggleBreakdownAll() {
@@ -3374,7 +3442,7 @@ function exportTableExcel() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap', 'calendar', 'cohort'];
+    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap', 'calendar', 'cohort', 'funnel'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', names[i] === name);
     });
@@ -3391,6 +3459,7 @@ function switchTab(name) {
     if (name === 'treemap') { renderTreemap(); }
     if (name === 'calendar') { renderCalendar(); }
     if (name === 'cohort')   { renderCohort(); }
+    if (name === 'funnel')   { renderFunnel(); }
 }
 
 // ─── RADAR ANALİZİ ───────────────────────────────────────────────────────────
@@ -5815,6 +5884,143 @@ function renderCohort() {
             En yüksek Ay-0: <strong>${topRow.grp}</strong>
             (<em>${topRow.base.toLocaleString('tr-TR',{maximumFractionDigits:1})} ${metricLbl}</em>)
         `;
+    }
+}
+
+// ─── FUNNEL GRAFİĞİ ──────────────────────────────────────────────────────────
+function renderFunnel() {
+    const data      = _effectiveData();
+    const groupBy   = document.getElementById('funnelGroupBy')?.value  || 'hataTipi';
+    const metric    = document.getElementById('funnelMetric')?.value   || 'hataliMiktar';
+    const topN      = Math.max(2, parseInt(document.getElementById('funnelTopN')?.value) || 8);
+    const labelMode = document.getElementById('funnelLabel')?.value    || 'both';
+    const noDataEl  = document.getElementById('funnelNoData');
+    const svgWrap   = document.getElementById('funnelSvgWrap');
+    const legendEl  = document.getElementById('funnelLegend');
+    const insightEl = document.getElementById('funnelInsight');
+    if (!svgWrap) return;
+
+    // ── Aggregate ─────────────────────────────────────────────────────────
+    const agg = {};
+    data.forEach(r => {
+        const grp = (r[groupBy] || '(Belirtilmemiş)').toString().trim() || '(Belirtilmemiş)';
+        const val = metric === 'hataliMiktar' ? (Number(r.hataliMiktar) || 0) : 1;
+        agg[grp] = (agg[grp] || 0) + val;
+    });
+
+    const stages = Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, topN);
+
+    if (!stages.length) {
+        noDataEl.style.display = 'block';
+        svgWrap.innerHTML = '';
+        if (legendEl) legendEl.innerHTML = '';
+        if (insightEl) insightEl.style.display = 'none';
+        return;
+    }
+    noDataEl.style.display = 'none';
+
+    const total  = stages.reduce((s, [, v]) => s + v, 0);
+    const maxVal = stages[0][1];
+
+    // Purple-gradient palette
+    const COLORS = [
+        '#4a0a6b','#6b1a9b','#8b2fc9','#a544d4','#b94fc4',
+        '#c966d0','#da85dc','#e8a5e8','#f2c8f4','#f8e4fb',
+        '#3b0759','#5c1087'
+    ];
+
+    // ── SVG dimensions ────────────────────────────────────────────────────
+    const W        = 660;
+    const BAR_H    = 44;
+    const GAP      = 6;
+    const LABEL_W  = 172;
+    const CHART_W  = W - LABEL_W - 8;
+    const svgH     = stages.length * (BAR_H + GAP) + GAP + 4;
+
+    // ── Build SVG ─────────────────────────────────────────────────────────
+    let svgRows = '';
+    stages.forEach(([name, val], i) => {
+        const ratio  = maxVal > 0 ? val / maxVal : 0;
+        const barW   = Math.max(36, ratio * CHART_W);
+        const x      = LABEL_W + (CHART_W - barW) / 2;
+        const y      = GAP + i * (BAR_H + GAP);
+        const color  = COLORS[i % COLORS.length];
+        const pct    = total > 0 ? (val / total * 100).toFixed(1) : '0.0';
+        const valStr = val.toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+
+        let labelText;
+        if (labelMode === 'pct')         labelText = `${pct}%`;
+        else if (labelMode === 'value')  labelText = valStr;
+        else                             labelText = `${valStr}  (${pct}%)`;
+
+        const shortName = name.length > 24 ? name.slice(0, 22) + '…' : name;
+        const textColor = barW < 90 ? color : '#fff';
+
+        // Trapezoid connector between this bar and the next (subtle funnel join)
+        let connector = '';
+        if (i < stages.length - 1) {
+            const nRatio = maxVal > 0 ? stages[i + 1][1] / maxVal : 0;
+            const nBarW  = Math.max(36, nRatio * CHART_W);
+            const nX     = LABEL_W + (CHART_W - nBarW) / 2;
+            const curBot  = y + BAR_H;
+            const nxtTop  = curBot + GAP;
+            connector = `<polygon points="${x.toFixed(1)},${curBot} ${(x+barW).toFixed(1)},${curBot} ${(nX+nBarW).toFixed(1)},${nxtTop} ${nX.toFixed(1)},${nxtTop}" fill="${color}" opacity="0.22"/>`;
+        }
+
+        // Step-down % label on the right (conversion rate vs previous step)
+        let convLabel = '';
+        if (i > 0) {
+            const prevVal = stages[i - 1][1];
+            const conv = prevVal > 0 ? (val / prevVal * 100).toFixed(0) : 0;
+            convLabel = `<text x="${(LABEL_W + CHART_W + 6).toFixed(1)}" y="${(y + BAR_H/2 + 1).toFixed(1)}"
+                dominant-baseline="middle" font-size="10" fill="#888" font-family="Arial,sans-serif">↓${conv}%</text>`;
+        }
+
+        svgRows += `
+            ${connector}
+            <rect x="${x.toFixed(1)}" y="${y}" width="${barW.toFixed(1)}" height="${BAR_H}"
+                  rx="5" fill="${color}"/>
+            <text x="${(LABEL_W - 10).toFixed(1)}" y="${(y + BAR_H/2 + 1).toFixed(1)}"
+                  text-anchor="end" dominant-baseline="middle"
+                  font-size="12" fill="#333" font-family="Arial,sans-serif" font-weight="600">${shortName}</text>
+            <text x="${(x + barW/2).toFixed(1)}" y="${(y + BAR_H/2 + 1).toFixed(1)}"
+                  text-anchor="middle" dominant-baseline="middle"
+                  font-size="11" fill="${textColor}" font-family="Arial,sans-serif" font-weight="700">${labelText}</text>
+            ${convLabel}
+        `;
+    });
+
+    svgWrap.innerHTML = `
+        <svg viewBox="0 0 ${W + 54} ${svgH}" style="max-width:${W + 54}px;width:100%;font-family:Arial,sans-serif;">
+            ${svgRows}
+        </svg>`;
+
+    // ── Legend ─────────────────────────────────────────────────────────────
+    if (legendEl) {
+        legendEl.innerHTML = stages.map(([name, val], i) => {
+            const pct = total > 0 ? (val / total * 100).toFixed(1) : '0.0';
+            return `<div class="funnel-legend-item">
+                <div class="funnel-legend-dot" style="background:${COLORS[i % COLORS.length]}"></div>
+                <span>${name} — ${val.toLocaleString('tr-TR', {maximumFractionDigits:0})} (%${pct})</span>
+            </div>`;
+        }).join('');
+    }
+
+    // ── Insight ────────────────────────────────────────────────────────────
+    if (insightEl) {
+        const top1    = stages[0];
+        const n3      = Math.min(3, stages.length);
+        const top3Sum = stages.slice(0, n3).reduce((s, [, v]) => s + v, 0);
+        const top3Pct = total > 0 ? (top3Sum / total * 100).toFixed(1) : '0.0';
+        const metLbl  = metric === 'hataliMiktar' ? 'hatalı miktar' : 'kayıt';
+        const dropOff = stages.length > 1 && stages[stages.length - 1][1] > 0 && stages[0][1] > 0
+            ? ((1 - stages[stages.length - 1][1] / stages[0][1]) * 100).toFixed(0) : '—';
+        insightEl.style.display = 'block';
+        insightEl.innerHTML = `🔺 <strong>${stages.length}</strong> kategori görüntüleniyor &nbsp;|&nbsp;
+            En yüksek: <strong>${top1[0]}</strong>
+            (${top1[1].toLocaleString('tr-TR', {maximumFractionDigits:0})} ${metLbl}, %${total > 0 ? (top1[1]/total*100).toFixed(1) : 0}) &nbsp;|&nbsp;
+            İlk ${n3} kategori toplam ${metLbl}ın <strong>%${top3Pct}</strong>'ini oluşturuyor &nbsp;|&nbsp;
+            1. → Son kademe düşüşü: <strong>%${dropOff}</strong>`;
     }
 }
 
