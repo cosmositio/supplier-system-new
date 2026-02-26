@@ -523,6 +523,55 @@
             .header h1 { font-size: 1.3em; }
             .container { padding: 14px 10px; }
         }
+
+        /* ── RADAR TAB ── */
+        .radar-header { margin-bottom:14px; }
+        .radar-controls {
+            display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;
+            padding:14px 16px; background:#faf5ff; border-radius:10px;
+            border:1px solid #e9d5ff;
+        }
+        .radar-ctrl-group { display:flex; flex-direction:column; gap:4px; }
+        .radar-ctrl-group label { font-size:.75rem; font-weight:600; color:#6b21a8; }
+        .radar-ctrl-group select {
+            padding:6px 10px; border:1.5px solid #d8b4fe; border-radius:7px;
+            font-size:.84rem; background:#fff; outline:none; color:#3b0764;
+        }
+        .radar-ctrl-group select:focus { border-color:#a855f7; }
+        .radar-selector-panel {
+            width:260px; flex-shrink:0; border:1.5px solid #e9d5ff;
+            border-radius:12px; background:#fff; overflow:hidden;
+            box-shadow:0 2px 8px rgba(168,85,247,.08);
+        }
+        .radar-sel-title {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:10px 14px; background:#f5f0ff;
+            border-bottom:1px solid #e9d5ff; font-size:.82rem; font-weight:700; color:#4a0a6b;
+        }
+        .radar-sel-title small { font-size:.7rem; color:#a78bfa; font-weight:400; }
+        .radar-group-list { max-height:320px; overflow-y:auto; padding:6px 0; }
+        .radar-group-item {
+            display:flex; align-items:center; gap:9px; padding:7px 14px;
+            cursor:pointer; font-size:.82rem; color:#333; transition:background .12s;
+        }
+        .radar-group-item:hover { background:#fdf4ff; }
+        .radar-group-item.rgi-selected { background:#f3e8ff; }
+        .radar-group-item input[type=checkbox] { width:15px; height:15px; accent-color:#a855f7; flex-shrink:0; }
+        .radar-group-item .rgi-label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .radar-group-item .rgi-val { font-size:.73rem; color:#94a3b8; flex-shrink:0; }
+        .radar-group-item.rgi-selected .rgi-label { font-weight:700; color:#6b21a8; }
+        .radar-sel-btn {
+            padding:5px 12px; border:1.5px solid #d8b4fe; border-radius:6px;
+            background:#fff; color:#7c3aed; font-size:.75rem; font-weight:600;
+            cursor:pointer; transition:all .15s;
+        }
+        .radar-sel-btn:hover { background:#ede9fe; }
+        .radar-sel-btn-clear { border-color:#fca5a5; color:#dc2626; }
+        .radar-sel-btn-clear:hover { background:#fee2e2; }
+        .radar-chart-wrap { position:relative; width:100%; height:480px; }
+        .radar-color-dot {
+            width:12px; height:12px; border-radius:50%; flex-shrink:0;
+        }
     </style>
 </head>
 <body>
@@ -680,6 +729,7 @@
             <button class="tab-btn active" onclick="switchTab('pareto')">📊 Pareto Analizi</button>
             <button class="tab-btn" onclick="switchTab('breakdown')">📋 Hata Tipi Dağılımı</button>
             <button class="tab-btn" onclick="switchTab('table')">📄 Veri Tablosu</button>
+            <button class="tab-btn" onclick="switchTab('radar')">🕷️ Radar Analizi</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
@@ -783,6 +833,91 @@
             </div>
             <div class="pagination" id="pagination"></div>
         </div>
+
+        <!-- Radar Tab -->
+        <div class="tab-panel" id="tab-radar">
+            <div class="radar-header">
+                <div style="font-size:1.05rem;font-weight:800;color:#4a0a6b;display:flex;align-items:center;gap:8px;">
+                    🕷️ Radar / Örümcek Karşılaştırma Analizi
+                    <span style="font-size:.75rem;font-weight:400;color:#888;background:#f3e8ff;padding:2px 10px;border-radius:20px;">Her eksen bir boyutu, her çizgi bir grubu temsil eder</span>
+                </div>
+            </div>
+            <div class="radar-controls">
+                <div class="radar-ctrl-group">
+                    <label>Karşılaştırma Kriteri</label>
+                    <select id="radarGroupBy" onchange="radarBuildSelector()">
+                        <option value="cariAdi">Cari Adı (Tedarikçi/Müşteri)</option>
+                        <option value="hataTipi">Hata Tipi</option>
+                        <option value="hataKaynagi">Hata Kaynağı</option>
+                        <option value="tespitYeri">Tespit Yeri</option>
+                        <option value="stokAdi">Stok Adı</option>
+                    </select>
+                </div>
+                <div class="radar-ctrl-group">
+                    <label>Eksen Boyutu</label>
+                    <select id="radarAxesBy" onchange="radarBuildSelector()">
+                        <option value="hataTipi">Hata Tipi</option>
+                        <option value="hataKaynagi">Hata Kaynağı</option>
+                        <option value="tespitYeri">Tespit Yeri</option>
+                        <option value="stokAdi">Stok Adı</option>
+                        <option value="uygunsuzlukTuru">Uygunsuzluk Türü</option>
+                    </select>
+                </div>
+                <div class="radar-ctrl-group">
+                    <label>Metrik</label>
+                    <select id="radarMetric" onchange="renderRadar()">
+                        <option value="hataliMiktar">Hatalı Miktar</option>
+                        <option value="kayitSayisi">Kayıt Sayısı</option>
+                    </select>
+                </div>
+                <div class="radar-ctrl-group">
+                    <label>Max Eksen (Top)</label>
+                    <select id="radarAxesTop" onchange="radarBuildSelector()">
+                        <option value="5">5</option>
+                        <option value="7" selected>7</option>
+                        <option value="10">10</option>
+                        <option value="12">12</option>
+                    </select>
+                </div>
+                <div class="radar-ctrl-group">
+                    <label>Normalize</label>
+                    <select id="radarNorm" onchange="renderRadar()">
+                        <option value="1">Evet — 0 ile 100 arası</option>
+                        <option value="0">Hayır — Gerçek Değer</option>
+                    </select>
+                </div>
+                <button class="export-btn" onclick="downloadRadarPNG()">⬇ PNG İndir</button>
+            </div>
+
+            <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:18px;">
+                <!-- Group selector panel -->
+                <div class="radar-selector-panel">
+                    <div class="radar-sel-title">
+                        <span>📋 Karşılaştırılacak Gruplar</span>
+                        <small id="radarSelHint">Seçilecek: 2–10</small>
+                    </div>
+                    <div id="radarGroupList" class="radar-group-list"></div>
+                    <div style="padding:8px 12px;border-top:1px solid #f1f5f9;display:flex;gap:8px;">
+                        <button class="radar-sel-btn" onclick="radarSelectAll()">Tümü</button>
+                        <button class="radar-sel-btn" onclick="radarSelectTop5()">Top 5</button>
+                        <button class="radar-sel-btn radar-sel-btn-clear" onclick="radarClearAll()">Temizle</button>
+                    </div>
+                </div>
+
+                <!-- Chart area -->
+                <div style="flex:1;min-width:300px;">
+                    <div id="radarNoData" style="display:none;text-align:center;padding:60px 20px;color:#aaa;">
+                        <div style="font-size:2.5em;margin-bottom:12px;">🕷️</div>
+                        <p>En az 2 grup ve en az 2 eksen değeri seçin.</p>
+                    </div>
+                    <div class="radar-chart-wrap" id="radarChartWrap">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div id="radarInsight" style="margin-top:16px;padding:12px 16px;background:#fdf5ff;border-radius:10px;font-size:0.83em;color:#4a0a6b;border-left:4px solid #b94fc4;display:none;"></div>
+        </div>
     </div>
 
     <!-- Empty state -->
@@ -803,6 +938,8 @@ const PAGE_SIZE = 50;
 let sortCol = -1;
 let sortAsc = true;
 let paretoChartInst = null;
+let radarChartInst  = null;
+let _radarSelected  = new Set();
 let excludedHataTipleri = new Set(); // breakdown'dan dışlananlar
 let selectedCari = '';            // custom cari dropdown seçili değer
 let musteriSet = new Set();       // müşteri olarak işaretlenmiş cariler
@@ -1038,6 +1175,8 @@ function applyFilters() {
     renderBreakdown();
     currentPage = 1;
     renderTable();
+    _radarSelected.clear();
+    if (document.getElementById('tab-radar').classList.contains('active')) radarBuildSelector();
     showToast(`${filteredData.length} kayıt filtrelendi`, 'success');
 }
 
@@ -1059,6 +1198,8 @@ function resetFilters() {
     renderBreakdown();
     currentPage = 1;
     renderTable();
+    _radarSelected.clear();
+    if (document.getElementById('tab-radar').classList.contains('active')) radarBuildSelector();
     showToast('Filtreler sıfırlandı');
 }
 
@@ -2222,13 +2363,289 @@ function exportTableExcel() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
+    const names = ['pareto', 'breakdown', 'table', 'radar'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
-        const names = ['pareto', 'breakdown', 'table'];
         b.classList.toggle('active', names[i] === name);
     });
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-' + name).classList.add('active');
     if (name === 'pareto' && paretoChartInst) paretoChartInst.resize();
+    if (name === 'radar') { radarBuildSelector(); }
+}
+
+// ─── RADAR ANALİZİ ───────────────────────────────────────────────────────────
+
+const RADAR_PALETTE = [
+    '#7c3aed','#db2777','#0891b2','#16a34a','#ea580c',
+    '#9333ea','#0f766e','#b45309','#be123c','#1d4ed8',
+];
+
+function _radarField(row, key) {
+    const map = {
+        cariAdi: row.cariAdi || row['Cari Adı'] || '—',
+        hataTipi: row.hataTipi || row['Hata Tipi'] || '—',
+        hataKaynagi: row.hataKaynagi || row['Hata Kaynağı'] || '—',
+        tespitYeri: row.tespitYeri || row['Tespit Yeri'] || '—',
+        stokAdi: row.stokAdi || row['Stok Adı'] || '—',
+        uygunsuzlukTuru: row.uygunsuzlukTuru || row['Uygunsuzluk Türü'] || '—',
+    };
+    return (map[key] || '—').toString().trim() || '—';
+}
+
+function _radarMetricVal(row, metric) {
+    if (metric === 'hataliMiktar') return parseFloat(row.hataliMiktar || row['Hatalı Miktar'] || 0) || 0;
+    return 1; // kayıt sayısı: her satır 1
+}
+
+// Tüm veriyi pivot'la: { [groupVal]: { [axisVal]: number } }
+function _radarPivot(data, groupKey, axisKey, metric) {
+    const pivot = {};
+    data.forEach(row => {
+        const g = _radarField(row, groupKey);
+        const a = _radarField(row, axisKey);
+        const v = _radarMetricVal(row, metric);
+        if (!pivot[g]) pivot[g] = {};
+        pivot[g][a] = (pivot[g][a] || 0) + v;
+    });
+    return pivot;
+}
+
+// Top N eksen (tüm datadan aggregate)
+function _radarTopAxes(data, axisKey, metric, topN) {
+    const totals = {};
+    data.forEach(row => {
+        const a = _radarField(row, axisKey);
+        totals[a] = (totals[a] || 0) + _radarMetricVal(row, metric);
+    });
+    return Object.entries(totals)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, topN)
+        .map(e => e[0]);
+}
+
+// Top N gruplar (tüm datadan)
+function _radarTopGroups(data, groupKey, metric, topN) {
+    const totals = {};
+    data.forEach(row => {
+        const g = _radarField(row, groupKey);
+        totals[g] = (totals[g] || 0) + _radarMetricVal(row, metric);
+    });
+    return Object.entries(totals)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, topN)
+        .map(e => ({ label: e[0], total: e[1] }));
+}
+
+function radarBuildSelector() {
+    if (!filteredData.length) return;
+    const groupKey = document.getElementById('radarGroupBy').value;
+    const metric   = document.getElementById('radarMetric').value;
+    const top20    = _radarTopGroups(filteredData, groupKey, metric, 20);
+
+    // Sync selected: keep existing selections that are still valid
+    const validLabels = new Set(top20.map(g => g.label));
+    _radarSelected.forEach(s => { if (!validLabels.has(s)) _radarSelected.delete(s); });
+
+    // Auto-select top 5 if nothing selected
+    if (_radarSelected.size === 0) {
+        top20.slice(0, 5).forEach(g => _radarSelected.add(g.label));
+    }
+
+    const list = document.getElementById('radarGroupList');
+    const maxVal = top20[0]?.total || 1;
+
+    list.innerHTML = top20.map(g => {
+        const pct = Math.round((g.total / maxVal) * 100);
+        const sel = _radarSelected.has(g.label);
+        return `<div class="radar-group-item ${sel ? 'rgi-selected' : ''}" onclick="_radarToggle(this,'${g.label.replace(/'/g,"\\'")}')" >
+            <input type="checkbox" ${sel ? 'checked' : ''} onclick="event.stopPropagation()">
+            <span class="radar-color-dot" style="background:${RADAR_PALETTE[top20.indexOf(g) % RADAR_PALETTE.length]};"></span>
+            <span class="rgi-label" title="${g.label}">${g.label}</span>
+            <span class="rgi-val">${g.total.toLocaleString('tr-TR',{maximumFractionDigits:0})} (${pct}%)</span>
+        </div>`;
+    }).join('');
+
+    document.getElementById('radarSelHint').textContent = `Seçili: ${_radarSelected.size}`;
+    renderRadar();
+}
+
+function _radarToggle(el, label) {
+    if (_radarSelected.has(label)) {
+        _radarSelected.delete(label);
+        el.classList.remove('rgi-selected');
+        el.querySelector('input').checked = false;
+    } else {
+        _radarSelected.add(label);
+        el.classList.add('rgi-selected');
+        el.querySelector('input').checked = true;
+    }
+    document.getElementById('radarSelHint').textContent = `Seçili: ${_radarSelected.size}`;
+    renderRadar();
+}
+
+function radarSelectAll() {
+    document.querySelectorAll('.radar-group-item').forEach(el => {
+        const label = el.querySelector('.rgi-label').title;
+        _radarSelected.add(label);
+        el.classList.add('rgi-selected');
+        el.querySelector('input').checked = true;
+    });
+    document.getElementById('radarSelHint').textContent = `Seçili: ${_radarSelected.size}`;
+    renderRadar();
+}
+
+function radarSelectTop5() {
+    _radarSelected.clear();
+    let i = 0;
+    document.querySelectorAll('.radar-group-item').forEach(el => {
+        const label = el.querySelector('.rgi-label').title;
+        if (i++ < 5) {
+            _radarSelected.add(label);
+            el.classList.add('rgi-selected');
+            el.querySelector('input').checked = true;
+        } else {
+            el.classList.remove('rgi-selected');
+            el.querySelector('input').checked = false;
+        }
+    });
+    document.getElementById('radarSelHint').textContent = `Seçili: ${_radarSelected.size}`;
+    renderRadar();
+}
+
+function radarClearAll() {
+    _radarSelected.clear();
+    document.querySelectorAll('.radar-group-item').forEach(el => {
+        el.classList.remove('rgi-selected');
+        el.querySelector('input').checked = false;
+    });
+    document.getElementById('radarSelHint').textContent = 'Seçili: 0';
+    renderRadar();
+}
+
+function renderRadar() {
+    const groupKey  = document.getElementById('radarGroupBy').value;
+    const axisKey   = document.getElementById('radarAxesBy').value;
+    const metric    = document.getElementById('radarMetric').value;
+    const axesTop   = parseInt(document.getElementById('radarAxesTop').value);
+    const normalize = document.getElementById('radarNorm').value === '1';
+
+    const noDataEl  = document.getElementById('radarNoData');
+    const wrapEl    = document.getElementById('radarChartWrap');
+    const insightEl = document.getElementById('radarInsight');
+
+    if (!filteredData.length || _radarSelected.size < 2) {
+        noDataEl.style.display = 'block';
+        wrapEl.style.display   = 'none';
+        insightEl.style.display = 'none';
+        return;
+    }
+
+    const selectedGroups = [..._radarSelected];
+    const axes    = _radarTopAxes(filteredData, axisKey, metric, axesTop);
+
+    if (axes.length < 2) {
+        noDataEl.style.display  = 'block';
+        wrapEl.style.display    = 'none';
+        insightEl.style.display = 'none';
+        return;
+    }
+
+    noDataEl.style.display = 'none';
+    wrapEl.style.display   = 'block';
+
+    const pivot = _radarPivot(filteredData, groupKey, axisKey, metric);
+
+    // For each axis, find the max across all selected groups (for normalization)
+    const axisMax = {};
+    axes.forEach(ax => {
+        axisMax[ax] = Math.max(1, ...selectedGroups.map(g => pivot[g]?.[ax] || 0));
+    });
+
+    const datasets = selectedGroups.map((g, i) => {
+        const color = RADAR_PALETTE[i % RADAR_PALETTE.length];
+        const rawVals = axes.map(ax => pivot[g]?.[ax] || 0);
+        const vals = normalize
+            ? axes.map(ax => axisMax[ax] > 0 ? Math.round((pivot[g]?.[ax] || 0) / axisMax[ax] * 100) : 0)
+            : rawVals;
+        return {
+            label: g,
+            data: vals,
+            backgroundColor: color + '22',
+            borderColor: color,
+            borderWidth: 2.2,
+            pointBackgroundColor: color,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            _rawVals: rawVals,
+        };
+    });
+
+    if (radarChartInst) { radarChartInst.destroy(); radarChartInst = null; }
+
+    const ctx = document.getElementById('radarChart').getContext('2d');
+    radarChartInst = new Chart(ctx, {
+        type: 'radar',
+        data: { labels: axes, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { font: { size: 12 }, padding: 14 } },
+                tooltip: {
+                    callbacks: {
+                        label(ctx) {
+                            const raw = ctx.dataset._rawVals?.[ctx.dataIndex];
+                            const suffix = normalize ? ` (${ctx.raw}%)` : '';
+                            const fmt = typeof raw === 'number'
+                                ? raw.toLocaleString('tr-TR', { maximumFractionDigits: 1 })
+                                : raw;
+                            return ` ${ctx.dataset.label}: ${fmt}${suffix}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                r: {
+                    min: 0,
+                    max: normalize ? 100 : undefined,
+                    ticks: {
+                        stepSize: normalize ? 20 : undefined,
+                        font: { size: 10 },
+                        backdropColor: 'transparent',
+                        callback: v => normalize ? v + '%' : v.toLocaleString('tr-TR', { maximumFractionDigits: 0 }),
+                    },
+                    pointLabels: { font: { size: 11 }, color: '#374151' },
+                    grid: { color: '#e5e7eb' },
+                    angleLines: { color: '#e5e7eb' },
+                }
+            }
+        }
+    });
+
+    // Insight: find the strongest group per axis
+    const insights = [];
+    axes.forEach(ax => {
+        let best = null, bestVal = -1;
+        selectedGroups.forEach(g => {
+            const v = pivot[g]?.[ax] || 0;
+            if (v > bestVal) { bestVal = v; best = g; }
+        });
+        if (best && bestVal > 0) {
+            insights.push(`<b>${ax}</b> ekseninde en yüksek: <b>${best}</b> (${bestVal.toLocaleString('tr-TR',{maximumFractionDigits:1})})`);
+        }
+    });
+
+    insightEl.style.display = insights.length ? 'block' : 'none';
+    insightEl.innerHTML = '🔎 <b>Radar Öngörüleri:</b> ' + insights.join(' &nbsp;|&nbsp; ');
+}
+
+function downloadRadarPNG() {
+    const canvas = document.getElementById('radarChart');
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = 'radar-analiz.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
 }
 
 // ─── LocalStorage Persistence ───────────────────────────────────────────────
