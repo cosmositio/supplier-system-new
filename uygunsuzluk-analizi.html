@@ -2643,6 +2643,9 @@ function _radarRenderList(groups) {
     document.addEventListener('click', function(e) {
         const item = e.target.closest('#radarGroupList .radar-group-item');
         if (!item) return;
+        // Prevent the browser from natively toggling the checkbox checked state
+        // (its default action runs AFTER listeners, undoing our explicit chk.checked assignment)
+        e.preventDefault();
         const label = item.getAttribute('data-lbl')
             ?.replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&lt;/g,'<');
         if (!label) return;
