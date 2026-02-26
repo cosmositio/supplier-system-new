@@ -655,6 +655,14 @@
         .bb-pick-item.bpi-sel { background:#7c3aed; border-color:#6d28d9; color:#fff; font-weight:600; }
         .bb-pick-item input[type=checkbox] { width:13px; height:13px; accent-color:#7c3aed; flex-shrink:0; pointer-events:none; }
         .bb-pick-val { font-size:.7rem; opacity:.72; margin-left:2px; }
+        /* Scatter Plot */
+        .sc-controls { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; padding:14px 16px; background:#fff7ed; border-radius:10px; border:1px solid #fed7aa; }
+        .sc-ctrl-group { display:flex; flex-direction:column; gap:4px; }
+        .sc-ctrl-group label { font-size:.75rem; font-weight:600; color:#c2410c; }
+        .sc-ctrl-group select { padding:6px 10px; border:1.5px solid #fdba74; border-radius:7px; font-size:.84rem; background:#fff; outline:none; color:#7c2d12; }
+        .sc-ctrl-group select:focus { border-color:#ea580c; }
+        .sc-chart-area { position:relative; height:500px; margin-top:18px; }
+        .sc-insight { margin-top:14px; padding:12px 16px; background:#ffedd5; border-radius:10px; font-size:0.83em; color:#7c2d12; border-left:4px solid #ea580c; }
         /* Box Plot */
         .bp-controls { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; padding:14px 16px; background:#f0fdfa; border-radius:10px; border:1px solid #99f6e4; }
         .bp-ctrl-group { display:flex; flex-direction:column; gap:4px; }
@@ -849,6 +857,7 @@
             <button class="tab-btn" onclick="switchTab('bar')">📦 Gruplu / Yigilmis Bar</button>
             <button class="tab-btn" onclick="switchTab('sankey')">🌊 Sankey Diyagramı</button>
             <button class="tab-btn" onclick="switchTab('boxplot')">📦 Kutu Grafik (Box Plot)</button>
+            <button class="tab-btn" onclick="switchTab('scatter')">📀 Dağılım (Scatter)</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
@@ -1483,6 +1492,90 @@
                 </table>
             </div>
         </div>
+
+        <!-- Scatter Plot Tab -->
+        <div class="tab-panel" id="tab-scatter">
+            <div style="font-size:1.05rem;font-weight:800;color:#c2410c;display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                📀 Dağılım Grafiği (Scatter Plot)
+                <span style="font-size:.75rem;font-weight:400;color:#888;background:#ffedd5;padding:2px 10px;border-radius:20px;">Her nokta bir kayıdı temsil eder — iki metrik arasındaki ilişkiyi gösterir</span>
+            </div>
+            <div class="sc-controls">
+                <div class="sc-ctrl-group">
+                    <label>X Ekseni</label>
+                    <select id="scXAxis" onchange="renderScatter()">
+                        <option value="hataliMiktar">Hatalı Miktar</option>
+                        <option value="kontrolMiktar">Kontrol Miktar</option>
+                        <option value="hataOrani">Hata Oranı %</option>
+                    </select>
+                </div>
+                <div class="sc-ctrl-group">
+                    <label>Y Ekseni</label>
+                    <select id="scYAxis" onchange="renderScatter()">
+                        <option value="kontrolMiktar">Kontrol Miktar</option>
+                        <option value="hataliMiktar">Hatalı Miktar</option>
+                        <option value="hataOrani">Hata Oranı %</option>
+                    </select>
+                </div>
+                <div class="sc-ctrl-group">
+                    <label>Renk Grupla</label>
+                    <select id="scColorBy" onchange="renderScatter()">
+                        <option value="hataTipi">Hata Tipi</option>
+                        <option value="cariAdi">Cari Adı</option>
+                        <option value="hataKaynagi">Hata Kaynağı</option>
+                        <option value="tespitYeri">Tespit Yeri</option>
+                        <option value="makine">Makine</option>
+                        <option value="tipi">Tipi</option>
+                        <option value="uygunsuzlukTuru">Uyg. Türü</option>
+                    </select>
+                </div>
+                <div class="sc-ctrl-group">
+                    <label>Top N Renk</label>
+                    <select id="scTopColor" onchange="renderScatter()">
+                        <option value="8">8</option>
+                        <option value="12" selected>12</option>
+                        <option value="16">16</option>
+                        <option value="99999">Tümü</option>
+                    </select>
+                </div>
+                <div class="sc-ctrl-group">
+                    <label>Maks Nokta</label>
+                    <select id="scMaxPts" onchange="renderScatter()">
+                        <option value="300">300</option>
+                        <option value="500" selected>500</option>
+                        <option value="1000">1000</option>
+                        <option value="99999">Tümü</option>
+                    </select>
+                </div>
+                <div class="sc-ctrl-group">
+                    <label>Nokta Boyutu</label>
+                    <select id="scPointSize" onchange="renderScatter()">
+                        <option value="4">Küçük</option>
+                        <option value="6" selected>Orta</option>
+                        <option value="9">Büyük</option>
+                    </select>
+                </div>
+                <div class="sc-ctrl-group">
+                    <label>Log Ölçek</label>
+                    <select id="scLogScale" onchange="renderScatter()">
+                        <option value="0">Kapalı</option>
+                        <option value="1">Açık</option>
+                    </select>
+                </div>
+                <div class="sc-ctrl-group">
+                    <label>Eğim Çizgisi</label>
+                    <select id="scTrendline" onchange="renderScatter()">
+                        <option value="0">Kapalı</option>
+                        <option value="1">Açık</option>
+                    </select>
+                </div>
+                <button class="export-btn" onclick="downloadScatterPNG()" style="align-self:flex-end;background:#ea580c;border-color:#c2410c;">⬇ PNG İndir</button>
+            </div>
+            <div id="scNoData" style="display:none;padding:30px;text-align:center;color:#aaa;">⚠️ Veri yok — filtre uygulayın.</div>
+            <div class="sc-chart-area" id="scChartWrap" style="display:none;">
+                <canvas id="scChart"></canvas>
+            </div>
+            <div id="scInsight" class="sc-insight" style="display:none;"></div>
+        </div>
     </div>
 
     <!-- Empty state -->
@@ -1747,6 +1840,7 @@ function applyFilters() {
     if (document.getElementById('tab-bar').classList.contains('active'))     renderGroupedBar();
     if (document.getElementById('tab-sankey').classList.contains('active'))  renderSankey();
     if (document.getElementById('tab-boxplot').classList.contains('active')) renderBoxPlot();
+    if (document.getElementById('tab-scatter').classList.contains('active')) renderScatter();
     showToast(`${filteredData.length} kayıt filtrelendi`, 'success');
 }
 
@@ -1775,6 +1869,7 @@ function resetFilters() {
     if (document.getElementById('tab-bar').classList.contains('active'))     renderGroupedBar();
     if (document.getElementById('tab-sankey').classList.contains('active'))  renderSankey();
     if (document.getElementById('tab-boxplot').classList.contains('active')) renderBoxPlot();
+    if (document.getElementById('tab-scatter').classList.contains('active')) renderScatter();
     showToast('Filtreler sıfırlandı');
 }
 
@@ -2938,7 +3033,7 @@ function exportTableExcel() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot'];
+    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', names[i] === name);
     });
@@ -2951,6 +3046,7 @@ function switchTab(name) {
     if (name === 'bar')     { renderGroupedBar(); }
     if (name === 'sankey')  { renderSankey(); }
     if (name === 'boxplot') { renderBoxPlot(); }
+    if (name === 'scatter') { renderScatter(); }
 }
 
 // ─── RADAR ANALİZİ ───────────────────────────────────────────────────────────
@@ -4352,7 +4448,239 @@ function downloadBoxPlotPNG() {
     a.href = boxPlotChartInst.toBase64Image('image/png', 1);
     a.download = 'kutu-grafik.png';
     a.click();
-} ───────────────────────────────────────────────
+}
+
+// ─── SCATTER PLOT (DAĞILIM) ──────────────────────────────────────────────────
+let scatterChartInst = null;
+
+const SC_PALETTE = [
+    '#ea580c','#2563eb','#16a34a','#dc2626','#7c3aed',
+    '#0891b2','#db2777','#b45309','#0f766e','#9333ea',
+    '#65a30d','#be123c','#1d4ed8','#c2410c','#6d28d9','#047857',
+];
+
+function _scGetVal(row, key) {
+    if (key === 'hataliMiktar')  return parseFloat(row.hataliMiktar  || row['Hatalı Miktar']  || 0) || 0;
+    if (key === 'kontrolMiktar') return parseFloat(row.kontrolMiktar || row['Kontrol Miktar'] || 0) || 0;
+    if (key === 'hataOrani') {
+        const h = parseFloat(row.hataliMiktar  || 0) || 0;
+        const k = parseFloat(row.kontrolMiktar || 0) || 0;
+        return k > 0 ? Math.round((h / k) * 10000) / 100 : 0;
+    }
+    return 0;
+}
+
+function _scLinearRegression(pts) {
+    const n = pts.length;
+    if (n < 2) return null;
+    const mx = pts.reduce((s, p) => s + p.x, 0) / n;
+    const my = pts.reduce((s, p) => s + p.y, 0) / n;
+    const num = pts.reduce((s, p) => s + (p.x - mx) * (p.y - my), 0);
+    const den = pts.reduce((s, p) => s + (p.x - mx) ** 2, 0);
+    if (den === 0) return null;
+    const slope = num / den;
+    const intercept = my - slope * mx;
+    const xMin = Math.min(...pts.map(p => p.x));
+    const xMax = Math.max(...pts.map(p => p.x));
+    return { slope, intercept, xMin, xMax };
+}
+
+function _scPearson(pts) {
+    const n = pts.length;
+    if (n < 2) return null;
+    const mx = pts.reduce((s, p) => s + p.x, 0) / n;
+    const my = pts.reduce((s, p) => s + p.y, 0) / n;
+    const num = pts.reduce((s, p) => s + (p.x - mx) * (p.y - my), 0);
+    const dx  = Math.sqrt(pts.reduce((s, p) => s + (p.x - mx) ** 2, 0));
+    const dy  = Math.sqrt(pts.reduce((s, p) => s + (p.y - my) ** 2, 0));
+    return (dx === 0 || dy === 0) ? 0 : num / (dx * dy);
+}
+
+function renderScatter() {
+    const noDataEl  = document.getElementById('scNoData');
+    const wrapEl    = document.getElementById('scChartWrap');
+    const insightEl = document.getElementById('scInsight');
+    if (!wrapEl) return;
+
+    const hide = () => {
+        noDataEl.style.display = 'block';
+        wrapEl.style.display   = 'none';
+        if (insightEl) insightEl.style.display = 'none';
+    };
+
+    if (!filteredData || !filteredData.length) { hide(); return; }
+
+    const xKey      = document.getElementById('scXAxis').value;
+    const yKey      = document.getElementById('scYAxis').value;
+    const colorKey  = document.getElementById('scColorBy').value;
+    const topColor  = parseInt(document.getElementById('scTopColor').value) || 12;
+    const maxPts    = parseInt(document.getElementById('scMaxPts').value) || 500;
+    const ptRadius  = parseInt(document.getElementById('scPointSize').value) || 6;
+    const useLog    = document.getElementById('scLogScale').value === '1';
+    const showTrend = document.getElementById('scTrendline').value === '1';
+
+    const AXIS_LABELS = { hataliMiktar: 'Hatalı Miktar', kontrolMiktar: 'Kontrol Miktar', hataOrani: 'Hata Oranı %' };
+    const xLabel = AXIS_LABELS[xKey];
+    const yLabel = AXIS_LABELS[yKey];
+
+    // Count groups to decide top-N color groups
+    const groupCount = {};
+    filteredData.forEach(r => {
+        const g = _hmGet(r, colorKey);
+        if (g && g !== '—') groupCount[g] = (groupCount[g] || 0) + 1;
+    });
+    const topGroups = Object.entries(groupCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, topColor >= 99999 ? undefined : topColor)
+        .map(([k]) => k);
+    const topSet = new Set(topGroups);
+
+    // Bucket rows
+    const groupPts = {};
+    const otherPts = [];
+    topGroups.forEach(g => { groupPts[g] = []; });
+
+    // Sample rows for max points (uniform stride)
+    let rows = filteredData;
+    if (maxPts < 99999 && rows.length > maxPts) {
+        const step = Math.ceil(rows.length / maxPts);
+        rows = rows.filter((_, i) => i % step === 0);
+    }
+
+    rows.forEach(r => {
+        const x = _scGetVal(r, xKey);
+        const y = _scGetVal(r, yKey);
+        if (x === 0 && y === 0) return;
+        const g  = _hmGet(r, colorKey);
+        const pt = { x, y, _group: g };
+        if (topSet.has(g)) groupPts[g].push(pt);
+        else otherPts.push(pt);
+    });
+
+    // Build datasets
+    const datasets = topGroups
+        .filter(g => groupPts[g].length > 0)
+        .map((g, i) => {
+            const color = SC_PALETTE[i % SC_PALETTE.length];
+            return {
+                label: g.length > 28 ? g.slice(0, 27) + '…' : g,
+                data: groupPts[g],
+                backgroundColor: color + 'bb',
+                borderColor: color,
+                borderWidth: 0.8,
+                pointRadius: ptRadius,
+                pointHoverRadius: ptRadius + 3,
+            };
+        });
+
+    if (otherPts.length > 0) {
+        datasets.push({
+            label: 'Diğer',
+            data: otherPts,
+            backgroundColor: '#94a3b8aa',
+            borderColor: '#94a3b8',
+            borderWidth: 0.5,
+            pointRadius: Math.max(2, ptRadius - 2),
+            pointHoverRadius: ptRadius,
+        });
+    }
+
+    // Trendline dataset
+    if (showTrend) {
+        const allPts = [...Object.values(groupPts).flat(), ...otherPts];
+        const reg = _scLinearRegression(allPts);
+        if (reg) {
+            datasets.push({
+                label: 'Eğim Çizgisi',
+                type: 'line',
+                data: [
+                    { x: reg.xMin, y: reg.slope * reg.xMin + reg.intercept },
+                    { x: reg.xMax, y: reg.slope * reg.xMax + reg.intercept },
+                ],
+                backgroundColor: 'transparent',
+                borderColor: '#ef4444',
+                borderWidth: 2,
+                borderDash: [6, 4],
+                pointRadius: 0,
+                tension: 0,
+            });
+        }
+    }
+
+    const totalPts = datasets.reduce((s, d) => s + (d.label !== 'Eğim Çizgisi' ? d.data.length : 0), 0);
+    if (totalPts === 0) { hide(); return; }
+
+    noDataEl.style.display = 'none';
+    wrapEl.style.display   = 'block';
+
+    if (scatterChartInst) { scatterChartInst.destroy(); scatterChartInst = null; }
+    const ctx = document.getElementById('scChart').getContext('2d');
+
+    const fmtA = (k, v) => k === 'hataOrani'
+        ? v.toLocaleString('tr-TR', { maximumFractionDigits: 2 }) + '%'
+        : v >= 1000 ? (v / 1000).toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + 'K'
+                    : v.toLocaleString('tr-TR', { maximumFractionDigits: 1 });
+
+    scatterChartInst = new Chart(ctx, {
+        type: 'scatter',
+        data: { datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: { font: { size: 11 }, padding: 9, boxWidth: 13 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const d = ctx.raw;
+                            return [
+                                d._group || ctx.dataset.label,
+                                `${xLabel}: ${fmtA(xKey, d.x)}`,
+                                `${yLabel}: ${fmtA(yKey, d.y)}`,
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: useLog ? 'logarithmic' : 'linear',
+                    title: { display: true, text: xLabel, font: { size: 12 } },
+                    ticks: { callback: v => fmtA(xKey, v) },
+                    grid: { color: '#f1f5f9' },
+                },
+                y: {
+                    type: useLog ? 'logarithmic' : 'linear',
+                    title: { display: true, text: yLabel, font: { size: 12 } },
+                    ticks: { callback: v => fmtA(yKey, v) },
+                    grid: { color: '#f1f5f9' },
+                }
+            }
+        }
+    });
+
+    // Insight
+    if (insightEl) {
+        const allPts2 = Object.values(groupPts).flat();
+        const r = _scPearson(allPts2);
+        const rStr = r !== null ? r.toFixed(3) : '—';
+        const corDesc = r === null ? '' : Math.abs(r) > 0.7 ? '(Güçlü ilişki)' : Math.abs(r) > 0.4 ? '(Orta ilişki)' : '(Zayıf ilişki)';
+        insightEl.innerHTML = `💡 Gösterilen kayıt: <b>${totalPts}</b> &nbsp;|&nbsp; Pearson korelasyonu: <b>r = ${rStr}</b> ${corDesc} &nbsp;|&nbsp; ${datasets.filter(d => d.label !== 'Eğim Çizgisi').length} renk grubu`;
+        insightEl.style.display = 'block';
+    }
+}
+
+function downloadScatterPNG() {
+    if (!scatterChartInst) return;
+    const a = document.createElement('a');
+    a.href = scatterChartInst.toBase64Image('image/png', 1);
+    a.download = 'dagilim-grafigi.png';
+    a.click();
+}
+
 // ─── IndexedDB Persistence (localStorage'dan çok daha büyük limit) ─────────────
 const DB_NAME    = 'UygunsuzlukDB';
 const DB_VERSION = 1;
