@@ -950,9 +950,13 @@
 
         <!-- Breakdown Tab -->
         <div class="tab-panel" id="tab-breakdown">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
                 <div class="section-title" style="margin-bottom:0;">📋 Hata Tipi Bazında Hatalı Miktar Dağılımı</div>
-                <button id="multiAnalyzeToggleBtn" onclick="toggleMultiAnalyze()" style="background:#e8f5f1;color:#1a6b5a;border:1px solid #a8d8cc;border-radius:8px;padding:6px 14px;font-size:0.82em;font-weight:600;cursor:pointer;">📊 Çoklu Analiz</button>
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                    <button onclick="toggleBreakdownAll()" style="background:#7b2d8b;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:0.82em;font-weight:600;cursor:pointer;">✅ Tümünü Seç</button>
+                    <button onclick="toggleBreakdownClear()" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:8px;padding:6px 14px;font-size:0.82em;font-weight:600;cursor:pointer;">🔲 Tümünü Temizle</button>
+                    <button id="multiAnalyzeToggleBtn" onclick="toggleMultiAnalyze()" style="background:#e8f5f1;color:#1a6b5a;border:1px solid #a8d8cc;border-radius:8px;padding:6px 14px;font-size:0.82em;font-weight:600;cursor:pointer;">📊 Çoklu Analiz</button>
+                </div>
             </div>
             <div class="breakdown-grid" id="breakdownGrid"></div>
         </div>
@@ -1622,6 +1626,48 @@ let paretoChartInst = null;
 let radarChartInst  = null;
 let _radarSelected  = new Set();
 let excludedHataTipleri = new Set(); // breakdown'dan dışlananlar
+
+// Tüm grafiklere uygulanacak etkili veri (breakdown tiıklarına göre filtrelenmiş)
+function _effectiveData() {
+    return excludedHataTipleri.size > 0
+        ? filteredData.filter(r => !excludedHataTipleri.has(r.hataTipi || '(Belirtilmemiş)'))
+        : filteredData;
+}
+
+function _refreshAllCharts() {
+    renderPareto();
+    renderTable(undefined);
+    renderRadar();
+    renderHeatmap();
+    renderBubble();
+    renderGroupedBar();
+    renderSankey();
+    renderBoxPlot();
+    renderScatter();
+}
+
+function toggleBreakdownAll() {
+    // Tüm tipleri seç (excluded kümesini temizle)
+    excludedHataTipleri.clear();
+    document.querySelectorAll('.breakdown-item').forEach(el => {
+        el.classList.remove('excluded');
+    });
+    document.querySelectorAll('.bi-checkbox').forEach(cb => { cb.checked = true; });
+    _refreshAllCharts();
+}
+
+function toggleBreakdownClear() {
+    // Tüm tipleri dışla
+    document.querySelectorAll('.bi-checkbox').forEach(cb => {
+        const key = cb.getAttribute('data-key');
+        if (key) excludedHataTipleri.add(key);
+        cb.checked = false;
+    });
+    document.querySelectorAll('.breakdown-item').forEach(el => {
+        el.classList.add('excluded');
+    });
+    _refreshAllCharts();
+}
 let selectedCari = '';            // custom cari dropdown seçili değer
 let musteriSet = new Set();       // müşteri olarak işaretlenmiş cariler
 let _cariAllList = [];            // cari dropdown listesi
@@ -2438,7 +2484,7 @@ function renderBreakdown() {
         return `<div class="breakdown-item${isExcluded ? ' excluded' : ''}${isSelectedMulti ? ' selected-for-multi' : ''}" id="bdi-${btoa(encodeURIComponent(k)).replace(/=/g,'')}" ${multiAttr}>
             <div class="bi-header">
                 <div class="bi-name">${k}${aksiyonBadge}</div>
-                <input type="checkbox" class="bi-checkbox" title="Paretoya dahil et" ${isExcluded ? '' : 'checked'} onchange="toggleHataTipi('${safeKey}', this.checked)" ${multiAnalyzeMode ? 'style="pointer-events:none;"' : ''}>
+                <input type="checkbox" class="bi-checkbox" data-key="${safeKey}" title="Tüm grafiklere dahil et" ${isExcluded ? '' : 'checked'} onchange="toggleHataTipi('${safeKey}', this.checked)" ${multiAnalyzeMode ? 'style="pointer-events:none;"' : ''}>
             </div>
             <div class="bi-count">${v.hatali.toLocaleString('tr', {maximumFractionDigits:1})}</div>
             <div class="bi-pct">%${pct} · ${v.count} kayıt</div>
@@ -2956,6 +3002,7 @@ function openFishboneTedarikci() {
 
 // ─── Table ────────────────────────────────────────────────────────────────────
 function renderTable(data) {
+    const filteredData = _effectiveData();
     if (data === undefined) {
         tableSearchData = [...filteredData];
     }
@@ -3269,6 +3316,7 @@ function radarClearAll() {
 }
 
 function renderRadar() {
+    const filteredData = _effectiveData();
     const groupKey  = document.getElementById('radarGroupBy').value;
     const axisKey   = document.getElementById('radarAxesBy').value;
     const metric    = document.getElementById('radarMetric').value;
@@ -3525,6 +3573,7 @@ function _hmPickClear(axis) {
 })();
 
 function renderHeatmap() {
+    const filteredData = _effectiveData();
     const wrap     = document.getElementById('hmTableWrap');
     const insightEl= document.getElementById('hmInsight');
     if (!wrap) return;
@@ -3737,6 +3786,7 @@ function _bbMetricVal(entry, key) {
 }
 
 function renderBubble() {
+    const filteredData = _effectiveData();
     const noDataEl  = document.getElementById('bubbleNoData');
     const wrapEl    = document.getElementById('bubbleChartWrap');
     const insightEl = document.getElementById('bubbleInsight');
@@ -3966,6 +4016,7 @@ const GB_PALETTE = [
 ];
 
 function renderGroupedBar() {
+    const filteredData = _effectiveData();
     const noDataEl  = document.getElementById('barNoData');
     const wrapEl    = document.getElementById('barChartWrap');
     const insightEl = document.getElementById('barInsight');
@@ -4138,6 +4189,7 @@ const SK_PALETTE = [
 function _skGet(row, key) { return _hmGet(row, key); }
 
 function renderSankey() {
+    const filteredData = _effectiveData();
     const noDataEl  = document.getElementById('sankeyNoData');
     const wrapEl    = document.getElementById('sankeyChartWrap');
     const insightEl = document.getElementById('sankeyInsight');
@@ -4295,6 +4347,7 @@ function _bpStats(arr) {
 }
 
 function renderBoxPlot() {
+    const filteredData = _effectiveData();
     const noDataEl  = document.getElementById('bpNoData');
     const wrapEl    = document.getElementById('bpChartWrap');
     const insightEl = document.getElementById('bpInsight');
@@ -4521,6 +4574,7 @@ function _scPearson(pts) {
 }
 
 function renderScatter() {
+    const filteredData = _effectiveData();
     const noDataEl  = document.getElementById('scNoData');
     const wrapEl    = document.getElementById('scChartWrap');
     const insightEl = document.getElementById('scInsight');
