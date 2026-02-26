@@ -710,6 +710,34 @@
             box-shadow:0 4px 18px rgba(0,0,0,.35);
         }
 
+        /* ── BEESWARM TAB ── */
+        .bsw-wrap { padding:16px; }
+        .bsw-controls {
+            display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;
+            padding:14px 16px; background:#fdf4ff; border-radius:10px;
+            border:1px solid #e9d5ff; margin-bottom:18px;
+        }
+        .bsw-ctrl-group { display:flex; flex-direction:column; gap:4px; }
+        .bsw-ctrl-group label { font-size:.75rem; font-weight:600; color:#6b21a8; }
+        .bsw-ctrl-group select, .bsw-ctrl-group input {
+            padding:6px 10px; border:1.5px solid #d8b4fe; border-radius:7px;
+            font-size:.88rem; background:#fff; color:#333; outline:none;
+        }
+        .bsw-ctrl-group select:focus, .bsw-ctrl-group input:focus { border-color:#a855f7; }
+        .bsw-svg-wrap { width:100%; overflow-x:auto; }
+        .bsw-insight {
+            background:linear-gradient(135deg,#f3e5f5,#ede7f6);
+            border-left:4px solid #b94fc4; border-radius:0 8px 8px 0;
+            padding:11px 16px; font-size:.85em; color:#4a0a6b;
+            margin-top:14px; line-height:1.7;
+        }
+        .bsw-tooltip {
+            position:fixed; background:rgba(30,5,50,.92); color:#fff;
+            padding:8px 12px; border-radius:8px; font-size:.8rem; line-height:1.6;
+            pointer-events:none; z-index:9999; display:none;
+            box-shadow:0 4px 18px rgba(0,0,0,.35);
+        }
+
         /* ── RADAR TAB ── */
         .radar-header { margin-bottom:14px; }
         .radar-controls {
@@ -1105,6 +1133,7 @@
             <button class="tab-btn" onclick="switchTab('funnel')">🔺 Funnel Grafiği</button>
             <button class="tab-btn" onclick="switchTab('polar')">🌐 Polar Alan</button>
             <button class="tab-btn" onclick="switchTab('chord')">🕷️ Chord Diyagramı</button>
+            <button class="tab-btn" onclick="switchTab('beeswarm')">🟣 Beeswarm / Dot Plot</button>
             <button class="tab-btn" onclick="openKapsamliRapor()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;" title="Filtrelenmiş veriyi kapsamlı rapora ekler (birikimli)">📑 Kapsamlı Rapora Ekle</button>
             <button class="tab-btn" onclick="temizleKapsamliRapor()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-weight:700;border:none;" title="Birikmiş rapor verisini sil ve yeniden başla">🗑 Raporu Sıfırla</button>
             <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
@@ -2145,6 +2174,59 @@
         </div>
         <div class="chord-tooltip" id="chordTooltip"></div>
 
+        <!-- Beeswarm Tab -->
+        <div class="tab-panel" id="tab-beeswarm">
+            <div class="bsw-wrap">
+                <h3 style="margin:0 0 14px;color:#4a0a6b;">🟣 Beeswarm / Dot Plot — Bireysel Kayıt Dağılımı</h3>
+                <div class="bsw-controls">
+                    <div class="bsw-ctrl-group">
+                        <label>Grup (X-Ekseni):</label>
+                        <select id="bswGroupBy" onchange="renderBeeswarm()">
+                            <option value="hataTipi">Hata Tipi</option>
+                            <option value="tespitYeri">Tespit Yeri</option>
+                            <option value="hataKaynagi">Hata Kaynağı</option>
+                            <option value="cariAdi">Tedarikçi</option>
+                        </select>
+                    </div>
+                    <div class="bsw-ctrl-group">
+                        <label>Değer (Y-Ekseni):</label>
+                        <select id="bswMetric" onchange="renderBeeswarm()">
+                            <option value="hataliMiktar">Hatalı Miktar</option>
+                            <option value="partiHacmi">Parti Hacmi</option>
+                        </select>
+                    </div>
+                    <div class="bsw-ctrl-group">
+                        <label>Renk:</label>
+                        <select id="bswColor" onchange="renderBeeswarm()">
+                            <option value="group">Gruba Göre</option>
+                            <option value="hataTipi">Hata Tipi</option>
+                            <option value="tespitYeri">Tespit Yeri</option>
+                            <option value="hataKaynagi">Hata Kaynağı</option>
+                        </select>
+                    </div>
+                    <div class="bsw-ctrl-group">
+                        <label>Top N (Grup):</label>
+                        <input type="number" id="bswTopN" value="8" min="1" max="20" style="width:65px" onchange="renderBeeswarm()">
+                    </div>
+                    <div class="bsw-ctrl-group">
+                        <label>Y-Log Skala:</label>
+                        <select id="bswYScale" onchange="renderBeeswarm()">
+                            <option value="linear">Lineer</option>
+                            <option value="log">Logaritmik</option>
+                        </select>
+                    </div>
+                    <div class="bsw-ctrl-group">
+                        <label>Nokta R:</label>
+                        <input type="number" id="bswRadius" value="5" min="2" max="10" style="width:55px" onchange="renderBeeswarm()">
+                    </div>
+                </div>
+                <div id="bswNoData" style="display:none;padding:30px;text-align:center;color:#aaa;">⚠️ Veri bulunamadı.</div>
+                <div class="bsw-svg-wrap" id="bswSvgWrap"></div>
+                <div class="bsw-insight" id="bswInsight" style="display:none;"></div>
+            </div>
+        </div>
+        <div class="bsw-tooltip" id="bswTooltip"></div>
+
     <!-- Empty state -->
     <div class="empty-state" id="emptyState">
         <div class="icon">📥</div>
@@ -2190,6 +2272,7 @@ function _refreshAllCharts() {
     renderFunnel();
     renderPolarArea();
     renderChord();
+    renderBeeswarm();
 }
 
 function toggleBreakdownAll() {
@@ -3649,7 +3732,7 @@ function exportTableExcel() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap', 'calendar', 'cohort', 'funnel', 'polar', 'chord'];
+    const names = ['pareto', 'breakdown', 'table', 'radar', 'heatmap', 'bubble', 'bar', 'sankey', 'boxplot', 'scatter', 'treemap', 'calendar', 'cohort', 'funnel', 'polar', 'chord', 'beeswarm'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', names[i] === name);
     });
@@ -3669,6 +3752,7 @@ function switchTab(name) {
     if (name === 'funnel')   { renderFunnel(); }
     if (name === 'polar')    { renderPolarArea(); }
     if (name === 'chord')    { renderChord(); }
+    if (name === 'beeswarm') { renderBeeswarm(); }
 }
 
 // ─── RADAR ANALİZİ ───────────────────────────────────────────────────────────
@@ -6721,6 +6805,238 @@ function renderChord() {
             Toplam: <strong>${grandTotal.toLocaleString('tr-TR',{maximumFractionDigits:0})}</strong> ${metLbl} &nbsp;|&nbsp;
             ${topFlow ? `En yüksek akış: <strong>${topFlow.a} → ${topFlow.b}</strong> (${topFlow.v.toLocaleString('tr-TR',{maximumFractionDigits:0})} ${metLbl})` : ''}
             &nbsp;| Chord üzerinden hover yaparak detay görebilirsiniz.`;
+    }
+}
+
+// ─── BEESWARM / DOT PLOT ─────────────────────────────────────────────────────
+function renderBeeswarm() {
+    const data     = _effectiveData();
+    const groupBy  = document.getElementById('bswGroupBy')?.value  || 'hataTipi';
+    const metric   = document.getElementById('bswMetric')?.value   || 'hataliMiktar';
+    const colorBy  = document.getElementById('bswColor')?.value    || 'group';
+    const topN     = Math.max(1, parseInt(document.getElementById('bswTopN')?.value) || 8);
+    const yScale   = document.getElementById('bswYScale')?.value   || 'linear';
+    const R        = Math.max(2, parseInt(document.getElementById('bswRadius')?.value) || 5);
+    const noDataEl = document.getElementById('bswNoData');
+    const svgWrap  = document.getElementById('bswSvgWrap');
+    const insightEl= document.getElementById('bswInsight');
+    const tooltip  = document.getElementById('bswTooltip');
+    if (!svgWrap) return;
+
+    // ── 1. Collect rows with valid metric value ────────────────────────────
+    const rows = data.map(r => {
+        const grp = (r[groupBy] || '(Belirtilmemiş)').toString().trim() || '(Belirtilmemiş)';
+        const val = metric === 'partiHacmi' ? Number(r.partiHacmi) : Number(r.hataliMiktar);
+        const col = colorBy === 'group' ? grp : ((r[colorBy] || '(Belirtilmemiş)').toString().trim() || '(Belirtilmemiş)');
+        return { grp, val, col, raw: r };
+    }).filter(r => isFinite(r.val) && r.val > 0);
+
+    if (!rows.length) {
+        noDataEl.style.display = 'block'; svgWrap.innerHTML = '';
+        if (insightEl) insightEl.style.display = 'none'; return;
+    }
+    noDataEl.style.display = 'none';
+
+    // ── 2. Top N groups by total ───────────────────────────────────────────
+    const grpTotals = {};
+    rows.forEach(r => { grpTotals[r.grp] = (grpTotals[r.grp] || 0) + r.val; });
+    const topGroups = Object.entries(grpTotals).sort((a,b) => b[1]-a[1]).slice(0, topN).map(([k])=>k);
+    const visRows   = rows.filter(r => topGroups.includes(r.grp));
+
+    // ── 3. Colour palette ──────────────────────────────────────────────────
+    const PALETTE = [
+        '#4a0a6b','#6d28d9','#8b5cf6','#b94fc4','#c084fc','#e879f9',
+        '#a21caf','#7c3aed','#db2777','#4f46e5','#0891b2','#0d9488',
+        '#065f46','#b45309','#be123c','#1d4ed8','#047857','#9333ea'
+    ];
+    const colorKeys = [...new Set(visRows.map(r => r.col))].sort();
+    const colorMap  = {};
+    colorKeys.forEach((k, i) => { colorMap[k] = PALETTE[i % PALETTE.length]; });
+
+    // ── 4. Layout constants ────────────────────────────────────────────────
+    const MARGIN = { top: 20, right: 24, bottom: 90, left: 72 };
+    const COL_W  = Math.max(120, Math.min(240, Math.floor(800 / topGroups.length)));
+    const W      = topGroups.length * COL_W + MARGIN.left + MARGIN.right;
+    const H      = 520;
+    const PLOT_W = W - MARGIN.left - MARGIN.right;
+    const PLOT_H = H - MARGIN.top  - MARGIN.bottom;
+
+    // ── 5. Y scale ─────────────────────────────────────────────────────────
+    const allVals = visRows.map(r => r.val);
+    const yMin    = yScale === 'log' ? Math.max(1, Math.min(...allVals)) : 0;
+    const yMax    = Math.max(...allVals);
+
+    function yPos(v) {
+        const vClamped = Math.max(v, yMin);
+        if (yScale === 'log') {
+            const logMin = Math.log10(yMin || 1), logMax = Math.log10(yMax || 1);
+            return PLOT_H - ((Math.log10(vClamped) - logMin) / (Math.max(logMax - logMin, 1e-9))) * PLOT_H;
+        }
+        return PLOT_H - ((vClamped - yMin) / (Math.max(yMax - yMin, 1e-9))) * PLOT_H;
+    }
+
+    // ── 6. Beeswarm collision dodge (simple 1D per-column) ────────────────
+    // For each group column, sort by value and spread dots horizontally
+    // using a greedy packing that avoids overlap
+    function beeswarmDodge(points, radius) {
+        // points: [{val, y}] sorted by y (asc)
+        const placed = [];
+        for (const p of points) {
+            let best = 0, step = 1, placed_ = false;
+            for (let side = 0; side <= COL_W / 2; side += radius * 0.7) {
+                for (const sign of [0, 1, -1]) {
+                    const cx = sign * side;
+                    const ok = placed.every(q => {
+                        const dy = p.y - q.y, dx = cx - q.x;
+                        return Math.sqrt(dx*dx + dy*dy) >= radius * 2 - 0.5;
+                    });
+                    if (ok) { p.x = cx; placed.push(p); placed_ = true; break; }
+                }
+                if (placed_) break;
+            }
+            if (!placed_) { p.x = (Math.random() - 0.5) * COL_W * 0.35; placed.push(p); }
+        }
+        return placed;
+    }
+
+    // Group rows by column
+    const colPoints = {};
+    topGroups.forEach((g, gi) => {
+        const pts = visRows.filter(r => r.grp === g).map(r => ({
+            val: r.val, col: r.col, raw: r,
+            y: yPos(r.val) + MARGIN.top,
+            x: 0
+        })).sort((a, b) => a.y - b.y);
+        beeswarmDodge(pts, R);
+        colPoints[g] = { gi, pts };
+    });
+
+    // ── 7. Y-axis ticks ───────────────────────────────────────────────────
+    const TICK_COUNT = 6;
+    let ticks = [];
+    if (yScale === 'log') {
+        const logMin = Math.floor(Math.log10(yMin || 1));
+        const logMax = Math.ceil(Math.log10(yMax || 1));
+        for (let e = logMin; e <= logMax; e++) ticks.push(Math.pow(10, e));
+    } else {
+        const step = (yMax - yMin) / (TICK_COUNT - 1);
+        for (let i = 0; i < TICK_COUNT; i++) ticks.push(yMin + step * i);
+    }
+
+    function fmtVal(v) {
+        if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
+        if (v >= 1e3) return (v/1e3).toFixed(1) + 'K';
+        return Math.round(v).toLocaleString('tr-TR');
+    }
+
+    const metLbl  = metric === 'partiHacmi' ? 'Parti Hacmi' : 'Hatalı Miktar';
+    const grpLbls = { hataTipi:'Hata Tipi', tespitYeri:'Tespit Yeri', hataKaynagi:'Hata Kaynağı', cariAdi:'Tedarikçi' };
+
+    // ── 8. Build SVG ──────────────────────────────────────────────────────
+    // Grid lines
+    const gridLines = ticks.map(v => {
+        const y = MARGIN.top + yPos(v);
+        const vStr = fmtVal(v);
+        return `<line x1="${MARGIN.left}" y1="${y.toFixed(1)}" x2="${MARGIN.left + PLOT_W}" y2="${y.toFixed(1)}"
+                      stroke="#e9d5ff" stroke-width="1" stroke-dasharray="4,3"/>
+                <text x="${(MARGIN.left - 6).toFixed(1)}" y="${y.toFixed(1)}"
+                      text-anchor="end" dominant-baseline="middle"
+                      font-size="10" fill="#6b21a8" font-family="Arial,sans-serif">${vStr}</text>`;
+    }).join('\n');
+
+    // X axis group labels + median line
+    const xAxisLabels = topGroups.map((g, gi) => {
+        const cx = MARGIN.left + gi * COL_W + COL_W / 2;
+        const shortG = g.length > 18 ? g.slice(0, 16) + '…' : g;
+        // Median line
+        const pts = colPoints[g].pts;
+        const sorted = [...pts].sort((a,b)=>a.val-b.val);
+        const med = sorted.length ? sorted[Math.floor(sorted.length/2)].val : 0;
+        const myY = MARGIN.top + yPos(med);
+        const stripe = `<line x1="${(cx - COL_W*0.3).toFixed(1)}" y1="${myY.toFixed(1)}"
+                             x2="${(cx + COL_W*0.3).toFixed(1)}" y2="${myY.toFixed(1)}"
+                             stroke="#4a0a6b" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>`;
+        const lbl = `<text x="${cx.toFixed(1)}" y="${(H - MARGIN.bottom + 14).toFixed(1)}"
+                           text-anchor="middle" font-size="11" fill="#2e1065"
+                           font-family="Arial,sans-serif" font-weight="700"
+                           paint-order="stroke" stroke="#fff" stroke-width="3">${shortG}</text>`;
+        return stripe + lbl;
+    }).join('\n');
+
+    // Dots
+    const dots = topGroups.map((g, gi) => {
+        const cx = MARGIN.left + gi * COL_W + COL_W / 2;
+        return colPoints[g].pts.map(p => {
+            const dotX = (cx + p.x).toFixed(1);
+            const dotY = p.y.toFixed(1);
+            const dotColor = colorMap[p.col] || '#8b5cf6';
+            const vStr = p.val.toLocaleString('tr-TR', { maximumFractionDigits: 1 });
+            const td = p.raw.uygunsuzlukTarih ? String(p.raw.uygunsuzlukTarih).slice(0,10) : '';
+            const tip = `${g}&#10;${metLbl}: ${vStr}&#10;${p.raw.hataTipi||''}${td?' — '+td:''}${p.col!==g?' ['+p.col+']':''}`.replace(/'/g,'&#39;');
+            return `<circle cx="${dotX}" cy="${dotY}" r="${R}" fill="${dotColor}" fill-opacity="0.75"
+                        stroke="${dotColor}" stroke-width="0.8"
+                        onmouseenter="(function(e){var t=document.getElementById('bswTooltip');t.style.display='block';t.innerHTML='${tip}';t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY-10)+'px';})(event)"
+                        onmousemove="(function(e){var t=document.getElementById('bswTooltip');t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY-10)+'px';})(event)"
+                        onmouseleave="document.getElementById('bswTooltip').style.display='none'"
+                        style="cursor:pointer;transition:r .1s,fill-opacity .1s"
+                        onmouseenter2="" />`;
+        }).join('\n');
+    }).join('\n');
+
+    // Colour legend (for colorBy != group)
+    let legendSvg = '';
+    if (colorBy !== 'group') {
+        let lx = MARGIN.left, ly = H - MARGIN.bottom + 34;
+        legendSvg = colorKeys.map((k, i) => {
+            const short = k.length > 18 ? k.slice(0,16)+'…' : k;
+            const item = `<circle cx="${lx + 6}" cy="${(ly + 5).toFixed(1)}" r="5" fill="${colorMap[k]}" fill-opacity=".8"/>
+                <text x="${lx + 16}" y="${(ly + 9).toFixed(1)}" font-size="10" fill="#333" font-family="Arial,sans-serif">${short}</text>`;
+            lx += Math.min(short.length * 6.5 + 28, 180);
+            if (lx > W - MARGIN.right - 60) { lx = MARGIN.left; ly += 18; }
+            return item;
+        }).join('\n');
+    }
+
+    svgWrap.innerHTML = `
+        <svg viewBox="0 0 ${W} ${H + (colorBy!=='group' ? Math.ceil(colorKeys.length/6)*18 : 0)}"
+             style="width:100%;min-width:${Math.min(W,960)}px;display:block;overflow:visible;font-family:Arial,sans-serif;">
+            <!-- Y axis label -->
+            <text x="${(MARGIN.left - 52).toFixed(1)}" y="${(MARGIN.top + PLOT_H/2).toFixed(1)}"
+                  transform="rotate(-90 ${(MARGIN.left-52).toFixed(1)} ${(MARGIN.top+PLOT_H/2).toFixed(1)})"
+                  text-anchor="middle" font-size="11" fill="#6b21a8" font-weight="700">${metLbl}</text>
+            <!-- Grid -->
+            ${gridLines}
+            <!-- Axes -->
+            <line x1="${MARGIN.left}" y1="${MARGIN.top}" x2="${MARGIN.left}" y2="${MARGIN.top+PLOT_H}"
+                  stroke="#c4b5fd" stroke-width="1.5"/>
+            <line x1="${MARGIN.left}" y1="${MARGIN.top+PLOT_H}" x2="${MARGIN.left+PLOT_W}" y2="${MARGIN.top+PLOT_H}"
+                  stroke="#c4b5fd" stroke-width="1.5"/>
+            <!-- Median lines + X labels -->
+            ${xAxisLabels}
+            <!-- Dots -->
+            ${dots}
+            <!-- Colour legend -->
+            ${legendSvg}
+            <!-- Legend: median -->
+            <line x1="${MARGIN.left}" y1="${(H - MARGIN.bottom + 50).toFixed(1)}"
+                  x2="${(MARGIN.left + 24).toFixed(1)}" y2="${(H - MARGIN.bottom + 50).toFixed(1)}"
+                  stroke="#4a0a6b" stroke-width="2.5"/>
+            <text x="${(MARGIN.left + 28).toFixed(1)}" y="${(H - MARGIN.bottom + 54).toFixed(1)}"
+                  font-size="10" fill="#4a0a6b" font-family="Arial,sans-serif">Medyan çizgisi</text>
+        </svg>`;
+
+    // ── 9. Insight ─────────────────────────────────────────────────────────
+    if (insightEl) {
+        const totalDots = visRows.length;
+        const allSorted = [...visRows].sort((a,b)=>a.val-b.val);
+        const median    = allSorted[Math.floor(allSorted.length/2)]?.val || 0;
+        const maxRow    = allSorted[allSorted.length-1];
+        insightEl.style.display = 'block';
+        insightEl.innerHTML = `🟣 <strong>${totalDots}</strong> kayıt nokta olarak çizildi &nbsp;|&nbsp;
+            Genel Medyan: <strong>${fmtVal(median)}</strong> ${metLbl} &nbsp;|&nbsp;
+            Maks: <strong>${fmtVal(maxRow.val)}</strong> — ${maxRow.grp}
+            ${maxRow.raw.hataTipi ? ' / ' + maxRow.raw.hataTipi : ''}
+            &nbsp;| Noktaların üzerine gelin detay görün.`;
     }
 }
 
