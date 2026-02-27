@@ -1657,6 +1657,7 @@ function drawFishbone() {
         const causes = bone.causes || [];
         causes.forEach((rawCause, ci) => {
             const cause = fbNorm(rawCause);
+            if (cause.hidden) return; // gizli — çizme
             const name  = cause.name;
             const t  = ci < tVals.length ? tVals[ci] : (ci + 1) / (causes.length + 1);
             const px = +(sx  + t * (tipX - sx)).toFixed(1);
@@ -1683,8 +1684,8 @@ function drawFishbone() {
             // Label — sadece gösterim, tıklanmaz
             p.push(`<text x="${+(parseFloat(boxX)+4).toFixed(1)}" y="${txtY}" text-anchor="start"
                 font-size="9" fill="#1e293b" style="pointer-events:none">${esc(nm)}</text>`);
-            // Sadece × alanı tıklanabilir
-            p.push(`<g onclick="fbDeleteCause(${window._fbActiveIdx ?? 0},${bi},${ci})" style="cursor:pointer" title="Sil: ${esc(name)}">
+            // Sadece × alanı tıklanabilir (gizler, silmez)
+            p.push(`<g onclick="fbHideCause(${window._fbActiveIdx ?? 0},${bi},${ci})" style="cursor:pointer" title="Gizle: ${esc(name)}">
                 <rect x="${delBtnX}" y="${boxY}" width="13" height="${BH}" rx="0" fill="transparent"/>
                 <text x="${+(parseFloat(delBtnX)+6.5).toFixed(1)}" y="${txtY}" text-anchor="middle"
                     font-size="11" fill="#ef4444" font-weight="700">×</text>
@@ -1789,6 +1790,7 @@ function _rebuildM6Display() {
         fbByKey[b.key] = [];
         (b.causes || []).forEach(rawCause => {
             const cause = fbNorm(rawCause);
+            if (cause.hidden) return; // gizli nedenleri 6M'ye dahil etme
             fbByKey[b.key].push({ name: cause.name, isSub: false });
             (cause.subs || []).forEach(sub => fbByKey[b.key].push({ name: fbNormSub(sub).name, isSub: true }));
         });
@@ -1934,6 +1936,15 @@ function renderFbEditPanels() {
         const items  = causes.map((c, ci) => {
             const cause = fbNorm(c);
             const nm    = cause.name;
+            const isHidden = !!cause.hidden;
+            if (isHidden) {
+                return `
+                <div class="fb-cause-row" style="opacity:0.45;background:#f1f5f9;border-radius:4px;margin-bottom:2px;">
+                    <span class="fb-cause-name" style="text-decoration:line-through;color:#94a3b8;">${esc(nm)}</span>
+                    <button class="fb-cause-del" title="Göster" style="color:#16a34a;border-color:#86efac;font-size:.85rem;" onclick="fbShowCause(${gi},${bi},${ci})">👁</button>
+                    <button class="fb-cause-del" title="Kalıcı Sil" onclick="fbDeleteCause(${gi},${bi},${ci})" style="margin-left:2px;">×</button>
+                </div>`;
+            }
             const subs  = cause.subs || [];
             const subId = `fbSub_${gi}_${bi}_${ci}`;
             const subRows = subs.map((s, si) => {
@@ -2109,6 +2120,32 @@ function fbDeleteCause(gi, bi, ci) {
     window._fbData = window._fbDataArr[gi] || window._fbData;
     if(!window._fbData || !window._fbData.bones[bi]) return;
     window._fbData.bones[bi].causes.splice(ci, 1);
+    drawFishbone();
+    renderFbEditPanels();
+    _rebuildM6Display();
+    _krSaveEdits();
+}
+
+function fbHideCause(gi, bi, ci) {
+    window._fbActiveIdx = gi;
+    window._fbData = window._fbDataArr[gi] || window._fbData;
+    if (!window._fbData || !window._fbData.bones[bi]) return;
+    const cause = fbNorm(window._fbData.bones[bi].causes[ci]);
+    cause.hidden = true;
+    window._fbData.bones[bi].causes[ci] = cause;
+    drawFishbone();
+    renderFbEditPanels();
+    _rebuildM6Display();
+    _krSaveEdits();
+}
+
+function fbShowCause(gi, bi, ci) {
+    window._fbActiveIdx = gi;
+    window._fbData = window._fbDataArr[gi] || window._fbData;
+    if (!window._fbData || !window._fbData.bones[bi]) return;
+    const cause = fbNorm(window._fbData.bones[bi].causes[ci]);
+    cause.hidden = false;
+    window._fbData.bones[bi].causes[ci] = cause;
     drawFishbone();
     renderFbEditPanels();
     _rebuildM6Display();
