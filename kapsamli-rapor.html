@@ -889,7 +889,8 @@ function _krSaveEdits() {
     const fbDataArr = (window._fbDataArr || []).map(fb => {
         if (!fb) return null;
         const boneCauses = {};
-        (fb.bones || []).forEach(b => { boneCauses[b.key] = b.causes || []; });
+        // Exclude _isManual causes — they are re-derived from manualAksiyon on load
+        (fb.bones || []).forEach(b => { boneCauses[b.key] = (b.causes || []).filter(c => !c._isManual); });
         return { effect: fb.effect, boneCauses };
     });
     const manualAksiyon = (window._aksiyonlar || []).filter(a => !a._fbSource);
@@ -3270,9 +3271,10 @@ function runReport(payload, opts) {
     if (_runReportKeepEdits) {
         _krLoadEdits().then(saved => {
             if (!saved) return;
-            _krApplyFishboneEdits(saved);
-            _krApplyAksiyonEdits(saved);
-            _refreshManualInFishbones();
+            _krApplyFishboneEdits(saved);      // restore user-added fishbone causes
+            _krApplyAksiyonEdits(saved);       // restore manual aksiyon rows
+            _rebuildAksiyonFromFishbone();     // rebuild _fbSource rows from restored fishbones
+            _refreshManualInFishbones();       // inject _isManual causes, redraw
         });
     }
 
