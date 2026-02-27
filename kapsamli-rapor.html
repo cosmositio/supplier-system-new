@@ -225,6 +225,12 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 }
 .fb-par-tab:hover { border-color:#3b82f6; color:#3b82f6; }
 .fb-par-tab.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+/* ── Category 6M Tabs ── */
+.cat6m-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+.cat6m-tab { border:1.5px solid #e2e8f0; background:#f8fafc; color:#64748b; border-radius:22px; padding:5px 18px; font-size:.82rem; font-weight:700; cursor:pointer; transition:all .15s; }
+.cat6m-tab:hover { border-color:#3b82f6; color:#3b82f6; }
+.cat6m-tab.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+.cat6m-blk-hdr { font-size:.9rem; font-weight:700; padding:10px 16px; border-radius:10px; border:1.5px solid; margin-bottom:18px; }
 
 /* ── AKSIYON EDIT BUTTONS ── */
 .ap-btn { border:none; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:.75rem; font-weight:600; line-height:1; transition:opacity .15s; }
@@ -525,16 +531,44 @@ html, body { scroll-behavior:smooth; }
         <div class="section-hdr">
             <span class="ico">🔧</span>
             <h2>6M Kaynak Analizi</h2>
-            <span class="hint">hataKaynagi alanı anahtar kelime sınıflandırması</span>
+            <span class="hint">İç / Dış / Tedarikçi — 80/20 Hata Tipi Pareto kılçıkları</span>
         </div>
         <div class="section-body">
-            <div class="m6-grid" id="m6Grid" style="margin-bottom:24px;"></div>
-            <div class="two-col">
-                <div class="chart-wrap" style="min-height:260px;"><canvas id="c6M" height="260"></canvas></div>
-                <div id="m6Detail"></div>
+            <div class="cat6m-tabs no-print">
+                <button class="cat6m-tab active" onclick="switchCat6m('ic',this)">🏢 İç Başarısızlık</button>
+                <button class="cat6m-tab" onclick="switchCat6m('dis',this)">🚚 Dış Başarısızlık</button>
+                <button class="cat6m-tab" onclick="switchCat6m('ted',this)">🏭 Tedarikçi</button>
             </div>
-            <!-- FISHBONE — Pareto gruplarına göre çoklu kılçık -->
-            <div id="multiFbSection" style="margin-top:20px;"></div>
+            <!-- İç -->
+            <div class="cat6m-block" id="cat6m_ic">
+                <div class="cat6m-blk-hdr" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">🏢 İç Başarısızlık — 6M Analizi &amp; Balık Kılçığı (Hata Tipi 80/20)</div>
+                <div class="m6-grid" id="m6Grid_ic" style="margin-bottom:24px;"></div>
+                <div class="two-col">
+                    <div class="chart-wrap" style="min-height:240px;"><canvas id="c6M_ic" height="240"></canvas></div>
+                    <div id="m6Detail_ic"></div>
+                </div>
+                <div id="multiFbSection_ic" style="margin-top:20px;"></div>
+            </div>
+            <!-- Dış -->
+            <div class="cat6m-block" id="cat6m_dis" style="display:none;">
+                <div class="cat6m-blk-hdr" style="background:#fff7ed;border-color:#fed7aa;color:#c2410c;">🚚 Dış Başarısızlık — 6M Analizi &amp; Balık Kılçığı (Hata Tipi 80/20)</div>
+                <div class="m6-grid" id="m6Grid_dis" style="margin-bottom:24px;"></div>
+                <div class="two-col">
+                    <div class="chart-wrap" style="min-height:240px;"><canvas id="c6M_dis" height="240"></canvas></div>
+                    <div id="m6Detail_dis"></div>
+                </div>
+                <div id="multiFbSection_dis" style="margin-top:20px;"></div>
+            </div>
+            <!-- Tedarikçi -->
+            <div class="cat6m-block" id="cat6m_ted" style="display:none;">
+                <div class="cat6m-blk-hdr" style="background:#f0fdf4;border-color:#bbf7d0;color:#15803d;">🏭 Tedarikçi — 6M Analizi &amp; Balık Kılçığı (Hata Tipi 80/20)</div>
+                <div class="m6-grid" id="m6Grid_ted" style="margin-bottom:24px;"></div>
+                <div class="two-col">
+                    <div class="chart-wrap" style="min-height:240px;"><canvas id="c6M_ted" height="240"></canvas></div>
+                    <div id="m6Detail_ted"></div>
+                </div>
+                <div id="multiFbSection_ted" style="margin-top:20px;"></div>
+            </div>
         </div>
     </div>
 
@@ -1490,9 +1524,123 @@ function rebuildFishboneData() {
 // kept for backward compat
 function switchFbPareto(pct, btn) { rebuildFishboneData(); }
 
+// ── Category 6M tab switcher ──
+function switchCat6m(cat, btn) {
+    document.querySelectorAll('.cat6m-tab').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    ['ic','dis','ted'].forEach(k => {
+        const el = document.getElementById('cat6m_' + k);
+        if (el) el.style.display = k === cat ? '' : 'none';
+    });
+    window._fb6mCatKey = cat;
+}
+
+// ── Build 80/20 Pareto groups by hataTipi ──
+function buildParetoGroups80(rows, threshold) {
+    threshold = threshold === undefined ? 80 : threshold;
+    const totalH = rows.reduce((s,r) => s + (Number(r.hataliMiktar)||0), 0) || 1;
+    const agg = {};
+    rows.forEach(r => {
+        const v = (r.hataTipi||'').trim(); if (!v) return;
+        if (!agg[v]) agg[v] = {h:0, c:0};
+        agg[v].h += Number(r.hataliMiktar)||0; agg[v].c++;
+    });
+    const sorted = Object.entries(agg).sort((a,b) => b[1].h - a[1].h);
+    let cum = 0;
+    const groups = [];
+    for (const [name, v] of sorted) {
+        cum += v.h;
+        const pct    = +(v.h / totalH * 100).toFixed(1);
+        const cumPct = +(cum / totalH * 100).toFixed(1);
+        const groupRows = rows.filter(r => (r.hataTipi||'').trim() === name);
+        groups.push({ label: name, groupRows, totalHatali: v.h, count: v.c, pct, cumPct });
+        if (cum / totalH * 100 >= threshold) break;
+    }
+    return groups;
+}
+
+// ── Render 6M block (grid + chart + detail) for a category ──
+function render6MBlock(catKey, catRows) {
+    const M6_META = window._M6_META; const m6Order = window._m6Order;
+    if (!M6_META || !m6Order) return;
+    const rows6m = catRows || [];
+    const m6 = classify6M(rows6m);
+    const totalH = rows6m.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
+
+    // Grid cards
+    const gridEl = document.getElementById('m6Grid_' + catKey);
+    if (gridEl) {
+        gridEl.innerHTML = m6Order.map(k => {
+            const meta = M6_META[k]; const items = m6[k];
+            const total = items.reduce((s,e)=>s+e.h,0);
+            return `<div class="m6-card" style="border-color:${meta.borderColor};background:${meta.color}18;">
+                <div class="m6-title" style="color:${meta.color}">${meta.label}</div>
+                <div class="m6-val" style="color:${meta.color}">${fmtN(total)}</div>
+                <div style="font-size:.7rem;color:var(--c-sub);margin-bottom:8px;">${meta.desc}</div>
+                <div class="m6-list">${items.slice(0,3).map(e=>`• ${truncate(e.name,26)} (%${e.pct})`).join('<br>') || '<span style="color:#bbb;">Sınıflandırılan kayıt yok</span>'}</div>
+            </div>`;
+        }).join('');
+    }
+
+    // Chart
+    const canvasEl = document.getElementById('c6M_' + catKey);
+    if (canvasEl) {
+        const m6Values = m6Order.map(k => m6[k].reduce((s,e)=>s+e.h,0));
+        const m6Tot    = m6Values.reduce((s,v)=>s+v,0)||1;
+        const m6Pcts   = m6Values.map(v => +(v/m6Tot*100).toFixed(1));
+        const ck = '_cat6mChart_' + catKey;
+        if (window[ck]) { try { window[ck].destroy(); } catch(e){} }
+        window[ck] = new Chart(canvasEl, {
+            type:'bar',
+            data:{ labels:m6Order.map(k=>M6_META[k].label), datasets:[{ label:'Hatalı Miktar',
+                data:m6Values, backgroundColor:m6Order.map(k=>M6_META[k].color+'cc'),
+                borderColor:m6Order.map(k=>M6_META[k].color), borderWidth:2, borderRadius:6, borderSkipped:false }]},
+            options:{ indexAxis:'y', responsive:true, maintainAspectRatio:true,
+                plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>` ${fmtN(c.raw)} adet  (%${m6Pcts[c.dataIndex]})`}} },
+                scales:{ x:{ticks:{font:{size:10},callback:v=>fmtN(v)},grid:{color:'#f1f5f9'}}, y:{ticks:{font:{size:12}}} }
+            },
+            plugins:[{ id:'m6Lbl_'+catKey, afterDatasetDraw(chart) {
+                const {ctx,data}=chart; ctx.save();
+                chart.getDatasetMeta(0).data.forEach((bar,i)=>{
+                    const val=data.datasets[0].data[i]; if(!val)return;
+                    ctx.fillStyle='#374151'; ctx.font='bold 11px Segoe UI,sans-serif';
+                    ctx.textBaseline='middle'; ctx.textAlign='left';
+                    ctx.fillText(`${fmtN(val)}  (%${m6Pcts[i]})`, bar.x+6, bar.y);
+                }); ctx.restore();
+            }}]
+        });
+    }
+
+    // Detail list
+    const detailEl = document.getElementById('m6Detail_' + catKey);
+    if (detailEl) {
+        let html = '<div style="font-size:.82rem;">';
+        m6Order.forEach(k => {
+            const meta = M6_META[k]; const items = m6[k];
+            if (!items.length) return;
+            html += `<div style="margin-bottom:14px;"><div class="ed" style="font-weight:700;color:${meta.color};margin-bottom:6px;">${meta.label}</div>`;
+            items.slice(0,5).forEach(e => {
+                const w = Math.min(Math.round(e.pct*2),100);
+                html += `<div style="margin-bottom:4px;"><div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span class="ed">${truncate(e.name,32)}</span><span class="ed" style="color:var(--c-sub);">%${e.pct}</span></div><div class="prog-bar"><div class="prog-fill" style="width:${w}%;background:${meta.color};"></div></div></div>`;
+            });
+            html += '</div>';
+        });
+        html += '</div>';
+        detailEl.innerHTML = html || '<span style="color:var(--c-sub);">hataKaynagi alanı dolu kayıt bulunamadı.</span>';
+    }
+}
+
 // —— Çoklu fishbone: Pareto gruplarına göre her hata tipi için ayrı balık kılçığı ——
-function renderMultipleFishbones(groups, allRows) {
-    window._fbDataArr = [];
+function renderMultipleFishbones(groups, allRows, containerEl, idOffset) {
+    idOffset = idOffset || 0;
+    if (!containerEl) containerEl = document.getElementById('multiFbSection');
+    if (!window._fbDataArr) window._fbDataArr = [];
+
+    if (!allRows || !allRows.length) {
+        if (containerEl) containerEl.innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:.85rem;">Bu kategori için kayıt bulunamadı.</div>';
+        return;
+    }
+
     // Grup yoksa tüm veriyle tek fishbone
     const effectiveGroups = (groups && groups.length)
         ? groups
@@ -1501,9 +1649,10 @@ function renderMultipleFishbones(groups, allRows) {
              totalHatali: allRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0),
              count: allRows.length, pct: 100 }];
 
-    // Her grup için fbData oluştur
-    effectiveGroups.forEach(g => {
-        const rows   = g.groupRows || allRows;
+    // Her grup için fbData oluştur (offset konumuna yaz)
+    effectiveGroups.forEach((g, i) => {
+        const gi   = idOffset + i;
+        const rows = g.groupRows || allRows;
         const m6data = classify6M(rows);
         const totalH = rows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0) || 1;
         const bones  = FB_6M.map(b => {
@@ -1513,17 +1662,17 @@ function renderMultipleFishbones(groups, allRows) {
             const pct    = +(h / totalH * 100).toFixed(1);
             return { key: b.key, label: b.label, color: b.color, pos: b.pos, causes, pct, cumPct: 0 };
         });
-        window._fbDataArr.push({ effect: g.label, bones });
+        window._fbDataArr[gi] = { effect: g.label, bones };
     });
 
-    window._fbActiveIdx = 0;
-    window._fbData      = window._fbDataArr[0] || { effect: '', bones: [] };
+    window._fbActiveIdx = idOffset;
+    window._fbData      = window._fbDataArr[idOffset] || { effect: '', bones: [] };
 
-    const container = document.getElementById('multiFbSection');
-    if (!container) return;
+    if (!containerEl) return;
 
-    container.innerHTML = effectiveGroups.map((g, i) => {
-        const rows     = g.groupRows || allRows;
+    containerEl.innerHTML = effectiveGroups.map((g, i) => {
+        const gi   = idOffset + i;
+        const rows = g.groupRows || allRows;
         const topRows  = [...rows].sort((a,b) => (Number(b.hataliMiktar)||0) - (Number(a.hataliMiktar)||0)).slice(0, 20);
         const tableBody = topRows.map(r => `
             <tr>
@@ -1534,23 +1683,23 @@ function renderMultipleFishbones(groups, allRows) {
                 <td>${esc(r.tespitYeri||'\u2014')}</td>
             </tr>`).join('');
         return `
-        <div class="fb-group-card" id="fbGroup_${i}">
+        <div class="fb-group-card" id="fbGroup_${gi}">
             <div class="fb-group-hdr">
                 <span class="fb-group-rank">${i + 1}</span>
                 <span class="fb-group-name">${esc(g.label)}</span>
                 <span class="fb-group-badge2">🔴 ${fmtN(g.totalHatali)} adet</span>
                 <span class="fb-group-badge2">📋 ${g.count} kayıt</span>
-                <span class="fb-group-badge2">%${g.pct}</span>
+                <span class="fb-group-badge2">%${g.pct} — Kümülatif %${g.cumPct}</span>
             </div>
-            <div class="fb-section" onmousedown="_fbActivate(${i})">
-                <div class="fb-header" onclick="_fbToggleBody(${i})">
+            <div class="fb-section" onmousedown="_fbActivate(${gi})">
+                <div class="fb-header" onclick="_fbToggleBody(${gi})">
                     <span style="font-weight:700;font-size:.9rem;color:#1e2535;">🐟 Balık Kılçığı — ${esc(g.label)}</span>
                     <span style="font-size:.75rem;color:#64748b;margin-left:auto;">6 kemik: İnsan · Makine · Malzeme · Metot · Ölçüm · Ortam</span>
-                    <span id="fbChevron_${i}" style="font-size:.9rem;transition:transform .25s;display:inline-block;margin-left:6px;">▾</span>
+                    <span id="fbChevron_${gi}" style="font-size:.9rem;transition:transform .25s;display:inline-block;margin-left:6px;">▾</span>
                 </div>
-                <div class="fb-body" id="fbBody_${i}">
-                <div class="fb-svg-wrap" id="fbContainer_${i}"></div>
-                <div class="fb-edit-panels no-print" id="fbEditPanels_${i}"></div>
+                <div class="fb-body" id="fbBody_${gi}">
+                <div class="fb-svg-wrap" id="fbContainer_${gi}"></div>
+                <div class="fb-edit-panels no-print" id="fbEditPanels_${gi}"></div>
                 </div>
             </div>
             <div class="fb-group-table">
@@ -1575,14 +1724,15 @@ function renderMultipleFishbones(groups, allRows) {
 
     // Tüm fishbone'ları çiz
     effectiveGroups.forEach((_, i) => {
-        window._fbActiveIdx = i;
-        window._fbData      = window._fbDataArr[i];
+        const gi = idOffset + i;
+        window._fbActiveIdx = gi;
+        window._fbData      = window._fbDataArr[gi];
         drawFishbone();
         renderFbEditPanels();
     });
     // İlk fishbone aktif kalsın
-    window._fbActiveIdx = 0;
-    window._fbData      = window._fbDataArr[0];
+    window._fbActiveIdx = idOffset;
+    window._fbData      = window._fbDataArr[idOffset];
 }
 
 function drawFishbone() {
@@ -1827,8 +1977,9 @@ function _rebuildM6Display() {
         });
     });
 
-    // m6Grid kartları
-    const m6GridEl = document.getElementById('m6Grid');
+    // m6Grid kartı — aktif kategoriye göre güncelle
+    const _catKey = window._fb6mCatKey || 'ic';
+    const m6GridEl = document.getElementById('m6Grid_' + _catKey);
     if (m6GridEl) {
         m6GridEl.innerHTML = m6Order.map(k => {
             const meta  = M6_META[k];
@@ -1850,9 +2001,9 @@ function _rebuildM6Display() {
         }).join('');
     }
 
-    // m6Detail sağ liste
-    const m6DetailEl = document.getElementById('m6Detail');
-    if (!m6DetailEl) return;
+    // m6Detail sağ liste — aktif kategoriye göre
+    const m6DetailEl = document.getElementById('m6Detail_' + _catKey);
+    if (!m6DetailEl) { _rebuildAksiyonFromFishbone(); return; }
     let html = '<div style="font-size:.82rem;">';
     m6Order.forEach(k => {
         const meta  = M6_META[k];
@@ -1912,8 +2063,8 @@ function _rebuildAksiyonFromFishbone() {
     // Remove auto-generated fishbone rows (keep rows user manually edited — they won't have _fbSource)
     window._aksiyonlar = window._aksiyonlar.filter(a => !a._fbSource);
 
-    const fbBones = (window._fbDataArr && window._fbDataArr.length)
-        ? window._fbDataArr.flatMap(fd => fd.bones || [])
+    const fbBones = (window._fbDataArr && window._fbDataArr.filter(Boolean).length)
+        ? window._fbDataArr.filter(Boolean).flatMap(fd => fd.bones || [])
         : (window._fbData && window._fbData.bones) ? window._fbData.bones : [];
     const newEntries = [];
     fbBones.forEach(bone => {
@@ -2597,7 +2748,7 @@ function runReport(payload) {
     document.getElementById('icDisTable').innerHTML = buildParetoTable(icDisByYer, totalH);
 
     // ── İÇ/DIŞ PARETO BREAKDOWN ──
-    window._idRows = { ic: icDis.ic, dis: icDis.dis };
+    window._idRows = { ic: icDis.ic, dis: icDis.dis, tedarikci: icDis.tedarikci || [] };
     window._idCharts = {};
     switchIdBreak('hataTipi', null);
 
@@ -2656,7 +2807,6 @@ function runReport(payload) {
     }
 
     // ── 6M ──
-    const m6 = classify6M(rows);
     const M6_META = {
         insan:   { label:'👤 İnsan',   color:'#ef4444', borderColor:'#fca5a5', desc:'İşçilik, operatör, eğitim kaynaklı' },
         makine:  { label:'⚙️ Makine',  color:'#f59e0b', borderColor:'#fcd34d', desc:'Makine, ekipman, kalibrasyon' },
@@ -2666,104 +2816,27 @@ function runReport(payload) {
         ortam:   { label:'🌡️ Ortam',  color:'#22c55e', borderColor:'#86efac', desc:'Sevkiyat, depolama, çevre' },
     };
     const m6Order = ['insan','makine','malzeme','metot','olcum','ortam'];
-    // globals so _rebuildM6Display() can re-read them later
-    window._m6Data  = m6;
     window._M6_META = M6_META;
     window._m6Order = m6Order;
-    document.getElementById('m6Grid').innerHTML = m6Order.map(k => {
-        const meta = M6_META[k];
-        const items = m6[k];
-        const total = items.reduce((s,e)=>s+e.h,0);
-        return `<div class="m6-card" style="border-color:${meta.borderColor};background:${meta.color}18;">
-            <div class="m6-title" style="color:${meta.color}">${meta.label}</div>
-            <div class="m6-val" style="color:${meta.color}">${fmtN(total)}</div>
-            <div style="font-size:.7rem;color:var(--c-sub);margin-bottom:8px;">${meta.desc}</div>
-            <div class="m6-list">${items.slice(0,3).map(e=>`• ${truncate(e.name,26)} (%${e.pct})`).join('<br>') || '<span style="color:#bbb;">Sınıflandırılan kayıt yok</span>'}</div>
-        </div>`;
-    }).join('');
+    window._m6Data  = classify6M(rows);
+    window._fb6mCatKey = 'ic';
 
-    const m6Values   = m6Order.map(k => m6[k].reduce((s,e)=>s+e.h, 0));
-    const m6Total6M  = m6Values.reduce((s,v)=>s+v, 0) || 1;
-    const m6Pcts     = m6Values.map(v => +(v / m6Total6M * 100).toFixed(1));
+    // İç / Dış / Tedarikçi ayrımı
+    const _idRowsFor6m = window._idRows || { ic:[], dis:[], tedarikci:[] };
+    render6MBlock('ic',  _idRowsFor6m.ic         || []);
+    render6MBlock('dis', _idRowsFor6m.dis        || []);
+    render6MBlock('ted', _idRowsFor6m.tedarikci  || []);
 
-    new Chart(document.getElementById('c6M'), {
-        type: 'bar',
-        data: {
-            labels: m6Order.map(k => M6_META[k].label),
-            datasets: [{
-                label: 'Hatalı Miktar',
-                data: m6Values,
-                backgroundColor: m6Order.map(k => M6_META[k].color + 'cc'),
-                borderColor:     m6Order.map(k => M6_META[k].color),
-                borderWidth: 2,
-                borderRadius: 6,
-                borderSkipped: false
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true, maintainAspectRatio: true,
-            plugins: {
-                legend: { display: false },
-                tooltip: { callbacks: {
-                    label: c => ` ${fmtN(c.raw)} adet  (%${m6Pcts[c.dataIndex]})`
-                }},
-                // inline data labels
-                afterDraw: undefined
-            },
-            scales: {
-                x: { ticks: { font:{size:10}, callback: v => fmtN(v) }, grid: { color:'#f1f5f9' } },
-                y: { ticks: { font:{size:12} } }
-            }
-        },
-        plugins: [{
-            id: 'm6Labels',
-            afterDatasetDraw(chart) {
-                const { ctx, data, scales } = chart;
-                ctx.save();
-                chart.getDatasetMeta(0).data.forEach((bar, i) => {
-                    const val  = data.datasets[0].data[i];
-                    const pct  = m6Pcts[i];
-                    if (!val) return;
-                    const x = bar.x + 6;
-                    const y = bar.y;
-                    ctx.fillStyle = '#374151';
-                    ctx.font = 'bold 11px Segoe UI, sans-serif';
-                    ctx.textBaseline = 'middle';
-                    ctx.textAlign = 'left';
-                    ctx.fillText(`${fmtN(val)}  (%${pct})`, x, y);
-                });
-                ctx.restore();
-            }
-        }]
-    });
+    // Fishbone — 80/20 pareto grupları kategori başına
+    window._fbDataArr = [];
+    const pg80_ic  = buildParetoGroups80(_idRowsFor6m.ic         || []);
+    const pg80_dis = buildParetoGroups80(_idRowsFor6m.dis        || []);
+    const pg80_ted = buildParetoGroups80(_idRowsFor6m.tedarikci  || []);
+    renderMultipleFishbones(pg80_ic,  _idRowsFor6m.ic,        document.getElementById('multiFbSection_ic'),     0);
+    renderMultipleFishbones(pg80_dis, _idRowsFor6m.dis,       document.getElementById('multiFbSection_dis'), 1000);
+    renderMultipleFishbones(pg80_ted, _idRowsFor6m.tedarikci, document.getElementById('multiFbSection_ted'), 2000);
+    _rebuildM6Display();
 
-    // 6M detail list
-    let m6DetailHtml = '<div style="font-size:.82rem;">';
-    m6Order.forEach(k => {
-        const meta = M6_META[k];
-        const items = m6[k];
-        if (!items.length) return;
-        m6DetailHtml += `<div style="margin-bottom:14px;">
-            <div class="ed" style="font-weight:700;color:${meta.color};margin-bottom:6px;">${meta.label}</div>`;
-        items.slice(0,5).forEach(e => {
-            const w = Math.min(Math.round(e.pct*2),100);
-            m6DetailHtml += `<div style="margin-bottom:4px;">
-                <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
-                    <span class="ed">${truncate(e.name,32)}</span>
-                    <span class="ed" style="color:var(--c-sub);">%${e.pct}</span>
-                </div>
-                <div class="prog-bar"><div class="prog-fill" style="width:${w}%;background:${meta.color};"></div></div>
-            </div>`;
-        });
-        m6DetailHtml += '</div>';
-    });
-    m6DetailHtml += '</div>';
-    document.getElementById('m6Detail').innerHTML = m6DetailHtml || '<span style="color:var(--c-sub);">hataKaynagi alanı dolu kayıt bulunamadı.</span>';
-
-    // ── FISHBONE (6M) ──
-    renderMultipleFishbones(payload.paretoGroups || [], rows);
-    _rebuildM6Display(); // fishbone nedenlerini kart + liste’ye ekle
 
     // ── TREND ──
     const trend = buildTrend(rows);
