@@ -507,6 +507,14 @@ html, body { scroll-behavior:smooth; }
         <div class="section-body">
             <div style="min-height:220px;"><canvas id="cTedarikci" height="220"></canvas></div>
             <div id="tedarikciTable" style="margin-top:14px;"></div>
+            <div class="idb-bar no-print" style="margin-top:20px;">
+                <span>Kırılım:</span>
+                <button class="idb-tab active" onclick="switchTedBreak('hataTipi',this)">Hata Tipi</button>
+                <button class="idb-tab" onclick="switchTedBreak('hataKaynagi',this)">Hata Kaynağı</button>
+                <button class="idb-tab" onclick="switchTedBreak('stokAdi',this)">Stok Adı</button>
+            </div>
+            <div style="min-height:220px;"><canvas id="cTedKirilim" height="220"></canvas></div>
+            <div id="tedKirilimTable" style="margin-top:14px;"></div>
         </div>
     </div>
 
@@ -1440,6 +1448,28 @@ function switchIcBreak(field, btn) {
     } else {
         el.style.display = 'none';
         tableEl.innerHTML = '<p style="color:var(--c-sub);font-size:.85rem;text-align:center;padding:20px;">İç başarısızlık kaydı bulunamadı.</p>';
+    }
+}
+
+function switchTedBreak(field, btn) {
+    if (btn) {
+        btn.closest('.idb-bar').querySelectorAll('.idb-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    const tedRows = window._tedRows;
+    if (!tedRows) return;
+    if (window._tedKirilimChart) { try { window._tedKirilimChart.destroy(); } catch(e){} window._tedKirilimChart = null; }
+    const data = _idBuildPareto(tedRows, field, 15);
+    const el = document.getElementById('cTedKirilim');
+    const tableEl = document.getElementById('tedKirilimTable');
+    if (data.length) {
+        el.style.display = '';
+        const tedTotal = tedRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
+        window._tedKirilimChart = paretoChart(el, data, '#16a34a');
+        tableEl.innerHTML = _idTable(data, tedTotal, '#16a34a');
+    } else {
+        el.style.display = 'none';
+        tableEl.innerHTML = '<p style="color:var(--c-sub);font-size:.85rem;text-align:center;padding:20px;">Tedarikçi kaydı bulunamadı.</p>';
     }
 }
 const _FB = {
@@ -2609,6 +2639,7 @@ function runReport(payload) {
     // ── TEDARİKÇİ (Tipi=Tedarikçi, Cari Adı) ──
     {
         const tedRows = icDis.tedarikci || [];
+        window._tedRows = tedRows;
         const tedTotal = tedRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
         let tedCum = 0;
         const tedAgg = {};
@@ -2630,6 +2661,7 @@ function runReport(payload) {
             tedEl.style.display = 'none';
             document.getElementById('tedarikciTable').innerHTML = '<p style="color:var(--c-sub);font-size:.85rem;text-align:center;padding:20px;">Tedarikçi tipi kaydı bulunamadı.</p>';
         }
+        switchTedBreak('hataTipi', null);
     }
 
     // ── MALZEME ──
