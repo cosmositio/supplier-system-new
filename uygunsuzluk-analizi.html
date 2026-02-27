@@ -3522,7 +3522,7 @@ function _rIdbOpen() {
         };
         r.onsuccess = e => res(e.target.result);
         r.onerror   = () => rej(r.error);
-        r.onblocked = () => rej(new Error('IDB blocked'));
+        r.onblocked = () => console.warn('IDB blocked — başka bir sekme kapatılmayı bekliyor');
     });
 }
 function _rIdbSave(data) {
@@ -3539,6 +3539,13 @@ function _rIdbGet(key) {
         g.onsuccess = () => { db.close(); res(g.result ?? null); };
         g.onerror   = () => { db.close(); res(null); };
     }));
+}
+function _rIdbGetAllKeys() {
+    return _rIdbOpen().then(db => new Promise(res => {
+        const r = db.transaction(_RIDB.store,'readonly').objectStore(_RIDB.store).getAllKeys();
+        r.onsuccess = () => { db.close(); res(r.result || []); };
+        r.onerror   = () => { db.close(); res([]); };
+    })).catch(() => []);
 }
 function _rIdbPut(key, value) {
     return _rIdbOpen().then(db => new Promise((res, rej) => {
@@ -3651,10 +3658,23 @@ async function uaOpenSnapshotModal() {
     const body = document.getElementById('uaSnapList');
     if (!body) return;
     let list = [];
-    try { list = (await _rIdbGet(_UA_SNAPS_KEY)) || []; }
-    catch(e) { console.warn('uaOpenSnapshotModal IDB error:', e); }
-    if (!list.length) {
-        body.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:28px 0;">Henüz kayıtlı rapor yok.<br><small style="color:#c4cdd8;">Kapsamlı Rapor sayfasında 💾 Kaydet butonunu kullanarak rapor kaydedebilirsiniz.</small></p>';
+    let idbErr = null;
+    let allKeys = [];
+    try {
+        [list, allKeys] = await Promise.all([
+            _rIdbGet(_UA_SNAPS_KEY).then(r => r || []),
+            _rIdbGetAllKeys()
+        ]);
+    } catch(e) { idbErr = e; console.error('uaOpenSnapshotModal IDB error:', e); }
+    console.log('[UA Snapshots] DB:', _RIDB.name, '/ store:', _RIDB.store, '/ key:', _UA_SNAPS_KEY,
+        '\n  → list:', list, '\n  → all keys in store:', allKeys, '\n  → origin:', location.origin);
+    if (idbErr) {
+        body.innerHTML = `<p style="color:#ef4444;text-align:center;padding:20px;">IndexedDB okuma hatası: ${idbErr.message || idbErr}<br><small>Origin: ${location.origin}</small></p>`;
+    } else if (!list.length) {
+        const keysHtml = allKeys.length
+            ? `<br><small style="color:#94a3b8;font-size:.68rem;">IDB içindeki anahtarlar: ${allKeys.join(', ')}</small>`
+            : `<br><small style="color:#94a3b8;font-size:.68rem;">IDB boş — Origin: ${location.origin}</small>`;
+        body.innerHTML = `<p style="color:#94a3b8;text-align:center;padding:28px 0;">Henüz kayıtlı rapor yok.<br><small style="color:#c4cdd8;">Kapsamlı Rapor sayfasında 💾 Kaydet butonunu kullanarak rapor kaydedebilirsiniz.</small>${keysHtml}</p>`;
     } else {
         body.innerHTML = list.slice().reverse().map(m => `
             <div class="ua-snap-row">

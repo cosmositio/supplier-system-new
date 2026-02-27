@@ -1034,6 +1034,7 @@ async function krSaveSnapshot() {
 
 async function krOpenSnapshotModal() {
     const list = (await _idbGet(_SNAPS_KEY)) || [];
+    console.log('[KR Snapshots] DB:', _IDB.name, 'Store:', _IDB.store, 'Key:', _SNAPS_KEY, '→ list:', list, 'origin:', location.origin);
     const body = document.getElementById('krSnapList');
     if (!body) return;
     if (!list.length) {
