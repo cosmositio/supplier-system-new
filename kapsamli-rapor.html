@@ -604,7 +604,7 @@ html, body { scroll-behavior:smooth; }
                 <button class="cat6m-tab active" onclick="switchAksiyonTab('ic',this)">🏭 İç Başarısızlık</button>
                 <button class="cat6m-tab" onclick="switchAksiyonTab('dis',this)">🚚 Dış Başarısızlık</button>
                 <button class="cat6m-tab" onclick="switchAksiyonTab('ted',this)">📦 Tedarikçi</button>
-                <button class="cat6m-tab" onclick="switchAksiyonTab('manuel',this)">✏️ El ile Eklenen</button>
+                <button class="cat6m-tab" onclick="switchAksiyonTab('manuel',this)">📋 Genel Öneriler & El ile Eklenen</button>
             </div>
             <div id="aksiyonTab_ic" style="padding:16px 20px;"></div>
             <div id="aksiyonTab_dis" style="display:none;padding:16px 20px;"></div>
@@ -2966,10 +2966,20 @@ function runReport(payload) {
     }
 
     // ── AKSİYON PLANI ──
-    const actions = generateActionPlan(rows, htData, tedData, malData, icDis, m6);
+    const actions = generateActionPlan(rows, htData, tedData, malData, icDis, window._m6Data || classify6M(rows));
     window._aksiyonlar = actions;
     renderAksiyonTablosu();
     _rebuildAksiyonFromFishbone(); // Balık kılçığı nedenlerini aksiyon planına ekle
+    // Switch to first tab that has content
+    const _apTabOrder = ['ic','dis','ted','manuel'];
+    const _apTabBtns  = document.querySelectorAll('#s-aksiyon .cat6m-tab');
+    for (let _ti = 0; _ti < _apTabOrder.length; _ti++) {
+        const _tel = document.getElementById('aksiyonTab_' + _apTabOrder[_ti]);
+        if (_tel && _tel.querySelector('tr')) {
+            switchAksiyonTab(_apTabOrder[_ti], _apTabBtns[_ti]);
+            break;
+        }
+    }
     krCheckSaved();
 
     // ── Enable edit mode if it was on before re-render ──
