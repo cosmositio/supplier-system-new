@@ -2127,7 +2127,7 @@ function _rebuildM6Display() {
         const m6Names = new Set(items.map(e=>e.name.toLowerCase()));
         const fbExtras = (fbByKey[k] || []).filter(r => !m6Names.has(r.name.toLowerCase()));
         if (!items.length && !fbExtras.length) return;
-        html += `<div style="margin-bottom:14px;">
+        html += `<div data-m6bone="${k}" style="margin-bottom:14px;">
             <div class="ed" style="font-weight:700;color:${meta.color};margin-bottom:6px;">${meta.label}</div>`;
         items.slice(0,5).forEach(e => {
             const w = Math.min(Math.round(e.pct*2), 100);
@@ -2150,6 +2150,8 @@ function _rebuildM6Display() {
     });
     html += '</div>';
     m6DetailEl.innerHTML = html;
+    // Re-inject manual aksiyon entries into the correct bone sections
+    _updateM6DetailManual();
 
     // Sync fishbone causes → aksiyon planı
     _rebuildAksiyonFromFishbone();
