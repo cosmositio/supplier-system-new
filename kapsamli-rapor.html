@@ -1969,7 +1969,7 @@ function renderFbEditPanels() {
             <div class="fb-cause-row">
                 <button class="fb-cause-toggle" onclick="fbToggleSubList('${subId}')" title="Alt nedenler">▶</button>
                 <span class="fb-cause-name">${esc(nm)}</span>
-                <button class="fb-cause-del" title="Sil" onclick="fbDeleteCause(${gi},${bi},${ci})">×</button>
+                <button class="fb-cause-del" title="Kaldır (Tüm Bölümler ile geri gelir)" onclick="fbRemoveCause(${gi},${bi},${ci})">×</button>
             </div>
             <div class="fb-sub-block" id="${subId}" style="display:none;">
                 ${subRows}${subAdd}
