@@ -598,7 +598,7 @@ html, body { scroll-behavior:smooth; }
         <div class="section-body" style="padding:0;">
             <div class="ap-section-toolbar" style="padding:16px 20px 0;">
                 <p style="color:var(--c-sub);font-size:.8rem;margin:0;flex:1;">Analiz bulgularına göre otomatik oluşturulmuştur. Düzenleyebilir, silebilir veya yeni satır ekleyebilirsiniz.</p>
-                <button class="ap-btn ap-btn-add no-print" onclick="apOpenAdd()">＋ Satır Ekle</button>
+                <button class="ap-btn ap-btn-add no-print" onclick="apOpenAdd(window._aksiyonActiveCat||'ic')">＋ Satır Ekle</button>
             </div>
             <div class="cat6m-tabs" style="padding:10px 20px 0;gap:8px;">
                 <button class="cat6m-tab active" onclick="switchAksiyonTab('ic',this)">🏭 İç Başarısızlık</button>
@@ -2392,9 +2392,10 @@ function fmtTarih(t) {
 }
 
 function switchAksiyonTab(cat, btn) {
+    window._aksiyonActiveCat = cat;
     document.querySelectorAll('#s-aksiyon .cat6m-tab').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
-    ['ic','dis','ted','manuel'].forEach(c => {
+    ['ic','dis','ted'].forEach(c => {
         const el = document.getElementById('aksiyonTab_' + c);
         if (el) el.style.display = c === cat ? '' : 'none';
     });
@@ -2418,54 +2419,65 @@ function renderAksiyonRow(a, i) {
     </tr>`;
 }
 
-function renderAksiyonTablosu() {
-    const list = window._aksiyonlar || [];
-    const _AP_TABLE_HEAD = `<thead><tr>
+function _apTableHead() {
+    return `<thead><tr>
         <th>#</th><th>Bulgu / Problem</th><th>Kategori</th>
         <th>Önerilen Aksiyon</th><th>Öncelik</th><th>Sorumlu</th>
         <th>Durum</th><th>Tamamlanma Tarihi</th><th>Faaliyet</th>
         <th class="no-print"></th>
     </tr></thead>`;
+}
 
-    // Render per-category tabs (İç / Dış / Tedarikçi)
+function renderAksiyonTablosu() {
+    const list = window._aksiyonlar || [];
+    const catLabels = { ic:'İç Başarısızlık', dis:'Dış Başarısızlık', ted:'Tedarikçi' };
+
     ['ic','dis','ted'].forEach(cat => {
         const el = document.getElementById('aksiyonTab_' + cat);
         if (!el) return;
-        const entries = list.map((a, i) => ({ ...a, _i: i })).filter(a => a._cat === cat && a._fbSource);
-        if (!entries.length) {
-            el.innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:.85rem;">Bu kategori için kılçık verisi yok veya kılçıklarda henüz neden eklenmedi.</div>';
-            return;
-        }
-        // Group by _fbEffect (hata tipi)
-        const groupMap = {};
-        const groupOrder = [];
-        entries.forEach(a => {
+        const entries = list.map((a, i) => ({ ...a, _i: i })).filter(a => a._cat === cat);
+        
+        // Group fishbone entries by _fbEffect, collect manual at the end
+        const fbEntries     = entries.filter(a => a._fbSource);
+        const manualEntries = entries.filter(a => !a._fbSource);
+        const groupMap = {}; const groupOrder = [];
+        fbEntries.forEach(a => {
             const eff = a._fbEffect || '(Genel)';
             if (!groupMap[eff]) { groupMap[eff] = []; groupOrder.push(eff); }
             groupMap[eff].push(a);
         });
-        el.innerHTML = groupOrder.map(eff => {
-            const rows = groupMap[eff].map(a => renderAksiyonRow(a, a._i)).join('');
-            return `<div style="margin-bottom:22px;">
-                <div style="font-weight:700;font-size:.87rem;color:#1e2535;padding:8px 14px;background:#f1f5f9;border-radius:8px 8px 0 0;border:1.5px solid #e2e8f0;border-bottom:none;display:flex;align-items:center;gap:8px;">
-                    <span style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block;"></span>
-                    Hata Tipi: ${esc(eff)}
-                    <span style="font-weight:400;font-size:.76rem;color:#64748b;margin-left:4px;">(${groupMap[eff].length} aksiyon)</span>
-                </div>
-                <table class="ap-table" style="border-radius:0 0 8px 8px;border:1.5px solid #e2e8f0;border-top:none;">
-                    ${_AP_TABLE_HEAD}
-                    <tbody>${rows}</tbody>
-                </table>
-            </div>`;
-        }).join('');
-    });
 
-    // Manual tab
-    const manualEl = document.getElementById('aksiyonBody');
-    if (manualEl) {
-        const manualList = list.map((a, i) => ({ ...a, _i: i })).filter(a => !a._fbSource);
-        manualEl.innerHTML = manualList.map(a => renderAksiyonRow(a, a._i)).join('');
-    }
+        let html = `<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+            <button class="ap-btn ap-btn-add no-print" onclick="apOpenAdd('${cat}')">+ Satır Ekle (${esc(catLabels[cat])})</button>
+        </div>`;
+
+        if (groupOrder.length) {
+            html += groupOrder.map(eff => {
+                const rows = groupMap[eff].map(a => renderAksiyonRow(a, a._i)).join('');
+                return `<div style="margin-bottom:18px;">
+                    <div style="font-weight:700;font-size:.87rem;color:#1e2535;padding:8px 14px;background:#f1f5f9;border-radius:8px 8px 0 0;border:1.5px solid #e2e8f0;border-bottom:none;display:flex;align-items:center;gap:8px;">
+                        <span style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block;"></span>
+                        Hata Tipi: ${esc(eff)}
+                        <span style="font-weight:400;font-size:.76rem;color:#64748b;margin-left:4px;">(${groupMap[eff].length} aksiyon)</span>
+                    </div>
+                    <table class="ap-table" style="border-radius:0 0 8px 8px;border:1.5px solid #e2e8f0;border-top:none;">${_apTableHead()}<tbody>${rows}</tbody></table>
+                </div>`;
+            }).join('');
+        }
+
+        if (manualEntries.length) {
+            html += `<div style="margin-bottom:18px;">
+                <div style="font-weight:700;font-size:.87rem;color:#1e2535;padding:8px 14px;background:#eff6ff;border-radius:8px 8px 0 0;border:1.5px solid #bfdbfe;border-bottom:none;">✏️ El ile Eklenen</div>
+                <table class="ap-table" style="border-radius:0 0 8px 8px;border:1.5px solid #bfdbfe;border-top:none;">${_apTableHead()}<tbody>${manualEntries.map(a => renderAksiyonRow(a, a._i)).join('')}</tbody></table>
+            </div>`;
+        }
+
+        if (!groupOrder.length && !manualEntries.length) {
+            html += '<div style="padding:28px;text-align:center;color:#94a3b8;font-size:.85rem;">Bu kategori için kılçık verisi yok. Yukarıdan satır ekleyebilirsiniz.</div>';
+        }
+
+        el.innerHTML = html;
+    });
 }
 
 function krFaaliyetCell(i, a) {
@@ -2577,8 +2589,10 @@ function apOpenEdit(idx) {
     document.getElementById('apModal').classList.add('open');
 }
 
-function apOpenAdd() {
+let _apAddCat = 'ic';
+function apOpenAdd(cat) {
     _apEditIdx = -1;
+    _apAddCat  = cat || window._aksiyonActiveCat || 'ic';
     document.getElementById('apModalTitle').textContent = 'Yeni Satır Ekle';
     document.getElementById('apFBulgu').value    = '';
     document.getElementById('apFAksiyon').value  = '';
@@ -2612,7 +2626,8 @@ function apSaveModal() {
     const entry = { bulgu, kat, katBadge, aksiyon, oncelik, sorumlu, durum, tarih, faaliyet };
 
     if (_apEditIdx === -1) {
-        // Yeni satır: 8D seçildiyse has8DLink'i undefined bırak (düğme görünür)
+        // Yeni satır: _cat ekle, 8D seçildiyse has8DLink'i undefined bırak (düğme görünür)
+        entry._cat = _apAddCat;
         window._aksiyonlar.push(entry);
     } else {
         // Düzenleme: onceki satırdan has8DLink, _cat, _fbEffect, _fbSource'u koru
@@ -2628,11 +2643,10 @@ function apSaveModal() {
     renderAksiyonTablosu();
     _krSaveEdits();
     apCloseModal();
-    // Switch to the relevant tab
+    // Switch to the tab where the entry was saved
     if (_apEditIdx === -1) {
-        // New manual row — show manuel tab
-        const btn = document.querySelector('#s-aksiyon .cat6m-tab:last-child');
-        switchAksiyonTab('manuel', btn);
+        const btn = document.getElementById('aksiyonTabBtn_' + _apAddCat);
+        switchAksiyonTab(_apAddCat, btn);
     }
 }
 
@@ -2966,17 +2980,20 @@ function runReport(payload) {
     }
 
     // ── AKSİYON PLANI ──
-    const actions = generateActionPlan(rows, htData, tedData, malData, icDis, window._m6Data || classify6M(rows));
+    const _apHtData  = paretoData(rows, 'hataTipi', 5);
+    const _apTedData = paretoData(rows, 'cariAdi',  5);
+    const _apMalData = paretoData(rows, 'stokAdi',  5);
+    const actions = generateActionPlan(rows, _apHtData, _apTedData, _apMalData, icDis, window._m6Data || classify6M(rows));
     window._aksiyonlar = actions;
     renderAksiyonTablosu();
     _rebuildAksiyonFromFishbone(); // Balık kılçığı nedenlerini aksiyon planına ekle
     // Switch to first tab that has content
-    const _apTabOrder = ['ic','dis','ted','manuel'];
-    const _apTabBtns  = document.querySelectorAll('#s-aksiyon .cat6m-tab');
+    const _apTabOrder = ['ic','dis','ted'];
     for (let _ti = 0; _ti < _apTabOrder.length; _ti++) {
         const _tel = document.getElementById('aksiyonTab_' + _apTabOrder[_ti]);
+        const _btn = document.getElementById('aksiyonTabBtn_' + _apTabOrder[_ti]);
         if (_tel && _tel.querySelector('tr')) {
-            switchAksiyonTab(_apTabOrder[_ti], _apTabBtns[_ti]);
+            switchAksiyonTab(_apTabOrder[_ti], _btn);
             break;
         }
     }
