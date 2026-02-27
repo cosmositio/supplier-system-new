@@ -1702,7 +1702,7 @@ function renderMultipleFishbones(groups, allRows, containerEl, idOffset) {
                 <span class="fb-group-badge2">🔴 ${fmtN(g.totalHatali)} adet</span>
                 <span class="fb-group-badge2">📋 ${g.count} kayıt</span>
                 <span class="fb-group-badge2">%${g.pct} — Kümülatif %${g.cumPct}</span>
-                <button class="fb-hide-btn" onclick="_fbHideCard(${gi}, this)" title="Bu kılçığı gizle">✕</button>
+                <button class="fb-hide-btn" onclick="_fbHideCard(${gi}, '${_containerId}')" title="Bu kılçığı gizle">✕</button>
             </div>
             <div class="fb-card-body" id="fbCardBody_${gi}">
             <div class="fb-section" onmousedown="_fbActivate(${gi})">
@@ -1749,16 +1749,12 @@ function renderMultipleFishbones(groups, allRows, containerEl, idOffset) {
     window._fbData      = window._fbDataArr[idOffset];
 }
 
-function _fbHideCard(gi, btn) {
+function _fbHideCard(gi, containerId) {
     const card = document.getElementById('fbGroup_' + gi);
     if (!card) return;
     card.style.display = 'none';
-    // Show the restore bar for this container
-    const container = card.closest('[id^="multiFbSection"]');
-    if (container) {
-        const bar = document.getElementById('fbShowAllBar_' + container.id);
-        if (bar) bar.style.display = 'flex';
-    }
+    const bar = document.getElementById('fbShowAllBar_' + containerId);
+    if (bar) bar.style.display = 'flex';
 }
 function _fbShowAll(containerId) {
     const container = document.getElementById(containerId);
