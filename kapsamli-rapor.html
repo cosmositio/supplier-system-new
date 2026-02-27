@@ -2447,33 +2447,32 @@ function renderAksiyonTablosu() {
             groupMap[eff].push(a);
         });
 
-        let html = `<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
-            <button class="ap-btn ap-btn-add no-print" onclick="apOpenAdd('${cat}')">+ Satır Ekle (${esc(catLabels[cat])})</button>
-        </div>`;
+        // Collect all effect labels (fishbone groups + manual groups)
+        const allEffects = [...groupOrder];
+        manualEntries.forEach(a => { const e = a._fbEffect || '(Genel)'; if (!allEffects.includes(e)) allEffects.push(e); });
+        const manualByEff = {};
+        manualEntries.forEach(a => { const e = a._fbEffect || '(Genel)'; if (!manualByEff[e]) manualByEff[e] = []; manualByEff[e].push(a); });
 
-        if (groupOrder.length) {
-            html += groupOrder.map(eff => {
-                const rows = groupMap[eff].map(a => renderAksiyonRow(a, a._i)).join('');
+        let html = '';
+
+        if (!allEffects.length) {
+            html = `<div style="padding:28px;text-align:center;color:#94a3b8;font-size:.85rem;">Bu kategori için kılçık verisi yok.</div>`;
+        } else {
+            html = allEffects.map(eff => {
+                const fbRows     = (groupMap[eff]    || []).map(a => renderAksiyonRow(a, a._i)).join('');
+                const manualRows = (manualByEff[eff] || []).map(a => renderAksiyonRow(a, a._i)).join('');
+                const total      = (groupMap[eff]?.length || 0) + (manualByEff[eff]?.length || 0);
+                const effSafe    = eff.replace(/'/g,"\\'");
                 return `<div style="margin-bottom:18px;">
                     <div style="font-weight:700;font-size:.87rem;color:#1e2535;padding:8px 14px;background:#f1f5f9;border-radius:8px 8px 0 0;border:1.5px solid #e2e8f0;border-bottom:none;display:flex;align-items:center;gap:8px;">
                         <span style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block;"></span>
                         Hata Tipi: ${esc(eff)}
-                        <span style="font-weight:400;font-size:.76rem;color:#64748b;margin-left:4px;">(${groupMap[eff].length} aksiyon)</span>
+                        <span style="font-weight:400;font-size:.76rem;color:#64748b;margin-left:4px;">(${total} aksiyon)</span>
+                        <button class="ap-btn ap-btn-add no-print" style="margin-left:auto;font-size:.72rem;padding:3px 10px;" onclick="apOpenAdd('${cat}','${effSafe}')">+ Satır Ekle</button>
                     </div>
-                    <table class="ap-table" style="border-radius:0 0 8px 8px;border:1.5px solid #e2e8f0;border-top:none;">${_apTableHead()}<tbody>${rows}</tbody></table>
+                    <table class="ap-table" style="border-radius:0 0 8px 8px;border:1.5px solid #e2e8f0;border-top:none;">${_apTableHead()}<tbody>${fbRows}${manualRows}</tbody></table>
                 </div>`;
             }).join('');
-        }
-
-        if (manualEntries.length) {
-            html += `<div style="margin-bottom:18px;">
-                <div style="font-weight:700;font-size:.87rem;color:#1e2535;padding:8px 14px;background:#eff6ff;border-radius:8px 8px 0 0;border:1.5px solid #bfdbfe;border-bottom:none;">✏️ El ile Eklenen</div>
-                <table class="ap-table" style="border-radius:0 0 8px 8px;border:1.5px solid #bfdbfe;border-top:none;">${_apTableHead()}<tbody>${manualEntries.map(a => renderAksiyonRow(a, a._i)).join('')}</tbody></table>
-            </div>`;
-        }
-
-        if (!groupOrder.length && !manualEntries.length) {
-            html += '<div style="padding:28px;text-align:center;color:#94a3b8;font-size:.85rem;">Bu kategori için kılçık verisi yok. Yukarıdan satır ekleyebilirsiniz.</div>';
         }
 
         el.innerHTML = html;
@@ -2590,9 +2589,11 @@ function apOpenEdit(idx) {
 }
 
 let _apAddCat = 'ic';
-function apOpenAdd(cat) {
+let _apAddEff = '';
+function apOpenAdd(cat, eff) {
     _apEditIdx = -1;
     _apAddCat  = cat || window._aksiyonActiveCat || 'ic';
+    _apAddEff  = eff || '';
     document.getElementById('apModalTitle').textContent = 'Yeni Satır Ekle';
     document.getElementById('apFBulgu').value    = '';
     document.getElementById('apFAksiyon').value  = '';
@@ -2628,6 +2629,7 @@ function apSaveModal() {
     if (_apEditIdx === -1) {
         // Yeni satır: _cat ekle, 8D seçildiyse has8DLink'i undefined bırak (düğme görünür)
         entry._cat = _apAddCat;
+        if (_apAddEff) entry._fbEffect = _apAddEff;
         window._aksiyonlar.push(entry);
     } else {
         // Düzenleme: onceki satırdan has8DLink, _cat, _fbEffect, _fbSource'u koru
