@@ -411,7 +411,6 @@ html, body { scroll-behavior:smooth; }
     <div class="nav-item" onclick="navScrollTo('s-icdis')"><span class="nav-ico">⚖️</span> İç / Dış Başarısızlık</div>
     <div class="nav-item" onclick="navScrollTo('s-tedarikci')"><span class="nav-ico">🏭</span> Tedarikçi Kaynaklı</div>
     <div class="nav-item" onclick="navScrollTo('s-musteri')"><span class="nav-ico">👥</span> Müşteri / Şube Bazlı</div>
-    <div class="nav-item" onclick="navScrollTo('s-hatatipi')"><span class="nav-ico">🔍</span> Hata Tipi Dağılımı</div>
     <div class="nav-item" onclick="navScrollTo('s-6m')"><span class="nav-ico">🔧</span> 6M Kaynak Analizi</div>
     <div class="nav-item" onclick="navScrollTo('s-trend')"><span class="nav-ico">📈</span> Aylık Trend</div>
     <div class="nav-item" onclick="navScrollTo('s-aksiyon')"><span class="nav-ico">✅</span> Aksiyon Planı</div>
@@ -456,8 +455,9 @@ html, body { scroll-behavior:smooth; }
             <div class="idb-bar no-print">
                 <span>Kırılım:</span>
                 <button class="idb-tab active" onclick="switchIdBreak('hataTipi',this)">Hata Tipi</button>
-                <button class="idb-tab" onclick="switchIdBreak('cariAdi',this)">Tedarikçi</button>
-                <button class="idb-tab" onclick="switchIdBreak('stokAdi',this)">Malzeme</button>
+                <button class="idb-tab" onclick="switchIdBreak('hataKaynagi',this)">Hata Kaynağı</button>
+                <button class="idb-tab" onclick="switchIdBreak('stokAdi',this)">Stok Adı</button>
+                <button class="idb-tab" onclick="switchIdBreak('cariAdi',this)">Cari Adı</button>
             </div>
             <div class="idb-bar" style="display:none" id="idbBarPrint">
                 <span style="font-size:.8rem;font-weight:700;">Kırılım: <span id="idbPrintLabel">Hata Tipi</span></span>
@@ -474,25 +474,6 @@ html, body { scroll-behavior:smooth; }
                     <div id="disBreakTable" style="margin-top:10px;"></div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- İÇ BAŞARISIZLIK KIRILIM -->
-    <div class="section" id="s-ic-kirilim">
-        <div class="section-hdr">
-            <span class="ico">🏢</span>
-            <h2>İç Başarısızlık Kırılımı</h2>
-            <span class="hint">Tipi: İç Başarısızlık &mdash; Hata Tipi / Hata Kaynağı / Stok Adı bazlı Pareto</span>
-        </div>
-        <div class="section-body">
-            <div class="idb-bar no-print">
-                <span>Kırılım:</span>
-                <button class="idb-tab active" onclick="switchIcBreak('hataTipi',this)">Hata Tipi</button>
-                <button class="idb-tab" onclick="switchIcBreak('hataKaynagi',this)">Hata Kaynağı</button>
-                <button class="idb-tab" onclick="switchIcBreak('stokAdi',this)">Stok Adı</button>
-            </div>
-            <div style="min-height:220px;"><canvas id="cIcKirilim" height="220"></canvas></div>
-            <div id="icKirilimTable" style="margin-top:14px;"></div>
         </div>
     </div>
 
@@ -533,20 +514,6 @@ html, body { scroll-behavior:smooth; }
     </div>
 
     <!-- HATA TİPİ -->
-    <div class="section" id="s-hatatipi">
-        <div class="section-hdr">
-            <span class="ico">🔍</span>
-            <h2>Hata Tipi Dağılımı</h2>
-            <span class="hint">Pareto + kümülatif</span>
-        </div>
-        <div class="section-body">
-            <div class="two-col">
-                <div class="chart-wrap-tall"><canvas id="cHataTipi"></canvas></div>
-                <div id="hataTipiTable"></div>
-            </div>
-        </div>
-    </div>
-
     <!-- 6M -->
     <div class="section" id="s-6m">
         <div class="section-hdr">
@@ -1329,7 +1296,7 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
 // ─────────────────────────────────────────────
 // İÇ/DIŞ PARETO BREAKDOWN
 // ─────────────────────────────────────────────
-const _ID_LABELS = { hataTipi:'Hata Tipi', cariAdi:'Tedarikçi', stokAdi:'Malzeme' };
+const _ID_LABELS = { hataTipi:'Hata Tipi', hataKaynagi:'Hata Kaynağı', stokAdi:'Stok Adı', cariAdi:'Cari Adı' };
 
 function _idBuildPareto(groupRows, field, n) {
     // reuse paretoData helper: build manually to use groupRows
@@ -2618,7 +2585,6 @@ function runReport(payload) {
     window._idRows = { ic: icDis.ic, dis: icDis.dis };
     window._idCharts = {};
     switchIdBreak('hataTipi', null);
-    switchIcBreak('hataTipi', null);
 
     // ── TEDARİKÇİ (Tipi=Tedarikçi, Cari Adı) ──
     {
@@ -2673,11 +2639,6 @@ function runReport(payload) {
             document.getElementById('musteriTable').innerHTML = '<p style="color:var(--c-sub);font-size:.85rem;text-align:center;padding:20px;">Cari Tipi=Müşteri olan dış başarısızlık kaydı bulunamadı.</p>';
         }
     }
-
-    // ── HATA TİPİ ──
-    const htData = paretoData(rows,'hataTipi',15);
-    paretoChart(document.getElementById('cHataTipi'), htData);
-    document.getElementById('hataTipiTable').innerHTML = buildParetoTable(htData, totalH);
 
     // ── 6M ──
     const m6 = classify6M(rows);
