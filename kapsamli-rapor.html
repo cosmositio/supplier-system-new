@@ -146,12 +146,12 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .ic-card { border-radius:10px; padding:20px 24px; }
 .ic-card.ic { background:linear-gradient(135deg,#eff6ff,#dbeafe); border:1.5px solid #93c5fd; }
 .ic-card.dis { background:linear-gradient(135deg,#fff7ed,#fed7aa); border:1.5px solid #fdba74; }
-.ic-card.ted { background:linear-gradient(135deg,#f5f3ff,#ede9fe); border:1.5px solid #c4b5fd; }
+.ic-card.ted { background:linear-gradient(135deg,#f0fdf4,#bbf7d0); border:1.5px solid #86efac; }
 .ic-card h3 { font-size:.85rem; font-weight:700; margin-bottom:6px; }
 .ic-card .ic-val { font-size:2rem; font-weight:800; margin-bottom:2px; }
 .ic-card.ic .ic-val { color:#1d4ed8; }
 .ic-card.dis .ic-val { color:#c2410c; }
-.ic-card.ted .ic-val { color:#6d28d9; }
+.ic-card.ted .ic-val { color:#15803d; }
 
 /* ── AKSIYON PLAN TABLE ── */
 .ap-faaliyet-tag { display:inline-block; background:#dbeafe; color:#1e40af; font-size:.7rem; font-weight:600; border-radius:4px; padding:2px 7px; white-space:nowrap; }
@@ -2444,10 +2444,10 @@ function runReport(payload) {
         { val: fmtN(totalH),      lbl:'Toplam Hatalı Mikt.',  color:'#dc2626' },
         { val: fmtN(icH),         lbl:'İç Başarısızlık',      color:'#1d4ed8' },
         { val: fmtN(disH),        lbl:'Dış Başarısızlık',      color:'#c2410c' },
-        { val: fmtN(tedH),        lbl:'Tedarikçi Başarısızlık', color:'#6d28d9' },
+        { val: fmtN(tedH),        lbl:'Tedarikçi Başarısızlık', color:'#15803d' },
         { val: icPct+'%',         lbl:'İç Başarısızlık %',    color:'#16a34a' },
         { val: disPct+'%',        lbl:'Dış Başarısızlık %',    color:'#ea580c' },
-        { val: tedPct+'%',        lbl:'Tedarikçi %',          color:'#7c3aed' },
+        { val: tedPct+'%',        lbl:'Tedarikçi %',          color:'#16a34a' },
         { val: uTedarikci,        lbl:'Farklı Tedarikçi',    color:'#0e7490' },
         { val: uMalzeme,          lbl:'Farklı Malzeme',      color:'#0891b2' },
         { val: uHataTipi,         lbl:'Farklı Hata Tipi',    color:'#be185d' },
@@ -2485,7 +2485,7 @@ function runReport(payload) {
         <div class="ic-card ted">
             <h3>🏭 Tedarikçi Başarısızlık</h3>
             <div class="ic-val">${fmtN(tedH)}</div>
-            <div style="color:#6d28d9;font-weight:700;font-size:1.1rem;">%${tedPct}</div>
+            <div style="color:#15803d;font-weight:700;font-size:1.1rem;">%${tedPct}</div>
             <div style="color:#5a6478;font-size:.78rem;margin-top:6px;">${(icDis.tedarikci||[]).length} kayıt — Tedarikçi kaynaklı</div>
         </div>`;
 
@@ -2494,7 +2494,7 @@ function runReport(payload) {
         type:'doughnut',
         data:{
             labels:['İç Başarısızlık','Dış Başarısızlık','Tedarikçi Başarısızlık'],
-            datasets:[{ data:[icH,disH,tedH], backgroundColor:['#2563eb','#ea580c','#7c3aed'], borderWidth:0, hoverOffset:8 }]
+            datasets:[{ data:[icH,disH,tedH], backgroundColor:['#2563eb','#ea580c','#16a34a'], borderWidth:0, hoverOffset:8 }]
         },
         options:{
             responsive:true, maintainAspectRatio:true,
