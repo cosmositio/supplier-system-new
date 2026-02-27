@@ -176,7 +176,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .ai-status{font-size:.74rem;color:#64748b;display:flex;align-items:center;gap:6px;}
 .ai-spinner{width:14px;height:14px;border:2px solid #e2e8f0;
   border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
+.tbb-prog{position:relative;overflow:hidden;}
+.tbb-prog::after{content:'';position:absolute;left:0;top:0;height:100%;
+  background:rgba(255,255,255,.28);width:var(--prog,0%);transition:width .3s;}
+.tbb-pct{font-size:.65rem;opacity:.85;margin-left:4px;}
 
 @media print{
   .topbar,.meta-bar,.legend,.sacts,.add-step-btn,.tbb{display:none!important;}
@@ -191,7 +194,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   <h1>5 Neden Analizi</h1>
   <div class="sp"></div>
   <button class="tbb" style="background:linear-gradient(135deg,rgba(124,58,237,.7),rgba(37,99,235,.7));border-color:rgba(167,139,250,.5);" onclick="openAiModal()">🤖 AI ile Oluştur</button>
-  <button class="tbb" style="background:linear-gradient(135deg,#059669,#0891b2);" onclick="aiRefresh()" title="Mevcut adım yapısını koruyarak içerikleri AI ile yeniden oluştur">🔄 Yenile</button>
+  <button class="tbb" id="yenileOs" style="background:linear-gradient(135deg,#059669,#0891b2);" onclick="aiRefresh('os')" title="Oluşum iz adımlarını AI ile yeniden oluştur">🔄 Oluşum Yenile</button>
+  <button class="tbb" id="yenileNd" style="background:linear-gradient(135deg,#7c3aed,#a21caf);" onclick="aiRefresh('nd')" title="Tespit iz adımlarını AI ile yeniden oluştur">🔄 Tespit Yenile</button>
   <button class="tbb ok"    onclick="saveData()">💾 Kaydet</button>
   <button class="tbb"       onclick="loadData()">📂 Yükle</button>
   <button class="tbb"       onclick="window.print()">🖨️ Yazdır / PDF</button>
@@ -877,13 +881,16 @@ async function aiGenerate(){
     q4 ? `Tespit: ${q4}` : ''
   ].filter(Boolean).join('\n');
 
+  // Distribute branches evenly across the main chain steps
+  const branchExamplesAi = [];
+  for(let b=0; b<branchCount; b++){
+    const sa = Math.round((b+1)*stepCount/(branchCount+1)) - 1;
+    branchExamplesAi.push(`{"startAfterStep": ${Math.max(0,sa)}, "steps": ["Dal Neden 1","Dal Neden 2","Dal Neden 3"], "rootCause": "Dal kök"}`);
+  }
   const branchInstruction = branchCount > 0
-    ? `Her iz için ayrıca ${branchCount} adet paralel dal zinciri de oluştur. Her dal, ana zincirdeki bir adımdan dallanır ve kendi bağımsız neden zincirini takip eder.`
-    : '';
-
+    ? `Her iz için ${branchCount} bağımsız paralel dal zinciri de oluştur. Dallar farklı startAfterStep değerlerine sahip olsun (zincire yayılmış dağılım).` : '';
   const branchJsonExample = branchCount > 0
-    ? `,\n    "branches": [{"startAfterStep": 2, "steps": ["Dal Neden 1", "Dal Neden 2", "Dal Neden 3"], "rootCause": "Dal kök neden"}]`
-    : '';
+    ? `,"branches":[${branchExamplesAi.join(',')}]` : '';
 
   const prompt = `Sen bir kalite mühendisisin. Aşağıdaki bilgileri kullanarak 5 Neden (5 Why) analizi yap.
 Problemi iki açıdan incele:
@@ -981,53 +988,96 @@ function applyAiResult(parsed, originalProblem){
   render();
 }
 
-// Yenile: keeps existing step/branch structure, regenerates text content only
-async function aiRefresh(){
+// Yenile: regenerates only the requested track (os or nd)
+async function aiRefresh(tk){
   const apiKey = localStorage.getItem('groq_api_key');
   if(!apiKey){ alert('Önce AI ile Oluştur butonundan API key girin.'); return; }
-  const q1 = _wizAnswers['wq1'] || _S.os.problem || '';
+
+  const q1 = _wizAnswers['wq1'] || _S.os.problem || _S.nd.problem || '';
   if(!q1 || q1.includes('buraya')){ alert('AI\'ye göndermek için önce problem tanımı girin.'); return; }
 
+  const btnId = tk==='os' ? 'yenileOs' : 'yenileNd';
+  const btn   = document.getElementById(btnId);
+  const origTxt = btn.textContent;
+
+  // Progress animation helper
+  let _pct = 0;
+  function setProgress(p, label){
+    _pct = p;
+    btn.style.setProperty('--prog', p+'%');
+    btn.textContent = label + ' %' + p;
+  }
+  btn.disabled = true;
+  btn.classList.add('tbb-prog');
+  setProgress(10, tk==='os'?'Oluşum':'Tespit');
+
+  const progTimer = setInterval(()=>{
+    if(_pct < 85) setProgress(Math.min(85, _pct+8), tk==='os'?'Oluşum':'Tespit');
+  }, 600);
+
   const q2 = _wizAnswers['wq2']||'', q3 = _wizAnswers['wq3']||'', q4 = _wizAnswers['wq4']||'';
-  // Infer structure from current state
-  const stepCount   = _S.os.chains[0].steps.length || 5;
-  const branchCount = Math.max(0, _S.os.chains.length - 1);
+  const chainState  = _S[tk];
+  const stepCount   = chainState.chains[0].steps.length || 5;
+  const branchCount = Math.max(0, chainState.chains.length - 1);
+  const trackLabel  = tk==='os' ? 'OLUŞUM (Problem neden oluştu?)' : 'TESPİT EDİLEMEME (Problem neden fark edilemedi?)';
 
   const context = [`Problem: ${q1}`, q2?`Etki: ${q2}`:'', q3?`Yer: ${q3}`:'', q4?`Tespit: ${q4}`:''].filter(Boolean).join('\n');
-  const branchInstruction = branchCount > 0
-    ? `Her iz için ${branchCount} paralel dal zinciri de oluştur. Her dal, ana zincirdeki bir adımdan dallanır.` : '';
-  const branchJsonExample = branchCount > 0
-    ? `,\n    "branches": [{"startAfterStep": 2, "steps": ["Dal Neden 1","Dal Neden 2","Dal Neden 3"], "rootCause": "Dal kök"}]` : '';
 
-  const prompt = `Sen bir kalite mühendisisin. 5 Neden (5 Why) analizi yap.
-OLUŞUM ve TESPİT açılarından her biri EXACTLY ${stepCount} adımlı ana zincir oluştur.
+  // Distribute branches at evenly spaced steps
+  const branchExamples = [];
+  for(let b=0; b<branchCount; b++){
+    const sa = Math.round((b+1) * stepCount / (branchCount+1)) - 1;
+    branchExamples.push(`{"startAfterStep": ${sa}, "steps": ["Dal Neden 1","Dal Neden 2","Dal Neden 3"], "rootCause": "Dal kök"}`);
+  }
+  const branchInstruction = branchCount > 0
+    ? `Ayrıca ${branchCount} bağımsız paralel dal zinciri oluştur. Dallar birbirinden farklı startAfterStep değerlerine sahip olsun (yaygın dağılım).` : '';
+  const brJsonPart = branchCount > 0
+    ? `,"branches":[${branchExamples.join(',')}]` : '';
+
+  const prompt = `Sen bir kalite mühendisisin. Yalnızca şu izi analiz et: ${trackLabel}
+
+EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = teknik kök neden.
 ${branchInstruction}
 Nedenler kısa ve teknik (en fazla 10 kelime).
 
 YALNIZCA JSON:
-{ "olusum":{"problem":"...","mainSteps":[...${stepCount} adet],"rootCause":"..."${branchJsonExample}},
-  "tespit":{"problem":"...","mainSteps":[...${stepCount} adet],"rootCause":"..."${branchJsonExample}} }
+{"iz":{"problem":"...","mainSteps":[...${stepCount} adet],"rootCause":"..."${brJsonPart}}}
 
 ${context}`;
-
-  // Show spinner in topbar briefly
-  const btn = [...document.querySelectorAll('.tbb')].find(b=>b.textContent.includes('Yenile'));
-  if(btn){ btn.disabled=true; btn.textContent='⏳ Oluşturuluyor…'; }
 
   try{
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
       body: JSON.stringify({ model:'llama-3.3-70b-versatile',
         messages:[{role:'system',content:'Sadece istenen JSON formatında yanıt ver.'},{role:'user',content:prompt}],
-        temperature:0.5, max_tokens:1400, response_format:{type:'json_object'} })
+        temperature:0.45, max_tokens:1000, response_format:{type:'json_object'} })
     });
     if(!resp.ok){ const e=await resp.json().catch(()=>({})); throw new Error(e?.error?.message||`HTTP ${resp.status}`); }
     const data = await resp.json();
     const raw  = data?.choices?.[0]?.message?.content||'';
     const parsed = JSON.parse(raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim());
-    applyAiResult(parsed, q1);
-  } catch(e){ alert('❌ Yenile hatası: '+e.message); }
-  finally{ if(btn){ btn.disabled=false; btn.textContent='🔄 Yenile'; } }
+    const iz = parsed.iz || parsed.olusum || parsed.tespit || parsed;
+    _S[tk].problem = iz.problem || q1;
+    _S[tk].rcText  = iz.rootCause || _S[tk].rcText;
+    _S[tk].chains  = buildChainsFromAi(iz);
+    render();
+
+    clearInterval(progTimer);
+    setProgress(100, '✅ Tamam');
+    setTimeout(()=>{
+      btn.classList.remove('tbb-prog');
+      btn.style.removeProperty('--prog');
+      btn.textContent = origTxt;
+      btn.disabled = false;
+    }, 1400);
+  } catch(e){
+    clearInterval(progTimer);
+    btn.classList.remove('tbb-prog');
+    btn.style.removeProperty('--prog');
+    btn.textContent = origTxt;
+    btn.disabled = false;
+    alert('❌ Yenile hatası: '+e.message);
+  }
 }
 
 function setAiStatus(type, msg){
