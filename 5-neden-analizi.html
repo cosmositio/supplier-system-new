@@ -209,49 +209,6 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .consid-banner .cbi{font-size:1.2rem;flex-shrink:0;}
 .consid-banner strong{font-size:.78rem;display:block;margin-bottom:1px;}
 
-/* ── PANEL SIDE LAYOUT ── */
-.panel-body{display:flex;align-items:flex-start;}
-.diagram-side{flex:1;min-width:0;overflow-x:auto;}
-.actions-side{width:340px;flex-shrink:0;background:#fff;border-left:2px solid #e2e8f0;
-  display:flex;flex-direction:column;position:sticky;top:0;
-  align-self:flex-start;max-height:100vh;overflow-y:auto;}
-/* ── CORRECTIVE ACTION TABLE ── */
-.ca-hdr{background:#1e3a5f;color:#fff;font-size:.68rem;font-weight:800;
-  padding:10px;text-align:center;letter-spacing:.05em;text-transform:uppercase;
-  position:sticky;top:0;z-index:2;}
-.ca-hdr.sys-hdr{background:linear-gradient(135deg,#5b21b6,#7c3aed);}
-.ca-row-hdr{display:grid;grid-template-columns:28px 1fr 26px 74px 80px;
-  background:#f1f5f9;border-bottom:1.5px solid #cbd5e1;position:sticky;top:38px;z-index:2;}
-.ca-row{display:grid;grid-template-columns:28px 1fr 26px 74px 80px;
-  border-bottom:1px solid #e2e8f0;min-height:52px;}
-.ca-row:hover{background:#fafbff;}
-.ca-col{padding:5px 4px;font-size:.58rem;font-weight:700;color:#64748b;
-  display:flex;align-items:center;justify-content:center;
-  border-right:1px solid #e2e8f0;text-align:center;line-height:1.3;}
-.ca-lbl{display:flex;align-items:center;justify-content:center;
-  font-size:.68rem;font-weight:800;color:#475569;
-  border-right:1px solid #e2e8f0;background:#f8faff;}
-.ca-input{border:none;outline:none;resize:none;font-family:inherit;
-  font-size:.7rem;color:#1e293b;padding:5px 6px;width:100%;
-  min-height:52px;background:transparent;line-height:1.4;
-  border-right:1px solid #e2e8f0;}
-.ca-input:focus{background:#f0f7ff;}
-.ca-ai-btn{border:none;background:none;cursor:pointer;font-size:.84rem;
-  display:flex;align-items:center;justify-content:center;
-  border-right:1px solid #e2e8f0;color:#7c3aed;transition:.15s;}
-.ca-ai-btn:hover{background:#f5f3ff;}
-.ca-ai-btn.loading{opacity:.4;pointer-events:none;}
-.ca-cell{display:flex;flex-direction:column;justify-content:center;
-  border-right:1px solid #e2e8f0;overflow:hidden;}
-.ca-sinput{border:none;outline:none;font-family:inherit;
-  font-size:.66rem;color:#1e293b;padding:4px 5px;
-  width:100%;background:transparent;display:block;}
-.ca-sinput:focus{background:#f0f7ff;}
-.ca-section-lbl{font-size:.62rem;font-weight:800;text-transform:uppercase;
-  letter-spacing:.06em;padding:5px 10px;color:#fff;display:flex;align-items:center;gap:5px;}
-.ca-section-lbl.os-lbl{background:#2563eb;}
-.ca-section-lbl.nd-lbl{background:#7c3aed;}
-
 @media print{
   .topbar,.meta-bar,.legend,.sacts,.add-step-btn,.tbb,.consid-tabs{display:none!important;}
   body,.canvas-outer{background:#fff;}
@@ -320,30 +277,25 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       <em style="font-style:normal;font-weight:700;"> → "Hata nasıl oluştu?"</em>
     </div>
   </div>
-  <div class="panel-body">
-    <div class="diagram-side">
-      <div class="canvas-outer" id="co-tech">
-        <!-- Oluşum track - Technical -->
-        <div class="track-wrap">
-          <div class="track-hdr">
-            <span class="tbadge os">🔴 Oluşum</span>
-            <span class="tsub">Neden problem oluştu? — her adım öncekinin nedenidir</span>
-          </div>
-          <div class="diag" id="tech_osDiag"><svg id="tech_osSvg"></svg></div>
-          <button class="add-step-btn" onclick="addStep('tech','os')">➕ Adım Ekle</button>
-        </div>
-        <!-- Tespit track - Technical -->
-        <div class="track-wrap">
-          <div class="track-hdr">
-            <span class="tbadge nd">🟣 Tespit Edilememe</span>
-            <span class="tsub">Problem neden fark edilmedi? (Teknik kontrol mekanizması)</span>
-          </div>
-          <div class="diag" id="tech_ndDiag"><svg id="tech_ndSvg"></svg></div>
-          <button class="add-step-btn nd" onclick="addStep('tech','nd')">➕ Adım Ekle</button>
-        </div>
+  <div class="canvas-outer" id="co-tech">
+    <!-- Oluşum track - Technical -->
+    <div class="track-wrap">
+      <div class="track-hdr">
+        <span class="tbadge os">🔴 Oluşum</span>
+        <span class="tsub">Neden problem oluştu? — her adım öncekinin nedenidir</span>
       </div>
+      <div class="diag" id="tech_osDiag"><svg id="tech_osSvg"></svg></div>
+      <button class="add-step-btn" onclick="addStep('tech','os')">➕ Adım Ekle</button>
     </div>
-    <div class="actions-side" id="actions-tech"></div>
+    <!-- Tespit track - Technical -->
+    <div class="track-wrap">
+      <div class="track-hdr">
+        <span class="tbadge nd">🟣 Tespit Edilememe</span>
+        <span class="tsub">Problem neden fark edilmedi? (Teknik kontrol mekanizması)</span>
+      </div>
+      <div class="diag" id="tech_ndDiag"><svg id="tech_ndSvg"></svg></div>
+      <button class="add-step-btn nd" onclick="addStep('tech','nd')">➕ Adım Ekle</button>
+    </div>
   </div>
 </div>
 
@@ -358,30 +310,25 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       <em style="font-style:normal;font-weight:700;"> → "Sistem neden yakalayamadı?"</em>
     </div>
   </div>
-  <div class="panel-body">
-    <div class="diagram-side">
-      <div class="canvas-outer" id="co-sys">
-        <!-- Oluşum track - Systemic -->
-        <div class="track-wrap">
-          <div class="track-hdr">
-            <span class="tbadge os">🔴 Oluşum</span>
-            <span class="tsub">Sistem neden hatanın oluşmasına izin verdi? — PFMEA / prosedür / organizasyon açıkları</span>
-          </div>
-          <div class="diag" id="sys_osDiag"><svg id="sys_osSvg"></svg></div>
-          <button class="add-step-btn" onclick="addStep('sys','os')">➕ Adım Ekle</button>
-        </div>
-        <!-- Tespit track - Systemic -->
-        <div class="track-wrap">
-          <div class="track-hdr">
-            <span class="tbadge nd">🟣 Tespit Edilememe</span>
-            <span class="tsub">Sistem neden kaçırmaya izin verdi? — Kontrol planı, iç denetim, reaksiyon planı eksiklikleri</span>
-          </div>
-          <div class="diag" id="sys_ndDiag"><svg id="sys_ndSvg"></svg></div>
-          <button class="add-step-btn nd" onclick="addStep('sys','nd')">➕ Adım Ekle</button>
-        </div>
+  <div class="canvas-outer" id="co-sys">
+    <!-- Oluşum track - Systemic -->
+    <div class="track-wrap">
+      <div class="track-hdr">
+        <span class="tbadge os">🔴 Oluşum</span>
+        <span class="tsub">Sistem neden hatanın oluşmasına izin verdi? — PFMEA / prosedür / organizasyon açıkları</span>
       </div>
+      <div class="diag" id="sys_osDiag"><svg id="sys_osSvg"></svg></div>
+      <button class="add-step-btn" onclick="addStep('sys','os')">➕ Adım Ekle</button>
     </div>
-    <div class="actions-side" id="actions-sys"></div>
+    <!-- Tespit track - Systemic -->
+    <div class="track-wrap">
+      <div class="track-hdr">
+        <span class="tbadge nd">🟣 Tespit Edilememe</span>
+        <span class="tsub">Sistem neden kaçırmaya izin verdi? — Kontrol planı, iç denetim, reaksiyon planı eksiklikleri</span>
+      </div>
+      <div class="diag" id="sys_ndDiag"><svg id="sys_ndSvg"></svg></div>
+      <button class="add-step-btn nd" onclick="addStep('sys','nd')">➕ Adım Ekle</button>
+    </div>
   </div>
 </div>
 
@@ -481,8 +428,7 @@ let _S = {
           chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
     nd: { problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Tespit Edilememe)',
           problemPinned:false, rcPinned:false,
-          chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
-    actions: { os:[], nd:[] }
+          chains: [ { startAfter:null, steps:[ mkStep() ] } ] }
   },
   sys: {
     os: { problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden\n(Oluşum)',
@@ -490,8 +436,7 @@ let _S = {
           chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
     nd: { problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden\n(Tespit Edilememe)',
           problemPinned:false, rcPinned:false,
-          chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
-    actions: { os:[], nd:[] }
+          chains: [ { startAfter:null, steps:[ mkStep() ] } ] }
   }
 };
 
@@ -678,9 +623,6 @@ function doLayout(tab, tk){
 function render(){
   renderTrack('tech','os'); renderTrack('tech','nd');
   renderTrack('sys','os');  renderTrack('sys','nd');
-  renderActionTable('tech');
-  renderActionTable('sys');
-}
 }
 
 function renderTrack(tab, tk){
@@ -881,162 +823,6 @@ function closeModal(){ document.getElementById('editModal').classList.remove('op
 function saveModal(){ if(_mCb) _mCb(document.getElementById('mTa').value); closeModal(); }
 
 // ══════════════════════════════════════════════════════
-//  CORRECTIVE ACTIONS TABLE
-// ══════════════════════════════════════════════════════
-function mkAction(){ return {text:'', responsible:'', date:''}; }
-
-function getAllSteps(tab, tk){
-  const steps = [];
-  _S[tab][tk].chains.forEach(ch => ch.steps.forEach(s => steps.push(s)));
-  return steps;
-}
-
-function syncActions(tab, tk){
-  if(!_S[tab].actions) _S[tab].actions = { os:[], nd:[] };
-  const total = getAllSteps(tab, tk).length;
-  while(_S[tab].actions[tk].length < total) _S[tab].actions[tk].push(mkAction());
-}
-
-function renderActionTable(tab){
-  const el = document.getElementById('actions-'+tab);
-  if(!el) return;
-  ['os','nd'].forEach(tk => syncActions(tab, tk));
-
-  const istech   = tab === 'tech';
-  const tabLabel = istech ? 'Technical' : 'Systemic';
-
-  el.innerHTML = '';
-
-  // ── Header ──
-  const hdr = document.createElement('div');
-  hdr.className = 'ca-hdr' + (istech ? '' : ' sys-hdr');
-  hdr.textContent = 'Düzeltici Faaliyetler (' + tabLabel + ')';
-  el.appendChild(hdr);
-
-  // ── Column labels ──
-  const colHdr = document.createElement('div');
-  colHdr.className = 'ca-row-hdr';
-  colHdr.innerHTML =
-    '<div class="ca-col">#</div>' +
-    '<div class="ca-col" style="justify-content:flex-start;padding-left:6px;">Faaliyet</div>' +
-    '<div class="ca-col" style="font-size:.52rem;">AI</div>' +
-    '<div class="ca-col" style="font-size:.58rem;">Sorumlu</div>' +
-    '<div class="ca-col" style="font-size:.58rem;">Tarih</div>';
-  el.appendChild(colHdr);
-
-  // ── Rows per track ──
-  buildActionSection(el, tab, 'os', 'A', '🔴 Oluşum', 'os-lbl');
-  buildActionSection(el, tab, 'nd', 'B', '🟣 Tespit',  'nd-lbl');
-}
-
-function buildActionSection(el, tab, tk, prefix, label, lblCls){
-  const secLbl = document.createElement('div');
-  secLbl.className = 'ca-section-lbl ' + lblCls;
-  secLbl.textContent = label;
-  el.appendChild(secLbl);
-
-  const steps = getAllSteps(tab, tk);
-  steps.forEach((step, i) => {
-    if(!_S[tab].actions[tk][i]) _S[tab].actions[tk][i] = mkAction();
-    const act = _S[tab].actions[tk][i];
-
-    const row = document.createElement('div');
-    row.className = 'ca-row';
-
-    // label
-    const lbl = document.createElement('div');
-    lbl.className = 'ca-lbl';
-    lbl.textContent = prefix + (i + 1);
-    row.appendChild(lbl);
-
-    // action textarea
-    const ta = document.createElement('textarea');
-    ta.className = 'ca-input';
-    ta.placeholder = step.text ? step.text.slice(0, 40) + '…' : 'Faaliyet…';
-    ta.value = act.text;
-    ta.oninput = e => { act.text = e.target.value; };
-    row.appendChild(ta);
-
-    // AI suggest button
-    const aiBtn = document.createElement('button');
-    aiBtn.className = 'ca-ai-btn';
-    aiBtn.title = 'AI ile faaliyet öner';
-    aiBtn.textContent = '⚡';
-    aiBtn.onclick = () => aiSuggestAction(tab, tk, i, aiBtn, step, ta);
-    row.appendChild(aiBtn);
-
-    // responsible
-    const respCell = document.createElement('div');
-    respCell.className = 'ca-cell';
-    const resp = document.createElement('input');
-    resp.className = 'ca-sinput';
-    resp.type = 'text';
-    resp.placeholder = 'Sorumlu…';
-    resp.value = act.responsible;
-    resp.oninput = e => { act.responsible = e.target.value; };
-    respCell.appendChild(resp);
-    row.appendChild(respCell);
-
-    // date
-    const dtCell = document.createElement('div');
-    dtCell.className = 'ca-cell';
-    const dt = document.createElement('input');
-    dt.className = 'ca-sinput';
-    dt.type = 'date';
-    dt.value = act.date;
-    dt.oninput = e => { act.date = e.target.value; };
-    dtCell.appendChild(dt);
-    row.appendChild(dtCell);
-
-    el.appendChild(row);
-  });
-}
-
-async function aiSuggestAction(tab, tk, idx, btn, step, ta){
-  const apiKey = localStorage.getItem('groq_api_key');
-  if(!apiKey){ alert('Önce AI ile Oluştur butonundan API key girin.'); return; }
-  const stepText = step.text || '';
-  if(!stepText){ alert('Bu adımda henüz neden metni yok.'); return; }
-
-  const tabLabel = tab==='tech' ? 'Teknik' : 'Sistemsel';
-  const trkLabel = tk==='os' ? 'Oluşum (Problem neden oluştu)' : 'Tespit Edilememe (Problem neden fark edilemedi)';
-  const problem  = _S[tab][tk].problem || '';
-
-  btn.textContent = '⏳';
-  btn.classList.add('loading');
-
-  try{
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-      body: JSON.stringify({
-        model:'llama-3.3-70b-versatile',
-        messages:[
-          { role:'system', content:'Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Kısa ve uygulanabilir düzeltici faaliyet önerileri yap. Sadece JSON döndür.' },
-          { role:'user',   content:`Kırılım: ${tabLabel} — ${trkLabel}\nProblem: "${problem}"\nKök neden adımı: "${stepText}"\n\nBu kök neden için kısa, spesifik, uygulanabilir bir düzeltici faaliyet öner.\nYALNIZCA JSON:\n{"action":"<düzeltici faaliyet (en fazla 20 kelime)>"}` }
-        ],
-        temperature:0.3,
-        max_tokens:100,
-        response_format:{ type:'json_object' }
-      })
-    });
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
-    const data   = await resp.json();
-    const raw    = data?.choices?.[0]?.message?.content || '{}';
-    const parsed = JSON.parse(raw.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim());
-    const action = parsed.action || parsed.text || parsed.faaliyet || '';
-    if(action){
-      _S[tab].actions[tk][idx].text = action;
-      if(ta) ta.value = action;
-    }
-  } catch(e){
-    alert('AI Hata: ' + e.message);
-  }
-  btn.textContent = '⚡';
-  btn.classList.remove('loading');
-}
-
-// ══════════════════════════════════════════════════════
 //  INDEXED DB
 // ══════════════════════════════════════════════════════
 const DB='KaliteRaporDB', ST='payloads', KEY='5neden_v1';
@@ -1085,15 +871,13 @@ function resetAll(){
       os:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden (Oluşum)',
           problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
       nd:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden (Tespit)',
-          problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
-      actions:{os:[], nd:[]}
+          problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]}
     },
     sys:{
       os:{problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden (Oluşum)',
           problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
       nd:{problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden (Tespit)',
-          problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
-      actions:{os:[], nd:[]}
+          problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]}
     }
   };
   ['mPart','mCustomer','mDate','mAnalyst'].forEach(id=>document.getElementById(id).value='');
