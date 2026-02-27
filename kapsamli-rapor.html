@@ -2408,7 +2408,18 @@ function fbDeleteCause(gi, bi, ci) {
     window._fbActiveIdx = gi;
     window._fbData = window._fbDataArr[gi] || window._fbData;
     if(!window._fbData || !window._fbData.bones[bi]) return;
-    window._fbData.bones[bi].causes.splice(ci, 1);
+    const bone   = window._fbData.bones[bi];
+    const removed = bone.causes[ci];
+    bone.causes.splice(ci, 1);
+    // If manually added, also remove from aksiyonlar table
+    if (removed && removed._isManual) {
+        const effect = window._fbData.effect;
+        const bKey   = bone.key;
+        const idx = (window._aksiyonlar || []).findIndex(a =>
+            !a._fbSource && a._m6Bone === bKey && a._fbEffect === effect &&
+            (a.bulgu || '').substring(0, 40) === removed.name);
+        if (idx !== -1) { window._aksiyonlar.splice(idx, 1); renderAksiyonTablosu(); }
+    }
     drawFishbone();
     renderFbEditPanels();
     _rebuildM6Display();
@@ -2421,9 +2432,20 @@ function fbRemoveCause(gi, bi, ci) {
     if (!window._fbData || !window._fbData.bones[bi]) return;
     const bone = window._fbData.bones[bi];
     const removed = fbNorm(bone.causes[ci]);
+    const origCause = bone.causes[ci];
     bone.causes.splice(ci, 1);
-    bone._removed = bone._removed || [];
-    bone._removed.push(removed);
+    // If manually added, also remove from aksiyonlar table
+    if (origCause && origCause._isManual) {
+        const effect = window._fbData.effect;
+        const bKey   = bone.key;
+        const idx = (window._aksiyonlar || []).findIndex(a =>
+            !a._fbSource && a._m6Bone === bKey && a._fbEffect === effect &&
+            (a.bulgu || '').substring(0, 40) === origCause.name);
+        if (idx !== -1) { window._aksiyonlar.splice(idx, 1); renderAksiyonTablosu(); }
+    } else {
+        bone._removed = bone._removed || [];
+        bone._removed.push(removed);
+    }
     drawFishbone();
     renderFbEditPanels();
     _rebuildM6Display();
@@ -2832,7 +2854,6 @@ function _updateM6DetailManual() {
             byBone[a._m6Bone].push(a);
         });
         let html = '<div class="m6-manuel-section" style="margin-top:12px;border-top:1px dashed #e2e8f0;padding-top:10px;font-size:.82rem;">';
-        html += '<div style="font-size:.72rem;color:#94a3b8;margin-bottom:8px;">✏️ Manuel Eklenen</div>';
         Object.entries(byBone).forEach(([bk, entries]) => {
             const meta = M6_META[bk] || { label: bk, color: '#64748b' };
             html += `<div style="margin-bottom:8px;"><div style="font-weight:700;color:${meta.color};margin-bottom:4px;">${meta.label}</div>`;
