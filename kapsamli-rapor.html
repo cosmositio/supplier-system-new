@@ -1519,8 +1519,6 @@ function renderMultipleFishbones(groups, allRows) {
                 <div class="fb-header" onclick="_fbToggleBody(${i})">
                     <span style="font-weight:700;font-size:.9rem;color:#1e2535;">🐟 Balık Kılçığı — ${esc(g.label)}</span>
                     <span style="font-size:.75rem;color:#64748b;margin-left:auto;">6 kemik: İnsan · Makine · Malzeme · Metot · Ölçüm · Ortam</span>
-                    <button onclick="event.stopPropagation();fbRestoreAll(${i})" title="Silinen tüm nedenleri geri getir"
-                        style="margin-left:10px;padding:3px 10px;font-size:.72rem;font-weight:700;background:#f0fdf4;border:1.5px solid #86efac;color:#15803d;border-radius:6px;cursor:pointer;">↺ Tümünü Görüntüle</button>
                     <span id="fbChevron_${i}" style="font-size:.9rem;transition:transform .25s;display:inline-block;margin-left:6px;">▾</span>
                 </div>
                 <div class="fb-body" id="fbBody_${i}">
@@ -2806,6 +2804,10 @@ async function krShowAllSections() {
     document.querySelectorAll('.section[id]').forEach(el => el.style.display = '');
     _krSaveHidden(new Set());
     _krUpdateHiddenBadge();
+    // Restore all removed fishbone causes in every group
+    if (window._fbDataArr) {
+        window._fbDataArr.forEach((_, gi) => fbRestoreAll(gi));
+    }
 }
 
 async function _krInjectHideButtons() {
@@ -2874,7 +2876,6 @@ function _krRenderSources(payload) {
             <span class="kr-src-num">${i+1}.</span>
             <span class="kr-src-label">${esc(b.label)}</span>
             <span class="kr-src-meta">${esc(tags)} &nbsp;·&nbsp; ${fmtN(b.rowCount)} kayıt &nbsp;·&nbsp; ${esc(b.addedAt)}</span>
-            <button class="kr-src-del" onclick="krRemoveBatch('${b.id}')">✕ Çıkar</button>
         </div>`;
     }).join('');
 
