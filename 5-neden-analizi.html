@@ -597,10 +597,13 @@ function renderStepBox(diag, it, tk){
     renderTrack(tk);
   };
   el.querySelector('.fork').onclick = ()=>{
-    // Add a new parallel chain starting from this main-chain step
-    // Only works from main chain (chain 0) for simplicity
-    const mainStepIdx = it.chain===0 ? it.stepIdx : (_S[tk].chains[it.chain].startAfter ?? 0);
-    addParallelBranch(tk, mainStepIdx);
+    // The absolute column of this step = startAfter-of-its-chain + stepIdx
+    // (for main chain: startAfter is null → treat as -1 so col = stepIdx)
+    const chainStartAfter = it.chain === 0
+      ? -1
+      : (_S[tk].chains[it.chain].startAfter ?? 0);
+    const forkAt = chainStartAfter + 1 + it.stepIdx;  // absolute main-chain-equivalent col index
+    addParallelBranch(tk, forkAt);
   };
 
   diag.appendChild(el);
