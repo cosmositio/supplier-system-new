@@ -769,11 +769,11 @@ html, body { scroll-behavior:smooth; }
                 <div class="ap-field">
                     <label>Kategori</label>
                     <select id="apFKat">
-                        <option value="İnsan|badge-red|insan">🚶 İnsan</option>
-                        <option value="Makine|badge-yellow|makine">⚙️ Makine</option>
-                        <option value="Malzeme|badge-blue|malzeme">🧪 Malzeme</option>
-                        <option value="Metot|badge-purple|metot">📔 Metot</option>
-                        <option value="Ölçüm|badge-gray|olcum">📏 Ölçüm</option>
+                        <option value="İnsan|badge-blue|insan">🚶 İnsan</option>
+                        <option value="Makine|badge-gray|makine">⚙️ Makine</option>
+                        <option value="Malzeme|badge-yellow|malzeme">🧪 Malzeme</option>
+                        <option value="Metot/Süreç|badge-purple|metot">📔 Metot/Süreç</option>
+                        <option value="Ölçüm|badge-green|olcum">📏 Ölçüm</option>
                         <option value="Ortam|badge-green|ortam">🌡️ Ortam</option>
                     </select>
                 </div>
@@ -2906,7 +2906,7 @@ function apOpenAdd(cat, eff) {
     document.getElementById('apFSorumlu').value  = '';
     document.getElementById('apFDurum').value    = 'Beklemede';
     document.getElementById('apFTarih').value    = '';
-    document.getElementById('apFKat').value      = 'İnsan|badge-red|insan';
+    document.getElementById('apFKat').value      = 'İnsan|badge-blue|insan';
     document.getElementById('apFFaaliyet').value = '';
     document.getElementById('apModal').classList.add('open');
     setTimeout(() => document.getElementById('apFBulgu').focus(), 50);
