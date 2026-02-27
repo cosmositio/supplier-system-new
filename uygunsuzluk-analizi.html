@@ -1129,27 +1129,27 @@
         <div class="filter-grid">
             <div class="filter-group">
                 <label>Tarih Başlangıç</label>
-                <input type="date" id="fDateStart">
+                <input type="date" id="fDateStart" onchange="applyFilters()">
             </div>
             <div class="filter-group">
                 <label>Tarih Bitiş</label>
-                <input type="date" id="fDateEnd">
+                <input type="date" id="fDateEnd" onchange="applyFilters()">
             </div>
             <div class="filter-group">
                 <label>Tipi</label>
-                <select id="fTipi"><option value="">Tümü</option></select>
+                <select id="fTipi" onchange="applyFilters()"><option value="">Tümü</option></select>
             </div>
             <div class="filter-group">
                 <label>Hata Tipi</label>
-                <select id="fHataTipi"><option value="">Tümü</option></select>
+                <select id="fHataTipi" onchange="applyFilters()"><option value="">Tümü</option></select>
             </div>
             <div class="filter-group">
                 <label>Hata Kaynağı</label>
-                <select id="fHataKaynagi"><option value="">Tümü</option></select>
+                <select id="fHataKaynagi" onchange="applyFilters()"><option value="">Tümü</option></select>
             </div>
             <div class="filter-group">
                 <label>Uygunsuzluk Türü</label>
-                <select id="fUygunsuzlukTuru"><option value="">Tümü</option></select>
+                <select id="fUygunsuzlukTuru" onchange="applyFilters()"><option value="">Tümü</option></select>
             </div>
             <div class="filter-group" style="position:relative;">
                 <label>Tespit Yeri</label>
@@ -1169,11 +1169,11 @@
             </div>
             <div class="filter-group">
                 <label>Makine</label>
-                <select id="fMakine"><option value="">Tümü</option></select>
+                <select id="fMakine" onchange="applyFilters()"><option value="">Tümü</option></select>
             </div>
             <div class="filter-group">
                 <label>Cari Tipi</label>
-                <select id="fCariTip">
+                <select id="fCariTip" onchange="applyFilters()">
                     <option value="">Tümü</option>
                     <option value="musteri">★ Müşteri</option>
                     <option value="tedarikci">Tedarikçi</option>
@@ -1214,7 +1214,6 @@
                 <select id="fStokKodu" style="display:none"><option value="">Tümü</option></select>
             </div>
             <div class="filter-group" style="flex-direction: row; gap: 8px; align-items: flex-end; flex-wrap:wrap;">
-                <button class="filter-btn btn-apply" onclick="applyFilters()">✔ Uygula</button>
                 <button class="filter-btn btn-reset" onclick="resetFilters()">↺ Sıfırla</button>
                 <button class="btn-filtre-kaydet" onclick="saveCurrentFilter()" title="Mevcut filtreyi kaydet">💾 Filtreyi Kaydet</button>
                 <button class="btn-filtre-listele" onclick="openSavedFiltersModal()" title="Kayıtlı filtreleri listele">📂 Kayıtlı Filtreler</button>
@@ -2750,6 +2749,7 @@ function _skSelect(val) {
     const trigger = document.getElementById('skTrigger');
     if (panel)  panel.classList.remove('open');
     if (trigger) trigger.classList.remove('open');
+    applyFilters();
 }
 document.addEventListener('click', e => {
     const wrap = document.getElementById('skWrap');
@@ -2802,6 +2802,7 @@ function toggleTespitYeriItem(val) {
     else selectedTespitYeriSet.add(val);
     _updateTespitYeriLabel();
     _buildTespitYeriItems();
+    applyFilters();
 }
 
 function _updateTespitYeriLabel() {
@@ -2827,6 +2828,7 @@ function resetTespitYeri() {
     selectedTespitYeriSet.clear();
     _updateTespitYeriLabel();
     _buildTespitYeriItems();
+    applyFilters();
 }
 
 // ─── Custom Cari Dropdown ─────────────────────────────────────────────────
@@ -2912,6 +2914,7 @@ function selectCari(val) {
     const q = (document.getElementById('cariSearch')?.value || '').toLowerCase();
     const filtered = q ? _cariAllList.filter(c => c.toLowerCase().includes(q)) : _cariAllList;
     _buildCariItems(filtered);
+    applyFilters();
 }
 
 function toggleMusteriMark(cariAdi, isMus) {
