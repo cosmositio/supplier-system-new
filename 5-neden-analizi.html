@@ -8,124 +8,119 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;min-height:100vh;}
 
-/* ── TOP BAR ── */
 .topbar{display:flex;align-items:center;gap:10px;padding:10px 18px;
   background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;
   box-shadow:0 2px 10px rgba(0,0,0,.22);flex-wrap:wrap;}
 .topbar h1{font-size:1.1rem;font-weight:800;}
-.topbar .spacer{flex:1;}
-.tb-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.32);
+.topbar .sp{flex:1;}
+.tbb{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.32);
   color:#fff;border-radius:7px;padding:5px 13px;font-size:.76rem;font-weight:600;
   cursor:pointer;transition:.15s;white-space:nowrap;}
-.tb-btn:hover{background:rgba(255,255,255,.27);}
-.tb-btn.danger{background:rgba(220,38,38,.38);border-color:rgba(220,38,38,.6);}
-.tb-btn.success{background:rgba(22,163,74,.46);border-color:rgba(22,163,74,.7);}
+.tbb:hover{background:rgba(255,255,255,.27);}
+.tbb.danger{background:rgba(220,38,38,.38);border-color:rgba(220,38,38,.6);}
+.tbb.ok{background:rgba(22,163,74,.46);border-color:rgba(22,163,74,.7);}
 
-/* ── META ── */
-.meta-bar{display:flex;gap:10px;flex-wrap:wrap;padding:10px 18px;background:#fff;
+.meta-bar{display:flex;gap:10px;flex-wrap:wrap;padding:9px 18px;background:#fff;
   border-bottom:1px solid #e2e8f0;align-items:flex-end;}
-.mf{display:flex;flex-direction:column;gap:3px;flex:1;min-width:160px;}
-.mf label{font-size:.64rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;}
+.mf{display:flex;flex-direction:column;gap:2px;flex:1;min-width:150px;}
+.mf label{font-size:.62rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;}
 .mf input,.mf select{border:1.5px solid #e2e8f0;border-radius:6px;padding:4px 8px;
   font-size:.8rem;outline:none;transition:.2s;}
 .mf input:focus,.mf select:focus{border-color:#2563eb;}
 
-/* ── LEGEND ── */
-.legend{display:flex;gap:14px;flex-wrap:wrap;padding:7px 18px;background:#f8faff;
-  border-bottom:1px solid #e2e8f0;font-size:.72rem;align-items:center;}
-.leg-item{display:flex;align-items:center;gap:5px;}
-.lb{width:24px;height:14px;border-radius:3px;border:2px solid;}
+.legend{display:flex;gap:14px;flex-wrap:wrap;padding:6px 18px;background:#f8faff;
+  border-bottom:1px solid #e2e8f0;font-size:.71rem;align-items:center;color:#475569;}
+.li{display:flex;align-items:center;gap:5px;}
+.lb{width:22px;height:13px;border-radius:2px;border:2px solid;}
 .lb.n{background:#fff;border-color:#94a3b8;}
 .lb.r{background:#fff5f5;border-color:#dc2626;border-style:dashed;}
-.lb.b{background:#fefce8;border-color:#b45309;border-style:dashed;}
 
 /* ── CANVAS ── */
-.canvas-outer{overflow:auto;padding:24px 18px 48px;}
-.track-section{margin-bottom:48px;}
-.track-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
-.track-badge{font-size:.7rem;font-weight:800;color:#fff;border-radius:6px;
+.canvas-outer{overflow:auto;padding:18px 18px 48px;background:#eef2f7;}
+.track-wrap{margin-bottom:52px;}
+.track-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.tbadge{font-size:.7rem;font-weight:800;color:#fff;border-radius:6px;
   padding:3px 11px;text-transform:uppercase;letter-spacing:.07em;}
-.track-badge.olusum{background:#2563eb;}
-.track-badge.tespit{background:#7c3aed;}
-.track-sub{font-size:.68rem;font-style:italic;color:#94a3b8;}
+.tbadge.os{background:#2563eb;} .tbadge.nd{background:#7c3aed;}
+.tsub{font-size:.68rem;font-style:italic;color:#94a3b8;}
 
-/* ── TREE DIAGRAM ── */
-.tree-canvas{position:relative;overflow:visible;}
+/* ── DIAGRAM CANVAS ── */
+.diag{position:relative;overflow:visible;}
+.diag svg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;}
 
 /* ── PROBLEM BOX ── */
-.prob-node{position:absolute;border:2.5px solid #2563eb;border-radius:8px;
-  background:#f0f6ff;padding:8px 10px;}
-.prob-node.nd-track{border-color:#7c3aed;background:#f5f3ff;}
-.prob-lbl{font-size:.6rem;font-weight:800;text-transform:uppercase;
+.pbox{position:absolute;border:2.5px solid #2563eb;border-radius:8px;
+  background:#eef4ff;padding:8px 10px;}
+.pbox.nd-t{border-color:#7c3aed;background:#f4f0ff;}
+.plbl{font-size:.58rem;font-weight:800;text-transform:uppercase;
   letter-spacing:.05em;margin-bottom:4px;color:#2563eb;}
-.prob-node.nd-track .prob-lbl{color:#7c3aed;}
-.prob-node textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
-  font-size:.76rem;color:#1e293b;font-family:inherit;line-height:1.4;min-height:44px;}
+.pbox.nd-t .plbl{color:#7c3aed;}
+.pbox textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
+  font-size:.75rem;color:#1e293b;font-family:inherit;line-height:1.4;min-height:46px;}
 
-/* ── WHY NODE ── */
-.why-node{position:absolute;border:2px solid #cbd5e1;border-radius:8px;
+/* ── STEP BOX ── */
+.sbox{position:absolute;border:2px solid #cbd5e1;border-radius:8px;
   background:#fff;padding:7px 10px;
-  box-shadow:0 1px 4px rgba(0,0,0,.07);transition:.15s;}
-.why-node:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(37,99,235,.12);}
-.why-node.is-root{border-color:#dc2626;border-style:dashed;border-width:2.5px;background:#fff5f5;}
-.why-node.is-branch{border-color:#b45309;border-style:dashed;border-width:2px;background:#fefce8;}
-.ntag{position:absolute;top:-9px;left:8px;font-size:.58rem;font-weight:800;
-  padding:1px 7px;border-radius:10px;color:#fff;white-space:nowrap;}
-.ntag.r{background:#dc2626;}
-.ntag.b{background:#b45309;}
-.why-node textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
-  font-size:.76rem;color:#1e293b;font-family:inherit;line-height:1.4;min-height:40px;}
-.node-acts{display:flex;gap:3px;margin-top:5px;flex-wrap:wrap;}
-.na{font-size:.58rem;padding:2px 6px;border-radius:4px;border:1px solid;
+  box-shadow:0 1px 5px rgba(0,0,0,.06);transition:border .15s,box-shadow .15s;}
+.sbox:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(37,99,235,.13);}
+.sbox.is-root{border-color:#dc2626;border-style:dashed;border-width:2.5px;background:#fff7f7;}
+.stag{position:absolute;top:-9px;left:8px;font-size:.57rem;font-weight:800;
+  padding:1px 7px;border-radius:10px;background:#dc2626;color:#fff;white-space:nowrap;}
+.sbox textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
+  font-size:.75rem;color:#1e293b;font-family:inherit;line-height:1.4;
+  min-height:38px;margin-top:0;}
+.sbox.is-root textarea{margin-top:10px;}
+.sacts{display:flex;gap:3px;margin-top:5px;flex-wrap:wrap;}
+.sa{font-size:.58rem;padding:2px 6px;border-radius:4px;border:1px solid;
   cursor:pointer;font-weight:700;background:#fff;transition:.12s;white-space:nowrap;}
-.na.add{color:#2563eb;border-color:#bfdbfe;background:#eff6ff;}
-.na.add:hover{background:#2563eb;color:#fff;}
-.na.root{color:#dc2626;border-color:#fca5a5;background:#fff5f5;}
-.na.root:hover{background:#dc2626;color:#fff;}
-.na.br{color:#b45309;border-color:#fde68a;background:#fefce8;}
-.na.br:hover{background:#b45309;color:#fff;}
-.na.del{color:#94a3b8;border-color:#e2e8f0;}
-.na.del:hover{background:#ef4444;color:#fff;border-color:#ef4444;}
+.sa.add{color:#2563eb;border-color:#bfdbfe;background:#eff6ff;}
+.sa.add:hover{background:#2563eb;color:#fff;}
+.sa.root{color:#dc2626;border-color:#fca5a5;background:#fff5f5;}
+.sa.root:hover{background:#dc2626;color:#fff;}
+.sa.fork{color:#7c3aed;border-color:#ddd6fe;background:#f5f3ff;}
+.sa.fork:hover{background:#7c3aed;color:#fff;}
+.sa.del{color:#94a3b8;border-color:#e2e8f0;}
+.sa.del:hover{background:#ef4444;color:#fff;border-color:#ef4444;}
 
 /* ── ROOT CAUSE BOX ── */
 .rcb{position:absolute;border:2.5px dashed #dc2626;border-radius:10px;
-  background:#fff5f5;padding:12px 14px;text-align:center;}
-.rcb-icon{font-size:1.1rem;}
-.rcb-lbl{font-size:.6rem;font-weight:800;text-transform:uppercase;
-  color:#dc2626;letter-spacing:.04em;margin:3px 0;}
+  background:#fff5f5;padding:10px 12px;text-align:center;}
+.rcb .ri{font-size:1.1rem;}
+.rcb .rl{font-size:.6rem;font-weight:800;text-transform:uppercase;
+  color:#dc2626;letter-spacing:.04em;margin:4px 0 2px;}
 .rcb textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
   font-size:.7rem;color:#b91c1c;font-family:inherit;text-align:center;
-  line-height:1.3;min-height:32px;}
+  line-height:1.3;min-height:30px;}
 
-/* ── ADD BTN ── */
-.add-root-btn{display:inline-flex;align-items:center;gap:5px;
+/* ── STEP ADD BTN ── */
+.add-step-btn{display:inline-flex;align-items:center;gap:5px;
   font-size:.72rem;font-weight:700;color:#2563eb;background:#eff6ff;
-  border:1.5px dashed #93c5fd;border-radius:8px;padding:6px 14px;
+  border:1.5px dashed #93c5fd;border-radius:8px;padding:5px 13px;
   cursor:pointer;margin-top:6px;transition:.15s;}
-.add-root-btn:hover{background:#dbeafe;}
-.add-root-btn.nd{color:#7c3aed;background:#f5f3ff;border-color:#c4b5fd;}
-.add-root-btn.nd:hover{background:#ede9fe;}
+.add-step-btn:hover{background:#dbeafe;}
+.add-step-btn.nd{color:#7c3aed;background:#f5f3ff;border-color:#c4b5fd;}
+.add-step-btn.nd:hover{background:#ede9fe;}
 
 /* ── MODAL ── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.42);
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.42);
   z-index:9000;align-items:center;justify-content:center;}
-.modal-overlay.open{display:flex;}
-.modal-box{background:#fff;border-radius:14px;padding:24px 26px 18px;
-  max-width:440px;width:95%;box-shadow:0 8px 40px rgba(0,0,0,.18);}
-.modal-box h3{font-size:.94rem;font-weight:800;margin-bottom:12px;color:#1e293b;}
-.modal-box textarea{width:100%;min-height:80px;border:1.5px solid #e2e8f0;
-  border-radius:8px;padding:8px 10px;font-size:.83rem;resize:vertical;
+.mo.open{display:flex;}
+.mb{background:#fff;border-radius:14px;padding:22px 24px 18px;
+  max-width:420px;width:95%;box-shadow:0 8px 40px rgba(0,0,0,.2);}
+.mb h3{font-size:.92rem;font-weight:800;margin-bottom:12px;color:#1e293b;}
+.mb textarea{width:100%;min-height:80px;border:1.5px solid #e2e8f0;
+  border-radius:8px;padding:8px 10px;font-size:.82rem;resize:vertical;
   font-family:inherit;outline:none;}
-.modal-box textarea:focus{border-color:#2563eb;}
+.mb textarea:focus{border-color:#2563eb;}
 .mbts{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
-.mb{padding:6px 18px;border-radius:7px;font-size:.8rem;font-weight:700;
+.mbt{padding:6px 17px;border-radius:7px;font-size:.8rem;font-weight:700;
   cursor:pointer;border:none;}
-.mb.cancel{background:#f1f5f9;color:#64748b;}
-.mb.confirm{background:#2563eb;color:#fff;}
-.mb.confirm:hover{background:#1d4ed8;}
+.mbt.c{background:#f1f5f9;color:#64748b;}
+.mbt.s{background:#2563eb;color:#fff;}
+.mbt.s:hover{background:#1d4ed8;}
 
 @media print{
-  .topbar,.meta-bar,.legend,.node-acts,.add-root-btn,.tb-btn{display:none!important;}
+  .topbar,.meta-bar,.legend,.sacts,.add-step-btn,.tbb{display:none!important;}
   body,.canvas-outer{background:#fff;}
 }
 </style>
@@ -135,19 +130,19 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 <div class="topbar">
   <span style="font-size:1.3rem">🔍</span>
   <h1>5 Neden Analizi</h1>
-  <div class="spacer"></div>
-  <button class="tb-btn success" onclick="saveData()">💾 Kaydet</button>
-  <button class="tb-btn" onclick="loadData()">📂 Yükle</button>
-  <button class="tb-btn" onclick="window.print()">🖨️ Yazdır / PDF</button>
-  <button class="tb-btn danger" onclick="resetAll()">🗑 Sıfırla</button>
+  <div class="sp"></div>
+  <button class="tbb ok"    onclick="saveData()">💾 Kaydet</button>
+  <button class="tbb"       onclick="loadData()">📂 Yükle</button>
+  <button class="tbb"       onclick="window.print()">🖨️ Yazdır / PDF</button>
+  <button class="tbb danger" onclick="resetAll()">🗑 Sıfırla</button>
 </div>
 
 <div class="meta-bar">
-  <div class="mf"><label>Problem / Parça No</label><input id="mPart" placeholder="örn: Part# 12345 — Vida"></div>
+  <div class="mf"><label>Problem / Parça No</label><input id="mPart" placeholder="örn: Part# 12345 – Vida"></div>
   <div class="mf"><label>Müşteri / Proje</label><input id="mCustomer" placeholder="örn: Arçelik A.Ş."></div>
-  <div class="mf" style="max-width:160px"><label>Tarih</label><input id="mDate" type="date"></div>
+  <div class="mf" style="max-width:155px"><label>Tarih</label><input id="mDate" type="date"></div>
   <div class="mf"><label>Analist</label><input id="mAnalyst" placeholder="örn: Kalite Müdürü"></div>
-  <div class="mf" style="max-width:175px"><label>Durum</label>
+  <div class="mf" style="max-width:172px"><label>Durum</label>
     <select id="mStatus">
       <option>🔄 Devam Ediyor</option>
       <option>✅ Tamamlandı</option>
@@ -157,367 +152,463 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 </div>
 
 <div class="legend">
-  <strong style="color:#475569">Gösterim:</strong>
-  <div class="leg-item"><div class="lb n"></div><span>Normal neden</span></div>
-  <div class="leg-item"><div class="lb r"></div><span>Teknik kök neden</span></div>
-  <div class="leg-item"><div class="lb b"></div><span>Dallanma noktası</span></div>
-  <span style="color:#94a3b8;font-size:.67rem">| ➕ Neden → alt dal ekler &nbsp;·&nbsp; Çift tıkla → büyük editör &nbsp;·&nbsp; 🗑 → sil (alt dallarıyla birlikte)</span>
+  <strong>Gösterim:</strong>
+  <div class="li"><div class="lb n"></div><span>Neden adımı</span></div>
+  <div class="li"><div class="lb r"></div><span>Kök neden (son adım)</span></div>
+  <span style="color:#94a3b8;font-size:.65rem">
+    | ➕ Adım Ekle → zincire yeni neden ekler &nbsp;·&nbsp;
+    🪢 Paralel Dal → aynı noktadan bağımsız bir zincir başlatır (5N literatüründeki "branching") &nbsp;·&nbsp;
+    Çift tıkla → büyük metin editörü
+  </span>
 </div>
 
-<div class="canvas-outer" id="canvasOuter">
-  <div class="track-section">
-    <div class="track-header">
-      <span class="track-badge olusum">🔴 Oluşum</span>
-      <span class="track-sub">Neden problem oluştu?</span>
+<div class="canvas-outer" id="co">
+  <!-- Oluşum track -->
+  <div class="track-wrap">
+    <div class="track-hdr">
+      <span class="tbadge os">🔴 Oluşum</span>
+      <span class="tsub">Neden problem oluştu? — her adım öncekinin nedenidir</span>
     </div>
-    <div class="tree-canvas" id="osCanvas">
-      <svg id="osSvg" style="position:absolute;top:0;left:0;overflow:visible;pointer-events:none"></svg>
+    <div class="diag" id="osDiag">
+      <svg id="osSvg"></svg>
     </div>
-    <button class="add-root-btn" onclick="addRootNode('os')">➕ Yeni Başlangıç Dalı Ekle</button>
+    <button class="add-step-btn" onclick="addStep('os')">➕ Adım Ekle</button>
   </div>
 
-  <div class="track-section">
-    <div class="track-header">
-      <span class="track-badge tespit">🟣 Tespit Edilememe</span>
-      <span class="track-sub">Problem neden fark edilmedi?</span>
+  <!-- Tespit track -->
+  <div class="track-wrap">
+    <div class="track-hdr">
+      <span class="tbadge nd">🟣 Tespit Edilememe</span>
+      <span class="tsub">Problem neden fark edilmedi?</span>
     </div>
-    <div class="tree-canvas" id="ndCanvas">
-      <svg id="ndSvg" style="position:absolute;top:0;left:0;overflow:visible;pointer-events:none"></svg>
+    <div class="diag" id="ndDiag">
+      <svg id="ndSvg"></svg>
     </div>
-    <button class="add-root-btn nd" onclick="addRootNode('nd')">➕ Yeni Başlangıç Dalı Ekle</button>
+    <button class="add-step-btn nd" onclick="addStep('nd')">➕ Adım Ekle</button>
   </div>
 </div>
 
-<div class="modal-overlay" id="editModal">
-  <div class="modal-box">
-    <h3 id="modalTitle">✏️ Nedeni Düzenle</h3>
-    <textarea id="modalTa" rows="4" placeholder="Nedeni buraya yazın…"></textarea>
+<div class="mo" id="editModal">
+  <div class="mb">
+    <h3 id="mTitle">✏️ Nedeni Düzenle</h3>
+    <textarea id="mTa" rows="4" placeholder="Nedeni buraya yazın…"></textarea>
     <div class="mbts">
-      <button class="mb cancel" onclick="closeModal()">İptal</button>
-      <button class="mb confirm" onclick="saveModal()">Kaydet</button>
+      <button class="mbt c" onclick="closeModal()">İptal</button>
+      <button class="mbt s" onclick="saveModal()">Kaydet</button>
     </div>
   </div>
 </div>
 
 <script>
-// ══════════════════════════════════════════
-//  LAYOUT CONSTANTS
-// ══════════════════════════════════════════
-const BOX_W   = 180;   // node box width px
-const BOX_H   = 96;    // node box height (base unit)
-const PROB_W  = 180;
-const PROB_H  = 84;
-const RCB_W   = 158;
-const RCB_H   = 106;
-const COL_GAP = 110;   // horizontal gap between box right edge and next box left edge (arrow area)
-const ROW_GAP = 18;    // vertical gap between sibling boxes
-const COL_W   = BOX_W + COL_GAP;  // full column stride
+// ══════════════════════════════════════════════════════
+//  5 NEDEN   –  STAIRCASE LAYOUT
+//  Referans: Her "Neden?" kutusu öncekinden sağa ve
+//  biraz aşağıya kayar → merdiven efekti.
+//  "Paralel Dal": Aynı noktadan bağımsız ikinci bir
+//  doğrusal zincir başlar, ana zincirin altında yürür.
+//
+//  Veri modeli:
+//  track:
+//    problem : string
+//    rcText  : string
+//    chains  : Chain[]        ← chains[0] = ana zincir, chains[1..] = paralel dallar
+//
+//  Chain:
+//    startAfterStep : number | null  (hangi ana adımdan dallandığı, null=ana)
+//    steps          : Step[]
+//
+//  Step: { id, text, isRoot }
+// ══════════════════════════════════════════════════════
 
-// ══════════════════════════════════════════
-//  STATE
-// ══════════════════════════════════════════
-// node: { id, text, isRoot, isBranch, children:[] }
+const BOX_W    = 175;
+const BOX_H    = 92;
+const PROB_W   = 170;
+const PROB_H   = 84;
+const RCB_W    = 155;
+const RCB_H    = 108;
+const H_GAP    = 80;    // horizontal gap between box right and next box left (arrow space)
+const V_STEP   = 72;    // how much lower each main-chain step is vs the previous
+const BRANCH_V = 28;    // extra vertical gap between branches at same column
+const COL_W    = BOX_W + H_GAP;   // full column stride
+
 let _S = {
   meta: {},
-  os: { problem: 'Problem tanımını buraya yazın…', rcText: 'Teknik Kök Neden\n(Oluşum)',             tree: [mkNode()] },
-  nd: { problem: 'Problem tanımını buraya yazın…', rcText: 'Teknik Kök Neden\n(Tespit Edilememe)',    tree: [mkNode()] }
+  os: { problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Oluşum)',
+        chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
+  nd: { problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Tespit Edilememe)',
+        chains: [ { startAfter:null, steps:[ mkStep() ] } ] }
 };
 
-let _modalCb = null;
+function mkStep(t){ return {id:uid(), text:t||'', isRoot:false}; }
+function uid(){ return 'n'+Math.random().toString(36).slice(2,9); }
 
-function mkNode(t){ return { id: uid(), text: t||'', isRoot:false, isBranch:false, children:[] }; }
-function uid(){ return 'n' + Math.random().toString(36).slice(2,9); }
+let _mCb = null;
 
-// ══════════════════════════════════════════
-//  TREE HELPERS
-// ══════════════════════════════════════════
-function findNode(arr, id){
-  for(const n of arr){
-    if(n.id===id) return n;
-    const f = findNode(n.children, id);
-    if(f) return f;
+// ══════════════════════════════════════════════════════
+//  ACTIONS
+// ══════════════════════════════════════════════════════
+function addStep(tk){
+  _S[tk].chains[0].steps.push(mkStep());
+  renderTrack(tk);
+}
+
+function deleteStep(tk, chainIdx, stepIdx){
+  const chain = _S[tk].chains[chainIdx];
+  chain.steps.splice(stepIdx,1);
+  if(chain.steps.length===0){
+    if(chainIdx===0) chain.steps.push(mkStep());  // keep at least 1 in main
+    else _S[tk].chains.splice(chainIdx,1);        // remove empty branch
   }
-  return null;
+  renderTrack(tk);
 }
-function findParent(arr, id){
-  for(let i=0;i<arr.length;i++){
-    if(arr[i].id===id) return {arr, i};
-    const f = findParent(arr[i].children, id);
-    if(f) return f;
-  }
-  return null;
-}
-// Leaf-unit height of subtree
-function subH(node){
-  if(!node.children.length) return 1;
-  return node.children.reduce((s,c)=>s+subH(c),0);
-}
-// Total leaf units for an array of root nodes
-function trackH(tree){ return tree.reduce((s,n)=>s+subH(n),0)||1; }
 
-// ══════════════════════════════════════════
-//  LAYOUT  →  flat list of positioned items + connectors
-// ══════════════════════════════════════════
+function addParallelBranch(tk, afterMainStepIdx){
+  // Add a new parallel chain that "starts after" step afterMainStepIdx of main chain
+  _S[tk].chains.push({ startAfter: afterMainStepIdx, steps: [mkStep()] });
+  renderTrack(tk);
+}
+
+function addBranchStep(tk, chainIdx){
+  _S[tk].chains[chainIdx].steps.push(mkStep());
+  renderTrack(tk);
+}
+
+function toggleRoot(tk, chainIdx, stepIdx){
+  const s = _S[tk].chains[chainIdx].steps[stepIdx];
+  s.isRoot = !s.isRoot;
+  renderTrack(tk);
+}
+
+// ══════════════════════════════════════════════════════
+//  LAYOUT  – merdiven (staircase)
+// ══════════════════════════════════════════════════════
 function doLayout(tk){
   const track = _S[tk];
-  const items  = [];  // {type, node?, x, y, w, h, cx, cy, trackKey}
-  const conns  = [];  // {x1,y1, x2,y2, dashed}
+  const items = [];   // { type, data, x, y, w, h, cx, cy }
+  const conns = [];   // { x1,y1,x2,y2, dashed, label }
 
-  const unitPx = BOX_H + ROW_GAP;
-  const totalUnits = trackH(track.tree);
-  const totalH = totalUnits * unitPx;
+  // ── Problem box ──
+  // Position determined after computing main-chain height
+  const mainChain = track.chains[0];
+  const mainLen   = mainChain.steps.length;
 
-  // ── Problem start box ──
-  const probCY = totalH / 2;
+  // Main chain: step[i] at col i+1, row = i (staircase)
+  const mainItems = [];
+  for(let i=0;i<mainLen;i++){
+    const x  = (i+1)*COL_W;
+    const y  = 0 + i*V_STEP;
+    const cx = x+BOX_W, cy = y+BOX_H/2;
+    mainItems.push({ type:'step', chain:0, stepIdx:i,
+      data:mainChain.steps[i], x, y, w:BOX_W, h:BOX_H, cx, cy, tk });
+    items.push(mainItems[i]);
+  }
+
+  // Problem box: left-aligned, centered vertically with first main step
+  const probCY = mainItems.length ? mainItems[0].cy : BOX_H/2;
+  const probY  = probCY - PROB_H/2;
   const probX  = 0;
-  const probY  = probCY - PROB_H / 2;
-  items.push({ type:'prob', x:probX, y:probY, w:PROB_W, h:PROB_H,
-                cx: probX+PROB_W, cy: probCY, trackKey:tk });
+  items.unshift({ type:'prob', tk, x:probX, y:probY, w:PROB_W, h:PROB_H, cx:PROB_W, cy:probCY });
 
-  // ── Tree nodes ──
-  let rowCursor = 0;
-  for(const rootNode of track.tree){
-    layoutNode(rootNode, 1, rowCursor, unitPx, probX+PROB_W, probCY, items, conns, tk);
-    rowCursor += subH(rootNode);
+  // Connector prob → step[0]
+  if(mainItems.length>0){
+    conns.push({ x1:PROB_W, y1:probCY, x2:mainItems[0].x, y2:mainItems[0].cy, label:'why' });
+  }
+  // Connectors step[i] → step[i+1]
+  for(let i=0;i<mainItems.length-1;i++){
+    conns.push({ x1:mainItems[i].cx, y1:mainItems[i].cy,
+                 x2:mainItems[i+1].x, y2:mainItems[i+1].cy, label:'why' });
   }
 
-  // ── Find rightmost col ──
-  let maxCol = 0;
-  for(const it of items) if(it.type==='node'){
+  // Root cause box: to the right of last main step
+  let rcbY, rcbX;
+  if(mainItems.length){
+    const last = mainItems[mainItems.length-1];
+    rcbX = last.cx + H_GAP;
+    rcbY = last.cy - RCB_H/2;
+  } else {
+    rcbX = COL_W;
+    rcbY = 0;
+  }
+
+  // Connector last main step → rcb (if chain ends)
+  if(mainItems.length){
+    const last = mainItems[mainItems.length-1];
+    conns.push({ x1:last.cx, y1:last.cy, x2:rcbX, y2:last.cy, label:'why', toRcb:true });
+  }
+
+  items.push({ type:'rcb', tk, x:rcbX, y:rcbY, w:RCB_W, h:RCB_H });
+
+  // ── Parallel branch chains ──
+  // Each branch chain "starts after" a specific main-chain step index
+  // It runs BELOW the main chain, starting from col (startAfter+1)
+
+  // Track how much vertical offset each starting column already uses
+  const colBottomY = {};   // col → bottom Y of last thing placed
+  for(const it of mainItems){
     const col = Math.round(it.x / COL_W);
-    if(col>maxCol) maxCol=col;
+    colBottomY[col] = (colBottomY[col]||0) < it.y+it.h ? it.y+it.h : colBottomY[col];
   }
 
-  // ── Root cause box ──
-  const rcbX = (maxCol+1)*COL_W + 20;
-  const rcbY = probCY - RCB_H/2;
-  const rcbCX = rcbX, rcbCY2 = probCY;
-  items.push({ type:'rcb', x:rcbX, y:rcbY, w:RCB_W, h:RCB_H, trackKey:tk });
+  for(let ci=1; ci<track.chains.length; ci++){
+    const chain = track.chains[ci];
+    const sa    = chain.startAfter ?? 0;  // starts after which main step
+    const startCol = sa + 1;              // same column as next main step after fork
 
-  // Connectors: root-marked nodes → rcb
-  for(const it of items){
-    if(it.type==='node' && it.node.isRoot){
-      conns.push({ x1:it.x+it.w, y1:it.cy, x2:rcbCX, y2:rcbCY2, dashed:true });
+    // Find the bottom of that column in main chain
+    let branchTopY = 0;
+    // Bottom Y of startCol in main chain (if it exists) + gap
+    if(mainItems[sa]){
+      branchTopY = mainItems[sa].y + mainItems[sa].h + BRANCH_V;
     }
+    // Also check already placed branches at same starting column
+    const cKey = `${ci}_start`;
+    if(colBottomY[startCol] !== undefined){
+      branchTopY = Math.max(branchTopY, colBottomY[startCol] + BRANCH_V);
+    }
+
+    // Draw fork connector from main step[sa] down to first branch step
+    const forkAnchor = mainItems[sa] || {cx: PROB_W, cy: probCY};
+    const brItems = [];
+
+    for(let si=0; si<chain.steps.length; si++){
+      const x  = (startCol + si) * COL_W;
+      const y  = branchTopY + si * V_STEP;
+      const cx = x+BOX_W, cy = y+BOX_H/2;
+      const it = { type:'step', chain:ci, stepIdx:si,
+        data:chain.steps[si], x, y, w:BOX_W, h:BOX_H, cx, cy, tk, isBranch:true };
+      brItems.push(it);
+      items.push(it);
+      // Update colBottomY
+      const col = Math.round(x/COL_W);
+      colBottomY[col] = Math.max(colBottomY[col]||0, y+BOX_H);
+    }
+
+    // Fork connector: from main step → branch step[0] (dashed, going diagonally down)
+    if(brItems.length){
+      conns.push({ x1:forkAnchor.cx, y1:forkAnchor.cy,
+                   x2:brItems[0].x, y2:brItems[0].cy, label:'why', dashed:true });
+    }
+    // Branch internal connectors
+    for(let si=0; si<brItems.length-1; si++){
+      conns.push({ x1:brItems[si].cx, y1:brItems[si].cy,
+                   x2:brItems[si+1].x, y2:brItems[si+1].cy, label:'why', dashed:false });
+    }
+    // Branch → rcb connector
+    if(brItems.length){
+      const bLast = brItems[brItems.length-1];
+      // Dashed arrow to same root cause box (simplified)
+      conns.push({ x1:bLast.cx, y1:bLast.cy, x2:rcbX, y2:rcbY+RCB_H/2, label:'', dashed:true });
+    }
+
+    // Add "Add branch step" button-item
+    items.push({ type:'addBranchStep', ci, tk,
+      x: startCol*COL_W + (chain.steps.length)*COL_W,
+      y: branchTopY + (chain.steps.length-1)*V_STEP });
   }
 
-  const W = Math.max(...items.map(i=>i.x+i.w)) + 40;
-  const H = Math.max(...items.map(i=>i.y+i.h)) + 30;
+  // Canvas size
+  const xs = items.map(i=>i.x+(i.w||BOX_W));
+  const ys = items.map(i=>i.y+(i.h||BOX_H));
+  const W = Math.max(...xs) + 40;
+  const H = Math.max(...ys) + 30;
   return { items, conns, W, H };
 }
 
-function layoutNode(node, col, rowOffset, unitPx, parentRX, parentCY, items, conns, tk){
-  const units = subH(node);
-  const cy    = (rowOffset + units/2) * unitPx;
-  const x     = col * COL_W;
-  const y     = cy - BOX_H/2;
-
-  items.push({ type:'node', node, col, x, y, w:BOX_W, h:BOX_H, cx:x+BOX_W, cy, trackKey:tk });
-
-  // Connector from parent
-  conns.push({ x1:parentRX, y1:parentCY, x2:x, y2:cy, dashed:false });
-
-  let childRow = rowOffset;
-  for(const child of node.children){
-    layoutNode(child, col+1, childRow, unitPx, x+BOX_W, cy, items, conns, tk);
-    childRow += subH(child);
-  }
-}
-
-// ══════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 //  RENDER
-// ══════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 function render(){ renderTrack('os'); renderTrack('nd'); }
 
 function renderTrack(tk){
-  const canvasEl = document.getElementById(tk+'Canvas');
-  const svgEl    = document.getElementById(tk+'Svg');
-
-  // Clear canvas (keep svg)
-  Array.from(canvasEl.childNodes).forEach(c=>{ if(c!==svgEl) canvasEl.removeChild(c); });
-  svgEl.innerHTML = '';
+  const diag = document.getElementById(tk+'Diag');
+  const svg  = document.getElementById(tk+'Svg');
+  // Clear all children except svg
+  Array.from(diag.childNodes).forEach(c=>{ if(c!==svg) diag.removeChild(c); });
+  svg.innerHTML = '';
 
   const {items, conns, W, H} = doLayout(tk);
-  canvasEl.style.width  = W+'px';
-  canvasEl.style.height = H+'px';
-  svgEl.setAttribute('width',  W);
-  svgEl.setAttribute('height', H);
+  diag.style.width  = W+'px';
+  diag.style.height = H+'px';
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
 
-  // Arrow marker def
-  svgEl.innerHTML = `<defs>
-    <marker id="arr_${tk}" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L8,3 z" fill="#93c5fd"/>
+  // Arrow markers
+  svg.innerHTML = `<defs>
+    <marker id="ab_${tk}"  markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L7,3 z" fill="#93c5fd"/>
     </marker>
-    <marker id="arr_${tk}_red" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L8,3 z" fill="#fca5a5"/>
+    <marker id="abr_${tk}" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L7,3 z" fill="#c4b5fd"/>
     </marker>
   </defs>`;
 
-  // Connectors
-  for(const c of conns) drawConn(svgEl, c, tk);
-
-  // Boxes
+  for(const c of conns) drawConn(svg, c, tk);
   for(const it of items){
-    if(it.type==='prob') renderProbBox(canvasEl, it, tk);
-    if(it.type==='node') renderNodeBox(canvasEl, it, tk);
-    if(it.type==='rcb')  renderRcbBox(canvasEl, it, tk);
+    if(it.type==='prob')          renderProbBox(diag, it, tk);
+    else if(it.type==='step')     renderStepBox(diag, it, tk);
+    else if(it.type==='rcb')      renderRcbBox(diag, it, tk);
+    else if(it.type==='addBranchStep') renderAddBranchBtn(diag, it, tk);
   }
 }
 
 function drawConn(svg, c, tk){
   const dx = c.x2-c.x1, dy = c.y2-c.y1;
-  // Bezier control points
-  const cx1 = c.x1 + dx*0.45;
-  const cy1 = c.y1;
-  const cx2 = c.x2 - dx*0.45;
-  const cy2 = c.y2;
-  const d   = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
+  const isDiag = Math.abs(dy) > 8;
+  let d;
+  if(isDiag){
+    // Curved connector (diagonal)
+    const cpx1 = c.x1 + dx*0.5, cpy1 = c.y1;
+    const cpx2 = c.x2 - dx*0.3, cpy2 = c.y2;
+    d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
+  } else {
+    // Horizontal connector (with slight step for staircase feel)
+    // Elbow connector: go right halfway, then horizontally to target
+    const mx = c.x1 + (c.x2-c.x1)*0.5;
+    d = `M${c.x1},${c.y1} L${mx},${c.y1} L${mx},${c.y2} L${c.x2},${c.y2}`;
+  }
 
   const path = document.createElementNS('http://www.w3.org/2000/svg','path');
   path.setAttribute('d', d);
-  path.setAttribute('fill', 'none');
-  if(c.dashed){
-    path.setAttribute('stroke','#fca5a5');
-    path.setAttribute('stroke-width','1.8');
-    path.setAttribute('stroke-dasharray','5,4');
-    path.setAttribute('marker-end',`url(#arr_${tk}_red)`);
-  } else {
-    path.setAttribute('stroke','#93c5fd');
-    path.setAttribute('stroke-width','2');
-    path.setAttribute('marker-end',`url(#arr_${tk})`);
-  }
+  path.setAttribute('fill','none');
+  const color  = c.dashed ? '#c4b5fd' : '#93c5fd';
+  const marker = c.dashed ? `url(#abr_${tk})` : `url(#ab_${tk})`;
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', '2');
+  if(c.dashed) path.setAttribute('stroke-dasharray','5,4');
+  path.setAttribute('marker-end', marker);
   svg.appendChild(path);
 
-  if(!c.dashed && Math.abs(dx)>20){
-    // "Neden?" label – forward direction (right side of curve)
-    const mx = c.x1 + dx*0.5;
-    const my = c.y1 + dy*0.5;
-    addSvgTxt(svg, mx+3, my-9,  'Neden?',     '#2563eb', true,  10);
-    addSvgTxt(svg, mx-2, my+16, '← Bu yüzden','#94a3b8', false, 9);
+  if(c.label==='why'){
+    // "Neden?" forward label
+    const mx  = (c.x1+c.x2)/2, my = (c.y1+c.y2)/2;
+    const off = isDiag ? 0 : -2;
+    svgTxt(svg, mx+2, my-10+off, 'Neden?',     '#2563eb', true,  10);
+    svgTxt(svg, mx-6, my+14+off, '← Bu yüzden','#94a3b8', false, 9);
   }
 }
 
-function addSvgTxt(svg, x, y, txt, color, bold, size){
-  const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-  t.setAttribute('x', x); t.setAttribute('y', y);
-  t.setAttribute('fill', color);
-  t.setAttribute('font-size', size);
-  t.setAttribute('font-family','Segoe UI,Arial,sans-serif');
-  if(bold) t.setAttribute('font-weight','700');
-  t.textContent = txt;
-  svg.appendChild(t);
+function svgTxt(svg, x, y, t, fill, bold, size){
+  const el = document.createElementNS('http://www.w3.org/2000/svg','text');
+  el.setAttribute('x',x); el.setAttribute('y',y);
+  el.setAttribute('fill',fill); el.setAttribute('font-size',size);
+  el.setAttribute('font-family','Segoe UI,Arial,sans-serif');
+  if(bold) el.setAttribute('font-weight','700');
+  el.textContent = t;
+  svg.appendChild(el);
 }
 
-function renderProbBox(canvas, it, tk){
-  const div = document.createElement('div');
-  div.className = 'prob-node' + (tk==='nd'?' nd-track':'');
-  div.style.cssText = `left:${it.x}px;top:${it.y}px;width:${it.w}px;min-height:${it.h}px;`;
-  div.innerHTML = `<div class="prob-lbl">Problem Tanımı</div>
-    <textarea placeholder="Problemi buraya yazın…"></textarea>`;
-  div.querySelector('textarea').value = _S[tk].problem;
-  div.querySelector('textarea').addEventListener('input', e => { _S[tk].problem = e.target.value; });
-  canvas.appendChild(div);
+function renderProbBox(diag, it, tk){
+  const d = div('pbox'+(tk==='nd'?' nd-t':''), it.x, it.y, it.w, it.h);
+  d.innerHTML = `<div class="plbl">Problem Tanımı</div><textarea placeholder="Problemi yazın…"></textarea>`;
+  d.querySelector('textarea').value = _S[tk].problem;
+  d.querySelector('textarea').oninput = e => { _S[tk].problem = e.target.value; };
+  diag.appendChild(d);
 }
 
-function renderNodeBox(canvas, it, tk){
-  const node = it.node;
-  const div  = document.createElement('div');
-  div.className = 'why-node'+(node.isRoot?' is-root':'')+(node.isBranch?' is-branch':'');
-  div.style.cssText = `left:${it.x}px;top:${it.y}px;width:${it.w}px;min-height:${it.h}px;`;
+function renderStepBox(diag, it, tk){
+  const node = it.data;
+  const el   = div('sbox'+(node.isRoot?' is-root':''), it.x, it.y, it.w, it.h);
+  el.innerHTML = (node.isRoot?`<span class="stag">🎯 Kök Neden</span>`:'') +
+    `<textarea placeholder="Nedeni yazın…"></textarea>
+     <div class="sacts">
+       <button class="sa del" title="Sil">🗑</button>
+       <button class="sa add" title="Bu adımdan zincire devam et (sağa uzat)">➕ Adım</button>
+       <button class="sa fork" title="Bu noktadan paralel bağımsız bir zincir başlat (dal)">🪢 Paralel Dal</button>
+       <button class="sa root">${node.isRoot?'🎯 Kök ✓':'🎯 Kök Neden'}</button>
+     </div>`;
 
-  let tagHtml = '';
-  if(node.isRoot)        tagHtml = `<span class="ntag r">🎯 Kök Neden</span>`;
-  else if(node.isBranch) tagHtml = `<span class="ntag b">🌿 Dallanma</span>`;
-
-  div.innerHTML = `${tagHtml}
-    <textarea placeholder="Nedeni yazın…" style="margin-top:${(node.isRoot||node.isBranch)?'10px':'0'}">${node.text}</textarea>
-    <div class="node-acts">
-      <button class="na del" title="Sil (alt dallarıyla)">🗑</button>
-      <button class="na add" title="Alt neden (sağa dal) ekle">➕ Neden</button>
-      <button class="na root">${node.isRoot?'🎯 Kök ✓':'🎯 Kök Neden'}</button>
-      <button class="na br">${node.isBranch?'🌿 Dal ✓':'🌿 Dal'}</button>
-    </div>`;
-
-  const ta = div.querySelector('textarea');
-  ta.addEventListener('input', e => { node.text = e.target.value; });
-  ta.addEventListener('dblclick', e => {
+  const ta = el.querySelector('textarea');
+  ta.value = node.text;
+  ta.oninput = e => { node.text = e.target.value; };
+  ta.addEventListener('dblclick', e=>{
     e.stopPropagation();
-    openModal('✏️ Nedeni Düzenle', node.text, val => { node.text = val; renderTrack(tk); });
+    openModal('✏️ Nedeni Düzenle', node.text, val=>{ node.text=val; renderTrack(tk); });
   });
-  div.querySelector('.del').onclick  = () => deleteNode(tk, node.id);
-  div.querySelector('.add').onclick  = () => { node.children.push(mkNode()); renderTrack(tk); };
-  div.querySelector('.root').onclick = () => { node.isRoot   = !node.isRoot;   renderTrack(tk); };
-  div.querySelector('.br').onclick   = () => { node.isBranch = !node.isBranch; renderTrack(tk); };
+  el.querySelector('.del').onclick = ()=> deleteStep(tk, it.chain, it.stepIdx);
+  el.querySelector('.root').onclick = ()=> toggleRoot(tk, it.chain, it.stepIdx);
 
-  canvas.appendChild(div);
+  el.querySelector('.add').onclick = ()=>{
+    // Extend THIS chain
+    _S[tk].chains[it.chain].steps.splice(it.stepIdx+1, 0, mkStep());
+    renderTrack(tk);
+  };
+  el.querySelector('.fork').onclick = ()=>{
+    // Add a new parallel chain starting from this main-chain step
+    // Only works from main chain (chain 0) for simplicity
+    const mainStepIdx = it.chain===0 ? it.stepIdx : (_S[tk].chains[it.chain].startAfter ?? 0);
+    addParallelBranch(tk, mainStepIdx);
+  };
+
+  diag.appendChild(el);
 }
 
-function renderRcbBox(canvas, it, tk){
-  const div = document.createElement('div');
-  div.className = 'rcb';
-  div.style.cssText = `left:${it.x}px;top:${it.y}px;width:${it.w}px;min-height:${it.h}px;`;
-  div.innerHTML = `<div class="rcb-icon">⬇️</div>
-    <div class="rcb-lbl">Teknik Kök Neden</div>
+function renderRcbBox(diag, it, tk){
+  const el = div('rcb', it.x, it.y, it.w, it.h);
+  el.innerHTML = `<div class="ri">⬇️</div>
+    <div class="rl">Teknik Kök Neden</div>
     <textarea placeholder="Kök neden…"></textarea>`;
-  div.querySelector('textarea').value = _S[tk].rcText;
-  div.querySelector('textarea').addEventListener('input', e => { _S[tk].rcText = e.target.value; });
-  canvas.appendChild(div);
+  el.querySelector('textarea').value = _S[tk].rcText;
+  el.querySelector('textarea').oninput = e => { _S[tk].rcText = e.target.value; };
+  diag.appendChild(el);
 }
 
-// ══════════════════════════════════════════
-//  ACTIONS
-// ══════════════════════════════════════════
-function addRootNode(tk){
-  _S[tk].tree.push(mkNode());
-  renderTrack(tk);
-}
-function deleteNode(tk, id){
-  const f = findParent(_S[tk].tree, id);
-  if(!f) return;
-  f.arr.splice(f.i, 1);
-  if(_S[tk].tree.length===0) _S[tk].tree.push(mkNode());
-  renderTrack(tk);
+function renderAddBranchBtn(diag, it, tk){
+  // Small "add step to this branch" button
+  const b = document.createElement('button');
+  b.className = 'add-step-btn'+(tk==='nd'?' nd':'');
+  b.style.cssText = `position:absolute;left:${it.x}px;top:${it.y+BOX_H/2}px;font-size:.64rem;padding:3px 9px;`;
+  b.textContent = '➕ Dal Adımı';
+  b.onclick = () => addBranchStep(tk, it.ci);
+  diag.appendChild(b);
 }
 
-// ══════════════════════════════════════════
+function div(cls, x, y, w, h){
+  const el = document.createElement('div');
+  el.className = cls;
+  el.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${w}px;min-height:${h}px;`;
+  return el;
+}
+
+// ══════════════════════════════════════════════════════
 //  MODAL
-// ══════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 function openModal(title, txt, cb){
-  _modalCb = cb;
-  document.getElementById('modalTitle').textContent = title;
-  document.getElementById('modalTa').value = txt;
+  _mCb = cb;
+  document.getElementById('mTitle').textContent = title;
+  document.getElementById('mTa').value = txt;
   document.getElementById('editModal').classList.add('open');
-  setTimeout(()=>document.getElementById('modalTa').focus(), 60);
+  setTimeout(()=>document.getElementById('mTa').focus(), 60);
 }
-function closeModal(){ document.getElementById('editModal').classList.remove('open'); _modalCb=null; }
-function saveModal(){ if(_modalCb) _modalCb(document.getElementById('modalTa').value); closeModal(); }
+function closeModal(){ document.getElementById('editModal').classList.remove('open'); _mCb=null; }
+function saveModal(){ if(_mCb) _mCb(document.getElementById('mTa').value); closeModal(); }
+
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape') closeModal();
   if(e.key==='Enter'&&e.ctrlKey&&document.getElementById('editModal').classList.contains('open')) saveModal();
 });
 
-// ══════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 //  INDEXED DB
-// ══════════════════════════════════════════
-const IDB_NAME='KaliteRaporDB', IDB_STORE='payloads', IDB_KEY='5neden_v1';
+// ══════════════════════════════════════════════════════
+const DB='KaliteRaporDB', ST='payloads', KEY='5neden_v1';
 function idbOpen(){
-  return new Promise((res,rej)=>{
-    const req=indexedDB.open(IDB_NAME,1);
-    req.onupgradeneeded=e=>e.target.result.createObjectStore(IDB_STORE);
-    req.onsuccess=e=>res(e.target.result);
-    req.onerror=e=>rej(e.target.error);
+  return new Promise((ok,err)=>{
+    const r=indexedDB.open(DB,1);
+    r.onupgradeneeded=e=>e.target.result.createObjectStore(ST);
+    r.onsuccess=e=>ok(e.target.result);
+    r.onerror=e=>err(e.target.error);
   });
 }
-function idbPut(d){ return idbOpen().then(db=>new Promise((res,rej)=>{ const r=db.transaction(IDB_STORE,'readwrite').objectStore(IDB_STORE).put(d,IDB_KEY); r.onsuccess=()=>res(); r.onerror=e=>rej(e.target.error); })); }
-function idbGet(){ return idbOpen().then(db=>new Promise((res,rej)=>{ const r=db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(IDB_KEY); r.onsuccess=e=>res(e.target.result); r.onerror=e=>rej(e.target.error); })); }
+function idbPut(d){ return idbOpen().then(db=>new Promise((ok,er)=>{ const r=db.transaction(ST,'readwrite').objectStore(ST).put(d,KEY); r.onsuccess=()=>ok(); r.onerror=e=>er(e.target.error); })); }
+function idbGet(){ return idbOpen().then(db=>new Promise((ok,er)=>{ const r=db.transaction(ST,'readonly').objectStore(ST).get(KEY); r.onsuccess=e=>ok(e.target.result); r.onerror=e=>er(e.target.error); })); }
 
 function gatherMeta(){
-  _S.meta = {
-    part:     document.getElementById('mPart').value,
-    customer: document.getElementById('mCustomer').value,
-    date:     document.getElementById('mDate').value,
-    analyst:  document.getElementById('mAnalyst').value,
-    status:   document.getElementById('mStatus').value
+  _S.meta={
+    part:document.getElementById('mPart').value,
+    customer:document.getElementById('mCustomer').value,
+    date:document.getElementById('mDate').value,
+    analyst:document.getElementById('mAnalyst').value,
+    status:document.getElementById('mStatus').value
   };
 }
 function applyMeta(){
@@ -541,16 +632,15 @@ function resetAll(){
   if(!confirm('Tüm analiz sıfırlansın mı?')) return;
   _S={
     meta:{},
-    os:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Oluşum)',            tree:[mkNode()]},
-    nd:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Tespit Edilememe)',   tree:[mkNode()]}
+    os:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Oluşum)',
+        chains:[{startAfter:null, steps:[mkStep()]}]},
+    nd:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Tespit Edilememe)',
+        chains:[{startAfter:null, steps:[mkStep()]}]}
   };
   ['mPart','mCustomer','mDate','mAnalyst'].forEach(id=>document.getElementById(id).value='');
   render();
 }
 
-// ══════════════════════════════════════════
-//  INIT
-// ══════════════════════════════════════════
 document.getElementById('mDate').valueAsDate = new Date();
 render();
 </script>
