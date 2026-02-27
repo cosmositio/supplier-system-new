@@ -835,18 +835,14 @@ function drawConn(svg, c, tk){
   svg.appendChild(path);
 
   if(c.label==='why' && !c.toRcb){
-    // "Neden?" — near source (left) box: asks WHY the source box happens
-    // "Bu yüzden" — near target (right) box: target box IS the answer
+    // "Neden?" — near source (left): asks why the left box happens
+    // "Çünkü"  — near target (right): right box IS the cause/reason → "because [right box]"
     if(isDiag){
-      // Diagonal (staircase): arrow departs flat from source, arrives flat at target
-      // "Neden?" just right of source at source height
-      svgTxt(svg, c.x1 + absDx*0.06,  c.y1 - 14, 'Neden?',    '#1d4ed8', true,  10);
-      // "Bu yüzden" just left of target at target height
-      svgTxt(svg, c.x2 - absDx*0.30,  c.y2 + 14, 'Bu yüzden', '#94a3b8', false, 8.5);
+      svgTxt(svg, c.x1 + absDx*0.06,  c.y1 - 14, 'Neden?',  '#1d4ed8', true,  10);
+      svgTxt(svg, c.x2 - absDx*0.30,  c.y2 + 14, 'Çünkü…',  '#94a3b8', false, 8.5);
     } else {
-      // Horizontal: both near their respective ends
-      svgTxt(svg, c.x1 + absDx*0.06,  c.y1 - 13, 'Neden?',    '#1d4ed8', true,  10);
-      svgTxt(svg, c.x2 - absDx*0.30,  c.y2 + 13, 'Bu yüzden', '#94a3b8', false, 8.5);
+      svgTxt(svg, c.x1 + absDx*0.06,  c.y1 - 13, 'Neden?',  '#1d4ed8', true,  10);
+      svgTxt(svg, c.x2 - absDx*0.30,  c.y2 + 13, 'Çünkü…',  '#94a3b8', false, 8.5);
     }
   }
 }
