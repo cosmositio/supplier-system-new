@@ -357,90 +357,59 @@ function doLayout(tk){
   const items = [];   // { type, data, x, y, w, h, cx, cy }
   const conns = [];   // { x1,y1,x2,y2, dashed, label }
 
-  // ── Problem box ──
-  // Position determined after computing main-chain height
   const mainChain = track.chains[0];
   const mainLen   = mainChain.steps.length;
 
-  // Main chain: step[i] at col i+1, row = i (staircase)
+  // ── Main chain: step[i] at col i+1, y = i*V_STEP  (merdiven: right+down) ──
   const mainItems = [];
   for(let i=0;i<mainLen;i++){
     const x  = (i+1)*COL_W;
-    const y  = 0 + i*V_STEP;
+    const y  = i*V_STEP;
     const cx = x+BOX_W, cy = y+BOX_H/2;
     mainItems.push({ type:'step', chain:0, stepIdx:i,
       data:mainChain.steps[i], x, y, w:BOX_W, h:BOX_H, cx, cy, tk });
     items.push(mainItems[i]);
   }
 
-  // Problem box: left-aligned, centered vertically with first main step
+  // Problem box aligned to first main step
   const probCY = mainItems.length ? mainItems[0].cy : BOX_H/2;
   const probY  = probCY - PROB_H/2;
-  const probX  = 0;
-  items.unshift({ type:'prob', tk, x:probX, y:probY, w:PROB_W, h:PROB_H, cx:PROB_W, cy:probCY });
+  items.unshift({ type:'prob', tk, x:0, y:probY, w:PROB_W, h:PROB_H, cx:PROB_W, cy:probCY });
 
-  // Connector prob → step[0]
-  if(mainItems.length>0){
+  // Connectors: prob→step[0], step[i]→step[i+1]
+  if(mainItems.length>0)
     conns.push({ x1:PROB_W, y1:probCY, x2:mainItems[0].x, y2:mainItems[0].cy, label:'why' });
-  }
-  // Connectors step[i] → step[i+1]
-  for(let i=0;i<mainItems.length-1;i++){
+  for(let i=0;i<mainItems.length-1;i++)
     conns.push({ x1:mainItems[i].cx, y1:mainItems[i].cy,
                  x2:mainItems[i+1].x, y2:mainItems[i+1].cy, label:'why' });
-  }
-
-  // Root cause box: to the right of last main step
-  let rcbY, rcbX;
-  if(mainItems.length){
-    const last = mainItems[mainItems.length-1];
-    rcbX = last.cx + H_GAP;
-    rcbY = last.cy - RCB_H/2;
-  } else {
-    rcbX = COL_W;
-    rcbY = 0;
-  }
-
-  // Connector last main step → rcb (if chain ends)
-  if(mainItems.length){
-    const last = mainItems[mainItems.length-1];
-    conns.push({ x1:last.cx, y1:last.cy, x2:rcbX, y2:last.cy, label:'why', toRcb:true });
-  }
-
-  items.push({ type:'rcb', tk, x:rcbX, y:rcbY, w:RCB_W, h:RCB_H });
 
   // ── Parallel branch chains ──
-  // Each branch chain "starts after" a specific main-chain step index
-  // It runs BELOW the main chain, starting from col (startAfter+1)
-
-  // Track how much vertical offset each starting column already uses
-  const colBottomY = {};   // col → bottom Y of last thing placed
+  // Each branch starts BELOW its fork step, continues staircase (right+down)
+  const colBottomY = {};
   for(const it of mainItems){
     const col = Math.round(it.x / COL_W);
-    colBottomY[col] = (colBottomY[col]||0) < it.y+it.h ? it.y+it.h : colBottomY[col];
+    colBottomY[col] = Math.max(colBottomY[col]||0, it.y + it.h);
   }
 
+  const allBranchLastItems = [];   // last step of each branch chain (for RCB connectors)
+
   for(let ci=1; ci<track.chains.length; ci++){
-    const chain = track.chains[ci];
-    const sa    = chain.startAfter ?? 0;  // starts after which main step
-    const startCol = sa + 1;              // same column as next main step after fork
+    const chain    = track.chains[ci];
+    const sa       = chain.startAfter ?? 0;   // fork from which main-step index
+    const startCol = sa + 1;                  // branch starts at same col as next main step
 
-    // Find the bottom of that column in main chain
-    let branchTopY = 0;
-    // Bottom Y of startCol in main chain (if it exists) + gap
-    if(mainItems[sa]){
-      branchTopY = mainItems[sa].y + mainItems[sa].h + BRANCH_V;
-    }
-    // Also check already placed branches at same starting column
-    const cKey = `${ci}_start`;
-    if(colBottomY[startCol] !== undefined){
+    // Top Y: below the main step at startCol, and below any already-placed branches there
+    let branchTopY = mainItems[sa]
+      ? mainItems[sa].y + mainItems[sa].h + BRANCH_V
+      : BRANCH_V;
+    if(colBottomY[startCol] !== undefined)
       branchTopY = Math.max(branchTopY, colBottomY[startCol] + BRANCH_V);
-    }
 
-    // Draw fork connector from main step[sa] down to first branch step
-    const forkAnchor = mainItems[sa] || {cx: PROB_W, cy: probCY};
+    const forkAnchor = mainItems[sa] || { cx: PROB_W, cy: probCY };
     const brItems = [];
 
     for(let si=0; si<chain.steps.length; si++){
+      // Merdiven: each branch step also goes right+down like main chain
       const x  = (startCol + si) * COL_W;
       const y  = branchTopY + si * V_STEP;
       const cx = x+BOX_W, cy = y+BOX_H/2;
@@ -448,33 +417,54 @@ function doLayout(tk){
         data:chain.steps[si], x, y, w:BOX_W, h:BOX_H, cx, cy, tk, isBranch:true };
       brItems.push(it);
       items.push(it);
-      // Update colBottomY
       const col = Math.round(x/COL_W);
       colBottomY[col] = Math.max(colBottomY[col]||0, y+BOX_H);
     }
 
-    // Fork connector: from main step → branch step[0] (dashed, going diagonally down)
-    if(brItems.length){
+    // Fork connector (dashed, from fork anchor → first branch step)
+    if(brItems.length)
       conns.push({ x1:forkAnchor.cx, y1:forkAnchor.cy,
                    x2:brItems[0].x, y2:brItems[0].cy, label:'why', dashed:true });
-    }
     // Branch internal connectors
-    for(let si=0; si<brItems.length-1; si++){
+    for(let si=0; si<brItems.length-1; si++)
       conns.push({ x1:brItems[si].cx, y1:brItems[si].cy,
-                   x2:brItems[si+1].x, y2:brItems[si+1].cy, label:'why', dashed:false });
-    }
-    // Branch → rcb connector
-    if(brItems.length){
-      const bLast = brItems[brItems.length-1];
-      // Dashed arrow to same root cause box (simplified)
-      conns.push({ x1:bLast.cx, y1:bLast.cy, x2:rcbX, y2:rcbY+RCB_H/2, label:'', dashed:true });
-    }
+                   x2:brItems[si+1].x, y2:brItems[si+1].cy, label:'why' });
 
-    // Add "Add branch step" button-item
-    items.push({ type:'addBranchStep', ci, tk,
-      x: startCol*COL_W + (chain.steps.length)*COL_W,
-      y: branchTopY + (chain.steps.length-1)*V_STEP });
+    if(brItems.length) allBranchLastItems.push(brItems[brItems.length-1]);
+
+    // "+ Dal Adımı" button: positioned inline to the right of last branch step
+    if(brItems.length){
+      const last = brItems[brItems.length-1];
+      items.push({ type:'addBranchStep', ci, tk,
+        x: last.cx + H_GAP * 0.3,
+        y: last.y });   // renderer adds BOX_H/2 offset itself
+    }
   }
+
+  // ── Root cause box ──
+  // Always placed to the right of the RIGHTMOST step (main or branch),
+  // so it's always visually at the bottom-right end of the staircase.
+  const allStepItems = [...mainItems, ...allBranchLastItems];
+  let rcbX, rcbY;
+  if(allStepItems.length){
+    // The anchor is whichever step has the largest cx (= rightmost edge)
+    const anchor = allStepItems.reduce((a,b) => b.cx > a.cx ? b : a);
+    rcbX = anchor.cx + H_GAP;
+    rcbY = anchor.cy - RCB_H/2;
+  } else {
+    rcbX = COL_W; rcbY = 0;
+  }
+
+  // Main chain → RCB connector
+  if(mainItems.length){
+    const last = mainItems[mainItems.length-1];
+    conns.push({ x1:last.cx, y1:last.cy, x2:rcbX, y2:rcbY+RCB_H/2, label:'why', toRcb:true });
+  }
+  // Each branch last step → RCB connector (dashed)
+  for(const bl of allBranchLastItems)
+    conns.push({ x1:bl.cx, y1:bl.cy, x2:rcbX, y2:rcbY+RCB_H/2, label:'', dashed:true });
+
+  items.push({ type:'rcb', tk, x:rcbX, y:rcbY, w:RCB_W, h:RCB_H });
 
   // Canvas size
   const xs = items.map(i=>i.x+(i.w||BOX_W));
