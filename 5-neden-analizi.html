@@ -119,6 +119,44 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .mbt.s{background:#2563eb;color:#fff;}
 .mbt.s:hover{background:#1d4ed8;}
 
+/* ── AI PANEL ── */
+.ai-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.48);
+  z-index:9500;align-items:center;justify-content:center;}
+.ai-modal.open{display:flex;}
+.ai-box{background:#fff;border-radius:16px;padding:26px 28px 22px;
+  max-width:520px;width:96%;box-shadow:0 10px 50px rgba(0,0,0,.22);}
+.ai-box h3{font-size:1rem;font-weight:800;color:#1e293b;margin-bottom:4px;
+  display:flex;align-items:center;gap:8px;}
+.ai-subtitle{font-size:.72rem;color:#64748b;margin-bottom:14px;
+  padding-bottom:10px;border-bottom:1px solid #f1f5f9;}
+.ai-subtitle a{color:#2563eb;text-decoration:none;}
+.ai-label{font-size:.66rem;font-weight:700;color:#64748b;text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:4px;display:block;}
+.ai-ta{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;
+  padding:9px 11px;font-size:.82rem;resize:vertical;font-family:inherit;
+  outline:none;min-height:96px;color:#1e293b;}
+.ai-ta:focus{border-color:#2563eb;}
+.ai-key{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;
+  padding:7px 10px;font-size:.78rem;font-family:monospace;outline:none;color:#1e293b;}
+.ai-key:focus{border-color:#2563eb;}
+.ai-row{display:flex;gap:8px;margin-top:6px;align-items:center;}
+.ai-key-wrap{flex:1;}
+.key-hint{font-size:.62rem;color:#94a3b8;margin-top:3px;}
+.key-hint a{color:#2563eb;text-decoration:none;}
+.ai-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+.aib{padding:7px 18px;border-radius:8px;font-size:.82rem;font-weight:700;
+  cursor:pointer;border:none;transition:.15s;}
+.aib.cancel{background:#f1f5f9;color:#64748b;}
+.aib.cancel:hover{background:#e2e8f0;}
+.aib.gen{background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;
+  display:flex;align-items:center;gap:6px;}
+.aib.gen:hover{opacity:.88;}
+.aib.gen:disabled{opacity:.5;cursor:not-allowed;}
+.ai-status{font-size:.74rem;color:#64748b;display:flex;align-items:center;gap:6px;}
+.ai-spinner{width:14px;height:14px;border:2px solid #e2e8f0;
+  border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
 @media print{
   .topbar,.meta-bar,.legend,.sacts,.add-step-btn,.tbb{display:none!important;}
   body,.canvas-outer{background:#fff;}
@@ -131,6 +169,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   <span style="font-size:1.3rem">🔍</span>
   <h1>5 Neden Analizi</h1>
   <div class="sp"></div>
+  <button class="tbb" style="background:linear-gradient(135deg,rgba(124,58,237,.7),rgba(37,99,235,.7));border-color:rgba(167,139,250,.5);" onclick="openAiModal()">🤖 AI ile Oluştur</button>
   <button class="tbb ok"    onclick="saveData()">💾 Kaydet</button>
   <button class="tbb"       onclick="loadData()">📂 Yükle</button>
   <button class="tbb"       onclick="window.print()">🖨️ Yazdır / PDF</button>
@@ -185,6 +224,37 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       <svg id="ndSvg"></svg>
     </div>
     <button class="add-step-btn nd" onclick="addStep('nd')">➕ Adım Ekle</button>
+  </div>
+</div>
+
+<!-- AI MODAL -->
+<div class="ai-modal" id="aiModal">
+  <div class="ai-box">
+    <h3>🤖 AI ile 5 Neden Analizi Oluştur</h3>
+    <p class="ai-subtitle">
+      Google Gemini 2.0 Flash kullanır &nbsp;·&nbsp; Ücretsiz API key:
+      <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
+    </p>
+
+    <label class="ai-label">Problem Tanımı (ne oldu, hangi parça, hangi süreç?)</label>
+    <textarea class="ai-ta" id="aiProblem" placeholder="örn: Montaj hattında vida torku düşük çıktı, 1500 adet ürün etkilendi. Müşteri şikayeti var."></textarea>
+
+    <div class="ai-row" style="margin-top:12px;">
+      <div class="ai-key-wrap">
+        <label class="ai-label">Gemini API Key</label>
+        <input class="ai-key" id="aiKey" type="password" placeholder="AIza...">
+        <div class="key-hint">Tarayıcınızda saklanır, sunucuya gönderilmez &nbsp;·&nbsp;
+          <a href="https://aistudio.google.com/apikey" target="_blank">Ücretsiz key al →</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="aiStatus" style="margin-top:10px;min-height:20px;"></div>
+
+    <div class="ai-actions">
+      <button class="aib cancel" onclick="closeAiModal()">İptal</button>
+      <button class="aib gen" id="aiGenBtn" onclick="aiGenerate()">✨ Analizi Oluştur</button>
+    </div>
   </div>
 </div>
 
@@ -582,11 +652,6 @@ function openModal(title, txt, cb){
 function closeModal(){ document.getElementById('editModal').classList.remove('open'); _mCb=null; }
 function saveModal(){ if(_mCb) _mCb(document.getElementById('mTa').value); closeModal(); }
 
-document.addEventListener('keydown', e=>{
-  if(e.key==='Escape') closeModal();
-  if(e.key==='Enter'&&e.ctrlKey&&document.getElementById('editModal').classList.contains('open')) saveModal();
-});
-
 // ══════════════════════════════════════════════════════
 //  INDEXED DB
 // ══════════════════════════════════════════════════════
@@ -642,7 +707,138 @@ function resetAll(){
 }
 
 document.getElementById('mDate').valueAsDate = new Date();
+// Restore saved API key
+const _savedKey = localStorage.getItem('gemini_api_key');
+if(_savedKey) document.getElementById('aiKey').value = _savedKey;
 render();
+
+// ══════════════════════════════════════════════════════
+//  AI — GEMINI
+// ══════════════════════════════════════════════════════
+function openAiModal(){
+  // Pre-fill problem from current state
+  const prob = (_S.os.problem && !_S.os.problem.includes('buraya')) ? _S.os.problem : '';
+  document.getElementById('aiProblem').value = prob;
+  document.getElementById('aiStatus').innerHTML = '';
+  document.getElementById('aiModal').classList.add('open');
+  setTimeout(()=>document.getElementById('aiProblem').focus(),60);
+}
+function closeAiModal(){ document.getElementById('aiModal').classList.remove('open'); }
+
+async function aiGenerate(){
+  const problem = document.getElementById('aiProblem').value.trim();
+  const apiKey  = document.getElementById('aiKey').value.trim();
+
+  if(!problem){ setAiStatus('error','⚠️ Lütfen problem tanımını girin.'); return; }
+  if(!apiKey)  { setAiStatus('error','⚠️ Lütfen Gemini API key girin.'); return; }
+
+  // Save key for next time
+  localStorage.setItem('gemini_api_key', apiKey);
+
+  const btn = document.getElementById('aiGenBtn');
+  btn.disabled = true;
+  setAiStatus('loading','Gemini analiz ediyor…');
+
+  const prompt = `Sen bir kalite mühendisisin. Aşağıdaki problemi 5 Neden (5 Why) metodolojisiyle analiz et.
+Problemi iki açıdan incele:
+1. OLUŞUM: Problem neden oluştu? (Occurrence)
+2. TESPİT EDİLEMEME: Problem neden fark edilemedi / gözden kaçtı? (Non-detection)
+
+Her iz için 4-5 neden zinciri yaz. Son neden = teknik kök neden olsun.
+
+YALNIZCA aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
+{
+  "olusum": {
+    "problem": "<kısa problem özeti>",
+    "steps": ["Neden 1", "Neden 2", "Neden 3", "Neden 4", "Neden 5"],
+    "rootCause": "<teknik kök neden>"
+  },
+  "tespit": {
+    "problem": "<aynı problemi tespit açısından özetle>",
+    "steps": ["Neden 1", "Neden 2", "Neden 3", "Neden 4"],
+    "rootCause": "<tespit kök nedeni>"
+  }
+}
+
+Problem: ${problem}`;
+
+  try {
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.4, maxOutputTokens: 1200 }
+        })
+      }
+    );
+
+    if(!resp.ok){
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err?.error?.message || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const raw  = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // Extract JSON from response (may be wrapped in ```json ... ```)
+    const jsonStr = raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+    const parsed  = JSON.parse(jsonStr);
+
+    applyAiResult(parsed, problem);
+    closeAiModal();
+    setAiStatus('','');
+
+  } catch(e){
+    setAiStatus('error', '❌ Hata: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function applyAiResult(parsed, originalProblem){
+  // OLUŞUM
+  if(parsed.olusum){
+    _S.os.problem  = parsed.olusum.problem || originalProblem;
+    _S.os.rcText   = parsed.olusum.rootCause || _S.os.rcText;
+    _S.os.chains   = [{ startAfter:null, steps: (parsed.olusum.steps||[]).map((t,i,arr)=>{
+      return { id:uid(), text:t, isRoot: i===arr.length-1 };
+    }) }];
+    if(!_S.os.chains[0].steps.length) _S.os.chains[0].steps.push(mkStep());
+  }
+  // TESPİT
+  if(parsed.tespit){
+    _S.nd.problem  = parsed.tespit.problem || originalProblem;
+    _S.nd.rcText   = parsed.tespit.rootCause || _S.nd.rcText;
+    _S.nd.chains   = [{ startAfter:null, steps: (parsed.tespit.steps||[]).map((t,i,arr)=>{
+      return { id:uid(), text:t, isRoot: i===arr.length-1 };
+    }) }];
+    if(!_S.nd.chains[0].steps.length) _S.nd.chains[0].steps.push(mkStep());
+  }
+  // Update meta problem field
+  if(originalProblem && !document.getElementById('mPart').value)
+    document.getElementById('mPart').value = originalProblem.slice(0,60);
+  render();
+}
+
+function setAiStatus(type, msg){
+  const el = document.getElementById('aiStatus');
+  if(!msg){ el.innerHTML=''; return; }
+  if(type==='loading'){
+    el.innerHTML = `<div class="ai-status"><div class="ai-spinner"></div>${msg}</div>`;
+  } else if(type==='error'){
+    el.innerHTML = `<div style="color:#dc2626;font-size:.74rem;font-weight:600;">${msg}</div>`;
+  } else {
+    el.innerHTML = `<div style="color:#16a34a;font-size:.74rem;">${msg}</div>`;
+  }
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape') { closeAiModal(); closeModal(); }
+  if(e.key==='Enter' && e.ctrlKey && document.getElementById('editModal').classList.contains('open')) saveModal();
+});
 </script>
 </body>
 </html>
