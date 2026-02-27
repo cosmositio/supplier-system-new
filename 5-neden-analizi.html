@@ -543,6 +543,9 @@ function renderTrack(tk){
     <marker id="abr_${tk}" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
       <path d="M0,0 L0,6 L7,3 z" fill="#c4b5fd"/>
     </marker>
+    <marker id="abk_${tk}" markerWidth="7" markerHeight="7" refX="1" refY="3" orient="auto">
+      <path d="M7,0 L7,6 L0,3 z" fill="#fb923c"/>
+    </marker>
   </defs>`;
 
   for(const c of conns) drawConn(svg, c, tk);
@@ -557,36 +560,62 @@ function renderTrack(tk){
 function drawConn(svg, c, tk){
   const dx = c.x2-c.x1, dy = c.y2-c.y1;
   const isDiag = Math.abs(dy) > 8;
+  const OFF = 5;   // pixel offset between forward and return arrows
+
+  // Build forward path
   let d;
   if(isDiag){
-    // Curved connector (diagonal)
     const cpx1 = c.x1 + dx*0.5, cpy1 = c.y1;
     const cpx2 = c.x2 - dx*0.3, cpy2 = c.y2;
     d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
   } else {
-    // Horizontal connector (with slight step for staircase feel)
-    // Elbow connector: go right halfway, then horizontally to target
     const mx = c.x1 + (c.x2-c.x1)*0.5;
     d = `M${c.x1},${c.y1} L${mx},${c.y1} L${mx},${c.y2} L${c.x2},${c.y2}`;
   }
 
+  // ── Forward arrow (Neden?) ──
   const path = document.createElementNS('http://www.w3.org/2000/svg','path');
   path.setAttribute('d', d);
   path.setAttribute('fill','none');
   const color  = c.dashed ? '#c4b5fd' : '#93c5fd';
   const marker = c.dashed ? `url(#abr_${tk})` : `url(#ab_${tk})`;
   path.setAttribute('stroke', color);
-  path.setAttribute('stroke-width', '2');
+  path.setAttribute('stroke-width', '1.8');
   if(c.dashed) path.setAttribute('stroke-dasharray','5,4');
   path.setAttribute('marker-end', marker);
   svg.appendChild(path);
 
   if(c.label==='why'){
-    // "Neden?" forward label
     const mx  = (c.x1+c.x2)/2, my = (c.y1+c.y2)/2;
     const off = isDiag ? 0 : -2;
-    svgTxt(svg, mx+2, my-10+off, 'Neden?',     '#2563eb', true,  10);
-    svgTxt(svg, mx-6, my+14+off, '← Bu yüzden','#94a3b8', false, 9);
+    svgTxt(svg, mx+2, my-10+off, 'Neden?', '#2563eb', true, 10);
+
+    // ── Return arrow (← Bu yüzden) — separate dashed orange path going backward ──
+    let dr;
+    if(isDiag){
+      // offset the return path by OFF pixels downward so it's visible alongside forward
+      const rx1 = c.x2, ry1 = c.y2 + OFF;
+      const rx2 = c.x1, ry2 = c.y1 + OFF;
+      const rdx = rx2-rx1, rdy = ry2-ry1;
+      const rcpx1 = rx1 - rdx*0.3, rcpy1 = ry1;
+      const rcpx2 = rx2 + rdx*0.3, rcpy2 = ry2;
+      dr = `M${rx1},${ry1} C${rcpx1},${rcpy1} ${rcpx2},${rcpy2} ${rx2},${ry2}`;
+    } else {
+      const mx2 = c.x1 + (c.x2-c.x1)*0.5;
+      dr = `M${c.x2},${c.y2+OFF} L${mx2},${c.y2+OFF} L${mx2},${c.y1+OFF} L${c.x1},${c.y1+OFF}`;
+    }
+    const rpath = document.createElementNS('http://www.w3.org/2000/svg','path');
+    rpath.setAttribute('d', dr);
+    rpath.setAttribute('fill','none');
+    rpath.setAttribute('stroke','#fb923c');
+    rpath.setAttribute('stroke-width','1.4');
+    rpath.setAttribute('stroke-dasharray','4,4');
+    rpath.setAttribute('marker-end',`url(#abk_${tk})`);
+    svg.appendChild(rpath);
+
+    // Label on the return arrow
+    const rmx = (c.x1+c.x2)/2, rmy = (c.y1+c.y2)/2 + OFF;
+    svgTxt(svg, rmx-18, rmy+13+off, '← Bu yüzden', '#f97316', false, 8.5);
   }
 }
 
