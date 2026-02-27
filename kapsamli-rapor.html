@@ -478,6 +478,25 @@ html, body { scroll-behavior:smooth; }
         </div>
     </div>
 
+    <!-- İÇ BAŞARISIZLIK KIRILIM -->
+    <div class="section" id="s-ic-kirilim">
+        <div class="section-hdr">
+            <span class="ico">🏢</span>
+            <h2>İç Başarısızlık Kırılımı</h2>
+            <span class="hint">Tipi: İç Başarısızlık &mdash; Hata Tipi / Hata Kaynağı / Stok Adı bazlı Pareto</span>
+        </div>
+        <div class="section-body">
+            <div class="idb-bar no-print">
+                <span>Kırılım:</span>
+                <button class="idb-tab active" onclick="switchIcBreak('hataTipi',this)">Hata Tipi</button>
+                <button class="idb-tab" onclick="switchIcBreak('hataKaynagi',this)">Hata Kaynağı</button>
+                <button class="idb-tab" onclick="switchIcBreak('stokAdi',this)">Stok Adı</button>
+            </div>
+            <div style="min-height:300px;"><canvas id="cIcKirilim" height="300"></canvas></div>
+            <div id="icKirilimTable" style="margin-top:14px;"></div>
+        </div>
+    </div>
+
     <!-- TEDARİKÇİ -->
     <div class="section" id="s-tedarikci">
         <div class="section-hdr">
@@ -1403,6 +1422,28 @@ function _idTable(data, totalH, color) {
 // ─────────────────────────────────────────────
 // FISHBONE DIAGRAM
 // ─────────────────────────────────────────────
+
+function switchIcBreak(field, btn) {
+    if (btn) {
+        btn.closest('.idb-bar').querySelectorAll('.idb-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    const icRows = window._idRows && window._idRows.ic;
+    if (!icRows) return;
+    if (window._icKirilimChart) { try { window._icKirilimChart.destroy(); } catch(e){} window._icKirilimChart = null; }
+    const data = _idBuildPareto(icRows, field, 15);
+    const el = document.getElementById('cIcKirilim');
+    const tableEl = document.getElementById('icKirilimTable');
+    if (data.length) {
+        el.style.display = '';
+        const icTotal = icRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
+        window._icKirilimChart = paretoChart(el, data, '#2563eb');
+        tableEl.innerHTML = _idTable(data, icTotal, '#2563eb');
+    } else {
+        el.style.display = 'none';
+        tableEl.innerHTML = '<p style="color:var(--c-sub);font-size:.85rem;text-align:center;padding:20px;">İç başarısızlık kaydı bulunamadı.</p>';
+    }
+}
 const _FB = {
     W:1200, H:560, SY:280, SS:80, SE:970,
     L:210, A:50,
@@ -2550,6 +2591,7 @@ function runReport(payload) {
     window._idRows = { ic: icDis.ic, dis: icDis.dis };
     window._idCharts = {};
     switchIdBreak('hataTipi', null);
+    switchIcBreak('hataTipi', null);
 
     // ── TEDARİKÇİ ──
     const tedData = paretoData(rows,'cariAdi',15);
