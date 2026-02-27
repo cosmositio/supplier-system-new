@@ -772,7 +772,7 @@ html, body { scroll-behavior:smooth; }
                         <option value="İnsan|badge-blue|insan">🚶 İnsan</option>
                         <option value="Makine|badge-gray|makine">⚙️ Makine</option>
                         <option value="Malzeme|badge-yellow|malzeme">🧪 Malzeme</option>
-                        <option value="Metot/Süreç|badge-purple|metot">📔 Metot/Süreç</option>
+                        <option value="Metot|badge-purple|metot">📔 Metot</option>
                         <option value="Ölçüm|badge-green|olcum">📏 Ölçüm</option>
                         <option value="Ortam|badge-green|ortam">🌡️ Ortam</option>
                     </select>
@@ -1585,7 +1585,7 @@ function generateActionPlan(rows, topHataTipi, topTedarikci, topMalzeme, icDis, 
     // 6M insights
     const m6Totals = Object.entries(m6).map(([k,v]) => ({ k, h: v.reduce((s,e)=>s+e.h,0) })).sort((a,b)=>b.h-a.h);
     if (m6Totals[0] && m6Totals[0].h > 0) {
-        const boneMap = { insan:'İnsan (eğitim/işçilik)', malzeme:'Malzeme', metot:'Metot/Süreç', makine:'Makine/Ekipman', olcum:'Ölçüm/Muayene', ortam:'Ortam/Lojistik' };
+        const boneMap = { insan:'İnsan (eğitim/işçilik)', malzeme:'Malzeme', metot:'Metot', makine:'Makine/Ekipman', olcum:'Ölçüm/Muayene', ortam:'Ortam/Lojistik' };
         const boneAct = {
             insan:   'Personel eğitim programı ve çalışma talimatı güncellemesi planlanmalı.',
             malzeme: 'Malzeme kabul kriterleri ve tedarikçi değerlendirmesi gözden geçirilmeli.',
@@ -2343,7 +2343,7 @@ function _rebuildAksiyonFromFishbone() {
         ortam:   'Depolama & sevkiyat koşulları iyileştirilmeli. Ambalaj standardı belirlenmeli.'
     };
     const boneKat = {
-        insan:'İnsan', malzeme:'Malzeme', metot:'Metot/Süreç',
+        insan:'İnsan', malzeme:'Malzeme', metot:'Metot',
         makine:'Makine', olcum:'Ölçüm', ortam:'Ortam'
     };
     const boneKatBadge = {
