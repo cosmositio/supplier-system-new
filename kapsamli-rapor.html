@@ -176,10 +176,11 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 /* ── Multi-Fishbone Group Cards ── */
 .fb-group-card { border:1.5px solid #e2e8f0; border-radius:12px; margin-bottom:28px; overflow:hidden; background:#fff; }
 .fb-group-hdr  { display:flex; align-items:center; gap:12px; padding:14px 20px; background:linear-gradient(90deg,#f8fafc,#f1f5f9); border-bottom:1.5px solid #e2e8f0; flex-wrap:wrap; }
-.fb-collapse-btn { margin-left:auto; background:none; border:1.5px solid #cbd5e1; border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:.85rem; line-height:1; color:#64748b; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .2s; }
-.fb-collapse-btn:hover { background:#f1f5f9; border-color:#94a3b8; color:#1e2535; }
-.fb-card-body { transition:none; }
-.fb-card-body.fb-collapsed { display:none; }
+.fb-hide-btn { margin-left:auto; background:none; border:1.5px solid #fca5a5; border-radius:50%; width:24px; height:24px; cursor:pointer; font-size:.8rem; line-height:1; color:#ef4444; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .2s; font-weight:700; }
+.fb-hide-btn:hover { background:#fee2e2; border-color:#ef4444; }
+.fb-show-all-bar { display:flex; align-items:center; gap:10px; padding:8px 12px; margin-bottom:10px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px; }
+.fb-show-all-btn { background:#2563eb; color:#fff; border:none; border-radius:6px; padding:5px 14px; font-size:.78rem; font-weight:700; cursor:pointer; }
+.fb-show-all-btn:hover { background:#1d4ed8; }
 .fb-group-rank { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; background:#2563eb; color:#fff; font-weight:800; font-size:.85rem; flex-shrink:0; }
 .fb-group-name { font-weight:700; font-size:.95rem; color:#1e2535; flex:1; min-width:80px; }
 .fb-group-badge2 { padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#eff6ff; color:#1d4ed8; }
@@ -194,8 +195,7 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .fb-table-chevron.collapsed { transform:rotate(-90deg); }
 .fb-table-body { overflow:hidden; transition:max-height .35s ease, opacity .25s ease; max-height:2000px; opacity:1; }
 .fb-table-body.collapsed { max-height:0; opacity:0; pointer-events:none; }
-.fb-header  { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; cursor:pointer; user-select:none; padding:8px 12px; border-radius:8px; transition:background .15s; }
-.fb-header:hover { background:#f1f5f9; }
+.fb-header  { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; padding:8px 12px; border-radius:8px; }
 .fb-body { overflow:hidden; transition:max-height .35s ease, opacity .25s ease; max-height:9999px; opacity:1; }
 .fb-body.collapsed { max-height:0; opacity:0; pointer-events:none; }
 .fb-effect-tag { background:#fef2f2; color:#b91c1c; border:1.5px solid #fca5a5; border-radius:20px; padding:3px 14px; font-size:.75rem; font-weight:700; max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -1674,7 +1674,15 @@ function renderMultipleFishbones(groups, allRows, containerEl, idOffset) {
 
     if (!containerEl) return;
 
-    containerEl.innerHTML = effectiveGroups.map((g, i) => {
+    // Show-all toolbar (prepended, hidden until a card is hidden)
+    const _containerId = containerEl.id || '';
+    const _showAllBarId = 'fbShowAllBar_' + _containerId;
+    const _showAllHtml = `<div class="fb-show-all-bar" id="${_showAllBarId}" style="display:none;">
+        <span style="font-size:.8rem;color:#475569;">Bazı kılçıklar gizlendi.</span>
+        <button class="fb-show-all-btn" onclick="_fbShowAll('${_containerId}')">⬛ Tümünü Göster</button>
+    </div>`;
+
+    containerEl.innerHTML = _showAllHtml + effectiveGroups.map((g, i) => {
         const gi   = idOffset + i;
         const rows = g.groupRows || allRows;
         const topRows  = [...rows].sort((a,b) => (Number(b.hataliMiktar)||0) - (Number(a.hataliMiktar)||0)).slice(0, 20);
@@ -1694,14 +1702,13 @@ function renderMultipleFishbones(groups, allRows, containerEl, idOffset) {
                 <span class="fb-group-badge2">🔴 ${fmtN(g.totalHatali)} adet</span>
                 <span class="fb-group-badge2">📋 ${g.count} kayıt</span>
                 <span class="fb-group-badge2">%${g.pct} — Kümülatif %${g.cumPct}</span>
-                <button class="fb-collapse-btn" id="fbCollapseBtn_${gi}" onclick="_fbCollapseCard(${gi})" title="Kılçığı gizle / göster">▾</button>
+                <button class="fb-hide-btn" onclick="_fbHideCard(${gi}, this)" title="Bu kılçığı gizle">✕</button>
             </div>
             <div class="fb-card-body" id="fbCardBody_${gi}">
             <div class="fb-section" onmousedown="_fbActivate(${gi})">
-                <div class="fb-header" onclick="_fbToggleBody(${gi})">
+                <div class="fb-header">
                     <span style="font-weight:700;font-size:.9rem;color:#1e2535;">🐟 Balık Kılçığı — ${esc(g.label)}</span>
                     <span style="font-size:.75rem;color:#64748b;margin-left:auto;">6 kemik: İnsan · Makine · Malzeme · Metot · Ölçüm · Ortam</span>
-                    <span id="fbChevron_${gi}" style="font-size:.9rem;transition:transform .25s;display:inline-block;margin-left:6px;">▾</span>
                 </div>
                 <div class="fb-body" id="fbBody_${gi}">
                 <div class="fb-svg-wrap" id="fbContainer_${gi}"></div>
@@ -1742,12 +1749,23 @@ function renderMultipleFishbones(groups, allRows, containerEl, idOffset) {
     window._fbData      = window._fbDataArr[idOffset];
 }
 
-function _fbCollapseCard(gi) {
-    const body = document.getElementById('fbCardBody_' + gi);
-    const btn  = document.getElementById('fbCollapseBtn_' + gi);
-    if (!body) return;
-    const collapsed = body.classList.toggle('fb-collapsed');
-    if (btn) btn.textContent = collapsed ? '▸' : '▾';
+function _fbHideCard(gi, btn) {
+    const card = document.getElementById('fbGroup_' + gi);
+    if (!card) return;
+    card.style.display = 'none';
+    // Show the restore bar for this container
+    const container = card.closest('[id^="multiFbSection"]');
+    if (container) {
+        const bar = document.getElementById('fbShowAllBar_' + container.id);
+        if (bar) bar.style.display = 'flex';
+    }
+}
+function _fbShowAll(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.querySelectorAll('.fb-group-card').forEach(c => c.style.display = '');
+    const bar = document.getElementById('fbShowAllBar_' + containerId);
+    if (bar) bar.style.display = 'none';
 }
 
 function drawFishbone() {
