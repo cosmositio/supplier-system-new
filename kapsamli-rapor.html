@@ -635,14 +635,12 @@ html, body { scroll-behavior:smooth; }
                 <div class="ap-field">
                     <label>Kategori</label>
                     <select id="apFKat">
-                        <option value="Hata Tipi|badge-red">Hata Tipi</option>
-                        <option value="Tedarikçi|badge-purple">Tedarikçi</option>
-                        <option value="Malzeme|badge-yellow">Malzeme</option>
-                        <option value="İç Başarısızlık|badge-blue">İç Başarısızlık</option>
-                        <option value="Dış Başarısızlık|badge-red">Dış Başarısızlık</option>
-                        <option value="6M Analizi|badge-green">6M Analizi</option>
-                        <option value="Sistem|badge-gray">Sistem</option>
-                        <option value="Diğer|badge-gray">Diğer</option>
+                        <option value="İnsan|badge-red|insan">🚶 İnsan</option>
+                        <option value="Makine|badge-yellow|makine">⚙️ Makine</option>
+                        <option value="Malzeme|badge-blue|malzeme">🧪 Malzeme</option>
+                        <option value="Metot|badge-purple|metot">📔 Metot</option>
+                        <option value="Ölçüm|badge-gray|olcum">📏 Ölçüm</option>
+                        <option value="Ortam|badge-green|ortam">🌡️ Ortam</option>
                     </select>
                 </div>
                 <div class="ap-field">
@@ -2568,10 +2566,14 @@ function apOpenEdit(idx) {
     document.getElementById('apFTarih').value    = a.tarih    || '';
     document.getElementById('apFFaaliyet').value = a.faaliyet || '';
     const katSel = document.getElementById('apFKat');
-    const katVal = `${a.kat}|${a.katBadge}`;
     let found = false;
-    for (const opt of katSel.options) { if (opt.value === katVal) { katSel.value = opt.value; found = true; break; } }
-    if (!found) katSel.value = 'Diğer|badge-gray';
+    // Try matching by _m6Bone (3rd pipe segment) first, then by kat+badge prefix
+    for (const opt of katSel.options) {
+        const parts = opt.value.split('|');
+        if (a._m6Bone && parts[2] === a._m6Bone) { katSel.value = opt.value; found = true; break; }
+        if (!a._m6Bone && parts[0] === a.kat && parts[1] === a.katBadge) { katSel.value = opt.value; found = true; break; }
+    }
+    if (!found) katSel.value = katSel.options[0]?.value || '';
     document.getElementById('apModal').classList.add('open');
 }
 
@@ -2588,7 +2590,7 @@ function apOpenAdd(cat, eff) {
     document.getElementById('apFSorumlu').value  = '';
     document.getElementById('apFDurum').value    = 'Beklemede';
     document.getElementById('apFTarih').value    = '';
-    document.getElementById('apFKat').value      = 'Diğer|badge-gray';
+    document.getElementById('apFKat').value      = 'İnsan|badge-red|insan';
     document.getElementById('apFFaaliyet').value = '';
     document.getElementById('apModal').classList.add('open');
     setTimeout(() => document.getElementById('apFBulgu').focus(), 50);
@@ -2605,8 +2607,8 @@ function apSaveModal() {
     const sorumlu = document.getElementById('apFSorumlu').value.trim();
     const durum   = document.getElementById('apFDurum').value;
     const tarih   = document.getElementById('apFTarih').value;
-    const katRaw  = document.getElementById('apFKat').value; // "Name|badge-x"
-    const [kat, katBadge] = katRaw.split('|');
+    const katRaw  = document.getElementById('apFKat').value; // "Name|badge-x|boneKey"
+    const [kat, katBadge, _m6Bone] = katRaw.split('|');
 
     if (!bulgu) { document.getElementById('apFBulgu').focus(); return; }
 
@@ -2617,6 +2619,7 @@ function apSaveModal() {
         // Yeni satır: _cat ekle, 8D seçildiyse has8DLink'i undefined bırak (düğme görünür)
         entry._cat = _apAddCat;
         if (_apAddEff) entry._fbEffect = _apAddEff;
+        if (_m6Bone) entry._m6Bone = _m6Bone;
         window._aksiyonlar.push(entry);
     } else {
         // Düzenleme: onceki satırdan has8DLink, _cat, _fbEffect, _fbSource'u koru
@@ -2626,11 +2629,13 @@ function apSaveModal() {
         }
         // Preserve category grouping fields (edited entries stay in their original tab)
         if (prev._fbSource) { entry._fbSource = true; entry._cat = prev._cat; entry._fbEffect = prev._fbEffect; }
+        entry._m6Bone = _m6Bone || prev._m6Bone || '';
         // Faaliyet 8D'den başkasına değiştirildiyse bağlantıyı temizle
         window._aksiyonlar[_apEditIdx] = entry;
     }
     renderAksiyonTablosu();
     _krSaveEdits();
+    if (_m6Bone && window._fbDataArr && window._fbDataArr.length) _refreshManualInFishbones();
     apCloseModal();
     // Switch to the tab where the entry was saved
     if (_apEditIdx === -1) {
@@ -2641,9 +2646,89 @@ function apSaveModal() {
 
 function apDelete(idx) {
     if (!confirm('Bu satırı silmek istediğinizden emin misiniz?')) return;
+    const hadBone = !!(window._aksiyonlar[idx] || {})._m6Bone;
     window._aksiyonlar.splice(idx, 1);
     renderAksiyonTablosu();
     _krSaveEdits();
+    if (hadBone && window._fbDataArr && window._fbDataArr.length) _refreshManualInFishbones();
+}
+
+// Inject manual aksiyon entries (with _m6Bone) into fishbone causes and redraw
+function _refreshManualInFishbones() {
+    const arr = window._fbDataArr;
+    if (!arr || !arr.length) return;
+    const manual = (window._aksiyonlar || []).filter(a => !a._fbSource && a._m6Bone && a._fbEffect);
+
+    // Clear previously injected manual causes
+    arr.forEach(fb => {
+        if (!fb) return;
+        fb.bones.forEach(b => { b.causes = (b.causes || []).filter(c => !c._isManual); });
+    });
+
+    // Inject manual causes into matching fishbone groups
+    manual.forEach(a => {
+        const offset = a._cat === 'dis' ? 1000 : a._cat === 'ted' ? 2000 : 0;
+        for (let gi = offset; gi < arr.length && gi < offset + 1000; gi++) {
+            const fb = arr[gi];
+            if (!fb) continue;
+            if (fb.effect === a._fbEffect) {
+                const b = fb.bones.find(b => b.key === a._m6Bone);
+                if (b) {
+                    const name = (a.bulgu || '').substring(0, 40);
+                    if (name && !b.causes.some(c => c.name === name)) {
+                        b.causes.push({ name, subs: [], _isManual: true });
+                    }
+                }
+                break;
+            }
+        }
+    });
+
+    // Redraw all fishbones
+    const prevIdx = window._fbActiveIdx;
+    arr.forEach((fb, gi) => {
+        if (!fb) return;
+        window._fbActiveIdx = gi;
+        window._fbData = fb;
+        drawFishbone();
+        renderFbEditPanels();
+    });
+    window._fbActiveIdx = prevIdx || 0;
+    window._fbData = arr[prevIdx] || arr[0];
+
+    // Update 6M detail lists
+    _updateM6DetailManual();
+}
+
+function _updateM6DetailManual() {
+    const manual = (window._aksiyonlar || []).filter(a => !a._fbSource && a._m6Bone);
+    const M6_META = window._M6_META;
+    if (!M6_META) return;
+    ['ic','dis','ted'].forEach(cat => {
+        const detailEl = document.getElementById('m6Detail_' + cat);
+        if (!detailEl) return;
+        const existing = detailEl.querySelector('.m6-manuel-section');
+        if (existing) existing.remove();
+        const catManual = manual.filter(a => a._cat === cat);
+        if (!catManual.length) return;
+        const byBone = {};
+        catManual.forEach(a => {
+            if (!byBone[a._m6Bone]) byBone[a._m6Bone] = [];
+            byBone[a._m6Bone].push(a);
+        });
+        let html = '<div class="m6-manuel-section" style="margin-top:12px;border-top:1px dashed #e2e8f0;padding-top:10px;font-size:.82rem;">';
+        html += '<div style="font-size:.72rem;color:#94a3b8;margin-bottom:8px;">✏️ Manuel Eklenen</div>';
+        Object.entries(byBone).forEach(([bk, entries]) => {
+            const meta = M6_META[bk] || { label: bk, color: '#64748b' };
+            html += `<div style="margin-bottom:8px;"><div style="font-weight:700;color:${meta.color};margin-bottom:4px;">${meta.label}</div>`;
+            entries.forEach(a => {
+                html += `<div style="margin-bottom:4px;"><span style="color:#374151;">• ${esc((a.bulgu||'').substring(0,40))}</span></div>`;
+            });
+            html += '</div>';
+        });
+        html += '</div>';
+        detailEl.insertAdjacentHTML('beforeend', html);
+    });
 }
 
 // Close modal on backdrop click
@@ -2920,6 +3005,10 @@ function runReport(payload) {
     renderMultipleFishbones(pg80_dis, _idRowsFor6m.dis,       document.getElementById('multiFbSection_dis'), 1000);
     renderMultipleFishbones(pg80_ted, _idRowsFor6m.tedarikci, document.getElementById('multiFbSection_ted'), 2000);
     _rebuildM6Display();
+    // Re-inject any saved manual entries into fishbones and 6M detail lists
+    if (window._aksiyonlar && window._aksiyonlar.some(a => !a._fbSource && a._m6Bone)) {
+        _refreshManualInFishbones();
+    }
 
 
     // ── TREND ──
