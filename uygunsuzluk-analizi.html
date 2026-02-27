@@ -124,6 +124,39 @@
             transition: border-color 0.2s;
         }
         .filter-group select:focus, .filter-group input:focus { border-color: #b94fc4; }
+        /* Custom searchable dropdown */
+        .sk-wrap { position:relative; min-width:150px; }
+        .sk-trigger {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:8px 10px; border:1.5px solid #ddd; border-radius:8px;
+            font-size:.9em; background:#fafafa; cursor:pointer;
+            user-select:none; transition:border-color .2s; white-space:nowrap;
+            overflow:hidden; text-overflow:ellipsis; gap:6px;
+        }
+        .sk-trigger:hover, .sk-trigger.open { border-color:#b94fc4; }
+        .sk-trigger .sk-arrow { font-size:.7em; flex-shrink:0; opacity:.6; transition:transform .2s; }
+        .sk-trigger.open .sk-arrow { transform:rotate(180deg); }
+        .sk-panel {
+            display:none; position:absolute; z-index:9999; top:calc(100% + 4px); left:0;
+            min-width:100%; background:#fff; border:1.5px solid #ccc;
+            border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.13);
+            overflow:hidden;
+        }
+        .sk-panel.open { display:block; }
+        .sk-search {
+            width:100%; box-sizing:border-box;
+            padding:8px 10px; border:none; border-bottom:1.5px solid #eee;
+            font-size:.85em; outline:none; background:#f8f8f8;
+        }
+        .sk-search:focus { background:#fff; }
+        .sk-list { max-height:210px; overflow-y:auto; }
+        .sk-item {
+            padding:7px 12px; font-size:.88em; cursor:pointer;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .sk-item:hover { background:#f3e8ff; color:#7c3aed; }
+        .sk-item.selected { background:#ede9fe; color:#6d28d9; font-weight:700; }
+        .sk-item.no-result { color:#aaa; font-style:italic; pointer-events:none; }
         .filter-btn {
             padding: 8px 18px;
             border: none;
@@ -1166,11 +1199,19 @@
             </div>
             <div class="filter-group">
                 <label>Stok Kodu</label>
-                <input type="text" id="stokKoduSearch" placeholder="🔍 Ara..." autocomplete="off"
-                    oninput="filterStokKodu(this.value)"
-                    style="font-size:.8rem;padding:4px 8px;border:1.5px solid #ccc;border-radius:6px;outline:none;transition:border-color .2s;"
-                    onfocus="this.style.borderColor='#b94fc4'" onblur="this.style.borderColor='#ccc'">
-                <select id="fStokKodu"><option value="">Tümü</option></select>
+                <div class="sk-wrap" id="skWrap">
+                    <div class="sk-trigger" id="skTrigger" onclick="_skToggle()">
+                        <span id="skLabel">Tümü</span>
+                        <span class="sk-arrow">▼</span>
+                    </div>
+                    <div class="sk-panel" id="skPanel">
+                        <input class="sk-search" id="skSearch" type="text" placeholder="🔍 Ara..."
+                            autocomplete="off" oninput="_skFilter(this.value)">
+                        <div class="sk-list" id="skList"></div>
+                    </div>
+                </div>
+                <!-- hidden select keeps value for existing JS -->
+                <select id="fStokKodu" style="display:none"><option value="">Tümü</option></select>
             </div>
             <div class="filter-group" style="flex-direction: row; gap: 8px; align-items: flex-end; flex-wrap:wrap;">
                 <button class="filter-btn btn-apply" onclick="applyFilters()">✔ Uygula</button>
@@ -2568,7 +2609,13 @@ function populateFilters() {
         const vals = [...new Set(allData.map(r => r[field]).filter(v => v !== '' && v !== 0))].sort();
         sel.innerHTML = '<option value="">Tümü</option>' + vals.map(v => `<option value="${v}">${v}</option>`).join('');
         if (vals.includes(current)) sel.value = current;
-        if (selId === 'fStokKodu') window._stokOptions = vals;
+        if (selId === 'fStokKodu') {
+            window._stokOptions = vals;
+            // sync custom dropdown label
+            const _lbl = document.getElementById('skLabel');
+            if (_lbl) _lbl.textContent = sel.value ? sel.value : 'Tümü';
+            _skBuild();
+        }
     }
     populateTespitYeriDropdown();
     populateCariDropdown();
@@ -2635,8 +2682,8 @@ function resetFilters() {
     document.getElementById('fMakine').value = '';
     document.getElementById('fCariTip').value = '';
     document.getElementById('fStokKodu').value = '';
-    const _sk = document.getElementById('stokKoduSearch'); if (_sk) _sk.value = '';
-    filterStokKodu('');
+    _skSelect('');
+    _skBuild();
     document.getElementById('fDateStart').value = '';
     document.getElementById('fDateEnd').value = '';
     selectCari('');
@@ -2659,15 +2706,61 @@ function resetFilters() {
 
 // ─── Custom Tespit Yeri Multi-Select ─────────────────────────────────────
 function filterStokKodu(term) {
-    const sel = document.getElementById('fStokKodu');
-    if (!sel) return;
-    const cur = sel.value;
-    const opts = window._stokOptions || [];
-    const q = term.trim().toLowerCase();
-    const filtered = q === '' ? opts : opts.filter(v => String(v).toLowerCase().includes(q));
-    sel.innerHTML = '<option value="">Tümü</option>' + filtered.map(v => `<option value="${v}">${v}</option>`).join('');
-    if (filtered.includes(cur)) sel.value = cur;
+    // legacy compat — no-op, _skFilter used now
+    _skFilter(term);
 }
+
+// ── Custom searchable stok kodu dropdown ──
+function _skBuild() {
+    _skFilter('');
+}
+function _skToggle() {
+    const panel  = document.getElementById('skPanel');
+    const trigger = document.getElementById('skTrigger');
+    if (!panel) return;
+    const opening = !panel.classList.contains('open');
+    // close all other dropdowns if any
+    panel.classList.toggle('open', opening);
+    trigger.classList.toggle('open', opening);
+    if (opening) {
+        const inp = document.getElementById('skSearch');
+        if (inp) { inp.value = ''; _skFilter(''); setTimeout(() => inp.focus(), 60); }
+    }
+}
+function _skFilter(term) {
+    const list = document.getElementById('skList');
+    if (!list) return;
+    const cur  = document.getElementById('fStokKodu').value;
+    const opts = window._stokOptions || [];
+    const q    = term.trim().toLowerCase();
+    const filtered = q === '' ? opts : opts.filter(v => String(v).toLowerCase().includes(q));
+    if (!filtered.length) {
+        list.innerHTML = '<div class="sk-item no-result">Sonuç bulunamadı</div>';
+        return;
+    }
+    list.innerHTML = ['', ...filtered].map(v => {
+        const label = v === '' ? 'Tümü' : v;
+        return `<div class="sk-item${v === cur ? ' selected' : ''}" onclick="_skSelect(${JSON.stringify(v)})">${label}</div>`;
+    }).join('');
+}
+function _skSelect(val) {
+    const sel = document.getElementById('fStokKodu');
+    if (sel) sel.value = val;
+    document.getElementById('skLabel').textContent = val === '' ? 'Tümü' : val;
+    const panel  = document.getElementById('skPanel');
+    const trigger = document.getElementById('skTrigger');
+    if (panel)  panel.classList.remove('open');
+    if (trigger) trigger.classList.remove('open');
+}
+document.addEventListener('click', e => {
+    const wrap = document.getElementById('skWrap');
+    if (wrap && !wrap.contains(e.target)) {
+        const panel  = document.getElementById('skPanel');
+        const trigger = document.getElementById('skTrigger');
+        if (panel)  panel.classList.remove('open');
+        if (trigger) trigger.classList.remove('open');
+    }
+});
 
 function populateTespitYeriDropdown() {
     _tespitYeriAllList = [...new Set(allData.map(r => r.tespitYeri).filter(v => v !== '' && v !== undefined && v !== null))].sort();
@@ -3518,6 +3611,7 @@ async function applySavedFilter(id) {
     document.getElementById('fUygunsuzlukTuru').value = s.uygunsuzlukTuru || '';
     document.getElementById('fMakine').value          = s.makine          || '';
     document.getElementById('fStokKodu').value        = s.stokKodu        || '';
+    _skSelect(s.stokKodu || '');
     document.getElementById('fDateStart').value       = s.dateStart       || '';
     document.getElementById('fDateEnd').value         = s.dateEnd         || '';
     document.getElementById('fCariTip').value         = s.cariTip         || '';
