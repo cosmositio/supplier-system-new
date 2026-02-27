@@ -176,6 +176,10 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 /* ── Multi-Fishbone Group Cards ── */
 .fb-group-card { border:1.5px solid #e2e8f0; border-radius:12px; margin-bottom:28px; overflow:hidden; background:#fff; }
 .fb-group-hdr  { display:flex; align-items:center; gap:12px; padding:14px 20px; background:linear-gradient(90deg,#f8fafc,#f1f5f9); border-bottom:1.5px solid #e2e8f0; flex-wrap:wrap; }
+.fb-collapse-btn { margin-left:auto; background:none; border:1.5px solid #cbd5e1; border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:.85rem; line-height:1; color:#64748b; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .2s; }
+.fb-collapse-btn:hover { background:#f1f5f9; border-color:#94a3b8; color:#1e2535; }
+.fb-card-body { transition:none; }
+.fb-card-body.fb-collapsed { display:none; }
 .fb-group-rank { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; background:#2563eb; color:#fff; font-weight:800; font-size:.85rem; flex-shrink:0; }
 .fb-group-name { font-weight:700; font-size:.95rem; color:#1e2535; flex:1; min-width:80px; }
 .fb-group-badge2 { padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#eff6ff; color:#1d4ed8; }
@@ -1690,7 +1694,9 @@ function renderMultipleFishbones(groups, allRows, containerEl, idOffset) {
                 <span class="fb-group-badge2">🔴 ${fmtN(g.totalHatali)} adet</span>
                 <span class="fb-group-badge2">📋 ${g.count} kayıt</span>
                 <span class="fb-group-badge2">%${g.pct} — Kümülatif %${g.cumPct}</span>
+                <button class="fb-collapse-btn" id="fbCollapseBtn_${gi}" onclick="_fbCollapseCard(${gi})" title="Kılçığı gizle / göster">▾</button>
             </div>
+            <div class="fb-card-body" id="fbCardBody_${gi}">
             <div class="fb-section" onmousedown="_fbActivate(${gi})">
                 <div class="fb-header" onclick="_fbToggleBody(${gi})">
                     <span style="font-weight:700;font-size:.9rem;color:#1e2535;">🐟 Balık Kılçığı — ${esc(g.label)}</span>
@@ -1719,6 +1725,7 @@ function renderMultipleFishbones(groups, allRows, containerEl, idOffset) {
                 </div>
                 </div>
             </div>
+            </div><!-- /fb-card-body -->
         </div>`;
     }).join('');
 
@@ -1733,6 +1740,14 @@ function renderMultipleFishbones(groups, allRows, containerEl, idOffset) {
     // İlk fishbone aktif kalsın
     window._fbActiveIdx = idOffset;
     window._fbData      = window._fbDataArr[idOffset];
+}
+
+function _fbCollapseCard(gi) {
+    const body = document.getElementById('fbCardBody_' + gi);
+    const btn  = document.getElementById('fbCollapseBtn_' + gi);
+    if (!body) return;
+    const collapsed = body.classList.toggle('fb-collapsed');
+    if (btn) btn.textContent = collapsed ? '▸' : '▾';
 }
 
 function drawFishbone() {
