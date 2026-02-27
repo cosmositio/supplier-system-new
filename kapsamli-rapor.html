@@ -107,8 +107,8 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 
 /* ── CHART CONTAINERS ── */
 .chart-wrap { position:relative; }
-.chart-wrap canvas { max-height:300px; }
-.chart-wrap-tall canvas { max-height:380px; }
+.chart-wrap canvas { max-height:260px; }
+.chart-wrap-tall canvas { max-height:260px; }
 
 /* ── TABLES ── */
 .rep-table { width:100%; border-collapse:collapse; font-size:.82rem; }
@@ -466,12 +466,12 @@ html, body { scroll-behavior:smooth; }
             <div class="id-pareto-grid">
                 <div class="id-pareto-panel">
                     <div class="id-panel-title" style="color:#1d4ed8;">🏢 İç Başarısızlık Pareto</div>
-                    <div style="min-height:260px;"><canvas id="cIcBreak" height="260"></canvas></div>
+                    <div style="min-height:200px;"><canvas id="cIcBreak" height="200"></canvas></div>
                     <div id="icBreakTable" style="margin-top:10px;"></div>
                 </div>
                 <div class="id-pareto-panel">
                     <div class="id-panel-title" style="color:#c2410c;">🚚 Dış Başarısızlık Pareto</div>
-                    <div style="min-height:260px;"><canvas id="cDisBreak" height="260"></canvas></div>
+                    <div style="min-height:200px;"><canvas id="cDisBreak" height="200"></canvas></div>
                     <div id="disBreakTable" style="margin-top:10px;"></div>
                 </div>
             </div>
@@ -492,7 +492,7 @@ html, body { scroll-behavior:smooth; }
                 <button class="idb-tab" onclick="switchIcBreak('hataKaynagi',this)">Hata Kaynağı</button>
                 <button class="idb-tab" onclick="switchIcBreak('stokAdi',this)">Stok Adı</button>
             </div>
-            <div style="min-height:300px;"><canvas id="cIcKirilim" height="300"></canvas></div>
+            <div style="min-height:220px;"><canvas id="cIcKirilim" height="220"></canvas></div>
             <div id="icKirilimTable" style="margin-top:14px;"></div>
         </div>
     </div>
@@ -505,7 +505,7 @@ html, body { scroll-behavior:smooth; }
             <span class="hint">Tipi: Tedarikçi &mdash; Cari Adına Göre Pareto &mdash; Top 15</span>
         </div>
         <div class="section-body">
-            <div style="min-height:300px;"><canvas id="cTedarikci" height="300"></canvas></div>
+            <div style="min-height:220px;"><canvas id="cTedarikci" height="220"></canvas></div>
             <div id="tedarikciTable" style="margin-top:14px;"></div>
         </div>
     </div>
@@ -534,7 +534,7 @@ html, body { scroll-behavior:smooth; }
         </div>
         <div class="section-body">
             <div class="two-col">
-                <div class="chart-wrap-tall"><canvas id="cMusteri" height="300"></canvas></div>
+                <div class="chart-wrap-tall"><canvas id="cMusteri" height="220"></canvas></div>
                 <div id="musteriTable"></div>
             </div>
         </div>
@@ -1100,7 +1100,7 @@ function paretoChart(ctx, entries, singleColor) {
             ]
         },
         options: {
-            responsive:true, maintainAspectRatio:true,
+            responsive:true, maintainAspectRatio:true, aspectRatio:3,
             plugins: {
                 legend:{ position:'top', labels:{ font:{size:11} } },
                 tooltip:{ callbacks:{
@@ -2423,7 +2423,22 @@ document.addEventListener('click', e => {
 // ─────────────────────────────────────────────
 // MAIN RENDER
 // ─────────────────────────────────────────────
+window._krMusteriSet = new Set();
+function _loadMusteriSet() {
+    // 1. localStorage'dan hızlı yükleme
+    try {
+        const ls = localStorage.getItem('uyg_musteriSet');
+        if (ls) window._krMusteriSet = new Set(JSON.parse(ls));
+    } catch(e) {}
+    // 2. IndexedDB'den doğrulama
+    _idbGet('musteriSet').then(mSet => {
+        if (mSet && Array.isArray(mSet) && mSet.length > window._krMusteriSet.size) {
+            window._krMusteriSet = new Set(mSet);
+        }
+    }).catch(() => {});
+}
 window.addEventListener('DOMContentLoaded', () => {
+    _loadMusteriSet();
     idbLoadRapor()
         .then(payload => runReport(payload))
         .catch(e => {
@@ -2625,7 +2640,7 @@ function runReport(payload) {
 
     // ── MÜŞTERİ Bazında Hata Dağılımı (Dış Başarısızlık + Cari Tipi=Müşteri + Cari Adı) ──
     {
-        const mustRows = icDis.dis.filter(r => (r.cariTipi||'').toLowerCase().includes('müşteri'));
+        const mustRows = icDis.dis.filter(r => window._krMusteriSet.has(r.cariAdi||''));
         const mustTotal = mustRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
         let mustCum = 0;
         const mustAgg = {};
