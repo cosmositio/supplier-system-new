@@ -709,6 +709,12 @@ html, body { scroll-behavior:smooth; }
             <span class="hint">Hatalı miktar aylara göre — son 18 ay</span>
         </div>
         <div class="section-body">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+                <button id="trendTab_all" onclick="renderTrendChart('all')" class="cat6m-tab active">📊 Tümü</button>
+                <button id="trendTab_ic"  onclick="renderTrendChart('ic')"  class="cat6m-tab">🏭 İç</button>
+                <button id="trendTab_dis" onclick="renderTrendChart('dis')" class="cat6m-tab">🚚 Dış</button>
+                <button id="trendTab_ted" onclick="renderTrendChart('ted')" class="cat6m-tab">📦 Tedarikçi</button>
+            </div>
             <div class="two-col">
                 <div class="chart-wrap-tall" style="grid-column:1/-1;"><canvas id="cTrend"></canvas></div>
             </div>
@@ -1405,6 +1411,90 @@ function parseDateStr(s) {
 }
 
 // ── MONTHLY TREND ──
+function renderTrendChart(cat) {
+    // update tab button active states
+    ['all','ic','dis','ted'].forEach(c => {
+        const btn = document.getElementById('trendTab_' + c);
+        if (btn) btn.classList.toggle('active', c === cat);
+    });
+
+    // pick the right rows
+    const idRows = window._trendIcDis || {};
+    let rows;
+    if      (cat === 'ic')  rows = idRows.ic          || [];
+    else if (cat === 'dis') rows = idRows.dis          || [];
+    else if (cat === 'ted') rows = idRows.tedarikci    || [];
+    else                    rows = window._trendAllRows || [];
+
+    const trend = buildTrend(rows);
+
+    // per-category colour scheme
+    const C = {
+        all: { l1:'#2563eb', f1:'rgba(37,99,235,.1)',  l2:'#7c3aed', f2:'rgba(124,58,237,.05)' },
+        ic:  { l1:'#059669', f1:'rgba(5,150,105,.1)',  l2:'#34d399', f2:'rgba(52,211,153,.05)' },
+        dis: { l1:'#dc2626', f1:'rgba(220,38,38,.1)',  l2:'#f87171', f2:'rgba(248,113,113,.05)' },
+        ted: { l1:'#7c3aed', f1:'rgba(124,58,237,.1)', l2:'#c084fc', f2:'rgba(192,132,252,.05)' }
+    }[cat] || {};
+
+    const canvas = document.getElementById('cTrend');
+    if (!canvas) return;
+    const existing = Chart.getChart ? Chart.getChart(canvas) : null;
+    if (existing) existing.destroy();
+
+    new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: trend.labels,
+            datasets: [
+                {
+                    label: 'Hatalı Miktar', data: trend.hatali,
+                    borderColor: C.l1, backgroundColor: C.f1,
+                    tension: .35, fill: true, pointRadius: 4, yAxisID: 'y'
+                },
+                {
+                    label: 'Kayıt Sayısı', data: trend.kayit,
+                    borderColor: C.l2, backgroundColor: C.f2,
+                    tension: .35, fill: false, pointRadius: 3, borderDash: [5,5], yAxisID: 'y2'
+                }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: true,
+            plugins: { legend: { position: 'top' } },
+            scales: {
+                x:  { ticks: { font: { size: 10 } }, grid: { color: '#f1f5f9' } },
+                y:  { position: 'left',  ticks: { font: { size: 10 } }, title: { display: true, text: 'Hatalı Miktar',  font: { size: 10 } } },
+                y2: { position: 'right', ticks: { font: { size: 10 } }, title: { display: true, text: 'Kayıt Sayısı', font: { size: 10 } }, grid: { display: false } }
+            }
+        }
+    });
+
+    // Trend insight
+    const insEl = document.getElementById('trendInsight');
+    if (!insEl) return;
+    if (trend.hatali.length < 3) { insEl.innerHTML = ''; return; }
+    const last3 = trend.hatali.slice(-3).reduce((s,v)=>s+v,0) / 3;
+    const prev3 = trend.hatali.slice(-6,-3).reduce((s,v)=>s+v,0) / 3;
+    if (!prev3) { insEl.innerHTML = ''; return; }
+    const chg = Math.round((last3 - prev3) / prev3 * 100);
+    const catLabel = { all: 'tüm veriler', ic: 'iç kaynaklı', dis: 'dış kaynaklı', ted: 'tedarikçi kaynaklı' }[cat] || '';
+    let insight, borderColor, bg, color;
+    if (chg <= -15) {
+        insight = `✅ <strong>İyileşme trendi</strong> (${catLabel}): Son 3 ay ortalaması önceki 3 aya göre <strong>%${Math.abs(chg)} azalış</strong> gösteriyor. İyileştirme çalışmaları etkili.`;
+        borderColor = '#22c55e'; bg = '#f0fdf4'; color = '#14532d';
+    } else if (chg >= 15) {
+        insight = `⚠️ <strong>Yükselen trend</strong> (${catLabel}): Son 3 ay ortalaması önceki 3 aya göre <strong>+%${chg} artış</strong> gösteriyor. Acil müdahale önerilir.`;
+        borderColor = '#ef4444'; bg = '#fff1f2'; color = '#7f1d1d';
+    } else {
+        insight = `ℹ️ <strong>Stabil trend</strong> (${catLabel}): Son 6 ayda belirgin değişim yok (%${chg > 0 ? '+' : ''}${chg}).`;
+        borderColor = '#f59e0b'; bg = '#fffbeb'; color = '#78350f';
+    }
+    insEl.style.borderLeftColor = borderColor;
+    insEl.style.background      = bg;
+    insEl.style.color           = color;
+    insEl.innerHTML = insight;
+}
+
 function buildTrend(rows) {
     const map = {};
     rows.forEach(r => {
@@ -3258,50 +3348,9 @@ function runReport(payload, opts) {
 
 
     // ── TREND ──
-    const trend = buildTrend(rows);
-    new Chart(document.getElementById('cTrend'), {
-        type:'line',
-        data:{
-            labels: trend.labels,
-            datasets:[
-                {
-                    label:'Hatalı Miktar', data:trend.hatali,
-                    borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.1)',
-                    tension:.35, fill:true, pointRadius:4, yAxisID:'y'
-                },
-                {
-                    label:'Kayıt Sayısı', data:trend.kayit,
-                    borderColor:'#7c3aed', backgroundColor:'rgba(124,58,237,.05)',
-                    tension:.35, fill:false, pointRadius:3, borderDash:[5,5], yAxisID:'y2'
-                }
-            ]
-        },
-        options:{
-            responsive:true, maintainAspectRatio:true,
-            plugins:{ legend:{ position:'top' } },
-            scales:{
-                x:{ ticks:{font:{size:10}}, grid:{color:'#f1f5f9'} },
-                y:{ position:'left',  ticks:{font:{size:10}}, title:{display:true,text:'Hatalı Miktar',font:{size:10}} },
-                y2:{ position:'right', ticks:{font:{size:10}}, title:{display:true,text:'Kayıt Sayısı',font:{size:10}}, grid:{display:false} }
-            }
-        }
-    });
-
-    // Trend insight
-    if (trend.hatali.length >= 3) {
-        const last3  = trend.hatali.slice(-3).reduce((s,v)=>s+v,0)/3;
-        const prev3  = trend.hatali.slice(-6,-3).reduce((s,v)=>s+v,0)/3;
-        let insight = '';
-        if (prev3 > 0) {
-            const chg = Math.round((last3-prev3)/prev3*100);
-            if (chg >= 15)  insight = `⚠️ <strong>Yükselen trend:</strong> Son 3 ay ortalaması önceki 3 aya göre <strong>+%${chg} artış</strong> gösteriyor. Acil müdahale önerilir.`;
-            else if (chg <= -15) insight = `✅ <strong>İyileşme trendi:</strong> Son 3 ay ortalaması önceki 3 aya göre <strong>%${Math.abs(chg)} azalış</strong> gösteriyor. İyileştirme çalışmaları etkili.`;
-            else insight = `ℹ️ <strong>Stabil trend:</strong> Son 6 ayda belirgin bir değişim gözlenmedi (%${chg > 0 ? '+' : ''}${chg}).`;
-        } else {
-            insight = `ℹ️ Yeterli tarihsel veri bulunamadı — karşılaştırmalı trend hesaplanamadı.`;
-        }
-        document.getElementById('trendInsight').innerHTML = insight;
-    }
+    window._trendAllRows = rows;
+    window._trendIcDis   = _idRowsFor6m;
+    renderTrendChart('all');
 
     // ── AKSİYON PLANI ──
     const _apHtData  = paretoData(rows, 'hataTipi', 5);
