@@ -778,12 +778,13 @@ function drawConn(svg, c, tk){
       d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
     }
   } else if(isDiag){
-    // Staircase diagonal connector — smooth S-bezier
-    // Starts going right from source, curves down into target
-    const cpx1 = c.x1 + absDx * 0.75;
-    const cpy1 = c.y1 + absDy * 0.05;
-    const cpx2 = c.x2 - absDx * 0.25;
-    const cpy2 = c.y2 - absDy * 0.05;
+    // Staircase diagonal connector — horizontal S-bezier
+    // Both control points locked to source/target Y → departs & arrives perfectly horizontal.
+    // This keeps the arrowhead pointing straight right regardless of vertical drop.
+    const cpx1 = c.x1 + absDx * 0.5;
+    const cpy1 = c.y1;               // flat departure
+    const cpx2 = c.x2 - absDx * 0.5;
+    const cpy2 = c.y2;               // flat arrival
     d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
   } else {
     // Horizontal / near-horizontal connector
