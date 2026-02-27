@@ -492,12 +492,12 @@ function doLayout(tab, tk){
   const probY  = probCY - PROB_H/2;
   items.unshift({ type:'prob', tk, x:0, y:probY, w:PROB_W, h:PROB_H, cx:PROB_W, cy:probCY });
 
-  // Connectors: prob→step[0], step[i]→step[i+1]
+  // Connectors: prob→step[0], step[i]→step[i+1]  *** arrowheads point BACKWARD (to prev box) ***
   if(mainItems.length>0)
-    conns.push({ x1:PROB_W, y1:probCY, x2:mainItems[0].x, y2:mainItems[0].cy, label:'why' });
+    conns.push({ x1:mainItems[0].x, y1:mainItems[0].cy, x2:PROB_W, y2:probCY, label:'why', rev:true });
   for(let i=0;i<mainItems.length-1;i++)
-    conns.push({ x1:mainItems[i].cx, y1:mainItems[i].cy,
-                 x2:mainItems[i+1].x, y2:mainItems[i+1].cy, label:'why' });
+    conns.push({ x1:mainItems[i+1].x, y1:mainItems[i+1].cy,
+                 x2:mainItems[i].cx,  y2:mainItems[i].cy,  label:'why', rev:true });
 
   // ── Parallel branch chains ──
   // Each branch starts BELOW its fork step, continues staircase (right+down)
@@ -550,10 +550,10 @@ function doLayout(tab, tk){
     if(brItems.length)
       conns.push({ x1:forkAnchor.cx, y1:forkAnchor.cy,
                    x2:brItems[0].cx - BOX_W/2, y2:brItems[0].y, label:'', dashed:true });
-    // Branch internal connectors
+    // Branch internal connectors (arrowheads backward)
     for(let si=0; si<brItems.length-1; si++)
-      conns.push({ x1:brItems[si].cx, y1:brItems[si].cy,
-                   x2:brItems[si+1].x, y2:brItems[si+1].cy, label:'why' });
+      conns.push({ x1:brItems[si+1].x, y1:brItems[si+1].cy,
+                   x2:brItems[si].cx,  y2:brItems[si].cy,   label:'why', rev:true });
 
     if(brItems.length) allBranchLastItems.push(brItems[brItems.length-1]);
 
@@ -651,10 +651,21 @@ function drawConn(svg, c, tk){
   const isDiag = Math.abs(dy) > 8;
   let d;
   if(isDiag){
-    // Curved connector (diagonal)
-    const cpx1 = c.x1 + dx*0.5, cpy1 = c.y1;
-    const cpx2 = c.x2 - dx*0.3, cpy2 = c.y2;
-    d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
+    if(c.rev){
+      // Backward arc: from current-box left edge → prev-box right edge
+      // S-curve that loops naturally above the staircase step gap
+      const adx = Math.abs(dx), ady = Math.abs(dy);
+      const cpx1 = c.x1 - adx * 0.15;
+      const cpy1 = c.y1 - ady * 0.55;
+      const cpx2 = c.x2 + adx * 0.15;
+      const cpy2 = c.y2 + ady * 0.25;
+      d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
+    } else {
+      // Forward curved connector (diagonal)
+      const cpx1 = c.x1 + dx*0.5, cpy1 = c.y1;
+      const cpx2 = c.x2 - dx*0.3, cpy2 = c.y2;
+      d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
+    }
   } else {
     // Horizontal connector (with slight step for staircase feel)
     // Elbow connector: go right halfway, then horizontally to target
@@ -674,11 +685,11 @@ function drawConn(svg, c, tk){
   svg.appendChild(path);
 
   if(c.label==='why'){
-    // "Neden?" forward label
+    // Label at midpoint of the visual arc
     const mx  = (c.x1+c.x2)/2, my = (c.y1+c.y2)/2;
     const off = isDiag ? 0 : -2;
-    svgTxt(svg, mx+2, my-10+off, 'Neden?',     '#2563eb', true,  10);
-    svgTxt(svg, mx-6, my+14+off, '← Bu yüzden','#94a3b8', false, 9);
+    svgTxt(svg, mx+2, my-10+off, 'Neden?',    '#2563eb', true,  10);
+    svgTxt(svg, mx-6, my+14+off, 'Bu yüzden', '#94a3b8', false, 9);
   }
 }
 
