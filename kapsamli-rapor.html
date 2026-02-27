@@ -885,13 +885,15 @@ function idbLoadRapor() {
 const _KR_KEY = 'kapsamli_rapor_edits';
 
 function _krSaveEdits() {
-    const fbBoneCauses = {};
-    if (window._fbData && window._fbData.bones) {
-        window._fbData.bones.forEach(b => { fbBoneCauses[b.key] = b.causes || []; });
-    }
-    const fbEffect     = (window._fbData && window._fbData.effect) || window._fbEffect || '';
+    // Save ALL fishbones across all categories
+    const fbDataArr = (window._fbDataArr || []).map(fb => {
+        if (!fb) return null;
+        const boneCauses = {};
+        (fb.bones || []).forEach(b => { boneCauses[b.key] = b.causes || []; });
+        return { effect: fb.effect, boneCauses };
+    });
     const manualAksiyon = (window._aksiyonlar || []).filter(a => !a._fbSource);
-    const payload = { version: 1, fbBoneCauses, fbEffect, manualAksiyon };
+    const payload = { version: 2, fbDataArr, manualAksiyon };
     const r = indexedDB.open(_IDB.name, _IDB.ver);
     r.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
     r.onsuccess = e => {
@@ -918,13 +920,38 @@ function _krLoadEdits() {
 }
 
 function _krApplyFishboneEdits(saved) {
-    if (!saved || !saved.fbBoneCauses || !window._fbData) return;
-    if (saved.fbEffect) { window._fbData.effect = saved.fbEffect; window._fbEffect = saved.fbEffect; }
-    window._fbData.bones.forEach(bone => {
-        if (saved.fbBoneCauses[bone.key] !== undefined) bone.causes = saved.fbBoneCauses[bone.key];
+    if (!saved) return;
+    const arr = window._fbDataArr;
+    if (!arr || !arr.length) return;
+
+    if (saved.version === 2 && Array.isArray(saved.fbDataArr)) {
+        // v2: full fbDataArr
+        saved.fbDataArr.forEach((savedFb, gi) => {
+            if (!savedFb || !arr[gi]) return;
+            (arr[gi].bones || []).forEach(bone => {
+                if (savedFb.boneCauses && savedFb.boneCauses[bone.key] !== undefined)
+                    bone.causes = savedFb.boneCauses[bone.key];
+            });
+        });
+    } else if (saved.fbBoneCauses && window._fbData) {
+        // v1 fallback
+        if (saved.fbEffect) { window._fbData.effect = saved.fbEffect; window._fbEffect = saved.fbEffect; }
+        window._fbData.bones.forEach(bone => {
+            if (saved.fbBoneCauses[bone.key] !== undefined) bone.causes = saved.fbBoneCauses[bone.key];
+        });
+    }
+
+    // Redraw all fishbones
+    const prevIdx = window._fbActiveIdx || 0;
+    arr.forEach((fb, gi) => {
+        if (!fb) return;
+        window._fbActiveIdx = gi;
+        window._fbData = fb;
+        drawFishbone();
+        renderFbEditPanels();
     });
-    drawFishbone();
-    renderFbEditPanels();
+    window._fbActiveIdx = prevIdx;
+    window._fbData = arr[prevIdx] || arr[0];
 }
 
 function _krApplyAksiyonEdits(saved) {
@@ -1043,7 +1070,7 @@ async function krLoadSnapshot(id) {
     if (snap.edits) await _idbPut(_KR_KEY, snap.edits);
     else await _idbDel(_KR_KEY);
     _destroyCharts();
-    runReport(snap.payload);
+    runReport(snap.payload, { keepEdits: true });
 }
 
 function _destroyCharts() {
@@ -2922,7 +2949,8 @@ window.addEventListener('DOMContentLoaded', () => {
         });
 });
 
-function runReport(payload) {
+function runReport(payload, opts) {
+    const _runReportKeepEdits = !!(opts && opts.keepEdits);
     // destroy previous chart instances on re-run
     _destroyCharts();
     // reset UI state
@@ -2951,13 +2979,14 @@ function runReport(payload) {
     document.getElementById('reportContent').style.display = 'block';
 
     // Her yeni rapor oluşturulduğunda kaydedilmiş kılçık + aksiyon düzenlemelerini otomatik sıfırla
-    (function() {
-        const r = indexedDB.open(_IDB.name, _IDB.ver);
-        r.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
-        r.onsuccess = e => {
+    // (sadece keepEdits=false ise — bkz. runReport paramütresi)
+    if (!_runReportKeepEdits) {
+        const _rd = indexedDB.open(_IDB.name, _IDB.ver);
+        _rd.onupgradeneeded = e => e.target.result.createObjectStore(_IDB.store);
+        _rd.onsuccess = e => {
             try { e.target.result.transaction(_IDB.store,'readwrite').objectStore(_IDB.store).delete(_KR_KEY); } catch(e) {}
         };
-    })();
+    }
 
     const totalH   = rows.reduce((s,r) => s+(Number(r.hataliMiktar)||0), 0);
     const totalRec = rows.length;
@@ -3236,6 +3265,16 @@ function runReport(payload) {
         }
     }
     krCheckSaved();
+
+    // ── Restore saved edits if loading from snapshot ──
+    if (_runReportKeepEdits) {
+        _krLoadEdits().then(saved => {
+            if (!saved) return;
+            _krApplyFishboneEdits(saved);
+            _krApplyAksiyonEdits(saved);
+            _refreshManualInFishbones();
+        });
+    }
 
     // ── Enable edit mode if it was on before re-render ──
     if (_editMode) { _editMode = false; toggleEditMode(); }
