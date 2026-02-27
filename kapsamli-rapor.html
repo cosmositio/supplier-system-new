@@ -512,12 +512,12 @@ html, body { scroll-behavior:smooth; }
     <div class="section" id="s-musteri">
         <div class="section-hdr">
             <span class="ico">👥</span>
-            <h2>Müşteri / Şube Bazlı Hata Dağılımı</h2>
-            <span class="hint">Tespit yerlerine göre — dış kaynaklılar ön plana</span>
+            <h2>Müşteri Bazlı Hata Dağılımı</h2>
+            <span class="hint">Dış Başarısızlık &mdash; Cari Tipi: Müşteri &mdash; Cari Adına Göre Pareto</span>
         </div>
         <div class="section-body">
             <div class="two-col">
-                <div class="chart-wrap-tall"><canvas id="cMusteri"></canvas></div>
+                <div class="chart-wrap-tall"><canvas id="cMusteri" height="300"></canvas></div>
                 <div id="musteriTable"></div>
             </div>
         </div>
@@ -2564,10 +2564,31 @@ function runReport(payload) {
     hBarChart(document.getElementById('cMalzeme'), malLabels, malData.map(e=>e.h), paretoColors(malData.length), 'Hatalı Miktar');
     document.getElementById('malzemeTable').innerHTML = buildParetoTable(malData, totalH);
 
-    // ── MÜŞTERİ / ŞUBE (tespitYeri) ──
-    const mustData = paretoData(rows,'tespitYeri',15);
-    hBarChart(document.getElementById('cMusteri'), mustData.map(e=>truncate(e.name,28)), mustData.map(e=>e.h), PAL_DANGER.concat(PAL_BLUE), 'Hatalı Miktar');
-    document.getElementById('musteriTable').innerHTML = buildParetoTable(mustData, totalH);
+    // ── MÜŞTERİ Bazında Hata Dağılımı (Dış Başarısızlık + Cari Tipi=Müşteri + Cari Adı) ──
+    {
+        const mustRows = icDis.dis.filter(r => (r.cariTipi||'').toLowerCase().includes('müşteri'));
+        const mustTotal = mustRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
+        let mustCum = 0;
+        const mustAgg = {};
+        mustRows.forEach(r => {
+            const v = (r.cariAdi||'').trim(); if(!v) return;
+            if(!mustAgg[v]) mustAgg[v]={h:0,c:0};
+            mustAgg[v].h += Number(r.hataliMiktar)||0; mustAgg[v].c++;
+        });
+        const mustData = Object.entries(mustAgg).sort((a,b)=>b[1].h-a[1].h).slice(0,15).map(([name,v])=>{
+            mustCum += v.h;
+            return {name, h:v.h, c:v.c, pct:v.h/mustTotal*100, cumPct:mustCum/mustTotal*100};
+        });
+        const mustEl = document.getElementById('cMusteri');
+        if (mustData.length) {
+            mustEl.style.display = '';
+            paretoChart(mustEl, mustData);
+            document.getElementById('musteriTable').innerHTML = buildParetoTable(mustData, mustTotal);
+        } else {
+            mustEl.style.display = 'none';
+            document.getElementById('musteriTable').innerHTML = '<p style="color:var(--c-sub);font-size:.85rem;text-align:center;padding:20px;">Cari Tipi=Müşteri olan dış başarısızlık kaydı bulunamadı.</p>';
+        }
+    }
 
     // ── HATA TİPİ ──
     const htData = paretoData(rows,'hataTipi',15);
