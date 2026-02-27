@@ -233,7 +233,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .ca-hdr.sys-hdr{background:linear-gradient(135deg,#5b21b6,#7c3aed);}
 .ca-row-hdr{
   display:grid;
-  grid-template-columns:28px 1fr 26px 80px 92px;
+  grid-template-columns:28px 20px 1fr 26px 76px 88px;
   background:#f8faff;
   border-bottom:2px solid #e2e8f0;
   padding:4px 0;
@@ -246,16 +246,28 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 }
 .ca-row{
   display:grid;
-  grid-template-columns:28px 1fr 26px 80px 92px;
+  grid-template-columns:28px 20px 1fr 26px 76px 88px;
   border-bottom:1px solid #f1f5f9;
   min-height:44px;
+  transition:background .15s;
 }
 .ca-row:hover{background:#fafbff;}
+.ca-row.act-pinned{background:#fffbeb !important;border-left:2.5px solid #f59e0b;}
 .ca-lbl{
   font-size:.65rem;font-weight:800;color:#64748b;
   display:flex;align-items:center;justify-content:center;
   background:#f8faff;border-right:1px solid #e2e8f0;
 }
+/* action pin button */
+.ca-pin-btn{
+  border:none;background:none;cursor:pointer;
+  font-size:.75rem;padding:1px 2px;
+  display:flex;align-items:center;justify-content:center;
+  opacity:.22;transition:.15s;color:#64748b;
+  border-right:1px solid #f1f5f9;
+}
+.ca-pin-btn:hover{opacity:1;background:#fef3c7;}
+.ca-pin-btn.pinned{opacity:1;color:#f59e0b;filter:drop-shadow(0 0 2px #fcd34d);}
 .ca-input{
   border:none;outline:none;resize:none;background:transparent;
   font-size:.76rem;color:#1e293b;font-family:inherit;
@@ -1007,7 +1019,7 @@ render();
 // ══════════════════════════════════════════════════════
 //  CORRECTIVE ACTIONS TABLE
 // ══════════════════════════════════════════════════════
-function mkAction(){ return {text:'', responsible:'', date:''}; }
+function mkAction(){ return {text:'', responsible:'', date:'', pinned:false}; }
 
 function getAllSteps(tab, tk){
   const steps = [];
@@ -1042,6 +1054,7 @@ function renderActionTable(tab){
   colHdr.className = 'ca-row-hdr';
   colHdr.innerHTML =
     '<div class="ca-col">#</div>' +
+    '<div class="ca-col" title="Sabitle">📌</div>' +
     '<div class="ca-col" style="justify-content:flex-start;padding-left:8px;">Faaliyet</div>' +
     '<div class="ca-col">⚡</div>' +
     '<div class="ca-col">Sorumlu</div>' +
@@ -1073,13 +1086,26 @@ function buildActionSection(el, tab, tk, prefix, label, lblCls){
     const act = _S[tab].actions[tk][i];
 
     const row = document.createElement('div');
-    row.className = 'ca-row';
+    row.className = 'ca-row' + (act.pinned ? ' act-pinned' : '');
 
     // #
     const lbl = document.createElement('div');
     lbl.className = 'ca-lbl';
     lbl.textContent = prefix + (i + 1);
     row.appendChild(lbl);
+
+    // Pin button
+    const pinBtn = document.createElement('button');
+    pinBtn.className = 'ca-pin-btn' + (act.pinned ? ' pinned' : '');
+    pinBtn.title = act.pinned ? 'Sabiti kaldır' : 'Faaliyet sabitle (AI yenilemesinde değişmez)';
+    pinBtn.textContent = '📌';
+    pinBtn.onclick = () => {
+      act.pinned = !act.pinned;
+      row.classList.toggle('act-pinned', act.pinned);
+      pinBtn.classList.toggle('pinned', act.pinned);
+      pinBtn.title = act.pinned ? 'Sabiti kaldır' : 'Faaliyet sabitle (AI yenilemesinde değişmez)';
+    };
+    row.appendChild(pinBtn);
 
     // Faaliyet textarea
     const ta = document.createElement('textarea');
@@ -1402,16 +1428,37 @@ function restorePinnedSteps(chains, map){
   });
 }
 
+// Collect pinned actions by flat position index before AI rebuilds
+function collectPinnedActions(tab, tk){
+  const map = {};
+  (_S[tab].actions?.[tk] || []).forEach((act, i)=>{
+    if(act && act.pinned) map[i] = Object.assign({}, act);
+  });
+  return map;
+}
+// After AI rebuild: pinned actions survive at same position, others reset
+function syncActionsAfterAi(tab, tk, pinnedMap){
+  if(!_S[tab].actions) _S[tab].actions = { os:[], nd:[] };
+  const total = getAllSteps(tab, tk).length;
+  const newActions = [];
+  for(let i = 0; i < total; i++){
+    newActions.push(pinnedMap[i] ? pinnedMap[i] : mkAction());
+  }
+  _S[tab].actions[tk] = newActions;
+}
+
 function applyAiResult(parsed, originalProblem){
   ['tech','sys'].forEach(tab=>{
     ['os','nd'].forEach(tk=>{
       const iz = parsed?.[tab]?.[tk];
       if(iz){
-        const pinnedSteps = collectPinnedSteps(_S[tab][tk].chains);
+        const pinnedSteps   = collectPinnedSteps(_S[tab][tk].chains);
+        const pinnedActions = collectPinnedActions(tab, tk);
         if(!_S[tab][tk].problemPinned) _S[tab][tk].problem = iz.problem || originalProblem;
         if(!_S[tab][tk].rcPinned)      _S[tab][tk].rcText  = iz.rootCause || _S[tab][tk].rcText;
         _S[tab][tk].chains = buildChainsFromAi(iz);
         restorePinnedSteps(_S[tab][tk].chains, pinnedSteps);
+        syncActionsAfterAi(tab, tk, pinnedActions);
       }
     });
   });
@@ -1500,15 +1547,18 @@ ${context}`;
     ['os','nd'].forEach(tk=>{
       const iz = parsed?.[tk];
       if(iz){
-        const pinnedSteps = collectPinnedSteps(_S[tab][tk].chains);
+        const pinnedSteps   = collectPinnedSteps(_S[tab][tk].chains);
+        const pinnedActions = collectPinnedActions(tab, tk);
         if(!_S[tab][tk].problemPinned) _S[tab][tk].problem = iz.problem || q1;
         if(!_S[tab][tk].rcPinned)      _S[tab][tk].rcText  = iz.rootCause || _S[tab][tk].rcText;
         _S[tab][tk].chains = buildChainsFromAi(iz);
         restorePinnedSteps(_S[tab][tk].chains, pinnedSteps);
+        syncActionsAfterAi(tab, tk, pinnedActions);
       }
     });
     renderTrack(tab,'os');
     renderTrack(tab,'nd');
+    renderActionTable(tab);
 
     clearInterval(progTimer);
     setProgress(100, '✅ Tamam');
