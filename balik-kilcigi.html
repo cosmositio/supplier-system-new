@@ -4591,32 +4591,30 @@ function exportAsPNG() {
         border  : rs.getPropertyValue('--border').trim()        || '#334155',
     };
 
-    const origSvg  = document.getElementById('canvasSvg');
-    const panGroup = origSvg.querySelector('g[transform]');
+    const origSvg = document.getElementById('canvasSvg');
 
-    // ── 1. Measure actual content bounds in natural (zoom=1, pan=0) coordinates ──
-    const savedTransform = panGroup ? panGroup.getAttribute('transform') : null;
-    if (panGroup) panGroup.setAttribute('transform', 'translate(0,0) scale(1)');
+    // ── 1. Compute natural content bounds from state + render formulas ──
+    // (avoids relying on getBBox which can be inaccurate before a browser reflow)
+    const container = document.getElementById('canvasContainer');
+    const W = container.clientWidth;
+    const H = container.clientHeight;
+    const centerY = H / 2;
+    const als = state.autoLayoutSettings || {};
+    const boneLen = als.boneLength || Math.min(220, H * 0.37);
+    const spineStartX = 80;
+    const spineLength = (als.spineLength && als.spineLength > 0) ? als.spineLength : (W - 80 - 140);
+    const spineEndX = spineStartX + spineLength;
+    // Fish head extends 172px right of spine end; tail handle extends 48px left of spine start
+    // Bones + labels extend ~80px above/below tips; tips extend boneLen from centerY
+    const PAD = 80;
+    const vbX = spineStartX - 48 - PAD;
+    const vbY = Math.min(0, centerY - boneLen - 100) - PAD;
+    const vbRight = spineEndX + 172 + PAD;
+    const vbBottom = Math.max(H, centerY + boneLen + 100) + PAD;
+    const vbW = vbRight - vbX;
+    const vbH = vbBottom - vbY;
 
-    let bbox;
-    try { bbox = panGroup ? panGroup.getBBox() : origSvg.getBBox(); }
-    catch(e) { bbox = { x: 0, y: 0, width: 1200, height: 700 }; }
-
-    if (panGroup && savedTransform) panGroup.setAttribute('transform', savedTransform);
-
-    // Ensure bbox has meaningful size (getBBox sometimes returns 0 for invisible elements)
-    if (bbox.width < 10 || bbox.height < 10) {
-        bbox = { x: 0, y: 0, width: 1200, height: 700 };
-    }
-
-    const PAD   = 60;   // padding around content
-    const SCALE = 2.5;  // output pixel density multiplier
-
-    const vbX = bbox.x - PAD;
-    const vbY = bbox.y - PAD;
-    const vbW = bbox.width  + PAD * 2;
-    const vbH = bbox.height + PAD * 2;
-
+    const SCALE = 2.5;
     const exportW = Math.round(vbW * SCALE);
     const exportH = Math.round(vbH * SCALE);
 

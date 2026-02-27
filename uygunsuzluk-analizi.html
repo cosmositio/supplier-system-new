@@ -1166,6 +1166,10 @@
             </div>
             <div class="filter-group">
                 <label>Stok Kodu</label>
+                <input type="text" id="stokKoduSearch" placeholder="🔍 Ara..." autocomplete="off"
+                    oninput="filterStokKodu(this.value)"
+                    style="font-size:.8rem;padding:4px 8px;border:1.5px solid #ccc;border-radius:6px;outline:none;transition:border-color .2s;"
+                    onfocus="this.style.borderColor='#b94fc4'" onblur="this.style.borderColor='#ccc'">
                 <select id="fStokKodu"><option value="">Tümü</option></select>
             </div>
             <div class="filter-group" style="flex-direction: row; gap: 8px; align-items: flex-end; flex-wrap:wrap;">
@@ -2564,6 +2568,7 @@ function populateFilters() {
         const vals = [...new Set(allData.map(r => r[field]).filter(v => v !== '' && v !== 0))].sort();
         sel.innerHTML = '<option value="">Tümü</option>' + vals.map(v => `<option value="${v}">${v}</option>`).join('');
         if (vals.includes(current)) sel.value = current;
+        if (selId === 'fStokKodu') window._stokOptions = vals;
     }
     populateTespitYeriDropdown();
     populateCariDropdown();
@@ -2630,6 +2635,8 @@ function resetFilters() {
     document.getElementById('fMakine').value = '';
     document.getElementById('fCariTip').value = '';
     document.getElementById('fStokKodu').value = '';
+    const _sk = document.getElementById('stokKoduSearch'); if (_sk) _sk.value = '';
+    filterStokKodu('');
     document.getElementById('fDateStart').value = '';
     document.getElementById('fDateEnd').value = '';
     selectCari('');
@@ -2651,6 +2658,17 @@ function resetFilters() {
 }
 
 // ─── Custom Tespit Yeri Multi-Select ─────────────────────────────────────
+function filterStokKodu(term) {
+    const sel = document.getElementById('fStokKodu');
+    if (!sel) return;
+    const cur = sel.value;
+    const opts = window._stokOptions || [];
+    const q = term.trim().toLowerCase();
+    const filtered = q === '' ? opts : opts.filter(v => String(v).toLowerCase().includes(q));
+    sel.innerHTML = '<option value="">Tümü</option>' + filtered.map(v => `<option value="${v}">${v}</option>`).join('');
+    if (filtered.includes(cur)) sel.value = cur;
+}
+
 function populateTespitYeriDropdown() {
     _tespitYeriAllList = [...new Set(allData.map(r => r.tespitYeri).filter(v => v !== '' && v !== undefined && v !== null))].sort();
     _buildTespitYeriItems();
