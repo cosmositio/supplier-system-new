@@ -181,9 +181,28 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   background:rgba(255,255,255,.28);width:var(--prog,0%);transition:width .3s;}
 .tbb-pct{font-size:.65rem;opacity:.85;margin-left:4px;}
 
+/* ── CONSIDERATION TABS ── */
+.consid-tabs{display:flex;background:#fff;border-bottom:2px solid #e2e8f0;padding:0 18px;}
+.ctab{padding:11px 24px;border:none;background:none;cursor:pointer;font-size:.85rem;
+  font-weight:700;color:#64748b;border-bottom:3px solid transparent;margin-bottom:-2px;
+  transition:all .2s;display:flex;align-items:center;gap:8px;white-space:nowrap;}
+.ctab:hover{color:#1e3a5f;background:#f0f7ff;}
+.ctab.active{color:#1e3a5f;border-bottom-color:#2563eb;background:#f0f7ff;}
+.ctab .cbadge{font-size:.7rem;background:#e0e7ff;color:#2563eb;border-radius:12px;
+  padding:1px 8px;font-weight:700;}
+.ctab.active .cbadge{background:#2563eb;color:#fff;}
+.consid-panel{display:none;}
+.consid-panel.active{display:block;}
+.consid-banner{display:flex;align-items:flex-start;gap:10px;background:#eff6ff;
+  border-left:4px solid #2563eb;padding:8px 18px;font-size:.73rem;color:#1d4ed8;line-height:1.5;}
+.consid-banner.sys{background:#faf5ff;border-left-color:#7c3aed;color:#5b21b6;}
+.consid-banner .cbi{font-size:1.2rem;flex-shrink:0;}
+.consid-banner strong{font-size:.78rem;display:block;margin-bottom:1px;}
+
 @media print{
-  .topbar,.meta-bar,.legend,.sacts,.add-step-btn,.tbb{display:none!important;}
+  .topbar,.meta-bar,.legend,.sacts,.add-step-btn,.tbb,.consid-tabs{display:none!important;}
   body,.canvas-outer{background:#fff;}
+  .consid-panel{display:block!important;}
 }
 </style>
 </head>
@@ -194,8 +213,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   <h1>5 Neden Analizi</h1>
   <div class="sp"></div>
   <button class="tbb" style="background:linear-gradient(135deg,rgba(124,58,237,.7),rgba(37,99,235,.7));border-color:rgba(167,139,250,.5);" onclick="openAiModal()">🤖 AI ile Oluştur</button>
-  <button class="tbb" id="yenileOs" style="background:linear-gradient(135deg,#059669,#0891b2);" onclick="aiRefresh('os')" title="Oluşum iz adımlarını AI ile yeniden oluştur">🔄 Oluşum Yenile</button>
-  <button class="tbb" id="yenileNd" style="background:linear-gradient(135deg,#7c3aed,#a21caf);" onclick="aiRefresh('nd')" title="Tespit iz adımlarını AI ile yeniden oluştur">🔄 Tespit Yenile</button>
+  <button class="tbb" id="yenileTech" style="background:linear-gradient(135deg,#059669,#0891b2);" onclick="aiRefresh('tech')" title="Technical iz adımlarını AI ile yeniden oluştur">🔄 Teknik Yenile</button>
+  <button class="tbb" id="yenileSys" style="background:linear-gradient(135deg,#7c3aed,#a21caf);" onclick="aiRefresh('sys')" title="Systemic iz adımlarını AI ile yeniden oluştur">🔄 Sistemsel Yenile</button>
   <button class="tbb ok"    onclick="saveData()">💾 Kaydet</button>
   <button class="tbb"       onclick="loadData()">📂 Yükle</button>
   <button class="tbb"       onclick="window.print()">🖨️ Yazdır / PDF</button>
@@ -227,29 +246,79 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   </span>
 </div>
 
-<div class="canvas-outer" id="co">
-  <!-- Oluşum track -->
-  <div class="track-wrap">
-    <div class="track-hdr">
-      <span class="tbadge os">🔴 Oluşum</span>
-      <span class="tsub">Neden problem oluştu? — her adım öncekinin nedenidir</span>
-    </div>
-    <div class="diag" id="osDiag">
-      <svg id="osSvg"></svg>
-    </div>
-    <button class="add-step-btn" onclick="addStep('os')">➕ Adım Ekle</button>
-  </div>
+<!-- ── CONSIDERATION TABS NAV ── -->
+<div class="consid-tabs">
+  <button class="ctab active" id="ctab-tech" onclick="switchConsid('tech',this)">
+    🔧 Technical Consideration <span class="cbadge">Teknik</span>
+  </button>
+  <button class="ctab" id="ctab-sys" onclick="switchConsid('sys',this)">
+    🏗️ Systemic Consideration <span class="cbadge">Sistemsel</span>
+  </button>
+</div>
 
-  <!-- Tespit track -->
-  <div class="track-wrap">
-    <div class="track-hdr">
-      <span class="tbadge nd">🟣 Tespit Edilememe</span>
-      <span class="tsub">Problem neden fark edilmedi?</span>
+<!-- ════ PANEL: TECHNICAL ════ -->
+<div class="consid-panel active" id="panel-tech">
+  <div class="consid-banner">
+    <span class="cbi">🔧</span>
+    <div>
+      <strong>Technical Consideration — Teknik Değerlendirme</strong>
+      Ürünün, prosesin veya ekipmanın teknik olarak neden hataya yol açtığını inceler:
+      Parametre yanlışlığı · Makine ayarı · Malzeme spesifikasyonu · Tolerans aşımı · Ölçüm sistemi hatası
+      <em style="font-style:normal;font-weight:700;"> → "Hata nasıl oluştu?"</em>
     </div>
-    <div class="diag" id="ndDiag">
-      <svg id="ndSvg"></svg>
+  </div>
+  <div class="canvas-outer" id="co-tech">
+    <!-- Oluşum track - Technical -->
+    <div class="track-wrap">
+      <div class="track-hdr">
+        <span class="tbadge os">🔴 Oluşum</span>
+        <span class="tsub">Neden problem oluştu? — her adım öncekinin nedenidir</span>
+      </div>
+      <div class="diag" id="tech_osDiag"><svg id="tech_osSvg"></svg></div>
+      <button class="add-step-btn" onclick="addStep('tech','os')">➕ Adım Ekle</button>
     </div>
-    <button class="add-step-btn nd" onclick="addStep('nd')">➕ Adım Ekle</button>
+    <!-- Tespit track - Technical -->
+    <div class="track-wrap">
+      <div class="track-hdr">
+        <span class="tbadge nd">🟣 Tespit Edilememe</span>
+        <span class="tsub">Problem neden fark edilmedi? (Teknik kontrol mekanizması)</span>
+      </div>
+      <div class="diag" id="tech_ndDiag"><svg id="tech_ndSvg"></svg></div>
+      <button class="add-step-btn nd" onclick="addStep('tech','nd')">➕ Adım Ekle</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ PANEL: SYSTEMIC ════ -->
+<div class="consid-panel" id="panel-sys">
+  <div class="consid-banner sys">
+    <span class="cbi">🏗️</span>
+    <div>
+      <strong>Systemic Consideration — Sistemsel Değerlendirme</strong>
+      Bu teknik hatanın neden sistem tarafından engellenemediğini inceler:
+      Kontrol planı yeterliliği · PFMEA risk tespiti · Operatör eğitimi · Denetim frekansı · Yönetim sistemi açığı
+      <em style="font-style:normal;font-weight:700;"> → "Sistem neden yakalayamadı?"</em>
+    </div>
+  </div>
+  <div class="canvas-outer" id="co-sys">
+    <!-- Oluşum track - Systemic -->
+    <div class="track-wrap">
+      <div class="track-hdr">
+        <span class="tbadge os">🔴 Oluşum</span>
+        <span class="tsub">Sistem neden hatanın oluşmasına izin verdi? — PFMEA / prosedür / organizasyon açıkları</span>
+      </div>
+      <div class="diag" id="sys_osDiag"><svg id="sys_osSvg"></svg></div>
+      <button class="add-step-btn" onclick="addStep('sys','os')">➕ Adım Ekle</button>
+    </div>
+    <!-- Tespit track - Systemic -->
+    <div class="track-wrap">
+      <div class="track-hdr">
+        <span class="tbadge nd">🟣 Tespit Edilememe</span>
+        <span class="tsub">Sistem neden kaçırmaya izin verdi? — Kontrol planı, iç denetim, reaksiyon planı eksiklikleri</span>
+      </div>
+      <div class="diag" id="sys_ndDiag"><svg id="sys_ndSvg"></svg></div>
+      <button class="add-step-btn nd" onclick="addStep('sys','nd')">➕ Adım Ekle</button>
+    </div>
   </div>
 </div>
 
@@ -331,12 +400,30 @@ const V_STEP   = 72;    // how much lower each main-chain step is vs the previou
 const BRANCH_V = 28;    // extra vertical gap between branches at same column
 const COL_W    = BOX_W + H_GAP;   // full column stride
 
+let _activeTab = 'tech';   // 'tech' | 'sys'
+
+function switchConsid(tab, btn){
+  _activeTab = tab;
+  document.querySelectorAll('.consid-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.ctab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  btn.classList.add('active');
+}
+
 let _S = {
   meta: {},
-  os: { problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Oluşum)',
-        chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
-  nd: { problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Tespit Edilememe)',
-        chains: [ { startAfter:null, steps:[ mkStep() ] } ] }
+  tech: {
+    os: { problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Oluşum)',
+          chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
+    nd: { problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Tespit Edilememe)',
+          chains: [ { startAfter:null, steps:[ mkStep() ] } ] }
+  },
+  sys: {
+    os: { problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden\n(Oluşum)',
+          chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
+    nd: { problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden\n(Tespit Edilememe)',
+          chains: [ { startAfter:null, steps:[ mkStep() ] } ] }
+  }
 };
 
 function mkStep(t){ return {id:uid(), text:t||'', isRoot:false}; }
@@ -347,43 +434,42 @@ let _mCb = null;
 // ══════════════════════════════════════════════════════
 //  ACTIONS
 // ══════════════════════════════════════════════════════
-function addStep(tk){
-  _S[tk].chains[0].steps.push(mkStep());
-  renderTrack(tk);
+function addStep(tab, tk){
+  _S[tab][tk].chains[0].steps.push(mkStep());
+  renderTrack(tab, tk);
 }
 
-function deleteStep(tk, chainIdx, stepIdx){
-  const chain = _S[tk].chains[chainIdx];
+function deleteStep(tab, tk, chainIdx, stepIdx){
+  const chain = _S[tab][tk].chains[chainIdx];
   chain.steps.splice(stepIdx,1);
   if(chain.steps.length===0){
-    if(chainIdx===0) chain.steps.push(mkStep());  // keep at least 1 in main
-    else _S[tk].chains.splice(chainIdx,1);        // remove empty branch
+    if(chainIdx===0) chain.steps.push(mkStep());
+    else _S[tab][tk].chains.splice(chainIdx,1);
   }
-  renderTrack(tk);
+  renderTrack(tab, tk);
 }
 
-function addParallelBranch(tk, afterMainStepIdx){
-  // Add a new parallel chain that "starts after" step afterMainStepIdx of main chain
-  _S[tk].chains.push({ startAfter: afterMainStepIdx, steps: [mkStep()] });
-  renderTrack(tk);
+function addParallelBranch(tab, tk, afterMainStepIdx){
+  _S[tab][tk].chains.push({ startAfter: afterMainStepIdx, steps: [mkStep()] });
+  renderTrack(tab, tk);
 }
 
-function addBranchStep(tk, chainIdx){
-  _S[tk].chains[chainIdx].steps.push(mkStep());
-  renderTrack(tk);
+function addBranchStep(tab, tk, chainIdx){
+  _S[tab][tk].chains[chainIdx].steps.push(mkStep());
+  renderTrack(tab, tk);
 }
 
-function toggleRoot(tk, chainIdx, stepIdx){
-  const s = _S[tk].chains[chainIdx].steps[stepIdx];
+function toggleRoot(tab, tk, chainIdx, stepIdx){
+  const s = _S[tab][tk].chains[chainIdx].steps[stepIdx];
   s.isRoot = !s.isRoot;
-  renderTrack(tk);
+  renderTrack(tab, tk);
 }
 
 // ══════════════════════════════════════════════════════
 //  LAYOUT  – merdiven (staircase)
 // ══════════════════════════════════════════════════════
-function doLayout(tk){
-  const track = _S[tk];
+function doLayout(tab, tk){
+  const track = _S[tab][tk];
   const items = [];   // { type, data, x, y, w, h, cx, cy }
   const conns = [];   // { x1,y1,x2,y2, dashed, label }
 
@@ -397,7 +483,7 @@ function doLayout(tk){
     const y  = i*V_STEP;
     const cx = x+BOX_W, cy = y+BOX_H/2;
     mainItems.push({ type:'step', chain:0, stepIdx:i,
-      data:mainChain.steps[i], x, y, w:BOX_W, h:BOX_H, cx, cy, tk });
+      data:mainChain.steps[i], x, y, w:BOX_W, h:BOX_H, cx, cy, tab, tk });
     items.push(mainItems[i]);
   }
 
@@ -452,7 +538,7 @@ function doLayout(tk){
       const y  = branchTopY + si * V_STEP;
       const cx = x+BOX_W, cy = y+BOX_H/2;
       const it = { type:'step', chain:ci, stepIdx:si,
-        data:chain.steps[si], x, y, w:BOX_W, h:BOX_H, cx, cy, tk, isBranch:true };
+        data:chain.steps[si], x, y, w:BOX_W, h:BOX_H, cx, cy, tab, tk, isBranch:true };
       brItems.push(it);
       items.push(it);
       allPlaced.push(it);
@@ -474,7 +560,7 @@ function doLayout(tk){
     // "+ Dal Adımı" button: positioned inline to the right of last branch step
     if(brItems.length){
       const last = brItems[brItems.length-1];
-      items.push({ type:'addBranchStep', ci, tk,
+      items.push({ type:'addBranchStep', ci, tab, tk,
         x: last.cx + H_GAP * 0.3,
         y: last.y });   // renderer adds BOX_H/2 offset itself
     }
@@ -499,7 +585,7 @@ function doLayout(tk){
     const last = mainItems[mainItems.length-1];
     conns.push({ x1:last.cx, y1:last.cy, x2:rcbX, y2:rcbY+RCB_H/2, label:'why', toRcb:true });
     // "+ Dal Adımı" button for main chain's last step (in the gap before RCB)
-    items.push({ type:'addBranchStep', ci:0, tk,
+    items.push({ type:'addBranchStep', ci:0, tab, tk,
       x: last.cx + H_GAP * 0.3,
       y: last.y });
   }
@@ -507,7 +593,7 @@ function doLayout(tk){
   for(const bl of allBranchLastItems)
     conns.push({ x1:bl.cx, y1:bl.cy, x2:rcbX, y2:rcbY+RCB_H/2, label:'', dashed:true });
 
-  items.push({ type:'rcb', tk, x:rcbX, y:rcbY, w:RCB_W, h:RCB_H });
+  items.push({ type:'rcb', tab, tk, x:rcbX, y:rcbY, w:RCB_W, h:RCB_H });
 
   // Canvas size
   const xs = items.map(i=>i.x+(i.w||BOX_W));
@@ -520,37 +606,43 @@ function doLayout(tk){
 // ══════════════════════════════════════════════════════
 //  RENDER
 // ══════════════════════════════════════════════════════
-function render(){ renderTrack('os'); renderTrack('nd'); }
+function render(){
+  renderTrack('tech','os'); renderTrack('tech','nd');
+  renderTrack('sys','os');  renderTrack('sys','nd');
+}
 
-function renderTrack(tk){
-  const diag = document.getElementById(tk+'Diag');
-  const svg  = document.getElementById(tk+'Svg');
+function renderTrack(tab, tk){
+  const diagId = tab+'_'+tk+'Diag';
+  const svgId  = tab+'_'+tk+'Svg';
+  const diag   = document.getElementById(diagId);
+  const svg    = document.getElementById(svgId);
+  if(!diag || !svg) return;
   // Clear all children except svg
   Array.from(diag.childNodes).forEach(c=>{ if(c!==svg) diag.removeChild(c); });
   svg.innerHTML = '';
 
-  const {items, conns, W, H} = doLayout(tk);
+  const {items, conns, W, H} = doLayout(tab, tk);
   diag.style.width  = W+'px';
   diag.style.height = H+'px';
   svg.setAttribute('width', W);
   svg.setAttribute('height', H);
 
-  // Arrow markers
+  const uid = tab+'_'+tk;
   svg.innerHTML = `<defs>
-    <marker id="ab_${tk}"  markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+    <marker id="ab_${uid}"  markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
       <path d="M0,0 L0,6 L7,3 z" fill="#93c5fd"/>
     </marker>
-    <marker id="abr_${tk}" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+    <marker id="abr_${uid}" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
       <path d="M0,0 L0,6 L7,3 z" fill="#c4b5fd"/>
     </marker>
   </defs>`;
 
-  for(const c of conns) drawConn(svg, c, tk);
+  for(const c of conns) drawConn(svg, c, uid);
   for(const it of items){
-    if(it.type==='prob')          renderProbBox(diag, it, tk);
-    else if(it.type==='step')     renderStepBox(diag, it, tk);
-    else if(it.type==='rcb')      renderRcbBox(diag, it, tk);
-    else if(it.type==='addBranchStep') renderAddBranchBtn(diag, it, tk);
+    if(it.type==='prob')          renderProbBox(diag, it, tab, tk);
+    else if(it.type==='step')     renderStepBox(diag, it, tab, tk);
+    else if(it.type==='rcb')      renderRcbBox(diag, it, tab, tk);
+    else if(it.type==='addBranchStep') renderAddBranchBtn(diag, it, tab, tk);
   }
 }
 
@@ -600,15 +692,15 @@ function svgTxt(svg, x, y, t, fill, bold, size){
   svg.appendChild(el);
 }
 
-function renderProbBox(diag, it, tk){
+function renderProbBox(diag, it, tab, tk){
   const d = div('pbox'+(tk==='nd'?' nd-t':''), it.x, it.y, it.w, it.h);
   d.innerHTML = `<div class="plbl">Problem Tanımı</div><textarea placeholder="Problemi yazın…"></textarea>`;
-  d.querySelector('textarea').value = _S[tk].problem;
-  d.querySelector('textarea').oninput = e => { _S[tk].problem = e.target.value; };
+  d.querySelector('textarea').value = _S[tab][tk].problem;
+  d.querySelector('textarea').oninput = e => { _S[tab][tk].problem = e.target.value; };
   diag.appendChild(d);
 }
 
-function renderStepBox(diag, it, tk){
+function renderStepBox(diag, it, tab, tk){
   const node = it.data;
   const el   = div('sbox'+(node.isRoot?' is-root':''), it.x, it.y, it.w, it.h);
   el.innerHTML = (node.isRoot?`<span class="stag">🎯 Kök Neden</span>`:'') +
@@ -625,15 +717,15 @@ function renderStepBox(diag, it, tk){
   ta.oninput = e => { node.text = e.target.value; };
   ta.addEventListener('dblclick', e=>{
     e.stopPropagation();
-    openModal('✏️ Nedeni Düzenle', node.text, val=>{ node.text=val; renderTrack(tk); });
+    openModal('✏️ Nedeni Düzenle', node.text, val=>{ node.text=val; renderTrack(tab, tk); });
   });
-  el.querySelector('.del').onclick = ()=> deleteStep(tk, it.chain, it.stepIdx);
-  el.querySelector('.root').onclick = ()=> toggleRoot(tk, it.chain, it.stepIdx);
+  el.querySelector('.del').onclick = ()=> deleteStep(tab, tk, it.chain, it.stepIdx);
+  el.querySelector('.root').onclick = ()=> toggleRoot(tab, tk, it.chain, it.stepIdx);
 
   el.querySelector('.add').onclick = ()=>{
     // Extend THIS chain
-    _S[tk].chains[it.chain].steps.splice(it.stepIdx+1, 0, mkStep());
-    renderTrack(tk);
+    _S[tab][tk].chains[it.chain].steps.splice(it.stepIdx+1, 0, mkStep());
+    renderTrack(tab, tk);
   };
   el.querySelector('.fork').onclick = ()=>{
     // column of the clicked step:
@@ -643,32 +735,34 @@ function renderStepBox(diag, it, tk){
     if(it.chain === 0){
       forkAt = it.stepIdx + 1;   // main step i lives at column i+1
     } else {
-      const sa = _S[tk].chains[it.chain].startAfter ?? 0;
+      const sa = _S[tab][tk].chains[it.chain].startAfter ?? 0;
       forkAt = sa + it.stepIdx;  // branch step j of chain(startAfter=S) lives at col S+j
     }
-    addParallelBranch(tk, forkAt);
+    addParallelBranch(tab, tk, forkAt);
   };
 
   diag.appendChild(el);
 }
 
-function renderRcbBox(diag, it, tk){
+function renderRcbBox(diag, it, tab, tk){
+  const tabLabel = tab==='tech' ? 'Teknik' : 'Sistemsel';
+  const trkLabel = tk==='os' ? 'Kök Neden (Oluşum)' : 'Kök Neden (Tespit)';
   const el = div('rcb', it.x, it.y, it.w, it.h);
   el.innerHTML = `<div class="ri">⬇️</div>
-    <div class="rl">Teknik Kök Neden</div>
+    <div class="rl">${tabLabel} ${trkLabel}</div>
     <textarea placeholder="Kök neden…"></textarea>`;
-  el.querySelector('textarea').value = _S[tk].rcText;
-  el.querySelector('textarea').oninput = e => { _S[tk].rcText = e.target.value; };
+  el.querySelector('textarea').value = _S[tab][tk].rcText;
+  el.querySelector('textarea').oninput = e => { _S[tab][tk].rcText = e.target.value; };
   diag.appendChild(el);
 }
 
-function renderAddBranchBtn(diag, it, tk){
+function renderAddBranchBtn(diag, it, tab, tk){
   // Small "add step to this branch" button
   const b = document.createElement('button');
   b.className = 'add-step-btn'+(tk==='nd'?' nd':'');
   b.style.cssText = `position:absolute;left:${it.x}px;top:${it.y+BOX_H/2}px;font-size:.64rem;padding:3px 9px;`;
   b.textContent = '➕ Dal Adımı';
-  b.onclick = () => addBranchStep(tk, it.ci);
+  b.onclick = () => addBranchStep(tab, tk, it.ci);
   diag.appendChild(b);
 }
 
@@ -737,10 +831,18 @@ function resetAll(){
   if(!confirm('Tüm analiz sıfırlansın mı?')) return;
   _S={
     meta:{},
-    os:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Oluşum)',
-        chains:[{startAfter:null, steps:[mkStep()]}]},
-    nd:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Tespit Edilememe)',
-        chains:[{startAfter:null, steps:[mkStep()]}]}
+    tech:{
+      os:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden (Oluşum)',
+          chains:[{startAfter:null, steps:[mkStep()]}]},
+      nd:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden (Tespit)',
+          chains:[{startAfter:null, steps:[mkStep()]}]}
+    },
+    sys:{
+      os:{problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden (Oluşum)',
+          chains:[{startAfter:null, steps:[mkStep()]}]},
+      nd:{problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden (Tespit)',
+          chains:[{startAfter:null, steps:[mkStep()]}]}
+    }
   };
   ['mPart','mCustomer','mDate','mAnalyst'].forEach(id=>document.getElementById(id).value='');
   render();
@@ -838,7 +940,7 @@ function wizNav(dir){
 
 function openAiModal(){
   _wizStep = 0;
-  const prob = (_S.os.problem && !_S.os.problem.includes('buraya')) ? _S.os.problem : '';
+  const prob = (_S.tech.os.problem && !_S.tech.os.problem.includes('buraya')) ? _S.tech.os.problem : '';
   _wizAnswers['wq1'] = prob;
   // pre-set chip defaults
   if(!_wizAnswers['wq5']) _wizAnswers['wq5'] = '5';
@@ -892,26 +994,26 @@ async function aiGenerate(){
   const branchJsonExample = branchCount > 0
     ? `,"branches":[${branchExamplesAi.join(',')}]` : '';
 
-  const prompt = `Sen bir kalite mühendisisin. Aşağıdaki bilgileri kullanarak 5 Neden (5 Why) analizi yap.
-Problemi iki açıdan incele:
-1. OLUŞUM: Problem neden oluştu? (Occurrence)
-2. TESPİT EDİLEMEME: Problem neden fark edilemedi? (Non-detection)
+  const prompt = `Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Aşağıdaki bilgileri kullanarak 5 Neden (5 Why) analizi yap.
+4 ayrı iz oluştur:
+1. TEKNİK OLUŞUM: Fiziksel/mühendislik nedenler - Problem neden oluştu? (parametre, makine, malzeme, ölçüm)
+2. TEKNİK TESPİT: Fiziksel/mühendislik nedenler - Problem neden fark edilemedi?
+3. SİSTEMSEL OLUŞUM: Yönetim sistemi nedenler - Sistem/prosedür açısından neden oluştu? (FMEA, kontrol planı, denetim)
+4. SİSTEMSEL TESPİT: Yönetim sistemi nedenler - Sistem açısından neden fark edilemedi? (prosedür, eğitim, kural)
 
-Her iz için EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = teknik kök neden.
+Her iz için EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = kök neden.
 ${branchInstruction}
 Nedenler kısa ve teknik olsun (en fazla 10 kelime).
 
 YALNIZCA aşağıdaki JSON formatında yanıt ver:
 {
-  "olusum": {
-    "problem": "<kısa problem özeti>",
-    "mainSteps": ["Neden 1", "Neden 2", ... (tam ${stepCount} adet)],
-    "rootCause": "<teknik kök neden>"${branchJsonExample}
+  "tech": {
+    "os": {"problem": "<kısa problem özeti>", "mainSteps": ["Neden 1", "...(tam ${stepCount} adet)"], "rootCause": "<teknik kök neden (oluşum)>"${branchJsonExample}},
+    "nd": {"problem": "<tespit açısından problem>", "mainSteps": ["Neden 1", "...(tam ${stepCount} adet)"], "rootCause": "<teknik kök neden (tespit)>"${branchJsonExample}}
   },
-  "tespit": {
-    "problem": "<tespit açısından problem özeti>",
-    "mainSteps": ["Neden 1", "Neden 2", ... (tam ${stepCount} adet)],
-    "rootCause": "<tespit kök nedeni>"${branchJsonExample}
+  "sys": {
+    "os": {"problem": "<sistemsel problem özeti>", "mainSteps": ["Neden 1", "...(tam ${stepCount} adet)"], "rootCause": "<sistemsel kök neden (oluşum)>"${branchJsonExample}},
+    "nd": {"problem": "<sistemsel tespit problem>", "mainSteps": ["Neden 1", "...(tam ${stepCount} adet)"], "rootCause": "<sistemsel kök neden (tespit)>"${branchJsonExample}}
   }
 }
 
@@ -931,7 +1033,7 @@ ${context}`;
           { role: 'user',   content: prompt }
         ],
         temperature: 0.4,
-        max_tokens: 1200,
+        max_tokens: 2800,
         response_format: { type: 'json_object' }
       })
     });
@@ -973,31 +1075,32 @@ function buildChainsFromAi(iz){
 }
 
 function applyAiResult(parsed, originalProblem){
-  if(parsed.olusum){
-    _S.os.problem = parsed.olusum.problem || originalProblem;
-    _S.os.rcText  = parsed.olusum.rootCause || _S.os.rcText;
-    _S.os.chains  = buildChainsFromAi(parsed.olusum);
-  }
-  if(parsed.tespit){
-    _S.nd.problem = parsed.tespit.problem || originalProblem;
-    _S.nd.rcText  = parsed.tespit.rootCause || _S.nd.rcText;
-    _S.nd.chains  = buildChainsFromAi(parsed.tespit);
-  }
+  ['tech','sys'].forEach(tab=>{
+    ['os','nd'].forEach(tk=>{
+      const iz = parsed?.[tab]?.[tk];
+      if(iz){
+        _S[tab][tk].problem = iz.problem || originalProblem;
+        _S[tab][tk].rcText  = iz.rootCause || _S[tab][tk].rcText;
+        _S[tab][tk].chains  = buildChainsFromAi(iz);
+      }
+    });
+  });
   if(originalProblem && !document.getElementById('mPart').value)
     document.getElementById('mPart').value = originalProblem.slice(0,60);
   render();
 }
 
-// Yenile: regenerates only the requested track (os or nd)
-async function aiRefresh(tk){
+// Yenile: hem os hem nd izini yeniler (tab = 'tech' veya 'sys')
+async function aiRefresh(tab){
   const apiKey = localStorage.getItem('groq_api_key');
   if(!apiKey){ alert('Önce AI ile Oluştur butonundan API key girin.'); return; }
 
-  const q1 = _wizAnswers['wq1'] || _S.os.problem || _S.nd.problem || '';
+  const q1 = _wizAnswers['wq1'] || _S.tech.os.problem || _S.sys.os.problem || '';
   if(!q1 || q1.includes('buraya')){ alert('AI\'ye göndermek için önce problem tanımı girin.'); return; }
 
-  const btnId = tk==='os' ? 'yenileOs' : 'yenileNd';
-  const btn   = document.getElementById(btnId);
+  const btnId   = tab==='tech' ? 'yenileTech' : 'yenileSys';
+  const tabLabel = tab==='tech' ? 'Teknik' : 'Sistemsel';
+  const btn     = document.getElementById(btnId);
   const origTxt = btn.textContent;
 
   // Progress animation helper
@@ -1009,39 +1112,46 @@ async function aiRefresh(tk){
   }
   btn.disabled = true;
   btn.classList.add('tbb-prog');
-  setProgress(10, tk==='os'?'Oluşum':'Tespit');
+  setProgress(10, tabLabel);
 
   const progTimer = setInterval(()=>{
-    if(_pct < 85) setProgress(Math.min(85, _pct+8), tk==='os'?'Oluşum':'Tespit');
+    if(_pct < 85) setProgress(Math.min(85, _pct+8), tabLabel);
   }, 600);
 
   const q2 = _wizAnswers['wq2']||'', q3 = _wizAnswers['wq3']||'', q4 = _wizAnswers['wq4']||'';
-  const chainState  = _S[tk];
+  const chainState  = _S[tab].os;
   const stepCount   = chainState.chains[0].steps.length || 5;
   const branchCount = Math.max(0, chainState.chains.length - 1);
-  const trackLabel  = tk==='os' ? 'OLUŞUM (Problem neden oluştu?)' : 'TESPİT EDİLEMEME (Problem neden fark edilemedi?)';
+
+  const focusDesc = tab==='tech'
+    ? 'FİZİKSEL/MÜHENDİSLİK nedenler (parametre, makine, malzeme, ölçüm, tolerans)'
+    : 'YÖNETİM SİSTEMİ/PROSEDÜR nedenler (FMEA, kontrol planı, denetim, eğitim, prosedür)';
 
   const context = [`Problem: ${q1}`, q2?`Etki: ${q2}`:'', q3?`Yer: ${q3}`:'', q4?`Tespit: ${q4}`:''].filter(Boolean).join('\n');
 
-  // Distribute branches at evenly spaced steps
   const branchExamples = [];
   for(let b=0; b<branchCount; b++){
     const sa = Math.round((b+1) * stepCount / (branchCount+1)) - 1;
     branchExamples.push(`{"startAfterStep": ${sa}, "steps": ["Dal Neden 1","Dal Neden 2","Dal Neden 3"], "rootCause": "Dal kök"}`);
   }
   const branchInstruction = branchCount > 0
-    ? `Ayrıca ${branchCount} bağımsız paralel dal zinciri oluştur. Dallar birbirinden farklı startAfterStep değerlerine sahip olsun (yaygın dağılım).` : '';
+    ? `Her iz için ${branchCount} bağımsız paralel dal zinciri oluştur. Dallar farklı startAfterStep değerlerine sahip olsun.` : '';
   const brJsonPart = branchCount > 0
     ? `,"branches":[${branchExamples.join(',')}]` : '';
 
-  const prompt = `Sen bir kalite mühendisisin. Yalnızca şu izi analiz et: ${trackLabel}
+  const prompt = `Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Yalnızca ${tabLabel.toUpperCase()} kırılımını analiz et.
+Odak: ${focusDesc}
 
-EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = teknik kök neden.
+2 iz oluştur:
+1. OLUŞUM (os): Bu kırılımda problem neden oluştu?
+2. TESPİT (nd): Bu kırılımda problem neden fark edilemedi?
+
+Her iz için EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = kök neden.
 ${branchInstruction}
-Nedenler kısa ve teknik (en fazla 10 kelime).
+Nedenler kısa ve teknik olsun (en fazla 10 kelime).
 
 YALNIZCA JSON:
-{"iz":{"problem":"...","mainSteps":[...${stepCount} adet],"rootCause":"..."${brJsonPart}}}
+{"os":{"problem":"...","mainSteps":["Neden 1","...(tam ${stepCount} adet)"],"rootCause":"..."${brJsonPart}},"nd":{"problem":"...","mainSteps":["Neden 1","...(tam ${stepCount} adet)"],"rootCause":"..."${brJsonPart}}}
 
 ${context}`;
 
@@ -1049,18 +1159,24 @@ ${context}`;
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
       body: JSON.stringify({ model:'llama-3.3-70b-versatile',
-        messages:[{role:'system',content:'Sadece istenen JSON formatında yanıt ver.'},{role:'user',content:prompt}],
-        temperature:0.45, max_tokens:1000, response_format:{type:'json_object'} })
+        messages:[{role:'system',content:'Sen bir kalite mühendisisin. Sadece istenen JSON formatında yanıt ver.'},{role:'user',content:prompt}],
+        temperature:0.45, max_tokens:1800, response_format:{type:'json_object'} })
     });
     if(!resp.ok){ const e=await resp.json().catch(()=>({})); throw new Error(e?.error?.message||`HTTP ${resp.status}`); }
     const data = await resp.json();
     const raw  = data?.choices?.[0]?.message?.content||'';
     const parsed = JSON.parse(raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim());
-    const iz = parsed.iz || parsed.olusum || parsed.tespit || parsed;
-    _S[tk].problem = iz.problem || q1;
-    _S[tk].rcText  = iz.rootCause || _S[tk].rcText;
-    _S[tk].chains  = buildChainsFromAi(iz);
-    render();
+
+    ['os','nd'].forEach(tk=>{
+      const iz = parsed?.[tk];
+      if(iz){
+        _S[tab][tk].problem = iz.problem || q1;
+        _S[tab][tk].rcText  = iz.rootCause || _S[tab][tk].rcText;
+        _S[tab][tk].chains  = buildChainsFromAi(iz);
+      }
+    });
+    renderTrack(tab,'os');
+    renderTrack(tab,'nd');
 
     clearInterval(progTimer);
     setProgress(100, '✅ Tamam');
