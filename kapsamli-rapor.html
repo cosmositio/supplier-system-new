@@ -598,28 +598,15 @@ html, body { scroll-behavior:smooth; }
         <div class="section-body" style="padding:0;">
             <div class="ap-section-toolbar" style="padding:16px 20px 0;">
                 <p style="color:var(--c-sub);font-size:.8rem;margin:0;flex:1;">Analiz bulgularına göre otomatik oluşturulmuştur. Düzenleyebilir, silebilir veya yeni satır ekleyebilirsiniz.</p>
-                <button class="ap-btn ap-btn-add no-print" onclick="apOpenAdd(window._aksiyonActiveCat||'ic')">＋ Satır Ekle</button>
             </div>
             <div class="cat6m-tabs" style="padding:10px 20px 0;gap:8px;">
-                <button class="cat6m-tab active" onclick="switchAksiyonTab('ic',this)">🏭 İç Başarısızlık</button>
-                <button class="cat6m-tab" onclick="switchAksiyonTab('dis',this)">🚚 Dış Başarısızlık</button>
-                <button class="cat6m-tab" onclick="switchAksiyonTab('ted',this)">📦 Tedarikçi</button>
-                <button class="cat6m-tab" onclick="switchAksiyonTab('manuel',this)">📋 Genel Öneriler & El ile Eklenen</button>
+                <button class="cat6m-tab active" id="aksiyonTabBtn_ic" onclick="switchAksiyonTab('ic',this)">🏭 İç Başarısızlık</button>
+                <button class="cat6m-tab" id="aksiyonTabBtn_dis" onclick="switchAksiyonTab('dis',this)">🚚 Dış Başarısızlık</button>
+                <button class="cat6m-tab" id="aksiyonTabBtn_ted" onclick="switchAksiyonTab('ted',this)">📦 Tedarikçi</button>
             </div>
             <div id="aksiyonTab_ic" style="padding:16px 20px;"></div>
             <div id="aksiyonTab_dis" style="display:none;padding:16px 20px;"></div>
             <div id="aksiyonTab_ted" style="display:none;padding:16px 20px;"></div>
-            <div id="aksiyonTab_manuel" style="display:none;padding:16px 20px;">
-                <table class="ap-table">
-                    <thead><tr>
-                        <th>#</th><th>Bulgu / Problem</th><th>Kategori</th>
-                        <th>Önerilen Aksiyon</th><th>Öncelik</th><th>Sorumlu</th>
-                        <th>Durum</th><th>Tamamlanma Tarihi</th><th>Faaliyet</th>
-                        <th class="no-print"></th>
-                    </tr></thead>
-                    <tbody id="aksiyonBody"></tbody>
-                </table>
-            </div>
         </div>
     </div>
 
