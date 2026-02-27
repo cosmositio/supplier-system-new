@@ -3515,9 +3515,14 @@ const _RIDB = { name:'KaliteRaporDB', store:'payloads', key:'rapor_payload', ver
 function _rIdbOpen() {
     return new Promise((res, rej) => {
         const r = indexedDB.open(_RIDB.name, _RIDB.ver);
-        r.onupgradeneeded = e => e.target.result.createObjectStore(_RIDB.store);
+        r.onupgradeneeded = e => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(_RIDB.store))
+                db.createObjectStore(_RIDB.store);
+        };
         r.onsuccess = e => res(e.target.result);
         r.onerror   = () => rej(r.error);
+        r.onblocked = () => rej(new Error('IDB blocked'));
     });
 }
 function _rIdbSave(data) {
@@ -3643,9 +3648,11 @@ function _uaFmtN(n) {
 }
 
 async function uaOpenSnapshotModal() {
-    const list = (await _rIdbGet(_UA_SNAPS_KEY)) || [];
     const body = document.getElementById('uaSnapList');
     if (!body) return;
+    let list = [];
+    try { list = (await _rIdbGet(_UA_SNAPS_KEY)) || []; }
+    catch(e) { console.warn('uaOpenSnapshotModal IDB error:', e); }
     if (!list.length) {
         body.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:28px 0;">Henüz kayıtlı rapor yok.<br><small style="color:#c4cdd8;">Kapsamlı Rapor sayfasında 💾 Kaydet butonunu kullanarak rapor kaydedebilirsiniz.</small></p>';
     } else {
