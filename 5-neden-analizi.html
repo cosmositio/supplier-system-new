@@ -459,6 +459,10 @@ function doLayout(tk){
   if(mainItems.length){
     const last = mainItems[mainItems.length-1];
     conns.push({ x1:last.cx, y1:last.cy, x2:rcbX, y2:rcbY+RCB_H/2, label:'why', toRcb:true });
+    // "+ Dal Adımı" button for main chain's last step (in the gap before RCB)
+    items.push({ type:'addBranchStep', ci:0, tk,
+      x: last.cx + H_GAP * 0.3,
+      y: last.y });
   }
   // Each branch last step → RCB connector (dashed)
   for(const bl of allBranchLastItems)
