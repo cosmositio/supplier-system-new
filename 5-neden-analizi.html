@@ -458,6 +458,36 @@ function el(tag, cls, text, children) {
     return e;
 }
 
+// ─── INDEXED DB ───
+const IDB_NAME    = 'KaliteRaporDB';
+const IDB_STORE   = 'payloads';
+const IDB_KEY     = '5neden_v1';
+
+function idbOpen() {
+    return new Promise((res, rej) => {
+        const req = indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+        req.onsuccess = e => res(e.target.result);
+        req.onerror   = e => rej(e.target.error);
+    });
+}
+function idbPut(data) {
+    return idbOpen().then(db => new Promise((res, rej) => {
+        const tx  = db.transaction(IDB_STORE, 'readwrite');
+        const req = tx.objectStore(IDB_STORE).put(data, IDB_KEY);
+        req.onsuccess = () => res();
+        req.onerror   = e  => rej(e.target.error);
+    }));
+}
+function idbGet() {
+    return idbOpen().then(db => new Promise((res, rej) => {
+        const tx  = db.transaction(IDB_STORE, 'readonly');
+        const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+        req.onsuccess = e => res(e.target.result);
+        req.onerror   = e => rej(e.target.error);
+    }));
+}
+
 // ─── SAVE / LOAD ───
 function gatherMeta() {
     _state.meta = {
@@ -478,16 +508,18 @@ function applyMeta() {
 }
 function saveData() {
     gatherMeta();
-    localStorage.setItem('5neden_v1', JSON.stringify(_state));
-    alert('✅ Analiz kaydedildi.');
+    idbPut(JSON.parse(JSON.stringify(_state)))
+        .then(() => alert('✅ Analiz IndexedDB\'ye kaydedildi.'))
+        .catch(e => alert('❌ Kayıt hatası: ' + e));
 }
 function loadData() {
-    const raw = localStorage.getItem('5neden_v1');
-    if (!raw) { alert('Kayıtlı analiz bulunamadı.'); return; }
-    _state = JSON.parse(raw);
-    applyMeta();
-    render();
-    alert('📂 Analiz yüklendi.');
+    idbGet().then(data => {
+        if (!data) { alert('Kayıtlı analiz bulunamadı.'); return; }
+        _state = data;
+        applyMeta();
+        render();
+        alert('📂 Analiz yüklendi.');
+    }).catch(e => alert('❌ Yükleme hatası: ' + e));
 }
 function resetAll() {
     if (!confirm('Tüm analiz sıfırlansın mı?')) return;
