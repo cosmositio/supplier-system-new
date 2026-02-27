@@ -3843,8 +3843,6 @@ function _cpmUpdateCount() {
     const n = document.querySelectorAll('#cpmBody .cpm-item.cpm-selected').length;
     const el = document.getElementById('cpmSelCount');
     if (el) el.textContent = `${n} grafik seçili`;
-    const btn = document.getElementById('cpmConfirmBtn');
-    if (btn) btn.disabled = n === 0;
 }
 
 function _cpmSelectAll(select) {
