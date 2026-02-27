@@ -464,12 +464,18 @@ html, body { scroll-behavior:smooth; }
             </div>
             <div class="id-pareto-grid">
                 <div class="id-pareto-panel">
-                    <div class="id-panel-title" style="color:#1d4ed8;">🏢 İç Başarısızlık Pareto</div>
+                    <div class="id-panel-title" style="color:#1d4ed8;display:flex;justify-content:space-between;align-items:center;">
+                        <span>🏢 İç Başarısızlık Pareto</span>
+                        <span id="icBreakHint" style="font-size:.72rem;font-weight:400;color:#64748b;letter-spacing:.01em;"></span>
+                    </div>
                     <div style="min-height:200px;"><canvas id="cIcBreak" height="200"></canvas></div>
                     <div id="icBreakTable" style="margin-top:10px;"></div>
                 </div>
                 <div class="id-pareto-panel">
-                    <div class="id-panel-title" style="color:#c2410c;">🚚 Dış Başarısızlık Pareto</div>
+                    <div class="id-panel-title" style="color:#c2410c;display:flex;justify-content:space-between;align-items:center;">
+                        <span>🚚 Dış Başarısızlık Pareto</span>
+                        <span id="disBreakHint" style="font-size:.72rem;font-weight:400;color:#64748b;letter-spacing:.01em;"></span>
+                    </div>
                     <div style="min-height:200px;"><canvas id="cDisBreak" height="200"></canvas></div>
                     <div id="disBreakTable" style="margin-top:10px;"></div>
                 </div>
@@ -1044,11 +1050,12 @@ function hBarChart(ctx, labels, values, colors, label='Hatalı Miktar') {
 }
 
 // ── Pareto line+bar chart ──
-function paretoChart(ctx, entries, singleColor) {
+function paretoChart(ctx, entries, singleColor, opts) {
     const labels = entries.map(e => truncate(e.name, 22));
     const vals   = entries.map(e => e.h);
     const cums   = entries.map(e => e.cumPct);
     const cols   = singleColor ? Array(entries.length).fill(singleColor) : paretoColors(entries.length);
+    const tickSz = (opts && opts.tickFontSize) ? opts.tickFontSize : 9;
     return new Chart(ctx, {
         type: 'bar',
         data: {
@@ -1067,7 +1074,7 @@ function paretoChart(ctx, entries, singleColor) {
                 }}
             },
             scales: {
-                x: { ticks:{ font:{size:9}, maxRotation:45 }, grid:{color:'#f1f5f9'} },
+                x: { ticks:{ font:{size:tickSz}, maxRotation:45 }, grid:{color:'#f1f5f9'} },
                 y: { position:'left',  title:{display:true,text:'Hatalı Miktar',font:{size:10}}, ticks:{font:{size:10}} },
                 y2:{ position:'right', min:0, max:100, title:{display:true,text:'%',font:{size:10}}, ticks:{ font:{size:10}, callback:v=>v+'%' }, grid:{display:false} }
             }
@@ -1329,19 +1336,27 @@ function switchIdBreak(field, btn) {
 
     const IC_COLOR  = '#2563eb';
     const DIS_COLOR = '#ea580c';
+    const N = 12;
+    const hintText = `İç/Dış — ${lbl} Bazında Pareto — Top ${N}`;
+    const icHintEl  = document.getElementById('icBreakHint');
+    const disHintEl = document.getElementById('disBreakHint');
+    if (icHintEl)  icHintEl.textContent  = hintText;
+    if (disHintEl) disHintEl.textContent = hintText;
 
     // destroy old charts
     ['_idIcChart','_idDisChart'].forEach(k => {
         if (window[k]) { try { window[k].destroy(); } catch(e){} window[k]=null; }
     });
 
+    const idOpts = { tickFontSize: 11 };
+
     // ─ İç ─
-    const icData = _idBuildPareto(idRows.ic, field, 12);
+    const icData = _idBuildPareto(idRows.ic, field, N);
     const icEl = document.getElementById('cIcBreak');
     if (icData.length) {
         const icTotalH = idRows.ic.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
         icEl.style.display = '';
-        window._idIcChart = paretoChart(icEl, icData, IC_COLOR);
+        window._idIcChart = paretoChart(icEl, icData, IC_COLOR, idOpts);
         document.getElementById('icBreakTable').innerHTML = _idTable(icData, icTotalH, IC_COLOR);
     } else {
         icEl.style.display = 'none';
@@ -1349,12 +1364,12 @@ function switchIdBreak(field, btn) {
     }
 
     // ─ Dış ─
-    const disData = _idBuildPareto(idRows.dis, field, 12);
+    const disData = _idBuildPareto(idRows.dis, field, N);
     const disEl = document.getElementById('cDisBreak');
     if (disData.length) {
         const disTotalH = idRows.dis.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
         disEl.style.display = '';
-        window._idDisChart = paretoChart(disEl, disData, DIS_COLOR);
+        window._idDisChart = paretoChart(disEl, disData, DIS_COLOR, idOpts);
         document.getElementById('disBreakTable').innerHTML = _idTable(disData, disTotalH, DIS_COLOR);
     } else {
         disEl.style.display = 'none';
