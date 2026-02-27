@@ -123,31 +123,46 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .ai-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.48);
   z-index:9500;align-items:center;justify-content:center;}
 .ai-modal.open{display:flex;}
-.ai-box{background:#fff;border-radius:16px;padding:26px 28px 22px;
-  max-width:520px;width:96%;box-shadow:0 10px 50px rgba(0,0,0,.22);}
-.ai-box h3{font-size:1rem;font-weight:800;color:#1e293b;margin-bottom:4px;
+.ai-box{background:#fff;border-radius:16px;padding:24px 26px 20px;
+  max-width:480px;width:96%;box-shadow:0 10px 50px rgba(0,0,0,.22);}
+.ai-box h3{font-size:.95rem;font-weight:800;color:#1e293b;margin-bottom:3px;
   display:flex;align-items:center;gap:8px;}
-.ai-subtitle{font-size:.72rem;color:#64748b;margin-bottom:14px;
+.ai-subtitle{font-size:.68rem;color:#94a3b8;margin-bottom:14px;
   padding-bottom:10px;border-bottom:1px solid #f1f5f9;}
 .ai-subtitle a{color:#2563eb;text-decoration:none;}
-.ai-label{font-size:.66rem;font-weight:700;color:#64748b;text-transform:uppercase;
-  letter-spacing:.05em;margin-bottom:4px;display:block;}
+/* wizard */
+.wiz-dots{display:flex;gap:6px;align-items:center;margin-bottom:16px;}
+.wiz-dot{width:22px;height:4px;border-radius:2px;background:#e2e8f0;transition:.2s;}
+.wiz-dot.active{background:#2563eb;}
+.wiz-dot.done{background:#93c5fd;}
+.wiz-q{font-size:.78rem;font-weight:700;color:#1e293b;margin-bottom:5px;}
+.wiz-hint{font-size:.66rem;color:#94a3b8;margin-bottom:8px;}
 .ai-ta{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;
-  padding:9px 11px;font-size:.82rem;resize:vertical;font-family:inherit;
-  outline:none;min-height:96px;color:#1e293b;}
+  padding:8px 10px;font-size:.82rem;resize:none;font-family:inherit;
+  outline:none;min-height:64px;color:#1e293b;box-sizing:border-box;}
 .ai-ta:focus{border-color:#2563eb;}
+.ai-input{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;
+  padding:8px 10px;font-size:.82rem;font-family:inherit;outline:none;
+  color:#1e293b;box-sizing:border-box;}
+.ai-input:focus{border-color:#2563eb;}
+.ai-label{font-size:.64rem;font-weight:700;color:#64748b;text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:4px;display:block;margin-top:12px;}
 .ai-key{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;
-  padding:7px 10px;font-size:.78rem;font-family:monospace;outline:none;color:#1e293b;}
+  padding:7px 10px;font-size:.78rem;font-family:monospace;outline:none;color:#1e293b;
+  box-sizing:border-box;}
 .ai-key:focus{border-color:#2563eb;}
-.ai-row{display:flex;gap:8px;margin-top:6px;align-items:center;}
-.ai-key-wrap{flex:1;}
-.key-hint{font-size:.62rem;color:#94a3b8;margin-top:3px;}
+.key-hint{font-size:.61rem;color:#94a3b8;margin-top:3px;}
 .key-hint a{color:#2563eb;text-decoration:none;}
-.ai-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
-.aib{padding:7px 18px;border-radius:8px;font-size:.82rem;font-weight:700;
+.ai-actions{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:14px;}
+.ai-actions-right{display:flex;gap:8px;}
+.aib{padding:7px 16px;border-radius:8px;font-size:.8rem;font-weight:700;
   cursor:pointer;border:none;transition:.15s;}
 .aib.cancel{background:#f1f5f9;color:#64748b;}
 .aib.cancel:hover{background:#e2e8f0;}
+.aib.back{background:#f1f5f9;color:#475569;}
+.aib.back:hover{background:#e2e8f0;}
+.aib.next{background:#2563eb;color:#fff;}
+.aib.next:hover{opacity:.88;}
 .aib.gen{background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;
   display:flex;align-items:center;gap:6px;}
 .aib.gen:hover{opacity:.88;}
@@ -232,28 +247,32 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   <div class="ai-box">
     <h3>🤖 AI ile 5 Neden Analizi Oluştur</h3>
     <p class="ai-subtitle">
-      Groq ücretsiz API &nbsp;·&nbsp; Llama 3.3 70B &nbsp;·&nbsp; Kredi kartı gerekmez &nbsp;·&nbsp;
-      Key almak için: <a href="https://console.groq.com" target="_blank">console.groq.com</a> → API Keys
+      Groq ücretsiz API &nbsp;·&nbsp; Llama 3.3 70B &nbsp;·&nbsp;
+      <a href="https://console.groq.com" target="_blank">console.groq.com</a> → API Keys
     </p>
 
-    <label class="ai-label">Problem Tanımı (ne oldu, hangi parça, hangi süreç?)</label>
-    <textarea class="ai-ta" id="aiProblem" placeholder="örn: Montaj hattında vida torku düşük çıktı, 1500 adet ürün etkilendi. Müşteri şikayeti var."></textarea>
+    <!-- wizard progress dots -->
+    <div class="wiz-dots" id="wizDots"></div>
 
-    <div class="ai-row" style="margin-top:12px;">
-      <div class="ai-key-wrap">
-        <label class="ai-label">Gemini API Key</label>
-        <input class="ai-key" id="aiKey" type="password" placeholder="gsk_...">
-        <div class="key-hint">Tarayıcınızda saklanır, sunucuya gönderilmez &nbsp;·&nbsp;
-          <a href="https://console.groq.com" target="_blank">Ücretsiz key al (console.groq.com) →</a>
-        </div>
-      </div>
+    <!-- step content -->
+    <div id="wizStep"></div>
+
+    <!-- API key (always visible at bottom) -->
+    <label class="ai-label">Groq API Key</label>
+    <input class="ai-key" id="aiKey" type="password" placeholder="gsk_...">
+    <div class="key-hint">Tarayıcıda saklanır &nbsp;·&nbsp;
+      <a href="https://console.groq.com" target="_blank">Ücretsiz key al →</a>
     </div>
 
-    <div id="aiStatus" style="margin-top:10px;min-height:20px;"></div>
+    <div id="aiStatus" style="margin-top:10px;min-height:18px;"></div>
 
     <div class="ai-actions">
       <button class="aib cancel" onclick="closeAiModal()">İptal</button>
-      <button class="aib gen" id="aiGenBtn" onclick="aiGenerate()">✨ Analizi Oluştur</button>
+      <div class="ai-actions-right">
+        <button class="aib back" id="wizBack" onclick="wizNav(-1)">← Geri</button>
+        <button class="aib next" id="wizNext" onclick="wizNav(1)">İleri →</button>
+        <button class="aib gen" id="aiGenBtn" onclick="aiGenerate()" style="display:none">✨ Analizi Oluştur</button>
+      </div>
     </div>
   </div>
 </div>
@@ -710,40 +729,119 @@ if(_savedKey) document.getElementById('aiKey').value = _savedKey;
 render();
 
 // ══════════════════════════════════════════════════════
-//  AI — GEMINI
+//  AI WIZARD
 // ══════════════════════════════════════════════════════
+const WIZ_STEPS = [
+  { q: 'Ne oldu?',
+    hint: 'Ürün, parça veya süreçte gözlemlenen sapma',
+    ph: 'örn: Montaj hattında vida torku düşük çıktı',
+    multi: true, id: 'wq1' },
+  { q: 'Etki & Kapsam',
+    hint: 'Kaç adet? Hangi müşteri / ürün serisi?',
+    ph: 'örn: 1500 adet, A Serisi, müşteri şikayeti var',
+    multi: false, id: 'wq2' },
+  { q: 'Nerede / Hangi Süreç?',
+    hint: 'Hat, makine, istasyon veya operasyon',
+    ph: 'örn: Hat-3, vida sıkma istasyonu, gece vardiyası',
+    multi: false, id: 'wq3' },
+  { q: 'Nasıl Fark Edildi?',
+    hint: 'Tespit yöntemi ve ne zaman fark edildiği',
+    ph: 'örn: Müşteri iadesi, sevkiyattan 3 gün sonra',
+    multi: false, id: 'wq4' }
+];
+
+let _wizStep = 0;
+const _wizAnswers = {};
+
+function wizRender(){
+  const s   = WIZ_STEPS[_wizStep];
+  const tot = WIZ_STEPS.length;
+
+  // Dots
+  const dots = document.getElementById('wizDots');
+  dots.innerHTML = WIZ_STEPS.map((_,i)=>
+    `<div class="wiz-dot ${i<_wizStep?'done':i===_wizStep?'active':''}"></div>`
+  ).join('') + `<span style="font-size:.64rem;color:#94a3b8;margin-left:6px;">${_wizStep+1} / ${tot}</span>`;
+
+  // Step content
+  const val = _wizAnswers[s.id] || '';
+  document.getElementById('wizStep').innerHTML = `
+    <div class="wiz-q">${s.q}</div>
+    <div class="wiz-hint">${s.hint}</div>
+    ${s.multi
+      ? `<textarea class="ai-ta" id="${s.id}" placeholder="${s.ph}" rows="3">${val}</textarea>`
+      : `<input class="ai-input" id="${s.id}" placeholder="${s.ph}" value="${val.replace(/"/g,'&quot;')}">`
+    }`;
+
+  // Button visibility
+  const isLast = _wizStep === tot - 1;
+  document.getElementById('wizBack').style.display = _wizStep === 0 ? 'none' : '';
+  document.getElementById('wizNext').style.display = isLast ? 'none' : '';
+  document.getElementById('aiGenBtn').style.display = isLast ? '' : 'none';
+
+  // Focus input
+  setTimeout(()=>{ const el=document.getElementById(s.id); if(el) el.focus(); }, 60);
+}
+
+function wizSaveCurrent(){
+  const s  = WIZ_STEPS[_wizStep];
+  const el = document.getElementById(s.id);
+  if(el) _wizAnswers[s.id] = el.value.trim();
+}
+
+function wizNav(dir){
+  wizSaveCurrent();
+  _wizStep = Math.max(0, Math.min(WIZ_STEPS.length-1, _wizStep+dir));
+  wizRender();
+}
+
 function openAiModal(){
-  // Pre-fill problem from current state
+  _wizStep = 0;
+  // Pre-fill first question from current problem if set
   const prob = (_S.os.problem && !_S.os.problem.includes('buraya')) ? _S.os.problem : '';
-  document.getElementById('aiProblem').value = prob;
+  _wizAnswers['wq1'] = prob;
   document.getElementById('aiStatus').innerHTML = '';
   document.getElementById('aiModal').classList.add('open');
-  setTimeout(()=>document.getElementById('aiProblem').focus(),60);
+  wizRender();
 }
+
 function closeAiModal(){ document.getElementById('aiModal').classList.remove('open'); }
 
 async function aiGenerate(){
-  const problem = document.getElementById('aiProblem').value.trim();
-  const apiKey  = document.getElementById('aiKey').value.trim();
+  wizSaveCurrent();
+  const apiKey = document.getElementById('aiKey').value.trim();
 
-  if(!problem){ setAiStatus('error','⚠️ Lütfen problem tanımını girin.'); return; }
-  if(!apiKey)  { setAiStatus('error','⚠️ Lütfen Gemini API key girin.'); return; }
+  // Build context from wizard answers
+  const q1 = _wizAnswers['wq1'] || '';
+  const q2 = _wizAnswers['wq2'] || '';
+  const q3 = _wizAnswers['wq3'] || '';
+  const q4 = _wizAnswers['wq4'] || '';
 
-  // Save key for next time
+  if(!q1){ setAiStatus('error','⚠️ Lütfen en az 1. soruyu yanıtlayın.'); return; }
+  if(!apiKey){ setAiStatus('error','⚠️ Lütfen Groq API key girin.'); return; }
+
   localStorage.setItem('groq_api_key', apiKey);
 
   const btn = document.getElementById('aiGenBtn');
   btn.disabled = true;
   setAiStatus('loading','Groq üzerinde Llama 3.3 analiz ediyor…');
 
-  const prompt = `Sen bir kalite mühendisisin. Aşağıdaki problemi 5 Neden (5 Why) metodolojisiyle analiz et.
+  const context = [
+    `Problem: ${q1}`,
+    q2 ? `Etki/Kapsam: ${q2}` : '',
+    q3 ? `Süreç/Yer: ${q3}` : '',
+    q4 ? `Tespit: ${q4}` : ''
+  ].filter(Boolean).join('\n');
+
+  const prompt = `Sen bir kalite mühendisisin. Aşağıdaki bilgileri kullanarak 5 Neden (5 Why) analizi yap.
 Problemi iki açıdan incele:
 1. OLUŞUM: Problem neden oluştu? (Occurrence)
-2. TESPİT EDİLEMEME: Problem neden fark edilemedi / gözden kaçtı? (Non-detection)
+2. TESPİT EDİLEMEME: Problem neden fark edilemedi? (Non-detection)
 
 Her iz için 4-5 neden zinciri yaz. Son neden = teknik kök neden olsun.
+Nedenler kısa ve teknik olsun (maks 12 kelime).
 
-YALNIZCA aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
+YALNIZCA aşağıdaki JSON formatında yanıt ver:
 {
   "olusum": {
     "problem": "<kısa problem özeti>",
@@ -751,13 +849,13 @@ YALNIZCA aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     "rootCause": "<teknik kök neden>"
   },
   "tespit": {
-    "problem": "<aynı problemi tespit açısından özetle>",
+    "problem": "<tespit açısından problem özeti>",
     "steps": ["Neden 1", "Neden 2", "Neden 3", "Neden 4"],
     "rootCause": "<tespit kök nedeni>"
   }
 }
 
-Problem: ${problem}`;
+${context}`;
 
   try {
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -785,12 +883,10 @@ Problem: ${problem}`;
 
     const data = await resp.json();
     const raw  = data?.choices?.[0]?.message?.content || '';
-
-    // Extract JSON from response (may be wrapped in ```json ... ```)
     const jsonStr = raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
     const parsed  = JSON.parse(jsonStr);
 
-    applyAiResult(parsed, problem);
+    applyAiResult(parsed, q1);
     closeAiModal();
     setAiStatus('','');
 
@@ -802,25 +898,22 @@ Problem: ${problem}`;
 }
 
 function applyAiResult(parsed, originalProblem){
-  // OLUŞUM
   if(parsed.olusum){
-    _S.os.problem  = parsed.olusum.problem || originalProblem;
-    _S.os.rcText   = parsed.olusum.rootCause || _S.os.rcText;
-    _S.os.chains   = [{ startAfter:null, steps: (parsed.olusum.steps||[]).map((t,i,arr)=>{
-      return { id:uid(), text:t, isRoot: i===arr.length-1 };
-    }) }];
+    _S.os.problem = parsed.olusum.problem || originalProblem;
+    _S.os.rcText  = parsed.olusum.rootCause || _S.os.rcText;
+    _S.os.chains  = [{ startAfter:null, steps: (parsed.olusum.steps||[]).map((t,i,arr)=>
+      ({ id:uid(), text:t, isRoot: i===arr.length-1 })
+    )}];
     if(!_S.os.chains[0].steps.length) _S.os.chains[0].steps.push(mkStep());
   }
-  // TESPİT
   if(parsed.tespit){
-    _S.nd.problem  = parsed.tespit.problem || originalProblem;
-    _S.nd.rcText   = parsed.tespit.rootCause || _S.nd.rcText;
-    _S.nd.chains   = [{ startAfter:null, steps: (parsed.tespit.steps||[]).map((t,i,arr)=>{
-      return { id:uid(), text:t, isRoot: i===arr.length-1 };
-    }) }];
+    _S.nd.problem = parsed.tespit.problem || originalProblem;
+    _S.nd.rcText  = parsed.tespit.rootCause || _S.nd.rcText;
+    _S.nd.chains  = [{ startAfter:null, steps: (parsed.tespit.steps||[]).map((t,i,arr)=>
+      ({ id:uid(), text:t, isRoot: i===arr.length-1 })
+    )}];
     if(!_S.nd.chains[0].steps.length) _S.nd.chains[0].steps.push(mkStep());
   }
-  // Update meta problem field
   if(originalProblem && !document.getElementById('mPart').value)
     document.getElementById('mPart').value = originalProblem.slice(0,60);
   render();
@@ -829,18 +922,21 @@ function applyAiResult(parsed, originalProblem){
 function setAiStatus(type, msg){
   const el = document.getElementById('aiStatus');
   if(!msg){ el.innerHTML=''; return; }
-  if(type==='loading'){
+  if(type==='loading')
     el.innerHTML = `<div class="ai-status"><div class="ai-spinner"></div>${msg}</div>`;
-  } else if(type==='error'){
+  else if(type==='error')
     el.innerHTML = `<div style="color:#dc2626;font-size:.74rem;font-weight:600;">${msg}</div>`;
-  } else {
+  else
     el.innerHTML = `<div style="color:#16a34a;font-size:.74rem;">${msg}</div>`;
-  }
 }
 
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape') { closeAiModal(); closeModal(); }
   if(e.key==='Enter' && e.ctrlKey && document.getElementById('editModal').classList.contains('open')) saveModal();
+  if(e.key==='Enter' && document.getElementById('aiModal').classList.contains('open')){
+    const isLast = _wizStep === WIZ_STEPS.length - 1;
+    if(isLast) aiGenerate(); else wizNav(1);
+  }
 });
 </script>
 </body>
