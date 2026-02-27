@@ -404,7 +404,11 @@ function doLayout(tk){
 
   // ── Parallel branch chains ──
   // Each branch starts BELOW its fork step, continues staircase (right+down)
+  // colBottomY tracks the lowest Y used at each column (main + branches)
   const colBottomY = {};
+  // allPlaced holds every step item placed so far (main + branches) for fork lookup
+  const allPlaced = [...mainItems];
+
   for(const it of mainItems){
     const col = Math.round(it.x / COL_W);
     colBottomY[col] = Math.max(colBottomY[col]||0, it.y + it.h);
@@ -414,17 +418,23 @@ function doLayout(tk){
 
   for(let ci=1; ci<track.chains.length; ci++){
     const chain    = track.chains[ci];
-    const sa       = chain.startAfter ?? 0;   // fork from which main-step index
-    const startCol = sa + 1;                  // branch starts at same col as next main step
+    const sa       = chain.startAfter ?? 0;   // absolute column index of the fork step
+    const forkCol  = sa;                      // column the fork step lives in
+    const startCol = sa + 1;                  // branch's first step column
 
-    // Top Y: below the main step at startCol, and below any already-placed branches there
-    let branchTopY = mainItems[sa]
-      ? mainItems[sa].y + mainItems[sa].h + BRANCH_V
-      : BRANCH_V;
+    // Find the actual fork anchor: look through ALL placed items for the one at forkCol
+    // (could be a main step OR a previously placed branch step)
+    const forkCandidates = allPlaced.filter(it => Math.round(it.x / COL_W) === forkCol);
+    // Use the bottommost item at that column as anchor
+    const forkAnchor = forkCandidates.length
+      ? forkCandidates.reduce((a,b) => b.cy > a.cy ? b : a)
+      : { cx: forkCol * COL_W + BOX_W, cy: probCY, y: probCY - BOX_H/2, h: BOX_H };
+
+    // branchTopY: below the fork anchor, and below anything already at startCol
+    let branchTopY = forkAnchor.y + forkAnchor.h + BRANCH_V;
     if(colBottomY[startCol] !== undefined)
       branchTopY = Math.max(branchTopY, colBottomY[startCol] + BRANCH_V);
 
-    const forkAnchor = mainItems[sa] || { cx: PROB_W, cy: probCY };
     const brItems = [];
 
     for(let si=0; si<chain.steps.length; si++){
@@ -436,6 +446,7 @@ function doLayout(tk){
         data:chain.steps[si], x, y, w:BOX_W, h:BOX_H, cx, cy, tk, isBranch:true };
       brItems.push(it);
       items.push(it);
+      allPlaced.push(it);
       const col = Math.round(x/COL_W);
       colBottomY[col] = Math.max(colBottomY[col]||0, y+BOX_H);
     }
