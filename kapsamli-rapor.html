@@ -502,7 +502,16 @@ body.report-editing [data-ed]:focus {
     background:#f8faff; border-bottom:1px solid var(--c-border); font-size:.82rem; font-weight:700; color:var(--c-text); }
 .snap-card-head .snap-del { background:none; border:none; cursor:pointer; color:#dc2626; font-size:1rem; padding:2px 4px; border-radius:4px; }
 .snap-card-head .snap-del:hover { background:#fee2e2; }
+.snap-card-head .snap-note-toggle { background:none; border:none; cursor:pointer; font-size:.95rem; padding:2px 5px; border-radius:4px; color:#6366f1; transition:background .15s; }
+.snap-card-head .snap-note-toggle:hover { background:#ede9fe; }
 .snap-card img { display:block; width:100%; max-height:480px; object-fit:contain; padding:12px; background:#fff; }
+.snap-note-area { border-top:1px solid var(--c-border); padding:12px 14px; background:#fafbff; }
+.snap-note-area textarea { width:100%; min-height:72px; border:1.5px solid #dde3f0; border-radius:8px; padding:8px 10px; font-size:.82rem; color:var(--c-text); resize:vertical; box-sizing:border-box; font-family:inherit; transition:border-color .2s; outline:none; }
+.snap-note-area textarea:focus { border-color:#6366f1; }
+.snap-note-area textarea::placeholder { color:#b0bac8; }
+.snap-note-save { margin-top:7px; background:#6366f1; color:#fff; border:none; border-radius:6px; padding:5px 14px; font-size:.76rem; font-weight:700; cursor:pointer; transition:background .15s; }
+.snap-note-save:hover { background:#4f46e5; }
+@media print { .snap-note-area { background:transparent; } .snap-note-area textarea { border:none; background:transparent; resize:none; min-height:unset; } }
 .snap-empty { text-align:center; color:var(--c-sub); font-size:.9rem; padding:40px 20px;
     background:#f8f9fc; border-radius:10px; border:2px dashed #e2e6ed; }
 #s-snapshots.hidden-sec { display:none; }
@@ -1088,6 +1097,51 @@ async function krDeleteSnap(idx) {
     await _idbPut(_IDB.key, payload);
     _destroyCharts();
     runReport(payload);
+}
+
+// ── Snap note toggle / save ──
+function krToggleSnapNote(i) {
+    const area = document.getElementById('snap-note-' + i);
+    if (!area) return;
+    const isHidden = area.style.display === 'none';
+    area.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) {
+        const ta = document.getElementById('snap-note-txt-' + i);
+        if (ta) ta.focus();
+    }
+}
+
+async function krSaveSnapNote(i) {
+    const ta = document.getElementById('snap-note-txt-' + i);
+    if (!ta) return;
+    const payload = await _idbGet(_IDB.key);
+    if (!payload || !payload.chartSnapshots || !payload.chartSnapshots[i]) return;
+    payload.chartSnapshots[i].note = ta.value;
+    await _idbPut(_IDB.key, payload);
+    ta.style.borderColor = '#22c55e';
+    setTimeout(() => { ta.style.borderColor = ''; }, 1500);
+}
+
+function krToggleSnapNote(i) {
+    const area = document.getElementById('snap-note-' + i);
+    if (!area) return;
+    const isHidden = area.style.display === 'none';
+    area.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) {
+        const ta = document.getElementById('snap-note-txt-' + i);
+        if (ta) ta.focus();
+    }
+}
+
+async function krSaveSnapNote(i) {
+    const ta = document.getElementById('snap-note-txt-' + i);
+    if (!ta) return;
+    const payload = await _idbGet(_IDB.key);
+    if (!payload || !payload.chartSnapshots || !payload.chartSnapshots[i]) return;
+    payload.chartSnapshots[i].note = ta.value;
+    await _idbPut(_IDB.key, payload);
+    ta.style.borderColor = '#22c55e';
+    setTimeout(() => { ta.style.borderColor = ''; }, 1500);
 }
 
 // ── EDIT MODE ──
