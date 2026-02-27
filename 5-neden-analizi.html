@@ -56,7 +56,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   letter-spacing:.05em;margin-bottom:4px;color:#2563eb;}
 .pbox.nd-t .plbl{color:#7c3aed;}
 .pbox textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
-  font-size:.75rem;color:#1e293b;font-family:inherit;line-height:1.4;min-height:46px;}
+  font-size:.82rem;font-weight:500;color:#1e293b;font-family:inherit;line-height:1.45;min-height:44px;}
 
 /* ── STEP BOX ── */
 .sbox{position:absolute;border:2px solid #cbd5e1;border-radius:8px;
@@ -67,12 +67,18 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .stag{position:absolute;top:-9px;left:8px;font-size:.57rem;font-weight:800;
   padding:1px 7px;border-radius:10px;background:#dc2626;color:#fff;white-space:nowrap;}
 .sbox textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
-  font-size:.75rem;color:#1e293b;font-family:inherit;line-height:1.4;
-  min-height:38px;margin-top:0;}
-.sbox.is-root textarea{margin-top:10px;}
-.sacts{display:flex;gap:3px;margin-top:5px;flex-wrap:wrap;}
-.sa{font-size:.58rem;padding:2px 6px;border-radius:4px;border:1px solid;
+  font-size:.83rem;font-weight:500;color:#1e293b;font-family:inherit;line-height:1.45;
+  min-height:36px;margin-top:0;}
+.sbox.is-root textarea{margin-top:9px;}
+.sacts{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap;}
+.sa{font-size:.56rem;padding:2px 5px;border-radius:4px;border:1px solid;
   cursor:pointer;font-weight:700;background:#fff;transition:.12s;white-space:nowrap;}
+/* wizard chips */
+.wiz-opts{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}
+.wiz-chip{padding:6px 16px;border-radius:20px;border:2px solid #e2e8f0;
+  font-size:.82rem;font-weight:700;cursor:pointer;background:#fff;color:#475569;transition:.15s;}
+.wiz-chip:hover{border-color:#93c5fd;color:#2563eb;}
+.wiz-chip.sel{border-color:#2563eb;background:#2563eb;color:#fff;}
 .sa.add{color:#2563eb;border-color:#bfdbfe;background:#eff6ff;}
 .sa.add:hover{background:#2563eb;color:#fff;}
 .sa.root{color:#dc2626;border-color:#fca5a5;background:#fff5f5;}
@@ -89,8 +95,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .rcb .rl{font-size:.6rem;font-weight:800;text-transform:uppercase;
   color:#dc2626;letter-spacing:.04em;margin:4px 0 2px;}
 .rcb textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
-  font-size:.7rem;color:#b91c1c;font-family:inherit;text-align:center;
-  line-height:1.3;min-height:30px;}
+  font-size:.78rem;font-weight:600;color:#b91c1c;font-family:inherit;text-align:center;
+  line-height:1.4;min-height:30px;}
 
 /* ── STEP ADD BTN ── */
 .add-step-btn{display:inline-flex;align-items:center;gap:5px;
@@ -185,6 +191,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   <h1>5 Neden Analizi</h1>
   <div class="sp"></div>
   <button class="tbb" style="background:linear-gradient(135deg,rgba(124,58,237,.7),rgba(37,99,235,.7));border-color:rgba(167,139,250,.5);" onclick="openAiModal()">🤖 AI ile Oluştur</button>
+  <button class="tbb" style="background:linear-gradient(135deg,#059669,#0891b2);" onclick="aiRefresh()" title="Mevcut adım yapısını koruyarak içerikleri AI ile yeniden oluştur">🔄 Yenile</button>
   <button class="tbb ok"    onclick="saveData()">💾 Kaydet</button>
   <button class="tbb"       onclick="loadData()">📂 Yükle</button>
   <button class="tbb"       onclick="window.print()">🖨️ Yazdır / PDF</button>
@@ -418,19 +425,17 @@ function doLayout(tk){
 
   for(let ci=1; ci<track.chains.length; ci++){
     const chain    = track.chains[ci];
-    const sa       = chain.startAfter ?? 0;   // absolute column index of the fork step
-    const forkCol  = sa;                      // column the fork step lives in
-    const startCol = sa + 1;                  // branch's first step column
+    const sa       = chain.startAfter ?? 0;   // column index of the fork step
+    const forkCol  = sa;
+    const startCol = sa;                      // branch STARTS at same column as fork (below it)  
 
-    // Find the actual fork anchor: look through ALL placed items for the one at forkCol
-    // (could be a main step OR a previously placed branch step)
+    // Find the actual fork anchor from all placed items at forkCol
     const forkCandidates = allPlaced.filter(it => Math.round(it.x / COL_W) === forkCol);
-    // Use the bottommost item at that column as anchor
     const forkAnchor = forkCandidates.length
       ? forkCandidates.reduce((a,b) => b.cy > a.cy ? b : a)
-      : { cx: forkCol * COL_W + BOX_W, cy: probCY, y: probCY - BOX_H/2, h: BOX_H };
+      : { cx: forkCol * COL_W + BOX_W/2, cy: probCY, y: probCY - BOX_H/2, h: BOX_H };
 
-    // branchTopY: below the fork anchor, and below anything already at startCol
+    // branchTopY: directly below the fork anchor, also below anything already at startCol
     let branchTopY = forkAnchor.y + forkAnchor.h + BRANCH_V;
     if(colBottomY[startCol] !== undefined)
       branchTopY = Math.max(branchTopY, colBottomY[startCol] + BRANCH_V);
@@ -451,10 +456,10 @@ function doLayout(tk){
       colBottomY[col] = Math.max(colBottomY[col]||0, y+BOX_H);
     }
 
-    // Fork connector (dashed, from fork anchor → first branch step)
+    // Fork connector: straight DOWN from fork anchor to first branch step (same column)
     if(brItems.length)
       conns.push({ x1:forkAnchor.cx, y1:forkAnchor.cy,
-                   x2:brItems[0].x, y2:brItems[0].cy, label:'why', dashed:true });
+                   x2:brItems[0].cx - BOX_W/2, y2:brItems[0].y, label:'', dashed:true });
     // Branch internal connectors
     for(let si=0; si<brItems.length-1; si++)
       conns.push({ x1:brItems[si].cx, y1:brItems[si].cy,
@@ -627,12 +632,16 @@ function renderStepBox(diag, it, tk){
     renderTrack(tk);
   };
   el.querySelector('.fork').onclick = ()=>{
-    // The absolute column of this step = startAfter-of-its-chain + stepIdx
-    // (for main chain: startAfter is null → treat as -1 so col = stepIdx)
-    const chainStartAfter = it.chain === 0
-      ? -1
-      : (_S[tk].chains[it.chain].startAfter ?? 0);
-    const forkAt = chainStartAfter + 1 + it.stepIdx;  // absolute main-chain-equivalent col index
+    // column of the clicked step:
+    //   main chain step[i]  → col = i+1
+    //   branch chain (startAfter=S) step[j] → col = S+j
+    let forkAt;
+    if(it.chain === 0){
+      forkAt = it.stepIdx + 1;   // main step i lives at column i+1
+    } else {
+      const sa = _S[tk].chains[it.chain].startAfter ?? 0;
+      forkAt = sa + it.stepIdx;  // branch step j of chain(startAfter=S) lives at col S+j
+    }
     addParallelBranch(tk, forkAt);
   };
 
@@ -758,7 +767,13 @@ const WIZ_STEPS = [
   { q: 'Nasıl Fark Edildi?',
     hint: 'Tespit yöntemi ve ne zaman fark edildiği',
     ph: 'örn: Müşteri iadesi, sevkiyattan 3 gün sonra',
-    multi: false, id: 'wq4' }
+    multi: false, id: 'wq4' },
+  { q: 'Kaç neden adımı olsun?',
+    hint: 'Her bir iz için ana zincirdeki adım sayısı',
+    chips: ['3','4','5','6','7'], def: '5', id: 'wq5' },
+  { q: 'Paralel dal eklensin mi?',
+    hint: 'Her izde kaç bağımsız dal zinciri oluşturulsun',
+    chips: ['Yok','1 Dal','2 Dal'], def: 'Yok', id: 'wq6' }
 ];
 
 let _wizStep = 0;
@@ -775,14 +790,18 @@ function wizRender(){
   ).join('') + `<span style="font-size:.64rem;color:#94a3b8;margin-left:6px;">${_wizStep+1} / ${tot}</span>`;
 
   // Step content
-  const val = _wizAnswers[s.id] || '';
-  document.getElementById('wizStep').innerHTML = `
-    <div class="wiz-q">${s.q}</div>
-    <div class="wiz-hint">${s.hint}</div>
-    ${s.multi
-      ? `<textarea class="ai-ta" id="${s.id}" placeholder="${s.ph}" rows="3">${val}</textarea>`
-      : `<input class="ai-input" id="${s.id}" placeholder="${s.ph}" value="${val.replace(/"/g,'&quot;')}">`
-    }`;
+  const val = _wizAnswers[s.id] !== undefined ? _wizAnswers[s.id] : (s.def||'');
+  let inner = `<div class="wiz-q">${s.q}</div><div class="wiz-hint">${s.hint}</div>`;
+  if(s.chips){
+    inner += `<div class="wiz-opts">${s.chips.map(c=>
+      `<button class="wiz-chip${val===c?' sel':''}" onclick="wizChip('${s.id}','${c}',this)">${c}</button>`
+    ).join('')}</div>`;
+  } else if(s.multi){
+    inner += `<textarea class="ai-ta" id="${s.id}" placeholder="${s.ph}" rows="3">${val}</textarea>`;
+  } else {
+    inner += `<input class="ai-input" id="${s.id}" placeholder="${s.ph}" value="${val.replace(/"/g,'&quot;')}">` ;
+  }
+  document.getElementById('wizStep').innerHTML = inner;
 
   // Button visibility
   const isLast = _wizStep === tot - 1;
@@ -791,11 +810,18 @@ function wizRender(){
   document.getElementById('aiGenBtn').style.display = isLast ? '' : 'none';
 
   // Focus input
-  setTimeout(()=>{ const el=document.getElementById(s.id); if(el) el.focus(); }, 60);
+  if(!s.chips) setTimeout(()=>{ const el=document.getElementById(s.id); if(el) el.focus(); }, 60);
+}
+
+function wizChip(id, val, btn){
+  _wizAnswers[id] = val;
+  btn.closest('.wiz-opts').querySelectorAll('.wiz-chip').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
 }
 
 function wizSaveCurrent(){
   const s  = WIZ_STEPS[_wizStep];
+  if(s.chips) return;   // chip answers saved immediately on click
   const el = document.getElementById(s.id);
   if(el) _wizAnswers[s.id] = el.value.trim();
 }
@@ -808,9 +834,11 @@ function wizNav(dir){
 
 function openAiModal(){
   _wizStep = 0;
-  // Pre-fill first question from current problem if set
   const prob = (_S.os.problem && !_S.os.problem.includes('buraya')) ? _S.os.problem : '';
   _wizAnswers['wq1'] = prob;
+  // pre-set chip defaults
+  if(!_wizAnswers['wq5']) _wizAnswers['wq5'] = '5';
+  if(!_wizAnswers['wq6']) _wizAnswers['wq6'] = 'Yok';
   document.getElementById('aiStatus').innerHTML = '';
   document.getElementById('aiModal').classList.add('open');
   wizRender();
@@ -837,6 +865,11 @@ async function aiGenerate(){
   btn.disabled = true;
   setAiStatus('loading','Groq üzerinde Llama 3.3 analiz ediyor…');
 
+  const q5 = _wizAnswers['wq5'] || '5';
+  const q6 = _wizAnswers['wq6'] || 'Yok';
+  const stepCount   = parseInt(q5) || 5;
+  const branchCount = q6==='1 Dal' ? 1 : q6==='2 Dal' ? 2 : 0;
+
   const context = [
     `Problem: ${q1}`,
     q2 ? `Etki/Kapsam: ${q2}` : '',
@@ -844,25 +877,34 @@ async function aiGenerate(){
     q4 ? `Tespit: ${q4}` : ''
   ].filter(Boolean).join('\n');
 
+  const branchInstruction = branchCount > 0
+    ? `Her iz için ayrıca ${branchCount} adet paralel dal zinciri de oluştur. Her dal, ana zincirdeki bir adımdan dallanır ve kendi bağımsız neden zincirini takip eder.`
+    : '';
+
+  const branchJsonExample = branchCount > 0
+    ? `,\n    "branches": [{"startAfterStep": 2, "steps": ["Dal Neden 1", "Dal Neden 2", "Dal Neden 3"], "rootCause": "Dal kök neden"}]`
+    : '';
+
   const prompt = `Sen bir kalite mühendisisin. Aşağıdaki bilgileri kullanarak 5 Neden (5 Why) analizi yap.
 Problemi iki açıdan incele:
 1. OLUŞUM: Problem neden oluştu? (Occurrence)
 2. TESPİT EDİLEMEME: Problem neden fark edilemedi? (Non-detection)
 
-Her iz için 4-5 neden zinciri yaz. Son neden = teknik kök neden olsun.
-Nedenler kısa ve teknik olsun (maks 12 kelime).
+Her iz için EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = teknik kök neden.
+${branchInstruction}
+Nedenler kısa ve teknik olsun (en fazla 10 kelime).
 
 YALNIZCA aşağıdaki JSON formatında yanıt ver:
 {
   "olusum": {
     "problem": "<kısa problem özeti>",
-    "steps": ["Neden 1", "Neden 2", "Neden 3", "Neden 4", "Neden 5"],
-    "rootCause": "<teknik kök neden>"
+    "mainSteps": ["Neden 1", "Neden 2", ... (tam ${stepCount} adet)],
+    "rootCause": "<teknik kök neden>"${branchJsonExample}
   },
   "tespit": {
     "problem": "<tespit açısından problem özeti>",
-    "steps": ["Neden 1", "Neden 2", "Neden 3", "Neden 4"],
-    "rootCause": "<tespit kök nedeni>"
+    "mainSteps": ["Neden 1", "Neden 2", ... (tam ${stepCount} adet)],
+    "rootCause": "<tespit kök nedeni>"${branchJsonExample}
   }
 }
 
@@ -908,26 +950,84 @@ ${context}`;
   }
 }
 
+function buildChainsFromAi(iz){
+  const mainSteps = (iz.mainSteps || iz.steps || []);
+  const chains = [{ startAfter:null, steps: mainSteps.map((t,i,a)=>
+    ({ id:uid(), text:t, isRoot: i===a.length-1 })
+  )}];
+  if(!chains[0].steps.length) chains[0].steps.push(mkStep());
+  // parallel branches
+  for(const br of (iz.branches||[])){
+    const sa = typeof br.startAfterStep === 'number' ? br.startAfterStep : 0;
+    const bSteps = (br.steps||[]).map((t,i,a)=>({ id:uid(), text:t, isRoot: i===a.length-1 }));
+    if(bSteps.length) chains.push({ startAfter: sa, steps: bSteps });
+  }
+  return chains;
+}
+
 function applyAiResult(parsed, originalProblem){
   if(parsed.olusum){
     _S.os.problem = parsed.olusum.problem || originalProblem;
     _S.os.rcText  = parsed.olusum.rootCause || _S.os.rcText;
-    _S.os.chains  = [{ startAfter:null, steps: (parsed.olusum.steps||[]).map((t,i,arr)=>
-      ({ id:uid(), text:t, isRoot: i===arr.length-1 })
-    )}];
-    if(!_S.os.chains[0].steps.length) _S.os.chains[0].steps.push(mkStep());
+    _S.os.chains  = buildChainsFromAi(parsed.olusum);
   }
   if(parsed.tespit){
     _S.nd.problem = parsed.tespit.problem || originalProblem;
     _S.nd.rcText  = parsed.tespit.rootCause || _S.nd.rcText;
-    _S.nd.chains  = [{ startAfter:null, steps: (parsed.tespit.steps||[]).map((t,i,arr)=>
-      ({ id:uid(), text:t, isRoot: i===arr.length-1 })
-    )}];
-    if(!_S.nd.chains[0].steps.length) _S.nd.chains[0].steps.push(mkStep());
+    _S.nd.chains  = buildChainsFromAi(parsed.tespit);
   }
   if(originalProblem && !document.getElementById('mPart').value)
     document.getElementById('mPart').value = originalProblem.slice(0,60);
   render();
+}
+
+// Yenile: keeps existing step/branch structure, regenerates text content only
+async function aiRefresh(){
+  const apiKey = localStorage.getItem('groq_api_key');
+  if(!apiKey){ alert('Önce AI ile Oluştur butonundan API key girin.'); return; }
+  const q1 = _wizAnswers['wq1'] || _S.os.problem || '';
+  if(!q1 || q1.includes('buraya')){ alert('AI\'ye göndermek için önce problem tanımı girin.'); return; }
+
+  const q2 = _wizAnswers['wq2']||'', q3 = _wizAnswers['wq3']||'', q4 = _wizAnswers['wq4']||'';
+  // Infer structure from current state
+  const stepCount   = _S.os.chains[0].steps.length || 5;
+  const branchCount = Math.max(0, _S.os.chains.length - 1);
+
+  const context = [`Problem: ${q1}`, q2?`Etki: ${q2}`:'', q3?`Yer: ${q3}`:'', q4?`Tespit: ${q4}`:''].filter(Boolean).join('\n');
+  const branchInstruction = branchCount > 0
+    ? `Her iz için ${branchCount} paralel dal zinciri de oluştur. Her dal, ana zincirdeki bir adımdan dallanır.` : '';
+  const branchJsonExample = branchCount > 0
+    ? `,\n    "branches": [{"startAfterStep": 2, "steps": ["Dal Neden 1","Dal Neden 2","Dal Neden 3"], "rootCause": "Dal kök"}]` : '';
+
+  const prompt = `Sen bir kalite mühendisisin. 5 Neden (5 Why) analizi yap.
+OLUŞUM ve TESPİT açılarından her biri EXACTLY ${stepCount} adımlı ana zincir oluştur.
+${branchInstruction}
+Nedenler kısa ve teknik (en fazla 10 kelime).
+
+YALNIZCA JSON:
+{ "olusum":{"problem":"...","mainSteps":[...${stepCount} adet],"rootCause":"..."${branchJsonExample}},
+  "tespit":{"problem":"...","mainSteps":[...${stepCount} adet],"rootCause":"..."${branchJsonExample}} }
+
+${context}`;
+
+  // Show spinner in topbar briefly
+  const btn = [...document.querySelectorAll('.tbb')].find(b=>b.textContent.includes('Yenile'));
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Oluşturuluyor…'; }
+
+  try{
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+      body: JSON.stringify({ model:'llama-3.3-70b-versatile',
+        messages:[{role:'system',content:'Sadece istenen JSON formatında yanıt ver.'},{role:'user',content:prompt}],
+        temperature:0.5, max_tokens:1400, response_format:{type:'json_object'} })
+    });
+    if(!resp.ok){ const e=await resp.json().catch(()=>({})); throw new Error(e?.error?.message||`HTTP ${resp.status}`); }
+    const data = await resp.json();
+    const raw  = data?.choices?.[0]?.message?.content||'';
+    const parsed = JSON.parse(raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim());
+    applyAiResult(parsed, q1);
+  } catch(e){ alert('❌ Yenile hatası: '+e.message); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='🔄 Yenile'; } }
 }
 
 function setAiStatus(type, msg){
