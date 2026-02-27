@@ -295,9 +295,13 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
     .ap-btn, .fb-group-table { display:none !important; }
 
     /* ── BASE ── */
-    html, body { font-size:9.5px !important; background:#fff !important; color:#000 !important; }
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    html, body {
+        font-size:9.5px !important;
+        background:#fff !important;
+        color:#000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
 
     /* ── LAYOUT ── */
     .layout { display:block !important; }
@@ -323,7 +327,7 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
     .kpi-card .klabel { font-size:.7rem !important; }
 
     /* ── CHARTS ── */
-    canvas { max-height:180px !important; max-width:100% !important; }
+    canvas { max-width:100% !important; }
     .two-col { grid-template-columns:1fr 1fr !important; gap:14px !important; }
     .chart-wrap, .chart-wrap-tall { min-height:unset !important; }
 
@@ -3410,6 +3414,49 @@ function _krToggleFbTable(h4el) {
     const collapsed = body.classList.toggle('collapsed');
     if (chevron) chevron.classList.toggle('collapsed', collapsed);
 }
+
+// ── PRINT: show hidden tabs, resize charts, then restore ──
+(function() {
+    // Elements that are hidden by tab switching (inline display:none)
+    const PRINT_SHOW_IDS = [
+        'cat6m_ic','cat6m_dis','cat6m_ted',
+        'aksiyonTab_ic','aksiyonTab_dis','aksiyonTab_ted'
+    ];
+    const saved = {};
+
+    function beforePrint() {
+        // 1. Show all tab content divs
+        PRINT_SHOW_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            saved[id] = el.style.display;
+            el.style.display = '';
+        });
+        // 2. Resize every Chart.js instance so canvas fills its container
+        try {
+            Object.values(Chart.instances || {}).forEach(chart => {
+                try { chart.resize(); } catch(e) {}
+            });
+        } catch(e) {}
+    }
+
+    function afterPrint() {
+        PRINT_SHOW_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.style.display = (saved[id] !== undefined ? saved[id] : 'none');
+        });
+    }
+
+    window.addEventListener('beforeprint', beforePrint);
+    window.addEventListener('afterprint',  afterPrint);
+
+    // matchMedia fallback (Safari)
+    if (window.matchMedia) {
+        const mql = window.matchMedia('print');
+        mql.addListener(m => { if (m.matches) beforePrint(); else afterPrint(); });
+    }
+}());
 </script>
 
 <!-- GİZLİ BÖLÜMLER FLOATING BADGE -->
