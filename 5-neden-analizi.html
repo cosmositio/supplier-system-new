@@ -100,11 +100,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 
 /* ── STEP NUMBER LABEL ── */
 .step-num-lbl{
-  position:absolute;bottom:4px;right:5px;
+  position:absolute;top:4px;left:5px;
   font-size:.58rem;font-weight:800;color:#fff;
   background:#2563eb;border-radius:4px;
   padding:1px 5px;letter-spacing:.04em;
-  pointer-events:none;opacity:.78;line-height:1.4;
+  pointer-events:none;opacity:.88;line-height:1.4;
+  z-index:1;
 }
 .step-num-lbl.nd-lbl{background:#7c3aed;}
 
@@ -878,7 +879,8 @@ function renderStepBox(diag, it, tab, tk){
   const prefix = tk === 'os' ? 'A' : 'B';
   const numLbl = it.flatIdx !== undefined ? prefix + (it.flatIdx + 1) : '';
   const el   = div('sbox'+(node.isRoot?' is-root':'')+(pinned?' is-pinned':''), it.x, it.y, it.w, it.h);
-  el.innerHTML = (node.isRoot?`<span class="stag">🎯 Kök Neden</span>`:'') +
+  el.innerHTML = (numLbl?`<span class="step-num-lbl${tk==='nd'?' nd-lbl':''}">${numLbl}</span>`:'')+
+                 (node.isRoot?`<span class="stag">🎯 Kök Neden</span>`:'') +
     `<button class="pin-btn${pinned?' pinned':''}" title="${pinned?'Sabiti kaldır':'Sabitle'}">&#128204;</button>
      <textarea placeholder="Nedeni yazın…"></textarea>
      <div class="sacts">
@@ -886,9 +888,7 @@ function renderStepBox(diag, it, tab, tk){
        <button class="sa add" title="Bu adımdan zincire devam et (sağa uzat)">➕ Adım</button>
        <button class="sa fork" title="Bu noktadan paralel bağımsız bir zincir başlat (dal)">🪢 Paralel Dal</button>
        <button class="sa root">${node.isRoot?'🎯 Kök ✓':'🎯 Kök Neden'}</button>
-     </div>
-     ${numLbl?`<span class="step-num-lbl${tk==='nd'?' nd-lbl':''}">${numLbl}</span>`:''}`;
-
+     </div>`;
   el.querySelector('.pin-btn').onclick = ()=>{ node.pinned = !node.pinned; renderTrack(tab, tk); };
 
   const ta = el.querySelector('textarea');
