@@ -190,7 +190,10 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .fb-table-chevron.collapsed { transform:rotate(-90deg); }
 .fb-table-body { overflow:hidden; transition:max-height .35s ease, opacity .25s ease; max-height:2000px; opacity:1; }
 .fb-table-body.collapsed { max-height:0; opacity:0; pointer-events:none; }
-.fb-header  { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+.fb-header  { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; cursor:pointer; user-select:none; padding:8px 12px; border-radius:8px; transition:background .15s; }
+.fb-header:hover { background:#f1f5f9; }
+.fb-body { overflow:hidden; transition:max-height .35s ease, opacity .25s ease; max-height:9999px; opacity:1; }
+.fb-body.collapsed { max-height:0; opacity:0; pointer-events:none; }
 .fb-effect-tag { background:#fef2f2; color:#b91c1c; border:1.5px solid #fca5a5; border-radius:20px; padding:3px 14px; font-size:.75rem; font-weight:700; max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fb-svg-wrap { background:#f8fafc; border-radius:12px; border:1.5px solid #e2e8f0; overflow-x:auto; }
 .fb-edit-panels { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-top:14px; }
@@ -1513,12 +1516,15 @@ function renderMultipleFishbones(groups, allRows) {
                 <span class="fb-group-badge2">%${g.pct}</span>
             </div>
             <div class="fb-section" onmousedown="_fbActivate(${i})">
-                <div class="fb-header">
+                <div class="fb-header" onclick="_fbToggleBody(${i})">
                     <span style="font-weight:700;font-size:.9rem;color:#1e2535;">🐟 Balık Kılçığı — ${esc(g.label)}</span>
                     <span style="font-size:.75rem;color:#64748b;margin-left:auto;">6 kemik: İnsan · Makine · Malzeme · Metot · Ölçüm · Ortam</span>
+                    <span id="fbChevron_${i}" style="font-size:.9rem;transition:transform .25s;display:inline-block;margin-left:6px;">▾</span>
                 </div>
+                <div class="fb-body" id="fbBody_${i}">
                 <div class="fb-svg-wrap" id="fbContainer_${i}"></div>
                 <div class="fb-edit-panels no-print" id="fbEditPanels_${i}"></div>
+                </div>
             </div>
             <div class="fb-group-table">
                 <h4 onclick="_krToggleFbTable(this)">
@@ -2156,6 +2162,14 @@ function fbFocusInput(bi) {
     const gi  = window._fbActiveIdx ?? 0;
     const inp = document.getElementById(`fbInp_${gi}_${bi}`);
     if (inp) { inp.scrollIntoView({behavior:'smooth', block:'nearest'}); inp.focus(); }
+}
+
+function _fbToggleBody(i) {
+    const body    = document.getElementById('fbBody_' + i);
+    const chevron = document.getElementById('fbChevron_' + i);
+    if (!body) return;
+    const collapsed = body.classList.toggle('collapsed');
+    if (chevron) chevron.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
 }
 
 function fbEditEffect() {
