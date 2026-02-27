@@ -506,12 +506,12 @@ function doLayout(tab, tk){
   const probY  = probCY - PROB_H/2;
   items.unshift({ type:'prob', tk, x:0, y:probY, w:PROB_W, h:PROB_H, cx:PROB_W, cy:probCY });
 
-  // Connectors: prob→step[0], step[i]→step[i+1]  *** arrowheads point BACKWARD (to prev box) ***
+  // Connectors: prob→step[0], step[i]→step[i+1]  forward direction (left→right / Neden?)
   if(mainItems.length>0)
-    conns.push({ x1:mainItems[0].x, y1:mainItems[0].cy, x2:PROB_W, y2:probCY, label:'why', rev:true });
+    conns.push({ x1:PROB_W, y1:probCY, x2:mainItems[0].x, y2:mainItems[0].cy, label:'why' });
   for(let i=0;i<mainItems.length-1;i++)
-    conns.push({ x1:mainItems[i+1].x, y1:mainItems[i+1].cy,
-                 x2:mainItems[i].cx,  y2:mainItems[i].cy,  label:'why', rev:true });
+    conns.push({ x1:mainItems[i].cx,  y1:mainItems[i].cy,
+                 x2:mainItems[i+1].x, y2:mainItems[i+1].cy, label:'why' });
 
   // ── Parallel branch chains ──
   // Each branch starts BELOW its fork step, continues staircase (right+down)
@@ -564,10 +564,10 @@ function doLayout(tab, tk){
     if(brItems.length)
       conns.push({ x1:forkAnchor.cx, y1:forkAnchor.cy,
                    x2:brItems[0].cx - BOX_W/2, y2:brItems[0].y, label:'', dashed:true });
-    // Branch internal connectors (arrowheads backward)
+    // Branch internal connectors (forward direction)
     for(let si=0; si<brItems.length-1; si++)
-      conns.push({ x1:brItems[si+1].x, y1:brItems[si+1].cy,
-                   x2:brItems[si].cx,  y2:brItems[si].cy,   label:'why', rev:true });
+      conns.push({ x1:brItems[si].cx,  y1:brItems[si].cy,
+                   x2:brItems[si+1].x, y2:brItems[si+1].cy, label:'why' });
 
     if(brItems.length) allBranchLastItems.push(brItems[brItems.length-1]);
 
@@ -643,12 +643,16 @@ function renderTrack(tab, tk){
 
   const uid = tab+'_'+tk;
   svg.innerHTML = `<defs>
-    <marker id="ab_${uid}"  markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L7,3 z" fill="#93c5fd"/>
+    <marker id="ab_${uid}"  markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
+      <polygon points="0 0, 12 4, 0 8" fill="#3b82f6" opacity="0.85"/>
     </marker>
-    <marker id="abr_${uid}" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L7,3 z" fill="#c4b5fd"/>
+    <marker id="abr_${uid}" markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
+      <polygon points="0 0, 12 4, 0 8" fill="#8b5cf6" opacity="0.75"/>
     </marker>
+    <filter id="glow_${uid}" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>`;
 
   for(const c of conns) drawConn(svg, c, uid);
@@ -662,48 +666,57 @@ function renderTrack(tab, tk){
 
 function drawConn(svg, c, tk){
   const dx = c.x2-c.x1, dy = c.y2-c.y1;
-  const isDiag = Math.abs(dy) > 8;
+  const absDx = Math.abs(dx), absDy = Math.abs(dy);
+  const isDiag = absDy > 10;
   let d;
-  if(isDiag){
-    if(c.rev){
-      // Backward arc: from current-box left edge → prev-box right edge
-      // S-curve that loops naturally above the staircase step gap
-      const adx = Math.abs(dx), ady = Math.abs(dy);
-      const cpx1 = c.x1 - adx * 0.15;
-      const cpy1 = c.y1 - ady * 0.55;
-      const cpx2 = c.x2 + adx * 0.15;
-      const cpy2 = c.y2 + ady * 0.25;
-      d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
+
+  if(c.dashed && !c.label){
+    // Fork / branch connector — vertical or near-vertical dashed drop
+    if(absDx < 24){
+      d = `M${c.x1},${c.y1} L${c.x2},${c.y2}`;
     } else {
-      // Forward curved connector (diagonal)
-      const cpx1 = c.x1 + dx*0.5, cpy1 = c.y1;
-      const cpx2 = c.x2 - dx*0.3, cpy2 = c.y2;
+      const cpx1 = c.x1, cpy1 = c.y1 + absDy*0.45;
+      const cpx2 = c.x2, cpy2 = c.y2 - absDy*0.25;
       d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
     }
+  } else if(isDiag){
+    // Staircase diagonal connector — smooth S-bezier
+    // Starts going right from source, curves down into target
+    const cpx1 = c.x1 + absDx * 0.75;
+    const cpy1 = c.y1 + absDy * 0.05;
+    const cpx2 = c.x2 - absDx * 0.25;
+    const cpy2 = c.y2 - absDy * 0.05;
+    d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
   } else {
-    // Horizontal connector (with slight step for staircase feel)
-    // Elbow connector: go right halfway, then horizontally to target
-    const mx = c.x1 + (c.x2-c.x1)*0.5;
-    d = `M${c.x1},${c.y1} L${mx},${c.y1} L${mx},${c.y2} L${c.x2},${c.y2}`;
+    // Horizontal / near-horizontal connector
+    const cpx1 = c.x1 + dx * 0.4, cpy1 = c.y1;
+    const cpx2 = c.x2 - dx * 0.4, cpy2 = c.y2;
+    d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
   }
 
   const path = document.createElementNS('http://www.w3.org/2000/svg','path');
   path.setAttribute('d', d);
   path.setAttribute('fill','none');
-  const color  = c.dashed ? '#c4b5fd' : '#93c5fd';
-  const marker = c.dashed ? `url(#abr_${tk})` : `url(#ab_${tk})`;
+
+  const isViolet = !!c.dashed;
+  const color  = isViolet ? '#8b5cf6' : '#3b82f6';
+  const marker = isViolet ? `url(#abr_${tk})` : `url(#ab_${tk})`;
   path.setAttribute('stroke', color);
-  path.setAttribute('stroke-width', '2');
-  if(c.dashed) path.setAttribute('stroke-dasharray','5,4');
+  path.setAttribute('stroke-width', isViolet ? '1.8' : '2.2');
+  path.setAttribute('stroke-linecap', 'round');
+  if(c.dashed) path.setAttribute('stroke-dasharray','7,4');
   path.setAttribute('marker-end', marker);
   svg.appendChild(path);
 
-  if(c.label==='why'){
-    // Label at midpoint of the visual arc
-    const mx  = (c.x1+c.x2)/2, my = (c.y1+c.y2)/2;
-    const off = isDiag ? 0 : -2;
-    svgTxt(svg, mx+2, my-10+off, 'Neden?',    '#2563eb', true,  10);
-    svgTxt(svg, mx-6, my+14+off, 'Bu yüzden', '#94a3b8', false, 9);
+  if(c.label==='why' && !c.toRcb){
+    // Place labels near the midpoint, offset to avoid the path
+    const mx = (c.x1+c.x2)/2;
+    const my = (c.y1+c.y2)/2;
+    // For diagonal: nudge left+up to stay clear of the curve
+    const lx = isDiag ? mx - absDx*0.08 : mx;
+    const ly = isDiag ? my - 10 : my - 12;
+    svgTxt(svg, lx,    ly,    'Neden?',    '#1d4ed8', true,  10);
+    svgTxt(svg, lx - 2, ly+13, 'Bu yüzden', '#94a3b8', false, 8.5);
   }
 }
 
