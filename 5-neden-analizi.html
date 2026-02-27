@@ -98,6 +98,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   font-size:.78rem;font-weight:600;color:#b91c1c;font-family:inherit;text-align:center;
   line-height:1.4;min-height:30px;}
 
+/* ── PIN BUTTON ── */
+.pin-btn{position:absolute;top:3px;right:4px;background:none;border:none;
+  cursor:pointer;font-size:.75rem;line-height:1;padding:2px 3px;border-radius:4px;
+  opacity:.28;transition:.15s;color:#64748b;}
+.pin-btn:hover{opacity:1;background:#fef3c7;}
+.pin-btn.pinned{opacity:1;color:#f59e0b;filter:drop-shadow(0 0 3px #fcd34d);}
+.sbox.is-pinned{border-color:#f59e0b !important;background:#fffbeb !important;}
+.pbox.is-pinned{border-color:#f59e0b !important;background:#fffbeb !important;}
+.rcb.is-pinned{border-color:#f59e0b !important;background:#fffbeb !important;}
+
 /* ── STEP ADD BTN ── */
 .add-step-btn{display:inline-flex;align-items:center;gap:5px;
   font-size:.72rem;font-weight:700;color:#2563eb;background:#eff6ff;
@@ -414,19 +424,23 @@ let _S = {
   meta: {},
   tech: {
     os: { problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Oluşum)',
+          problemPinned:false, rcPinned:false,
           chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
     nd: { problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Tespit Edilememe)',
+          problemPinned:false, rcPinned:false,
           chains: [ { startAfter:null, steps:[ mkStep() ] } ] }
   },
   sys: {
     os: { problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden\n(Oluşum)',
+          problemPinned:false, rcPinned:false,
           chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
     nd: { problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden\n(Tespit Edilememe)',
+          problemPinned:false, rcPinned:false,
           chains: [ { startAfter:null, steps:[ mkStep() ] } ] }
   }
 };
 
-function mkStep(t){ return {id:uid(), text:t||'', isRoot:false}; }
+function mkStep(t){ return {id:uid(), text:t||'', isRoot:false, pinned:false}; }
 function uid(){ return 'n'+Math.random().toString(36).slice(2,9); }
 
 let _mCb = null;
@@ -704,24 +718,32 @@ function svgTxt(svg, x, y, t, fill, bold, size){
 }
 
 function renderProbBox(diag, it, tab, tk){
-  const d = div('pbox'+(tk==='nd'?' nd-t':''), it.x, it.y, it.w, it.h);
-  d.innerHTML = `<div class="plbl">Problem Tanımı</div><textarea placeholder="Problemi yazın…"></textarea>`;
+  const pinned = !!_S[tab][tk].problemPinned;
+  const d = div('pbox'+(tk==='nd'?' nd-t':'')+(pinned?' is-pinned':''), it.x, it.y, it.w, it.h);
+  d.innerHTML = `<div class="plbl">Problem Tanımı</div>
+    <textarea placeholder="Problemi yazın…"></textarea>
+    <button class="pin-btn${pinned?' pinned':''}" title="${pinned?'Sabiti kaldır':'Sabitle'}">&#128204;</button>`;
   d.querySelector('textarea').value = _S[tab][tk].problem;
   d.querySelector('textarea').oninput = e => { _S[tab][tk].problem = e.target.value; };
+  d.querySelector('.pin-btn').onclick = ()=>{ _S[tab][tk].problemPinned = !_S[tab][tk].problemPinned; renderTrack(tab, tk); };
   diag.appendChild(d);
 }
 
 function renderStepBox(diag, it, tab, tk){
   const node = it.data;
-  const el   = div('sbox'+(node.isRoot?' is-root':''), it.x, it.y, it.w, it.h);
+  const pinned = !!node.pinned;
+  const el   = div('sbox'+(node.isRoot?' is-root':'')+(pinned?' is-pinned':''), it.x, it.y, it.w, it.h);
   el.innerHTML = (node.isRoot?`<span class="stag">🎯 Kök Neden</span>`:'') +
-    `<textarea placeholder="Nedeni yazın…"></textarea>
+    `<button class="pin-btn${pinned?' pinned':''}" title="${pinned?'Sabiti kaldır':'Sabitle'}">&#128204;</button>
+     <textarea placeholder="Nedeni yazın…"></textarea>
      <div class="sacts">
        <button class="sa del" title="Sil">🗑</button>
        <button class="sa add" title="Bu adımdan zincire devam et (sağa uzat)">➕ Adım</button>
        <button class="sa fork" title="Bu noktadan paralel bağımsız bir zincir başlat (dal)">🪢 Paralel Dal</button>
        <button class="sa root">${node.isRoot?'🎯 Kök ✓':'🎯 Kök Neden'}</button>
      </div>`;
+
+  el.querySelector('.pin-btn').onclick = ()=>{ node.pinned = !node.pinned; renderTrack(tab, tk); };
 
   const ta = el.querySelector('textarea');
   ta.value = node.text;
@@ -758,12 +780,15 @@ function renderStepBox(diag, it, tab, tk){
 function renderRcbBox(diag, it, tab, tk){
   const tabLabel = tab==='tech' ? 'Teknik' : 'Sistemsel';
   const trkLabel = tk==='os' ? 'Kök Neden (Oluşum)' : 'Kök Neden (Tespit)';
-  const el = div('rcb', it.x, it.y, it.w, it.h);
+  const pinned = !!_S[tab][tk].rcPinned;
+  const el = div('rcb'+(pinned?' is-pinned':''), it.x, it.y, it.w, it.h);
   el.innerHTML = `<div class="ri">⬇️</div>
     <div class="rl">${tabLabel} ${trkLabel}</div>
-    <textarea placeholder="Kök neden…"></textarea>`;
+    <textarea placeholder="Kök neden…"></textarea>
+    <button class="pin-btn${pinned?' pinned':''}" title="${pinned?'Sabiti kaldır':'Sabitle'}">&#128204;</button>`;
   el.querySelector('textarea').value = _S[tab][tk].rcText;
   el.querySelector('textarea').oninput = e => { _S[tab][tk].rcText = e.target.value; };
+  el.querySelector('.pin-btn').onclick = ()=>{ _S[tab][tk].rcPinned = !_S[tab][tk].rcPinned; renderTrack(tab, tk); };
   diag.appendChild(el);
 }
 
@@ -844,15 +869,15 @@ function resetAll(){
     meta:{},
     tech:{
       os:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden (Oluşum)',
-          chains:[{startAfter:null, steps:[mkStep()]}]},
+          problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
       nd:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden (Tespit)',
-          chains:[{startAfter:null, steps:[mkStep()]}]}
+          problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]}
     },
     sys:{
       os:{problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden (Oluşum)',
-          chains:[{startAfter:null, steps:[mkStep()]}]},
+          problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
       nd:{problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden (Tespit)',
-          chains:[{startAfter:null, steps:[mkStep()]}]}
+          problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]}
     }
   };
   ['mPart','mCustomer','mDate','mAnalyst'].forEach(id=>document.getElementById(id).value='');
@@ -1085,14 +1110,29 @@ function buildChainsFromAi(iz){
   return chains;
 }
 
+function collectPinnedSteps(chains){
+  const map = {};
+  chains.forEach((ch,ci)=>{ ch.steps.forEach((s,si)=>{ if(s.pinned) map[ci+'_'+si]=s.text; }); });
+  return map;
+}
+function restorePinnedSteps(chains, map){
+  Object.entries(map).forEach(([key,text])=>{
+    const [ci,si] = key.split('_').map(Number);
+    const s = chains[ci]?.steps[si];
+    if(s){ s.text=text; s.pinned=true; }
+  });
+}
+
 function applyAiResult(parsed, originalProblem){
   ['tech','sys'].forEach(tab=>{
     ['os','nd'].forEach(tk=>{
       const iz = parsed?.[tab]?.[tk];
       if(iz){
-        _S[tab][tk].problem = iz.problem || originalProblem;
-        _S[tab][tk].rcText  = iz.rootCause || _S[tab][tk].rcText;
-        _S[tab][tk].chains  = buildChainsFromAi(iz);
+        const pinnedSteps = collectPinnedSteps(_S[tab][tk].chains);
+        if(!_S[tab][tk].problemPinned) _S[tab][tk].problem = iz.problem || originalProblem;
+        if(!_S[tab][tk].rcPinned)      _S[tab][tk].rcText  = iz.rootCause || _S[tab][tk].rcText;
+        _S[tab][tk].chains = buildChainsFromAi(iz);
+        restorePinnedSteps(_S[tab][tk].chains, pinnedSteps);
       }
     });
   });
@@ -1181,9 +1221,11 @@ ${context}`;
     ['os','nd'].forEach(tk=>{
       const iz = parsed?.[tk];
       if(iz){
-        _S[tab][tk].problem = iz.problem || q1;
-        _S[tab][tk].rcText  = iz.rootCause || _S[tab][tk].rcText;
-        _S[tab][tk].chains  = buildChainsFromAi(iz);
+        const pinnedSteps = collectPinnedSteps(_S[tab][tk].chains);
+        if(!_S[tab][tk].problemPinned) _S[tab][tk].problem = iz.problem || q1;
+        if(!_S[tab][tk].rcPinned)      _S[tab][tk].rcText  = iz.rootCause || _S[tab][tk].rcText;
+        _S[tab][tk].chains = buildChainsFromAi(iz);
+        restorePinnedSteps(_S[tab][tk].chains, pinnedSteps);
       }
     });
     renderTrack(tab,'os');
