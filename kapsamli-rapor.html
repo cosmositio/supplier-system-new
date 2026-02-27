@@ -2944,8 +2944,9 @@ function _loadMusteriSet() {
 }
 window.addEventListener('DOMContentLoaded', () => {
     _loadMusteriSet();
+    const _keepEditsOnLoad = new URLSearchParams(location.search).has('keepEdits');
     idbLoadRapor()
-        .then(payload => runReport(payload))
+        .then(payload => runReport(payload, _keepEditsOnLoad ? { keepEdits: true } : undefined))
         .catch(e => {
             document.getElementById('loadingState').innerHTML = `<div class="empty-state"><div class="emo">❌</div><p>Veri okunamadı: ${e.message}</p></div>`;
         });

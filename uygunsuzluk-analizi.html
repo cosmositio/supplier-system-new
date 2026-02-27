@@ -3707,7 +3707,7 @@ async function uaLoadSnapshot(id) {
     if (snap.edits) await _rIdbPut(_UA_EDITS_KEY, snap.edits);
     else await _rIdbDel(_UA_EDITS_KEY);
     document.getElementById('uaSnapModal').classList.remove('open');
-    window.open('kapsamli-rapor.html', '_blank');
+    window.open('kapsamli-rapor.html?keepEdits=1', '_blank');
 }
 
 // Kapsamlı Rapor — tüm filtrelenmiş veriyi paketleyip rapor sayfasına gönderir
