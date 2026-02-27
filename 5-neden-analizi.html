@@ -98,6 +98,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   font-size:.78rem;font-weight:600;color:#b91c1c;font-family:inherit;text-align:center;
   line-height:1.4;min-height:30px;}
 
+/* ── STEP NUMBER LABEL ── */
+.step-num-lbl{
+  position:absolute;bottom:4px;right:5px;
+  font-size:.58rem;font-weight:800;color:#fff;
+  background:#2563eb;border-radius:4px;
+  padding:1px 5px;letter-spacing:.04em;
+  pointer-events:none;opacity:.78;line-height:1.4;
+}
+.step-num-lbl.nd-lbl{background:#7c3aed;}
+
 /* ── PIN BUTTON ── */
 .pin-btn{position:absolute;top:3px;right:4px;background:none;border:none;
   cursor:pointer;font-size:.75rem;line-height:1;padding:2px 3px;border-radius:4px;
@@ -604,7 +614,7 @@ function doLayout(tab, tk){
     const x  = (i+1)*COL_W;
     const y  = i*V_STEP;
     const cx = x+BOX_W, cy = y+BOX_H/2;
-    mainItems.push({ type:'step', chain:0, stepIdx:i,
+    mainItems.push({ type:'step', chain:0, stepIdx:i, flatIdx:i,
       data:mainChain.steps[i], x, y, w:BOX_W, h:BOX_H, cx, cy, tab, tk });
     items.push(mainItems[i]);
   }
@@ -654,12 +664,16 @@ function doLayout(tab, tk){
 
     const brItems = [];
 
+    // flat index offset for this branch chain
+    let _brOffset = mainLen;
+    for(let j=1;j<ci;j++) _brOffset += track.chains[j].steps.length;
+
     for(let si=0; si<chain.steps.length; si++){
       // Merdiven: each branch step also goes right+down like main chain
       const x  = (startCol + si) * COL_W;
       const y  = branchTopY + si * V_STEP;
       const cx = x+BOX_W, cy = y+BOX_H/2;
-      const it = { type:'step', chain:ci, stepIdx:si,
+      const it = { type:'step', chain:ci, stepIdx:si, flatIdx:_brOffset+si,
         data:chain.steps[si], x, y, w:BOX_W, h:BOX_H, cx, cy, tab, tk, isBranch:true };
       brItems.push(it);
       items.push(it);
@@ -820,14 +834,19 @@ function drawConn(svg, c, tk){
   svg.appendChild(path);
 
   if(c.label==='why' && !c.toRcb){
-    // Place labels near the midpoint, offset to avoid the path
-    const mx = (c.x1+c.x2)/2;
-    const my = (c.y1+c.y2)/2;
-    // For diagonal: nudge left+up to stay clear of the curve
-    const lx = isDiag ? mx - absDx*0.08 : mx;
-    const ly = isDiag ? my - 10 : my - 12;
-    svgTxt(svg, lx,    ly,    'Neden?',    '#1d4ed8', true,  10);
-    svgTxt(svg, lx - 2, ly+13, 'Bu yüzden', '#94a3b8', false, 8.5);
+    // "Neden?" — near source (left) box: asks WHY the source box happens
+    // "Bu yüzden" — near target (right) box: target box IS the answer
+    if(isDiag){
+      // Diagonal (staircase): arrow departs flat from source, arrives flat at target
+      // "Neden?" just right of source at source height
+      svgTxt(svg, c.x1 + absDx*0.06,  c.y1 - 14, 'Neden?',    '#1d4ed8', true,  10);
+      // "Bu yüzden" just left of target at target height
+      svgTxt(svg, c.x2 - absDx*0.30,  c.y2 + 14, 'Bu yüzden', '#94a3b8', false, 8.5);
+    } else {
+      // Horizontal: both near their respective ends
+      svgTxt(svg, c.x1 + absDx*0.06,  c.y1 - 13, 'Neden?',    '#1d4ed8', true,  10);
+      svgTxt(svg, c.x2 - absDx*0.30,  c.y2 + 13, 'Bu yüzden', '#94a3b8', false, 8.5);
+    }
   }
 }
 
@@ -856,6 +875,8 @@ function renderProbBox(diag, it, tab, tk){
 function renderStepBox(diag, it, tab, tk){
   const node = it.data;
   const pinned = !!node.pinned;
+  const prefix = tk === 'os' ? 'A' : 'B';
+  const numLbl = it.flatIdx !== undefined ? prefix + (it.flatIdx + 1) : '';
   const el   = div('sbox'+(node.isRoot?' is-root':'')+(pinned?' is-pinned':''), it.x, it.y, it.w, it.h);
   el.innerHTML = (node.isRoot?`<span class="stag">🎯 Kök Neden</span>`:'') +
     `<button class="pin-btn${pinned?' pinned':''}" title="${pinned?'Sabiti kaldır':'Sabitle'}">&#128204;</button>
@@ -865,7 +886,8 @@ function renderStepBox(diag, it, tab, tk){
        <button class="sa add" title="Bu adımdan zincire devam et (sağa uzat)">➕ Adım</button>
        <button class="sa fork" title="Bu noktadan paralel bağımsız bir zincir başlat (dal)">🪢 Paralel Dal</button>
        <button class="sa root">${node.isRoot?'🎯 Kök ✓':'🎯 Kök Neden'}</button>
-     </div>`;
+     </div>
+     ${numLbl?`<span class="step-num-lbl${tk==='nd'?' nd-lbl':''}">${numLbl}</span>`:''}`;
 
   el.querySelector('.pin-btn').onclick = ()=>{ node.pinned = !node.pinned; renderTrack(tab, tk); };
 
