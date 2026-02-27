@@ -1684,7 +1684,7 @@ function drawFishbone() {
             p.push(`<text x="${+(parseFloat(boxX)+4).toFixed(1)}" y="${txtY}" text-anchor="start"
                 font-size="9" fill="#1e293b" style="pointer-events:none">${esc(nm)}</text>`);
             // Sadece × alanı tıklanabilir
-            p.push(`<g onclick="fbDeleteCause(${bi},${ci})" style="cursor:pointer" title="Sil: ${esc(name)}">
+            p.push(`<g onclick="fbDeleteCause(${window._fbActiveIdx ?? 0},${bi},${ci})" style="cursor:pointer" title="Sil: ${esc(name)}">
                 <rect x="${delBtnX}" y="${boxY}" width="13" height="${BH}" rx="0" fill="transparent"/>
                 <text x="${+(parseFloat(delBtnX)+6.5).toFixed(1)}" y="${txtY}" text-anchor="middle"
                     font-size="11" fill="#ef4444" font-weight="700">×</text>
@@ -1768,7 +1768,9 @@ function drawFishbone() {
     const tag = document.getElementById('fbEffectTag');
     if(tag) tag.textContent = data.effect || 'Ana Problem';
 
-    document.getElementById('fbContainer_' + (window._fbActiveIdx ?? 0)).innerHTML =
+    const _fbContEl = document.getElementById('fbContainer_' + (window._fbActiveIdx ?? 0));
+    if (!_fbContEl) return;
+    _fbContEl.innerHTML =
         `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%"
             style="display:block;min-width:740px;">${p.join('')}</svg>`;
 }
