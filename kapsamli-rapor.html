@@ -502,13 +502,11 @@ html, body { scroll-behavior:smooth; }
         <div class="section-hdr">
             <span class="ico">🏭</span>
             <h2>Tedarikçi Kaynaklı Hatalar</h2>
-            <span class="hint">Cari adına göre Pareto — Top 15</span>
+            <span class="hint">Tipi: Tedarikçi &mdash; Cari Adına Göre Pareto &mdash; Top 15</span>
         </div>
         <div class="section-body">
-            <div class="two-col">
-                <div class="chart-wrap-tall"><canvas id="cTedarikci"></canvas></div>
-                <div id="tedarikciTable"></div>
-            </div>
+            <div style="min-height:300px;"><canvas id="cTedarikci" height="300"></canvas></div>
+            <div id="tedarikciTable" style="margin-top:14px;"></div>
         </div>
     </div>
 
@@ -2593,12 +2591,31 @@ function runReport(payload) {
     switchIdBreak('hataTipi', null);
     switchIcBreak('hataTipi', null);
 
-    // ── TEDARİKÇİ ──
-    const tedData = paretoData(rows,'cariAdi',15);
-    const tedLabels = tedData.map(e=>truncate(e.name,30));
-    const tedVals   = tedData.map(e=>e.h);
-    hBarChart(document.getElementById('cTedarikci'), tedLabels, tedVals, paretoColors(tedData.length), 'Hatalı Miktar');
-    document.getElementById('tedarikciTable').innerHTML = buildParetoTable(tedData, totalH);
+    // ── TEDARİKÇİ (Tipi=Tedarikçi, Cari Adı) ──
+    {
+        const tedRows = icDis.tedarikci || [];
+        const tedTotal = tedRows.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
+        let tedCum = 0;
+        const tedAgg = {};
+        tedRows.forEach(r => {
+            const v = (r.cariAdi||'').trim(); if(!v) return;
+            if(!tedAgg[v]) tedAgg[v]={h:0,c:0};
+            tedAgg[v].h += Number(r.hataliMiktar)||0; tedAgg[v].c++;
+        });
+        const tedData = Object.entries(tedAgg).sort((a,b)=>b[1].h-a[1].h).slice(0,15).map(([name,v])=>{
+            tedCum += v.h;
+            return {name, h:v.h, c:v.c, pct:v.h/tedTotal*100, cumPct:tedCum/tedTotal*100};
+        });
+        const tedEl = document.getElementById('cTedarikci');
+        if (tedData.length) {
+            tedEl.style.display = '';
+            paretoChart(tedEl, tedData);
+            document.getElementById('tedarikciTable').innerHTML = buildParetoTable(tedData, tedTotal);
+        } else {
+            tedEl.style.display = 'none';
+            document.getElementById('tedarikciTable').innerHTML = '<p style="color:var(--c-sub);font-size:.85rem;text-align:center;padding:20px;">Tedarikçi tipi kaydı bulunamadı.</p>';
+        }
+    }
 
     // ── MALZEME ──
     const malData = paretoData(rows,'stokAdi',15);
