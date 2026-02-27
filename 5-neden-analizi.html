@@ -85,6 +85,12 @@ body{font-family:'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-heig
 .sb-add-tech{background:#0c2d4a;color:#93c5fd}
 .sb-add-sys{background:#1e1040;color:#c4b5fd}
 
+/* ── PIN ── */
+.pin-btn{position:absolute;top:4px;right:4px;background:none;border:none;cursor:pointer;font-size:.82rem;opacity:.28;transition:all .18s;line-height:1;padding:2px 3px;border-radius:3px;z-index:5;filter:grayscale(1)}
+.pin-btn:hover{opacity:.65;background:#ffffff14;filter:grayscale(0)}
+.pin-btn.on{opacity:1;filter:grayscale(0) drop-shadow(0 0 4px #fbbf24cc)}
+.box-pinned{outline:2px solid #fbbf2466 !important;background:#fbbf240d !important;box-shadow:0 0 14px #fbbf2420 !important}
+
 .rcb-box{width:158px;background:#0f172a;padding:9px;min-height:110px}
 .rcb-box.tech{border:2px solid #0ea5e9;box-shadow:0 0 18px #0ea5e930}
 .rcb-box.sys{border:2px solid #8b5cf6;box-shadow:0 0 18px #8b5cf630}
@@ -250,12 +256,14 @@ let _S = {
   tech:{
     problem:'Teknik problem tanımı...',
     rcText:'Teknik Kök Neden',
-    chains:[{ startAfter:null, steps:[{ id:uid(), text:'Neden 1', isRoot:false }] }]
+    pinProblem:false, pinRcb:false,
+    chains:[{ startAfter:null, steps:[{ id:uid(), text:'Neden 1', isRoot:false, pinned:false }] }]
   },
   sys:{
     problem:'Sistemsel problem tanımı...',
     rcText:'Sistemsel Kök Neden',
-    chains:[{ startAfter:null, steps:[{ id:uid(), text:'Neden 1', isRoot:false }] }]
+    pinProblem:false, pinRcb:false,
+    chains:[{ startAfter:null, steps:[{ id:uid(), text:'Neden 1', isRoot:false, pinned:false }] }]
   }
 };
 
@@ -324,11 +332,23 @@ function saveMeta(){ collectMeta() }
 //  STEP MANAGEMENT
 // ════════════════════════════════════════════════
 function addMainStep(tk){
-  _S[tk].chains[0].steps.push({ id:uid(), text:'Neden?', isRoot:false });
+  _S[tk].chains[0].steps.push({ id:uid(), text:'Neden?', isRoot:false, pinned:false });
   render(tk); saveDB();
 }
 function addBranchStep(tk, ci){
-  _S[tk].chains[ci].steps.push({ id:uid(), text:'Neden?', isRoot:false });
+  _S[tk].chains[ci].steps.push({ id:uid(), text:'Neden?', isRoot:false, pinned:false });
+  render(tk); saveDB();
+}
+function togglePin(tk, ci, si){
+  _S[tk].chains[ci].steps[si].pinned = !_S[tk].chains[ci].steps[si].pinned;
+  render(tk); saveDB();
+}
+function togglePinProb(tk){
+  _S[tk].pinProblem = !_S[tk].pinProblem;
+  render(tk); saveDB();
+}
+function togglePinRcb(tk){
+  _S[tk].pinRcb = !_S[tk].pinRcb;
   render(tk); saveDB();
 }
 function deleteStep(tk, ci, si){
@@ -343,7 +363,7 @@ function toggleRoot(tk, ci, si){
   render(tk); saveDB();
 }
 function addParallelBranch(tk, forkAt){
-  _S[tk].chains.push({ startAfter:forkAt, steps:[{ id:uid(), text:'Neden?', isRoot:false }] });
+  _S[tk].chains.push({ startAfter:forkAt, steps:[{ id:uid(), text:'Neden?', isRoot:false, pinned:false }] });
   render(tk); saveDB();
 }
 function forkFrom(tk, ci, si){
@@ -531,10 +551,13 @@ function renderBox(container, it, tk){
   el.style.cssText=`position:absolute;left:${it.x}px;top:${it.y}px;width:${it.w}px`;
 
   if(it.type==='prob'){
-    el.className=`prob-box ${tk}`;
+    const isPinned = _S[tk].pinProblem;
+    el.className=`prob-box ${tk}${isPinned?' box-pinned':''}`;
     el.style.height=PROB_H+'px';
+    el.style.position='relative';
     const lbl = tk==='tech' ? 'Teknik Problem' : 'Sistem Zayıflık Noktası';
-    el.innerHTML=`<div class="prob-lbl">${lbl}</div>
+    el.innerHTML=`<button class="pin-btn${isPinned?' on':''}" onclick="togglePinProb('${tk}')" title="${isPinned?'Sabiti kaldır':'Sabitle'}">📌</button>
+      <div class="prob-lbl">${lbl}</div>
       <textarea style="height:${PROB_H-30}px" oninput="_S['${tk}'].problem=this.value">${esc(_S[tk].problem)}</textarea>`;
   }
 
@@ -557,9 +580,12 @@ function renderBox(container, it, tk){
       extra=`<button class="sb sb-fork" onclick="forkFrom('${tk}',${ci},${si})">⑂</button>`;
     }
 
-    el.className=`step-box ${tk}${st.isRoot?' root':''}`;
+    const isPinnedStep = st.pinned||false;
+    el.className=`step-box ${tk}${st.isRoot?' root':''}${isPinnedStep?' box-pinned':''}`;
     el.style.minHeight=BOX_H+'px';
-    el.innerHTML=`<div class="step-num">${lbl}</div>
+    el.style.position='relative';
+    el.innerHTML=`<button class="pin-btn${isPinnedStep?' on':''}" onclick="togglePin('${tk}',${ci},${si})" title="${isPinnedStep?'Sabiti kaldır':'Sabitle'}">📌</button>
+      <div class="step-num">${lbl}</div>
       <textarea style="height:${BOX_H-46}px;min-height:44px" oninput="_S['${tk}'].chains[${ci}].steps[${si}].text=this.value">${esc(st.text)}</textarea>
       <div class="step-actions">
         <button class="sb ${rootClass}" onclick="toggleRoot('${tk}',${ci},${si})">${st.isRoot?'★ Kök':'☆ Kök'}</button>
@@ -569,10 +595,13 @@ function renderBox(container, it, tk){
   }
 
   if(it.type==='rcb'){
-    el.className=`rcb-box ${tk}`;
+    const isPinnedRcb = _S[tk].pinRcb;
+    el.className=`rcb-box ${tk}${isPinnedRcb?' box-pinned':''}`;
     el.style.minHeight=RCB_H+'px';
+    el.style.position='relative';
     const lbl = tk==='tech' ? 'Teknik Kök Neden' : 'Sistemsel Kök Neden';
-    el.innerHTML=`<div class="rcb-lbl">${lbl}</div>
+    el.innerHTML=`<button class="pin-btn${isPinnedRcb?' on':''}" onclick="togglePinRcb('${tk}')" title="${isPinnedRcb?'Sabiti kaldır':'Sabitle'}">📌</button>
+      <div class="rcb-lbl">${lbl}</div>
       <textarea style="min-height:${RCB_H-34}px" oninput="_S['${tk}'].rcText=this.value">${esc(_S[tk].rcText)}</textarea>`;
   }
 
@@ -784,13 +813,27 @@ async function aiRefresh(tk){
 
   const cur=_S[tk];
   const sysPrompt = tk==='tech'
-    ? 'Sen IATF 16949 uzmanısın. Mevcut teknik 5 Neden analizini daha derin ve spesifik yap. Sadece teknik nedenler. Türkçe JSON.'
-    : 'Sen IATF 16949 uzmanısın. Mevcut sistemsel 5 Neden analizini daha derin ve spesifik yap. Sadece yönetim sistemi/prosedür nedenleri. Türkçe JSON.';
+    ? 'Sen IATF 16949 uzmanısın. Mevcut teknik 5 Neden analizini daha derin ve spesifik yap. Sadece teknik nedenler. 📌 SABİTLENDİ işaretli alanları AYNEN koru, diğerlerini geliştir. Türkçe JSON.'
+    : 'Sen IATF 16949 uzmanısın. Mevcut sistemsel 5 Neden analizini daha derin ve spesifik yap. Sadece yönetim sistemi/prosedür nedenleri. 📌 SABİTLENDİ işaretli alanları AYNEN koru, diğerlerini geliştir. Türkçe JSON.';
 
-  const userMsg=`Problem: ${cur.problem}
-Mevcut zincirler: ${JSON.stringify(cur.chains.map(ch=>({sa:ch.startAfter,steps:ch.steps.map(s=>s.text)})))}
-Bu analizi geliştir ve derinleştir. Aynı zincir sayısı ve yapısını koru.
-JSON: {"problem":"...","rcText":"...","chains":[{"startAfter":null|number,"steps":[{"text":"...","isRoot":false}]},...]}`;
+  const chainsForAi = cur.chains.map(ch=>({
+    sa: ch.startAfter,
+    steps: ch.steps.map((s,i)=>({
+      idx:i,
+      text:s.text,
+      durum: s.pinned ? '📌 SABİTLENDİ - AYNEN koru' : 'yenile ve geliştir'
+    }))
+  }));
+
+  const userMsg=`Problem${cur.pinProblem?' 📌 SABİTLENDİ - AYNEN koru':''}: ${cur.problem}
+Kök Neden${cur.pinRcb?' 📌 SABİTLENDİ - AYNEN koru':''}: ${cur.rcText}
+Mevcut zincirler: ${JSON.stringify(chainsForAi)}
+
+Kurallar:
+- "durum":"📌 SABİTLENDİ" olan her adımın metnini AYNEN koru, harfi harfine.
+- Diğer adımları geliştir ve derinleştir.
+- Aynı zincir sayısını ve adım sayısını koru.
+JSON: {"problem":"...","rcText":"...","chains":[{"startAfter":null|number,"steps":[{"text":"...","isRoot":false}]},...]}`;  
 
   try{
     const r=await fetch(GROQ_URL,{
@@ -816,19 +859,44 @@ JSON: {"problem":"...","rcText":"...","chains":[{"startAfter":null|number,"steps
 }
 
 function applyResult(tk, iz){
-  if(iz.problem) _S[tk].problem = iz.problem;
-  if(iz.rcText)  _S[tk].rcText  = iz.rcText;
+  // Problem: only update if not pinned
+  if(iz.problem && !_S[tk].pinProblem) _S[tk].problem = iz.problem;
+  // RCB: only update if not pinned
+  if(iz.rcText  && !_S[tk].pinRcb)    _S[tk].rcText  = iz.rcText;
+
   if(iz.chains && Array.isArray(iz.chains) && iz.chains.length>0){
-    _S[tk].chains = iz.chains.map((ch,i)=>({
+    const aiChains = iz.chains.map((ch,i)=>({
       startAfter: i===0 ? null : (ch.startAfter ?? ch.startAfterStep ?? null),
       steps: (ch.steps||[]).map(s=>({
         id:uid(),
         text: typeof s==='string' ? s : (s.text||''),
-        isRoot: typeof s==='object' ? (s.isRoot||false) : false
+        isRoot: typeof s==='object' ? (s.isRoot||false) : false,
+        pinned: false
       }))
     }));
-    // Ensure each chain has at least one step
-    _S[tk].chains.forEach(ch=>{ if(!ch.steps.length) ch.steps=[{id:uid(),text:'Neden?',isRoot:false}] });
+
+    // Merge AI result with current state, respecting pinned steps
+    const curChains = _S[tk].chains;
+    const merged = curChains.map((curCh, ci)=>{
+      const aiCh = aiChains[ci];
+      const newSteps = curCh.steps.map((curSt, si)=>{
+        if(curSt.pinned) return curSt; // keep pinned step exactly
+        if(aiCh && aiCh.steps[si]) return { ...aiCh.steps[si], id:curSt.id, pinned:false };
+        return curSt;
+      });
+      // If AI returned more steps for this chain, append them
+      if(aiCh && aiCh.steps.length > curCh.steps.length){
+        for(let i=curCh.steps.length; i<aiCh.steps.length; i++){
+          newSteps.push({ ...aiCh.steps[i], id:uid(), pinned:false });
+        }
+      }
+      return { startAfter:curCh.startAfter, steps:newSteps };
+    });
+    // If AI returned more chains than current, append new ones
+    for(let ci=curChains.length; ci<aiChains.length; ci++) merged.push(aiChains[ci]);
+
+    _S[tk].chains = merged;
+    _S[tk].chains.forEach(ch=>{ if(!ch.steps.length) ch.steps=[{id:uid(),text:'Neden?',isRoot:false,pinned:false}] });
   }
   render(tk); saveDB();
 }
