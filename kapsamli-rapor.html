@@ -466,12 +466,12 @@ html, body { scroll-behavior:smooth; }
             <div class="id-pareto-grid">
                 <div class="id-pareto-panel">
                     <div class="id-panel-title" style="color:#1d4ed8;">🏢 İç Başarısızlık Pareto</div>
-                    <div style="min-height:200px;"><canvas id="cIcBreak" height="200"></canvas></div>
+                    <div style="min-height:260px;"><canvas id="cIcBreak" height="260"></canvas></div>
                     <div id="icBreakTable" style="margin-top:10px;"></div>
                 </div>
                 <div class="id-pareto-panel">
                     <div class="id-panel-title" style="color:#c2410c;">🚚 Dış Başarısızlık Pareto</div>
-                    <div style="min-height:200px;"><canvas id="cDisBreak" height="200"></canvas></div>
+                    <div style="min-height:260px;"><canvas id="cDisBreak" height="260"></canvas></div>
                     <div id="disBreakTable" style="margin-top:10px;"></div>
                 </div>
             </div>
@@ -1068,11 +1068,11 @@ function hBarChart(ctx, labels, values, colors, label='Hatalı Miktar') {
 }
 
 // ── Pareto line+bar chart ──
-function paretoChart(ctx, entries) {
+function paretoChart(ctx, entries, singleColor) {
     const labels = entries.map(e => truncate(e.name, 22));
     const vals   = entries.map(e => e.h);
     const cums   = entries.map(e => e.cumPct);
-    const cols   = paretoColors(entries.length);
+    const cols   = singleColor ? Array(entries.length).fill(singleColor) : paretoColors(entries.length);
     return new Chart(ctx, {
         type: 'bar',
         data: {
@@ -1361,35 +1361,27 @@ function switchIdBreak(field, btn) {
 
     // ─ İç ─
     const icData = _idBuildPareto(idRows.ic, field, 12);
+    const icEl = document.getElementById('cIcBreak');
     if (icData.length) {
         const icTotalH = idRows.ic.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
-        window._idIcChart = hBarChart(
-            document.getElementById('cIcBreak'),
-            icData.map(e=>truncate(e.name,30)),
-            icData.map(e=>e.h),
-            icData.map((_,i)=> IC_COLOR + (i===0?'':'99')),
-            'İç Hatalı Miktar'
-        );
+        icEl.style.display = '';
+        window._idIcChart = paretoChart(icEl, icData, IC_COLOR);
         document.getElementById('icBreakTable').innerHTML = _idTable(icData, icTotalH, IC_COLOR);
     } else {
-        document.getElementById('cIcBreak').style.display = 'none';
+        icEl.style.display = 'none';
         document.getElementById('icBreakTable').innerHTML = '<p style="color:var(--c-sub);font-size:.8rem;text-align:center;">İç başarısızlık kaydı yok</p>';
     }
 
     // ─ Dış ─
     const disData = _idBuildPareto(idRows.dis, field, 12);
+    const disEl = document.getElementById('cDisBreak');
     if (disData.length) {
         const disTotalH = idRows.dis.reduce((s,r)=>s+(Number(r.hataliMiktar)||0),0)||1;
-        window._idDisChart = hBarChart(
-            document.getElementById('cDisBreak'),
-            disData.map(e=>truncate(e.name,30)),
-            disData.map(e=>e.h),
-            disData.map((_,i)=> DIS_COLOR + (i===0?'':'99')),
-            'Dış Hatalı Miktar'
-        );
+        disEl.style.display = '';
+        window._idDisChart = paretoChart(disEl, disData, DIS_COLOR);
         document.getElementById('disBreakTable').innerHTML = _idTable(disData, disTotalH, DIS_COLOR);
     } else {
-        document.getElementById('cDisBreak').style.display = 'none';
+        disEl.style.display = 'none';
         document.getElementById('disBreakTable').innerHTML = '<p style="color:var(--c-sub);font-size:.8rem;text-align:center;">Dış başarısızlık kaydı yok</p>';
     }
 }
