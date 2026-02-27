@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5 Neden Analizi</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;min-height:100vh;}
+
+/* ── TOP BAR ── */
+.topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;
+    background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;
+    box-shadow:0 2px 10px rgba(0,0,0,.2);flex-wrap:wrap;}
+.topbar h1{font-size:1.15rem;font-weight:800;letter-spacing:.02em;}
+.topbar .spacer{flex:1;}
+.tb-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+    color:#fff;border-radius:8px;padding:6px 14px;font-size:.78rem;font-weight:600;
+    cursor:pointer;transition:background .15s;white-space:nowrap;}
+.tb-btn:hover{background:rgba(255,255,255,.28);}
+.tb-btn.danger{background:rgba(220,38,38,.4);border-color:rgba(220,38,38,.6);}
+.tb-btn.success{background:rgba(22,163,74,.5);border-color:rgba(22,163,74,.7);}
+
+/* ── META FIELDS ── */
+.meta-bar{display:flex;gap:12px;flex-wrap:wrap;padding:12px 20px;background:#fff;
+    border-bottom:1px solid #e2e8f0;align-items:center;}
+.meta-field{display:flex;flex-direction:column;gap:3px;flex:1;min-width:180px;}
+.meta-field label{font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;}
+.meta-field input,.meta-field select{border:1.5px solid #e2e8f0;border-radius:6px;
+    padding:5px 8px;font-size:.82rem;color:#1e293b;outline:none;width:100%;transition:border .2s;}
+.meta-field input:focus,.meta-field select:focus{border-color:#2563eb;}
+
+/* ── LEGEND ── */
+.legend{display:flex;gap:16px;flex-wrap:wrap;padding:8px 20px;background:#f8faff;
+    border-bottom:1px solid #e2e8f0;font-size:.75rem;align-items:center;}
+.leg-item{display:flex;align-items:center;gap:6px;}
+.leg-box{width:26px;height:16px;border-radius:3px;border:2px solid;}
+.leg-box.normal{background:#fff;border-color:#94a3b8;}
+.leg-box.root{background:#fff8f8;border-color:#dc2626;border-style:dashed;}
+.leg-box.branch{background:#fefce8;border-color:#ca8a04;}
+
+/* ── CANVAS AREA ── */
+.canvas-outer{overflow:auto;padding:24px 20px;position:relative;min-height:calc(100vh - 200px);}
+#mainCanvas{position:relative;display:inline-block;min-width:100%;}
+
+/* ── TRACK (Occurrence / Non-detection) ── */
+.track-wrapper{margin-bottom:40px;}
+.track-label{font-size:.72rem;font-weight:800;color:#475569;text-transform:uppercase;
+    letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.track-label .tl-badge{background:#2563eb;color:#fff;border-radius:6px;
+    padding:2px 10px;font-size:.68rem;}
+.track-label .tl-badge.non-det{background:#7c3aed;}
+.track-label .tl-desc{font-size:.7rem;font-style:italic;color:#94a3b8;font-weight:400;}
+.track{display:flex;align-items:flex-start;gap:0;position:relative;flex-wrap:nowrap;}
+
+/* ── SVG CONNECTOR LAYER ── */
+.connector-svg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;}
+
+/* ── COLUMN ── */
+.col{display:flex;flex-direction:column;gap:10px;align-items:center;min-width:180px;
+    padding:0 8px;position:relative;}
+
+/* ── ARROW LABEL ── */
+.arrow-col{display:flex;flex-direction:column;justify-content:center;align-items:center;
+    min-width:72px;padding-top:14px;gap:2px;flex-shrink:0;}
+.arrow-col .why-lbl{font-size:.68rem;font-weight:800;color:#2563eb;
+    background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;
+    padding:1px 7px;white-space:nowrap;}
+.arrow-col .that-lbl{font-size:.6rem;color:#94a3b8;font-style:italic;white-space:nowrap;}
+.arrow-col .arrow-line{width:40px;height:2px;background:#93c5fd;position:relative;}
+.arrow-col .arrow-line::after{content:'';position:absolute;right:-1px;top:-4px;
+    border-left:8px solid #93c5fd;border-top:5px solid transparent;border-bottom:5px solid transparent;}
+
+/* ── NODE BOX ── */
+.node-box{position:relative;background:#fff;border:2px solid #cbd5e1;border-radius:8px;
+    min-width:160px;max-width:200px;min-height:60px;padding:8px 10px;
+    font-size:.78rem;color:#1e293b;cursor:pointer;
+    box-shadow:0 1px 4px rgba(0,0,0,.07);transition:border .15s,box-shadow .15s;}
+.node-box:hover{border-color:#2563eb;box-shadow:0 2px 8px rgba(37,99,235,.15);}
+.node-box.root-cause{border-color:#dc2626;border-style:dashed;background:#fff8f8;border-width:2.5px;}
+.node-box.branching{border-color:#ca8a04;border-style:dashed;background:#fefce8;}
+.node-box textarea{width:100%;min-height:46px;border:none;outline:none;resize:none;
+    font-size:.78rem;color:#1e293b;background:transparent;font-family:inherit;line-height:1.4;}
+.node-box .node-type-tag{position:absolute;top:-10px;left:8px;font-size:.62rem;font-weight:700;
+    padding:1px 7px;border-radius:10px;white-space:nowrap;}
+.node-box.root-cause .node-type-tag{background:#dc2626;color:#fff;}
+.node-box.branching .node-type-tag{background:#ca8a04;color:#fff;}
+
+.node-actions{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;}
+.na-btn{font-size:.62rem;padding:2px 7px;border-radius:4px;border:1px solid;
+    cursor:pointer;font-weight:700;transition:all .15s;background:#fff;}
+.na-btn.add{color:#2563eb;border-color:#bfdbfe;background:#eff6ff;}
+.na-btn.add:hover{background:#2563eb;color:#fff;}
+.na-btn.branch{color:#ca8a04;border-color:#fde68a;background:#fefce8;}
+.na-btn.branch:hover{background:#ca8a04;color:#fff;}
+.na-btn.root{color:#dc2626;border-color:#fca5a5;background:#fff8f8;}
+.na-btn.root:hover{background:#dc2626;color:#fff;}
+.na-btn.del{color:#64748b;border-color:#e2e8f0;}
+.na-btn.del:hover{background:#ef4444;color:#fff;border-color:#ef4444;}
+
+/* ── PROBLEM START BOX ── */
+.prob-box{background:#f8faff;border:2px solid #2563eb;border-radius:8px;
+    min-width:160px;max-width:200px;padding:8px 10px;box-shadow:0 1px 4px rgba(37,99,235,.1);}
+.prob-box label{font-size:.62rem;font-weight:800;text-transform:uppercase;
+    color:#2563eb;letter-spacing:.05em;display:block;margin-bottom:4px;}
+.prob-box textarea{width:100%;min-height:52px;border:none;outline:none;resize:none;
+    font-size:.78rem;color:#1e293b;background:transparent;font-family:inherit;line-height:1.4;}
+
+/* ── ROOT CAUSE ENDPOINT ── */
+.root-endpoint{border:2.5px dashed #dc2626;border-radius:10px;background:#fff8f8;
+    min-width:130px;max-width:170px;padding:10px 12px;text-align:center;
+    font-size:.72rem;color:#dc2626;font-weight:700;}
+.root-endpoint .re-icon{font-size:1.4rem;display:block;margin-bottom:4px;}
+.root-endpoint textarea{width:100%;border:none;outline:none;resize:none;
+    font-size:.72rem;color:#b91c1c;background:transparent;font-family:inherit;
+    text-align:center;line-height:1.3;min-height:36px;}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);
+    z-index:1000;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:#fff;border-radius:14px;padding:28px 28px 22px;
+    max-width:480px;width:95%;box-shadow:0 8px 40px rgba(0,0,0,.18);}
+.modal-box h3{font-size:1rem;font-weight:800;margin-bottom:16px;color:#1e293b;}
+.modal-box textarea{width:100%;min-height:80px;border:1.5px solid #e2e8f0;
+    border-radius:8px;padding:8px 10px;font-size:.85rem;resize:vertical;
+    font-family:inherit;outline:none;transition:border .2s;}
+.modal-box textarea:focus{border-color:#2563eb;}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+.mbtn{padding:7px 18px;border-radius:7px;font-size:.82rem;font-weight:700;
+    cursor:pointer;border:none;transition:background .15s;}
+.mbtn.cancel{background:#f1f5f9;color:#64748b;}
+.mbtn.cancel:hover{background:#e2e8f0;}
+.mbtn.confirm{background:#2563eb;color:#fff;}
+.mbtn.confirm:hover{background:#1d4ed8;}
+
+/* ── PRINT ── */
+@media print{
+    .topbar,.meta-bar,.legend,.na-btn,.tb-btn{display:none!important;}
+    body{background:#fff;}
+    .canvas-outer{padding:8px;}
+    .node-box,.prob-box,.root-endpoint{break-inside:avoid;}
+}
+
+/* ── INFO BOX ── */
+.info-footer{padding:8px 20px;font-size:.7rem;color:#94a3b8;background:#fff;
+    border-top:1px solid #e2e8f0;}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+    <span style="font-size:1.4rem;">🔍</span>
+    <h1>5 Neden Analizi</h1>
+    <div class="spacer"></div>
+    <button class="tb-btn" onclick="addLevel('olusum')">➕ Oluşum Adım Ekle</button>
+    <button class="tb-btn" onclick="addLevel('tespit')">➕ Tespit Adım Ekle</button>
+    <button class="tb-btn success" onclick="saveData()">💾 Kaydet</button>
+    <button class="tb-btn" onclick="loadData()">📂 Yükle</button>
+    <button class="tb-btn" onclick="exportPDF()">🖨️ Yazdır / PDF</button>
+    <button class="tb-btn danger" onclick="resetAll()">🗑 Sıfırla</button>
+</div>
+
+<!-- META INFO -->
+<div class="meta-bar">
+    <div class="meta-field">
+        <label>Problem / Parça No</label>
+        <input type="text" id="metaPart" placeholder="örn: Part# 12345 — Vida">
+    </div>
+    <div class="meta-field">
+        <label>Müşteri / Proje</label>
+        <input type="text" id="metaCustomer" placeholder="örn: Arçelik A.Ş.">
+    </div>
+    <div class="meta-field">
+        <label>Tarih</label>
+        <input type="date" id="metaDate">
+    </div>
+    <div class="meta-field">
+        <label>Analist</label>
+        <input type="text" id="metaAnalyst" placeholder="örn: Kalite Müdürü">
+    </div>
+    <div class="meta-field" style="min-width:120px;max-width:160px;">
+        <label>Durum</label>
+        <select id="metaStatus">
+            <option value="Devam Ediyor">🔄 Devam Ediyor</option>
+            <option value="Tamamlandı">✅ Tamamlandı</option>
+            <option value="İncelemede">🔍 İncelemede</option>
+        </select>
+    </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+    <strong style="font-size:.72rem;color:#475569;">Gösterim:</strong>
+    <div class="leg-item"><div class="leg-box normal"></div><span>Normal neden kutusu</span></div>
+    <div class="leg-item"><div class="leg-box root"></div><span>Teknik kök neden</span></div>
+    <div class="leg-item"><div class="leg-box branch"></div><span>Dallanma noktası</span></div>
+    <span style="color:#94a3b8;font-size:.68rem;">| Kutulara çift tıklayarak ✏️ düzenleyin, ➕ butonuyla yeni neden ekleyin</span>
+</div>
+
+<!-- MAIN CANVAS -->
+<div class="canvas-outer" id="canvasOuter">
+    <div id="mainCanvas">
+        <!-- tracks rendered by JS -->
+    </div>
+</div>
+
+<div class="info-footer">
+    Problemin nedenlerinin sayısı probleme göre değişebilir. Tespit edilen sistematik kök nedenler, sistematik değerlendirme için başlangıç noktalarıdır.
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal-box">
+        <h3 id="modalTitle">✏️ Kutuyu Düzenle</h3>
+        <textarea id="modalText" rows="4" placeholder="Açıklama veya neden girin…"></textarea>
+        <div class="modal-btns">
+            <button class="mbtn cancel" onclick="closeModal()">İptal</button>
+            <button class="mbtn confirm" onclick="saveModal()">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  DATA MODEL
+//  track: 'olusum' | 'tespit'
+//  Each track: problem (string) + levels[]
+//  Each level: { id, nodes: [{ id, text, isRoot, isBranch, subNodes:[] }] }
+// ─────────────────────────────────────────────
+let _state = {
+    meta: {},
+    olusum: {
+        problem: 'Problem açıklamasını buraya yazın…',
+        rootCause: 'Teknik Kök Neden\n(Oluşum)',
+        levels: [
+            [{ id: uid(), text: '', isRoot: false, isBranch: false }]
+        ]
+    },
+    tespit: {
+        problem: 'Problem açıklamasını buraya yazın…',
+        rootCause: 'Teknik Kök Neden\n(Tespit Edilememe)',
+        levels: [
+            [{ id: uid(), text: '', isRoot: false, isBranch: false }]
+        ]
+    }
+};
+
+let _modalTarget = null; // { track, type, levelIdx, nodeIdx, field }
+
+function uid() { return 'n' + Math.random().toString(36).slice(2,9); }
+
+// ─── ADD LEVEL ───
+function addLevel(track) {
+    _state[track].levels.push([{ id: uid(), text: '', isRoot: false, isBranch: false }]);
+    render();
+}
+
+// ─── ADD NODE TO LEVEL (branch) ───
+function addNodeToLevel(track, levelIdx) {
+    _state[track].levels[levelIdx].push({ id: uid(), text: '', isRoot: false, isBranch: true });
+    render();
+}
+
+// ─── REMOVE NODE ───
+function removeNode(track, levelIdx, nodeIdx) {
+    const level = _state[track].levels[levelIdx];
+    if (level.length === 1) {
+        // remove the whole level if it's the only node and not first
+        if (levelIdx > 0) {
+            _state[track].levels.splice(levelIdx, 1);
+        } else {
+            level[0].text = '';
+            level[0].isRoot = false;
+            level[0].isBranch = false;
+        }
+    } else {
+        level.splice(nodeIdx, 1);
+    }
+    render();
+}
+
+// ─── TOGGLE ROOT ───
+function toggleRoot(track, levelIdx, nodeIdx) {
+    const n = _state[track].levels[levelIdx][nodeIdx];
+    n.isRoot = !n.isRoot;
+    render();
+}
+
+// ─── TOGGLE BRANCH ───
+function toggleBranch(track, levelIdx, nodeIdx) {
+    const n = _state[track].levels[levelIdx][nodeIdx];
+    n.isBranch = !n.isBranch;
+    render();
+}
+
+// ─── OPEN MODAL ───
+function openModal(title, currentText, onSave) {
+    _modalTarget = onSave;
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalText').value = currentText;
+    document.getElementById('editModal').classList.add('open');
+    setTimeout(() => document.getElementById('modalText').focus(), 60);
+}
+function closeModal() {
+    document.getElementById('editModal').classList.remove('open');
+    _modalTarget = null;
+}
+function saveModal() {
+    const text = document.getElementById('modalText').value;
+    if (_modalTarget) _modalTarget(text);
+    closeModal();
+    render();
+}
+
+// ─── RENDER ───
+function render() {
+    const canvas = document.getElementById('mainCanvas');
+    canvas.innerHTML = '';
+    renderTrack('olusum', 'olusum', '🔴 Oluşum', 'Neden problem oluştu?');
+    renderTrack('tespit', 'tespit', '🟣 Tespit Edilememe', 'Problem neden fark edilmedi?');
+}
+
+function renderTrack(trackId, trackKey, label, desc) {
+    const track = _state[trackKey];
+    const wrapper = el('div', 'track-wrapper');
+
+    // Label
+    const lbl = el('div', 'track-label');
+    const badge = el('span', 'tl-badge' + (trackKey === 'tespit' ? ' non-det' : ''), label);
+    const descEl = el('span', 'tl-desc', desc);
+    lbl.appendChild(badge);
+    lbl.appendChild(descEl);
+    wrapper.appendChild(lbl);
+
+    // Track row
+    const row = el('div', 'track');
+
+    // Problem start box
+    const probCol = el('div', 'col');
+    const pb = el('div', 'prob-box');
+    const pblabel = el('label', '', 'Problem Tanımı');
+    const pbta = el('textarea', '');
+    pbta.value = track.problem;
+    pbta.placeholder = 'Problemi buraya yazın…';
+    pbta.addEventListener('input', e => { track.problem = e.target.value; });
+    pb.appendChild(pblabel);
+    pb.appendChild(pbta);
+    probCol.appendChild(pb);
+    row.appendChild(probCol);
+
+    const levels = track.levels;
+
+    levels.forEach((nodes, li) => {
+        // Arrow column
+        const ac = el('div', 'arrow-col');
+        const why = el('span', 'why-lbl', 'Neden?');
+        const arr = el('div', 'arrow-line');
+        const that = el('span', 'that-lbl', '← Bu yüzden');
+        ac.appendChild(why);
+        ac.appendChild(arr);
+        ac.appendChild(that);
+        row.appendChild(ac);
+
+        // Nodes column
+        const col = el('div', 'col');
+        nodes.forEach((node, ni) => {
+            const box = buildNodeBox(trackKey, li, ni, node);
+            col.appendChild(box);
+        });
+
+        // "Add branch" link
+        if (nodes.length < 4) {
+            const addBranch = el('button', 'na-btn branch', '+ Dal Ekle');
+            addBranch.style.fontSize = '.62rem';
+            addBranch.style.marginTop = '4px';
+            addBranch.onclick = () => addNodeToLevel(trackKey, li);
+            col.appendChild(addBranch);
+        }
+        row.appendChild(col);
+    });
+
+    // Final arrow + root cause box
+    const lastAc = el('div', 'arrow-col');
+    const lastWhy = el('span', 'why-lbl', 'Neden?');
+    const lastArr = el('div', 'arrow-line');
+    lastAc.appendChild(lastWhy);
+    lastAc.appendChild(lastArr);
+    row.appendChild(lastAc);
+
+    const rc = el('div', 'root-endpoint');
+    const rcIcon = el('span', 're-icon', '⬇️');
+    const rcLabel = el('div', '', '');
+    rcLabel.style.cssText = 'font-size:.62rem;font-weight:800;color:#dc2626;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;';
+    rcLabel.textContent = 'Teknik Kök Neden';
+    const rcTa = el('textarea', '');
+    rcTa.value = track.rootCause;
+    rcTa.placeholder = 'Kök neden…';
+    rcTa.addEventListener('input', e => { track.rootCause = e.target.value; });
+    rc.appendChild(rcIcon);
+    rc.appendChild(rcLabel);
+    rc.appendChild(rcTa);
+    row.appendChild(el('div', 'col', '', [rc]));
+
+    wrapper.appendChild(row);
+    document.getElementById('mainCanvas').appendChild(wrapper);
+}
+
+function buildNodeBox(trackKey, li, ni, node) {
+    const box = el('div', 'node-box' + (node.isRoot ? ' root-cause' : '') + (node.isBranch ? ' branching' : ''));
+
+    if (node.isRoot) {
+        const tag = el('span', 'node-type-tag', '🎯 Kök Neden');
+        box.appendChild(tag);
+    } else if (node.isBranch) {
+        const tag = el('span', 'node-type-tag', '🌿 Dallanma');
+        box.appendChild(tag);
+    }
+
+    const ta = el('textarea', '');
+    ta.value = node.text;
+    ta.placeholder = 'Nedeni yazın…';
+    ta.style.marginTop = (node.isRoot || node.isBranch) ? '10px' : '0';
+    ta.addEventListener('input', e => { node.text = e.target.value; });
+    ta.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        openModal('✏️ Nedeni Düzenle', node.text, val => { node.text = val; });
+    });
+    box.appendChild(ta);
+
+    // Action buttons
+    const actions = el('div', 'node-actions');
+    const delBtn = el('button', 'na-btn del', '🗑');
+    delBtn.title = 'Kutuyu sil';
+    delBtn.onclick = e => { e.stopPropagation(); removeNode(trackKey, li, ni); };
+    actions.appendChild(delBtn);
+
+    const rootBtn = el('button', 'na-btn root', node.isRoot ? '🎯 Kök ✓' : '🎯 Kök Neden');
+    rootBtn.title = 'Teknik kök neden olarak işaretle';
+    rootBtn.onclick = e => { e.stopPropagation(); toggleRoot(trackKey, li, ni); };
+    actions.appendChild(rootBtn);
+
+    const branchBtn = el('button', 'na-btn branch', node.isBranch ? '🌿 Dal ✓' : '🌿 Dal');
+    branchBtn.title = 'Dallanma noktası olarak işaretle';
+    branchBtn.onclick = e => { e.stopPropagation(); toggleBranch(trackKey, li, ni); };
+    actions.appendChild(branchBtn);
+
+    box.appendChild(actions);
+    return box;
+}
+
+function el(tag, cls, text, children) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    if (children) children.forEach(c => e.appendChild(c));
+    return e;
+}
+
+// ─── SAVE / LOAD ───
+function gatherMeta() {
+    _state.meta = {
+        part:     document.getElementById('metaPart').value,
+        customer: document.getElementById('metaCustomer').value,
+        date:     document.getElementById('metaDate').value,
+        analyst:  document.getElementById('metaAnalyst').value,
+        status:   document.getElementById('metaStatus').value
+    };
+}
+function applyMeta() {
+    const m = _state.meta || {};
+    if (m.part)     document.getElementById('metaPart').value     = m.part;
+    if (m.customer) document.getElementById('metaCustomer').value = m.customer;
+    if (m.date)     document.getElementById('metaDate').value     = m.date;
+    if (m.analyst)  document.getElementById('metaAnalyst').value  = m.analyst;
+    if (m.status)   document.getElementById('metaStatus').value   = m.status;
+}
+function saveData() {
+    gatherMeta();
+    localStorage.setItem('5neden_v1', JSON.stringify(_state));
+    alert('✅ Analiz kaydedildi.');
+}
+function loadData() {
+    const raw = localStorage.getItem('5neden_v1');
+    if (!raw) { alert('Kayıtlı analiz bulunamadı.'); return; }
+    _state = JSON.parse(raw);
+    applyMeta();
+    render();
+    alert('📂 Analiz yüklendi.');
+}
+function resetAll() {
+    if (!confirm('Tüm analiz sıfırlansın mı?')) return;
+    _state = {
+        meta: {},
+        olusum: {
+            problem: 'Problem açıklamasını buraya yazın…',
+            rootCause: 'Teknik Kök Neden\n(Oluşum)',
+            levels: [[{ id: uid(), text: '', isRoot: false, isBranch: false }]]
+        },
+        tespit: {
+            problem: 'Problem açıklamasını buraya yazın…',
+            rootCause: 'Teknik Kök Neden\n(Tespit Edilememe)',
+            levels: [[{ id: uid(), text: '', isRoot: false, isBranch: false }]]
+        }
+    };
+    document.getElementById('metaPart').value = '';
+    document.getElementById('metaCustomer').value = '';
+    document.getElementById('metaDate').value = '';
+    document.getElementById('metaAnalyst').value = '';
+    render();
+}
+function exportPDF() {
+    gatherMeta();
+    window.print();
+}
+
+// ─── MODAL KEYBOARD ───
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Enter' && e.ctrlKey && document.getElementById('editModal').classList.contains('open')) saveModal();
+});
+
+// ─── INIT ───
+document.getElementById('metaDate').valueAsDate = new Date();
+render();
+</script>
+</body>
+</html>
