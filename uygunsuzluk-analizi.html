@@ -1223,6 +1223,16 @@
 
     <!-- Tabs -->
     <div id="mainContent" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-bottom:4px;">
+            <button onclick="openChartPickerModal()" title="Filtrelenmiş veriyi kapsamlı rapora ekle"
+                style="display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 6px rgba(37,99,235,.35);">
+                📑 Rapora Ekle
+            </button>
+            <button onclick="uaOpenSnapshotModal()" title="Kayıtlı raporları listele"
+                style="display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 6px rgba(124,58,237,.35);">
+                📁 Kayıtlı Raporlar
+            </button>
+        </div>
         <div class="tabs" style="flex-wrap:wrap;gap:4px;">
             <button class="tab-btn active" onclick="switchTab('pareto')">📊 Pareto Analizi</button>
             <button class="tab-btn" onclick="switchTab('breakdown')">📋 Hata Tipi Dağılımı</button>
@@ -1241,16 +1251,6 @@
             <button class="tab-btn" onclick="switchTab('polar')">🌐 Polar Alan</button>
             <button class="tab-btn" onclick="switchTab('chord')">🕷️ Chord Diyagramı</button>
             <button class="tab-btn" onclick="switchTab('beeswarm')">🟣 Beeswarm / Dot Plot</button>
-            <div style="margin-left:auto;display:flex;gap:6px;align-items:center;padding:0 4px;">
-                <button onclick="openChartPickerModal()" title="Filtrelenmiş veriyi kapsamlı rapora ekle"
-                    style="display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:none;border-radius:20px;padding:5px 13px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 6px rgba(37,99,235,.35);transition:opacity .15s;">
-                    📑 Rapora Ekle
-                </button>
-                <button onclick="uaOpenSnapshotModal()" title="Kayıtlı raporları listele"
-                    style="display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;border-radius:20px;padding:5px 13px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 6px rgba(124,58,237,.35);transition:opacity .15s;">
-                    📁 Kayıtlı
-                </button>
-            </div>
         </div>
 
         <!-- Pareto Tab -->
