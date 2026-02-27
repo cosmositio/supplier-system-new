@@ -1241,8 +1241,16 @@
             <button class="tab-btn" onclick="switchTab('polar')">🌐 Polar Alan</button>
             <button class="tab-btn" onclick="switchTab('chord')">🕷️ Chord Diyagramı</button>
             <button class="tab-btn" onclick="switchTab('beeswarm')">🟣 Beeswarm / Dot Plot</button>
-            <button class="tab-btn" onclick="openChartPickerModal()" style="margin-left:auto;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-weight:700;border:none;font-size:.72rem;padding:4px 10px;" title="Filtrelenmiş veriyi ve seçilen grafikleri kapsamlı rapora ekler">📑 Kapsamlı Rapora Ekle</button>
-            <button class="tab-btn" onclick="uaOpenSnapshotModal()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;border:none;font-size:.72rem;padding:4px 10px;" title="Kayıtlı kapsamlı raporları listele">📁 Kayıtlı Raporlar</button>
+            <div style="margin-left:auto;display:flex;gap:6px;align-items:center;padding:0 4px;">
+                <button onclick="openChartPickerModal()" title="Filtrelenmiş veriyi kapsamlı rapora ekle"
+                    style="display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:none;border-radius:20px;padding:5px 13px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 6px rgba(37,99,235,.35);transition:opacity .15s;">
+                    📑 Rapora Ekle
+                </button>
+                <button onclick="uaOpenSnapshotModal()" title="Kayıtlı raporları listele"
+                    style="display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;border-radius:20px;padding:5px 13px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 6px rgba(124,58,237,.35);transition:opacity .15s;">
+                    📁 Kayıtlı
+                </button>
+            </div>
         </div>
 
         <!-- Pareto Tab -->
