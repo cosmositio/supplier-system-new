@@ -410,7 +410,6 @@ html, body { scroll-behavior:smooth; }
     <div class="nav-item active" onclick="navScrollTo('s-ozet')"><span class="nav-ico">📋</span> Özet</div>
     <div class="nav-item" onclick="navScrollTo('s-icdis')"><span class="nav-ico">⚖️</span> İç / Dış Başarısızlık</div>
     <div class="nav-item" onclick="navScrollTo('s-tedarikci')"><span class="nav-ico">🏭</span> Tedarikçi Kaynaklı</div>
-    <div class="nav-item" onclick="navScrollTo('s-malzeme')"><span class="nav-ico">📦</span> Malzeme Bazlı</div>
     <div class="nav-item" onclick="navScrollTo('s-musteri')"><span class="nav-ico">👥</span> Müşteri / Şube Bazlı</div>
     <div class="nav-item" onclick="navScrollTo('s-hatatipi')"><span class="nav-ico">🔍</span> Hata Tipi Dağılımı</div>
     <div class="nav-item" onclick="navScrollTo('s-6m')"><span class="nav-ico">🔧</span> 6M Kaynak Analizi</div>
@@ -515,21 +514,6 @@ html, body { scroll-behavior:smooth; }
             </div>
             <div style="min-height:220px;"><canvas id="cTedKirilim" height="220"></canvas></div>
             <div id="tedKirilimTable" style="margin-top:14px;"></div>
-        </div>
-    </div>
-
-    <!-- MALZEME -->
-    <div class="section" id="s-malzeme">
-        <div class="section-hdr">
-            <span class="ico">📦</span>
-            <h2>Malzeme (Stok Adı) Bazlı Hatalar</h2>
-            <span class="hint">Stok adına göre Pareto — Top 15</span>
-        </div>
-        <div class="section-body">
-            <div class="two-col">
-                <div class="chart-wrap-tall"><canvas id="cMalzeme"></canvas></div>
-                <div id="malzemeTable"></div>
-            </div>
         </div>
     </div>
 
@@ -2663,12 +2647,6 @@ function runReport(payload) {
         }
         switchTedBreak('hataTipi', null);
     }
-
-    // ── MALZEME ──
-    const malData = paretoData(rows,'stokAdi',15);
-    const malLabels = malData.map(e=>truncate(e.name,32));
-    hBarChart(document.getElementById('cMalzeme'), malLabels, malData.map(e=>e.h), paretoColors(malData.length), 'Hatalı Miktar');
-    document.getElementById('malzemeTable').innerHTML = buildParetoTable(malData, totalH);
 
     // ── MÜŞTERİ Bazında Hata Dağılımı (Dış Başarısızlık + Cari Tipi=Müşteri + Cari Adı) ──
     {
