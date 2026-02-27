@@ -178,9 +178,6 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .fb-group-hdr  { display:flex; align-items:center; gap:12px; padding:14px 20px; background:linear-gradient(90deg,#f8fafc,#f1f5f9); border-bottom:1.5px solid #e2e8f0; flex-wrap:wrap; }
 .fb-hide-btn { margin-left:auto; background:none; border:1.5px solid #fca5a5; border-radius:50%; width:24px; height:24px; cursor:pointer; font-size:.8rem; line-height:1; color:#ef4444; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .2s; font-weight:700; }
 .fb-hide-btn:hover { background:#fee2e2; border-color:#ef4444; }
-.fb-show-all-bar { display:flex; align-items:center; gap:10px; padding:8px 12px; margin-bottom:10px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px; }
-.fb-show-all-btn { background:#2563eb; color:#fff; border:none; border-radius:6px; padding:5px 14px; font-size:.78rem; font-weight:700; cursor:pointer; }
-.fb-show-all-btn:hover { background:#1d4ed8; }
 .fb-group-rank { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; background:#2563eb; color:#fff; font-weight:800; font-size:.85rem; flex-shrink:0; }
 .fb-group-name { font-weight:700; font-size:.95rem; color:#1e2535; flex:1; min-width:80px; }
 .fb-group-badge2 { padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#eff6ff; color:#1d4ed8; }
@@ -1674,15 +1671,7 @@ function renderMultipleFishbones(groups, allRows, containerEl, idOffset) {
 
     if (!containerEl) return;
 
-    // Show-all toolbar (prepended, hidden until a card is hidden)
-    const _containerId = containerEl.id || '';
-    const _showAllBarId = 'fbShowAllBar_' + _containerId;
-    const _showAllHtml = `<div class="fb-show-all-bar" id="${_showAllBarId}" style="display:none;">
-        <span style="font-size:.8rem;color:#475569;">Bazı kılçıklar gizlendi.</span>
-        <button class="fb-show-all-btn" onclick="_fbShowAll('${_containerId}')">⬛ Tümünü Göster</button>
-    </div>`;
-
-    containerEl.innerHTML = _showAllHtml + effectiveGroups.map((g, i) => {
+    containerEl.innerHTML = effectiveGroups.map((g, i) => {
         const gi   = idOffset + i;
         const rows = g.groupRows || allRows;
         const topRows  = [...rows].sort((a,b) => (Number(b.hataliMiktar)||0) - (Number(a.hataliMiktar)||0)).slice(0, 20);
@@ -1702,7 +1691,7 @@ function renderMultipleFishbones(groups, allRows, containerEl, idOffset) {
                 <span class="fb-group-badge2">🔴 ${fmtN(g.totalHatali)} adet</span>
                 <span class="fb-group-badge2">📋 ${g.count} kayıt</span>
                 <span class="fb-group-badge2">%${g.pct} — Kümülatif %${g.cumPct}</span>
-                <button class="fb-hide-btn" onclick="_fbHideCard(${gi}, '${_containerId}')" title="Bu kılçığı gizle">✕</button>
+                <button class="fb-hide-btn" onclick="_fbHideCard(${gi})" title="Bu kılçığı gizle">✕</button>
             </div>
             <div class="fb-card-body" id="fbCardBody_${gi}">
             <div class="fb-section" onmousedown="_fbActivate(${gi})">
@@ -1749,19 +1738,10 @@ function renderMultipleFishbones(groups, allRows, containerEl, idOffset) {
     window._fbData      = window._fbDataArr[idOffset];
 }
 
-function _fbHideCard(gi, containerId) {
+function _fbHideCard(gi) {
     const card = document.getElementById('fbGroup_' + gi);
     if (!card) return;
     card.style.display = 'none';
-    const bar = document.getElementById('fbShowAllBar_' + containerId);
-    if (bar) bar.style.display = 'flex';
-}
-function _fbShowAll(containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    container.querySelectorAll('.fb-group-card').forEach(c => c.style.display = '');
-    const bar = document.getElementById('fbShowAllBar_' + containerId);
-    if (bar) bar.style.display = 'none';
 }
 
 function drawFishbone() {
@@ -2979,6 +2959,8 @@ async function krShowAllSections() {
     document.querySelectorAll('.section[id]').forEach(el => el.style.display = '');
     _krSaveHidden(new Set());
     _krUpdateHiddenBadge();
+    // Restore all hidden fishbone group cards
+    document.querySelectorAll('.fb-group-card').forEach(c => c.style.display = '');
     // Restore all removed fishbone causes in every group
     if (window._fbDataArr) {
         window._fbDataArr.forEach((_, gi) => fbRestoreAll(gi));
