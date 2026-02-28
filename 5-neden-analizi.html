@@ -1000,70 +1000,51 @@ function renderTrack(tab, tk){
   }
 }
 
-const MARKER_LEN = 10; // tip offset handled via refX only — no path pullback needed
-
 function drawConn(svg, c, tk){
-  const dx = c.x2-c.x1, dy = c.y2-c.y1;
-  const absDx = Math.abs(dx), absDy = Math.abs(dy);
-  const isDiag = absDy > 10;
-  let d;
-  let cx1, cy1, cx2, cy2;
+  const dy = c.y2 - c.y1;
+  const isDiag  = Math.abs(dy) > 6;
+  const isViolet = !!c.dashed;
+  const color    = isViolet ? '#8b5cf6' : '#3b82f6';
+  const marker   = isViolet ? `url(#abr_${tk})` : `url(#ab_${tk})`;
+  const sw       = isViolet ? '1.8' : '2.2';
 
-  // Path goes straight to the target point (c.x2, c.y2).
-  // refX=10 aligns the arrow TIP with that point, so the line visually
-  // meets the back-center of the arrowhead — never a corner/ear.
+  let d;
+  // Label anchor points
+  let lqx, lqy, lax, lay;
+
   if(c.dashed && !c.label){
-    // Fork connector — arrives vertically from above
-    if(absDx < 24){
-      d = `M${c.x1},${c.y1} L${c.x2},${c.y2}`;
-      cx1=c.x1; cy1=(c.y1+c.y2)/2; cx2=c.x2; cy2=(c.y1+c.y2)/2;
-    } else {
-      cx1 = c.x1; cy1 = c.y1 + absDy*0.45;
-      cx2 = c.x2; cy2 = c.y2 - absDy*0.25;
-      d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
-    }
+    // Fork connector: vertical drop from bottom-center of fork box to top-center of branch box
+    // x1 ≈ x2 (same column). Go straight down.
+    d = `M${c.x1},${c.y1} L${c.x1},${c.y2} L${c.x2},${c.y2}`;
   } else if(isDiag){
-    // Staircase diagonal — S-bezier, arrives horizontally
-    cx1 = c.x1 + absDx * 0.5; cy1 = c.y1;
-    cx2 = c.x2 - absDx * 0.5; cy2 = c.y2;
-    d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
+    // Staircase connector: right → down → right (elbow at midX)
+    // Source exits right-center (x1,y1), target enters left-center (x2,y2)
+    const midX = Math.round((c.x1 + c.x2) / 2);
+    d = `M${c.x1},${c.y1} L${midX},${c.y1} L${midX},${c.y2} L${c.x2},${c.y2}`;
+    lqx = c.x1 + 6;  lqy = c.y1 - 5;          // "Neden?" near source
+    lax = c.x2 - 36; lay = c.y2 - 5;           // "Çünkü" near target
   } else {
-    // Horizontal connector
-    cx1 = c.x1 + dx * 0.4; cy1 = c.y1;
-    cx2 = c.x2 - dx * 0.4; cy2 = c.y2;
-    d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
+    // Horizontal connector: straight line
+    d = `M${c.x1},${c.y1} L${c.x2},${c.y2}`;
+    lqx = c.x1 + 6;  lqy = c.y1 - 5;
+    lax = c.x2 - 36; lay = c.y2 - 5;
   }
 
   const path = document.createElementNS('http://www.w3.org/2000/svg','path');
   path.setAttribute('d', d);
   path.setAttribute('fill','none');
-
-  const isViolet = !!c.dashed;
-  const color  = isViolet ? '#8b5cf6' : '#3b82f6';
-  const marker = isViolet ? `url(#abr_${tk})` : `url(#ab_${tk})`;
   path.setAttribute('stroke', color);
-  path.setAttribute('stroke-width', isViolet ? '1.8' : '2.2');
+  path.setAttribute('stroke-width', sw);
+  path.setAttribute('stroke-linejoin', 'round');
   path.setAttribute('stroke-linecap', 'round');
   if(c.dashed) path.setAttribute('stroke-dasharray','7,4');
   path.setAttribute('marker-end', marker);
   svg.appendChild(path);
 
   if(c.label==='why' && !c.toRcb){
-    // Labels sit ON the bezier at t positions
-    const pQ = bezPt(c.x1,c.y1, cx1,cy1, cx2,cy2, c.x2,c.y2, 0.12);
-    const pA = bezPt(c.x1,c.y1, cx1,cy1, cx2,cy2, c.x2,c.y2, 0.82);
-    svgTxt(svg, pQ.x + 3, pQ.y - 6, 'Neden?', '#1d4ed8', true,  10);
-    svgTxt(svg, pA.x - 22, pA.y - 6, 'Çünkü',  '#6b7280', false,  9);
+    svgTxt(svg, lqx, lqy, 'Neden?', '#1d4ed8', true,  10);
+    svgTxt(svg, lax, lay,  'Çünkü',  '#6b7280', false,  9);
   }
-}
-
-// Evaluate cubic bezier at parameter t → {x, y}
-function bezPt(x1,y1,cx1,cy1,cx2,cy2,x2,y2,t){
-  const u=1-t;
-  return {
-    x: u*u*u*x1 + 3*u*u*t*cx1 + 3*u*t*t*cx2 + t*t*t*x2,
-    y: u*u*u*y1 + 3*u*u*t*cy1 + 3*u*t*t*cy2 + t*t*t*y2
-  };
 }
 
 function svgTxt(svg, x, y, t, fill, bold, size){
