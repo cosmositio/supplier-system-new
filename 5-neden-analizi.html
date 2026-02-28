@@ -1355,6 +1355,19 @@ async function aiGenerate(){
     ? `,"branches":[${branchExamplesAi.join(',')}]` : '';
 
   const prompt = `Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Aşağıdaki bilgileri kullanarak 5 Neden (5 Why) analizi yap.
+
+⚠️ ZORUNLU NEDENSELLİK KURALI:
+Her adım, bir önceki adımın DOĞRUDAN ve SOMUT nedeni olmalıdır.
+mainSteps[i], mainSteps[i-1]'e "Neden?" sorusunun TAM cevabıdır.
+Zincirin tamamı aynı problem alanında kalmalı; konu dışı, genel veya alakasız nedenler YASAKTIR.
+Örnek zincir (vida torku problemi, oluşum izi):
+  Adım 1: "Vida torku spesifikasyon altında kaldı"        ← problem
+  Adım 2: "Tornavida ucu aşındığı için kuvvet iletimi düştü" ← neden 1'in nedeni
+  Adım 3: "Periyodik alet değişim planı uygulanmadı"       ← neden 2'nin nedeni
+  Adım 4: "Bakım talimatı güncel değil"                    ← neden 3'ün nedeni
+  Adım 5 (kök): "Bakım yönetim sistemi revize edilmedi"   ← kök neden
+Her adım bir öncekini AÇIKLAMALI; bağımsız, rastgele veya genel nedenler YAZMA.
+
 4 ayrı iz oluştur:
 1. TEKNİK OLUŞUM: Fiziksel/mühendislik nedenler - Problem neden oluştu? (parametre, makine, malzeme, ölçüm)
 2. TEKNİK TESPİT: Fiziksel/mühendislik nedenler - Problem neden fark edilemedi?
@@ -1363,7 +1376,7 @@ async function aiGenerate(){
 
 Her iz için EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = kök neden.
 ${branchInstruction}
-Nedenler kısa ve teknik olsun (en fazla 10 kelime).
+Nedenler kısa ve teknik olsun (en fazla 10 kelime). Her adım bir öncekinin nedeni; bağımsız madde YAZMAK YASAKTIR.
 
 YALNIZCA aşağıdaki JSON formatında yanıt ver:
 {
@@ -1389,7 +1402,7 @@ ${context}`;
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: 'Sen bir kalite mühendisisin. Sadece istenen JSON formatında yanıt ver.' },
+          { role: 'system', content: 'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. EN ÖNEMLİ KURAL: 5 Neden zincirinde her adım bir önceki adımın DOĞRUDAN nedeni olmalıdır. Birbirinden bağımsız nedenler listesi kesinlikle kabul edilmez.' },
           { role: 'user',   content: prompt }
         ],
         temperature: 0.4,
@@ -1538,13 +1551,21 @@ async function aiRefresh(tab){
   const prompt = `Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Yalnızca ${tabLabel.toUpperCase()} kırılımını analiz et.
 Odak: ${focusDesc}
 
+⚠️ ZORUNLU NEDENSELLİK KURALI:
+Her adım, bir önceki adımın DOĞRUDAN ve SOMUT nedeni olmalıdır.
+mainSteps[i], mainSteps[i-1]'e "Neden?" sorusunun TAM cevabıdır.
+Tüm adımlar aynı problem alanında kalmalı; konu dışı, genel veya alakasız nedenler YASAKTIR.
+Yanlış örnek: ["Vida hatalı", "Personel yorgun", "Makine eski"] ← birbiriyle alakasız, KABUL EDİLMEZ.
+Doğru örnek: ["Vida torku düşük", "Tornavida ucu aşındı", "Alet değişim planı yok", "Bakım talimatı eksik", "Doküman güncel değil"] ← her adım bir öncekini açıklıyor.
+Her adım bir öncekini AÇIKLAMALI; bağımsız, rastgele veya genel nedenler YAZMA.
+
 2 iz oluştur:
 1. OLUŞUM (os): Bu kırılımda problem neden oluştu?
 2. TESPİT (nd): Bu kırılımda problem neden fark edilemedi?
 
 Her iz için EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = kök neden.
 ${branchInstruction}
-Nedenler kısa ve teknik olsun (en fazla 10 kelime).
+Nedenler kısa ve teknik olsun (en fazla 10 kelime). Her adım bir öncekinin nedeni; bağımsız madde YAZMAK YASAKTIR.
 
 YALNIZCA JSON:
 {"os":{"problem":"...","mainSteps":["Neden 1","...(tam ${stepCount} adet)"],"rootCause":"..."${brJsonPart}},"nd":{"problem":"...","mainSteps":["Neden 1","...(tam ${stepCount} adet)"],"rootCause":"..."${brJsonPart}}}
@@ -1555,7 +1576,7 @@ ${context}`;
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
       body: JSON.stringify({ model:'llama-3.3-70b-versatile',
-        messages:[{role:'system',content:'Sen bir kalite mühendisisin. Sadece istenen JSON formatında yanıt ver.'},{role:'user',content:prompt}],
+        messages:[{role:'system',content:'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. EN ÖNEMLİ KURAL: 5 Neden zincirinde her adım bir önceki adımın DOĞRUDAN nedeni olmalıdır. Birbirinden bağımsız nedenler listesi kesinlikle kabul edilmez.'},{role:'user',content:prompt}],
         temperature:0.45, max_tokens:1800, response_format:{type:'json_object'} })
     });
     if(!resp.ok){ const e=await resp.json().catch(()=>({})); throw new Error(e?.error?.message||`HTTP ${resp.status}`); }
