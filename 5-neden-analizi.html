@@ -836,15 +836,16 @@ function drawConn(svg, c, tk){
   svg.appendChild(path);
 
   if(c.label==='why' && !c.toRcb){
-    // "Neden?" — near source (left): asks why the left box happens
-    // "Çünkü"  — near target (right): right box IS the cause/reason → "because [right box]"
-    if(isDiag){
-      svgTxt(svg, c.x1 + absDx*0.06,  c.y1 - 14, 'Neden?',  '#1d4ed8', true,  10);
-      svgTxt(svg, c.x2 - absDx*0.30,  c.y2 + 14, 'Çünkü…',  '#94a3b8', false, 8.5);
-    } else {
-      svgTxt(svg, c.x1 + absDx*0.06,  c.y1 - 13, 'Neden?',  '#1d4ed8', true,  10);
-      svgTxt(svg, c.x2 - absDx*0.30,  c.y2 + 13, 'Çünkü…',  '#94a3b8', false, 8.5);
-    }
+    // Both labels sit together at the midpoint of the connector as one Q→A unit:
+    //   "Neden?"  (above arc)  ← questions the LEFT box
+    //   "Çünkü"  (below arc)  ← RIGHT box is the answer
+    // Midpoint of our S-bezier is exactly (mx, my) for both diagonal and horizontal.
+    const mx = (c.x1 + c.x2) / 2;
+    const my = (c.y1 + c.y2) / 2;
+    // small horizontal nudge so text doesn't sit on top of the stroke
+    const nx = isDiag ? mx - absDx * 0.05 : mx;
+    svgTxt(svg, nx - 18, my - 11, 'Neden?', '#1d4ed8', true,  10);
+    svgTxt(svg, nx - 16, my +  3, 'Çünkü',  '#94a3b8', false,  9);
   }
 }
 
