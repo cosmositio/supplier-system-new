@@ -3522,7 +3522,7 @@ function openFishbone(hataTipi, count, hatali, pct) {
 }
 
 // Kapsamlı Rapor — IndexedDB üzerinden iletim
-const _RIDB = { name:'KaliteRaporDB', store:'payloads', key:'rapor_payload', ver:1 };
+const _RIDB = { name:'KaliteRaporDB', store:'payloads', key:'rapor_payload', ver:5 };
 function _rIdbOpen() {
     return new Promise((res, rej) => {
         const r = indexedDB.open(_RIDB.name, _RIDB.ver);
@@ -7573,7 +7573,7 @@ function renderBeeswarm() {
 
 // ─── IndexedDB Persistence (localStorage'dan çok daha büyük limit) ─────────────
 const DB_NAME    = 'UygunsuzlukDB';
-const DB_VERSION = 1;
+const DB_VERSION = 5;
 const STORE_NAME = 'cache';
 let _db = null;
 
@@ -7582,7 +7582,8 @@ function openDB() {
         if (_db) { resolve(_db); return; }
         const req = indexedDB.open(DB_NAME, DB_VERSION);
         req.onupgradeneeded = e => {
-            e.target.result.createObjectStore(STORE_NAME);
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
         };
         req.onsuccess = e => { _db = e.target.result; resolve(_db); };
         req.onerror   = e => reject(e.target.error);
