@@ -1346,12 +1346,12 @@ async function callAI(messages, maxTokens, temperature){
       return resp;
     };
 
-    // Try gemini-2.0-flash first, fall back to gemini-1.5-flash on 429/quota
+    // Try gemini-2.0-flash first, fall back to gemini-2.0-flash-lite on 429/quota
     let resp = await fetchGemini('gemini-2.0-flash');
     if(resp.status === 429 || resp.status === 503){
       // wait 3s and retry with lighter model
       await new Promise(r=>setTimeout(r,3000));
-      resp = await fetchGemini('gemini-1.5-flash');
+      resp = await fetchGemini('gemini-2.0-flash-lite');
     }
     if(!resp.ok){
       const e = await resp.json().catch(()=>({}));
