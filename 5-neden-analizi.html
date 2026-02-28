@@ -164,6 +164,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .ai-ptab:hover{border-color:#93c5fd;color:#1d4ed8;}
 .ai-ptab.active{background:#1d4ed8;color:#fff;border-color:#1d4ed8;}
 .ai-ptab.active.gem{background:#0f9d58;border-color:#0f9d58;}
+.ai-ptab.active.or{background:#7c3aed;border-color:#7c3aed;}
+.or-model-sel{width:100%;margin-top:6px;padding:5px 8px;border:1.5px solid #e2e8f0;border-radius:7px;
+  font-size:.78rem;color:#374151;background:#f8fafc;cursor:pointer;}
+.or-model-sel:focus{outline:none;border-color:#7c3aed;}
 /* wizard */
 .wiz-dots{display:flex;gap:6px;align-items:center;margin-bottom:16px;}
 .wiz-dot{width:22px;height:4px;border-radius:2px;background:#e2e8f0;transition:.2s;}
@@ -462,8 +466,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
     <h3>🤖 AI ile 5 Neden Analizi Oluştur</h3>
     <!-- Provider selector -->
     <div class="ai-provider-tabs">
-      <button class="ai-ptab active" id="tabGroq" onclick="setProvider('groq')">🟠 Groq — Llama 3.3</button>
-      <button class="ai-ptab gem" id="tabGemini" onclick="setProvider('gemini')">🔵 Google — Gemini</button>
+      <button class="ai-ptab active" id="tabGroq"   onclick="setProvider('groq')">🟠 Groq</button>
+      <button class="ai-ptab or"  id="tabOR"     onclick="setProvider('openrouter')">🟣 OpenRouter</button>
+      <button class="ai-ptab gem" id="tabGemini" onclick="setProvider('gemini')">🔵 Gemini</button>
     </div>
 
     <!-- wizard progress dots -->
@@ -482,6 +487,18 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       <label class="ai-label">Google AI Studio API Key</label>
       <input class="ai-key" id="aiKeyGemini" type="password" placeholder="AIzaSy...">
       <div class="key-hint">Ücretsiz · <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com → Get API key →</a></div>
+    </div>
+    <div id="keyBlockOR" style="display:none">
+      <label class="ai-label">OpenRouter API Key</label>
+      <input class="ai-key" id="aiKeyOR" type="password" placeholder="sk-or-...">
+      <div class="key-hint">Ücretsiz · <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai → Keys →</a></div>
+      <select class="or-model-sel" id="orModel">
+        <option value="deepseek/deepseek-r1:free">⭐ DeepSeek R1 — En İyi (ücretsiz)</option>
+        <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (ücretsiz)</option>
+        <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 72B (ücretsiz)</option>
+        <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (ücretsiz)</option>
+        <option value="mistralai/mistral-small-3.1-24b-instruct:free">Mistral Small 3.1 (ücretsiz)</option>
+      </select>
     </div>
 
     <div id="aiStatus" style="margin-top:10px;min-height:18px;"></div>
@@ -1052,8 +1069,10 @@ function resetAll(){
 document.getElementById('mDate').valueAsDate = new Date();
 // Restore saved API keys and provider
 (function(){
-  const k = localStorage.getItem('groq_api_key');   if(k) document.getElementById('aiKey').value = k;
-  const g = localStorage.getItem('gemini_api_key'); if(g) document.getElementById('aiKeyGemini').value = g;
+  const k  = localStorage.getItem('groq_api_key');   if(k)  document.getElementById('aiKey').value = k;
+  const g  = localStorage.getItem('gemini_api_key'); if(g)  document.getElementById('aiKeyGemini').value = g;
+  const or = localStorage.getItem('or_api_key');     if(or) document.getElementById('aiKeyOR').value = or;
+  document.getElementById('aiKeyOR').oninput = e => localStorage.setItem('or_api_key', e.target.value.trim());
   const p = localStorage.getItem('ai_provider') || 'groq';
   setProvider(p);
 })();
@@ -1313,18 +1332,49 @@ function wizNav(dir){
 // ── Provider toggle ──────────────────────────────────
 function setProvider(p){
   localStorage.setItem('ai_provider', p);
-  document.getElementById('tabGroq').classList.toggle('active', p==='groq');
-  document.getElementById('tabGemini').classList.toggle('active', p==='gemini');
-  document.getElementById('keyBlockGroq').style.display   = p==='groq'    ? '' : 'none';
-  document.getElementById('keyBlockGemini').style.display = p==='gemini'  ? '' : 'none';
+  ['groq','openrouter','gemini'].forEach(id=>{
+    const btn = document.getElementById('tab'+(id==='groq'?'Groq':id==='openrouter'?'OR':'Gemini'));
+    if(btn) btn.classList.toggle('active', p===id);
+  });
+  document.getElementById('keyBlockGroq').style.display   = p==='groq'         ? '' : 'none';
+  document.getElementById('keyBlockOR').style.display     = p==='openrouter'   ? '' : 'none';
+  document.getElementById('keyBlockGemini').style.display = p==='gemini'       ? '' : 'none';
+  // restore saved model selection
+  if(p==='openrouter'){
+    const m = localStorage.getItem('or_model');
+    if(m) document.getElementById('orModel').value = m;
+    document.getElementById('orModel').onchange = e => localStorage.setItem('or_model', e.target.value);
+  }
 }
 
-// ── Unified AI caller (Groq or Gemini) ───────────────
+// ── Unified AI caller (Groq / OpenRouter / Gemini) ─────
 async function callAI(messages, maxTokens, temperature){
   const provider = localStorage.getItem('ai_provider') || 'groq';
   const temp = temperature ?? 0.4;
 
-  if(provider === 'gemini'){
+  if(provider === 'openrouter'){
+    const key = localStorage.getItem('or_api_key') || document.getElementById('aiKeyOR')?.value?.trim() || '';
+    if(!key) throw new Error('OpenRouter API key girilmedi');
+    const model = localStorage.getItem('or_model') || 'deepseek/deepseek-r1:free';
+    const resp = await fetch('https://openrouter.ai/api/v1/chat/completions',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+key,
+        'HTTP-Referer':'https://localhost',
+        'X-Title':'5 Neden Analizi'
+      },
+      body: JSON.stringify({ model, messages, temperature:temp, max_tokens:maxTokens, response_format:{type:'json_object'} })
+    });
+    if(!resp.ok){
+      const e=await resp.json().catch(()=>({}));
+      if(resp.status===429) throw new Error('⏳ OpenRouter rate limit — birkaç saniye bekleyip tekrar deneyin.');
+      throw new Error(e?.error?.message||`HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    return data?.choices?.[0]?.message?.content || '';
+
+  } else if(provider === 'gemini'){
     const key = localStorage.getItem('gemini_api_key') || document.getElementById('aiKeyGemini')?.value?.trim() || '';
     if(!key) throw new Error('Gemini API key girilmedi');
 
@@ -1400,6 +1450,10 @@ async function aiGenerate(){
     const k = document.getElementById('aiKeyGemini').value.trim();
     if(!k){ setAiStatus('error','⚠️ Lütfen Gemini API key girin.'); return; }
     localStorage.setItem('gemini_api_key', k);
+  } else if(provider==='openrouter'){
+    const k = document.getElementById('aiKeyOR').value.trim();
+    if(!k){ setAiStatus('error','⚠️ Lütfen OpenRouter API key girin.'); return; }
+    localStorage.setItem('or_api_key', k);
   } else {
     const k = document.getElementById('aiKey').value.trim();
     if(!k){ setAiStatus('error','⚠️ Lütfen Groq API key girin.'); return; }
