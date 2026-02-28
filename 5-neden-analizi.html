@@ -1065,8 +1065,8 @@ function saveModal(){ if(_mCb) _mCb(document.getElementById('mTa').value); close
 const DB='KaliteRaporDB', ST='payloads', KEY='5neden_v1';
 function idbOpen(){
   return new Promise((ok,err)=>{
-    const r=indexedDB.open(DB,1);
-    r.onupgradeneeded=e=>e.target.result.createObjectStore(ST);
+    const r=indexedDB.open(DB,5);
+    r.onupgradeneeded=e=>{ const db=e.target.result; if(!db.objectStoreNames.contains(ST)) db.createObjectStore(ST); };
     r.onsuccess=e=>ok(e.target.result);
     r.onerror=e=>err(e.target.error);
   });
