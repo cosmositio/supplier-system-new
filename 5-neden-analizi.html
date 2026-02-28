@@ -1157,7 +1157,16 @@ function renderStepBox(diag, it, tab, tk){
   const ta = el.querySelector('textarea');
   ta.value = node.text;
   autoResize(ta);
-  ta.oninput = e => { node.text = e.target.value; autoResize(ta); };
+  ta.oninput = e => {
+    node.text = e.target.value;
+    autoResize(ta);
+    // Update matching faaliyet row placeholder live (no full re-render needed)
+    const fta = document.querySelector('.ca-input[data-stepid="'+node.id+'"]');
+    if(fta){
+      fta.placeholder = node.text ? node.text.slice(0,40)+'…' : 'Faaliyet yazın…';
+      fta.title = node.text ? '💡 Neden: '+node.text : '';
+    }
+  };
   el.querySelector('.del').onclick = ()=> deleteStep(tab, tk, it.chain, it.stepIdx);
   el.querySelector('.root').onclick = ()=> toggleRoot(tab, tk, it.chain, it.stepIdx);
 
@@ -1623,6 +1632,7 @@ function buildActionSection(el, tab, tk, prefix, label, lblCls){
     // Faaliyet textarea
     const ta = document.createElement('textarea');
     ta.className = 'ca-input';
+    ta.dataset.stepid = step.id;
     ta.placeholder = step.text ? step.text.slice(0, 40) + '…' : 'Faaliyet yazın…';
     ta.value = act.text;
     ta.title = step.text ? '💡 Neden: ' + step.text : '';
