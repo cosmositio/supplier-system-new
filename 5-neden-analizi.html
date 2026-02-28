@@ -503,9 +503,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       </div>
       <div class="key-hint">Ücretsiz · <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com → Get API key →</a></div>
       <select class="or-model-sel" id="geminiModel" onchange="localStorage.setItem('gemini_model',this.value)">
-        <option value="gemini-2.0-flash-lite">✅ Gemini 2.0 Flash Lite — Ücretsiz, hızlı</option>
-        <option value="gemini-2.0-flash">Gemini 2.0 Flash — Güçlü, ücretsiz</option>
-        <option value="gemini-2.5-flash-preview-04-17">Gemini 2.5 Flash Preview — En güncel</option>
+        <option value="gemini-2.0-flash">✅ Gemini 2.0 Flash — Güçlü, ücretsiz</option>
+        <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite — Hızlı, ücretsiz</option>
+        <option value="gemini-2.5-flash-preview-04-17">Gemini 2.5 Flash Preview</option>
         <option value="gemini-2.5-pro-preview-03-25">Gemini 2.5 Pro Preview (ücretli)</option>
       </select>
     </div>
@@ -517,12 +517,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       </div>
       <div class="key-hint">Kart gerekmez · Ücretsiz modeller dengesiz olabilir · <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai → Keys →</a></div>
       <select class="or-model-sel" id="orModel">
-        <option value="google/gemini-2.0-flash-lite-001:free">✅ Gemini 2.0 Flash Lite — Stabil (ücretsiz)</option>
-        <option value="google/gemini-2.0-flash-001:free">Gemini 2.0 Flash — Güçlü (ücretsiz)</option>
-        <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (ücretsiz)</option>
-        <option value="deepseek/deepseek-chat-v3-0324:free">DeepSeek V3 (ücretsiz)</option>
+        <option value="meta-llama/llama-3.3-70b-instruct:free">✅ Llama 3.3 70B — Stabil (ücretsiz)</option>
+        <option value="deepseek/deepseek-chat:free">DeepSeek Chat (ücretsiz)</option>
         <option value="deepseek/deepseek-r1:free">DeepSeek R1 (ücretsiz, yavaş)</option>
-        <option value="mistralai/mistral-small-3.1-24b-instruct:free">Mistral Small 3.1 (ücretsiz)</option>
+        <option value="mistralai/mistral-7b-instruct:free">Mistral 7B (ücretsiz)</option>
+        <option value="microsoft/phi-3-mini-128k-instruct:free">Phi-3 Mini (ücretsiz)</option>
       </select>
     </div>
 
@@ -1095,8 +1094,8 @@ document.getElementById('mDate').valueAsDate = new Date();
 // Restore saved API keys and provider
 (function(){
   // Migrate deprecated model names
-  const DEPRECATED_GEMINI = ['gemini-1.5-flash','gemini-1.5-pro','gemini-2.0-flash-exp','gemini-2.5-pro-exp-03-25'];
-  const DEPRECATED_OR     = ['meta-llama/llama-3.1-8b-instruct:free','qwen/qwen2.5-72b-instruct:free'];
+  const DEPRECATED_GEMINI = ['gemini-1.5-flash','gemini-1.5-pro','gemini-2.0-flash-exp','gemini-2.5-pro-exp-03-25','gemini-2.0-flash-lite'];
+  const DEPRECATED_OR     = ['meta-llama/llama-3.1-8b-instruct:free','qwen/qwen2.5-72b-instruct:free','google/gemini-2.0-flash-lite-001:free','google/gemini-2.0-flash-001:free'];
   if(DEPRECATED_GEMINI.includes(localStorage.getItem('gemini_model'))) localStorage.removeItem('gemini_model');
   if(DEPRECATED_OR.includes(localStorage.getItem('or_model')))         localStorage.removeItem('or_model');
 
@@ -1405,14 +1404,14 @@ async function callAI(messages, maxTokens, temperature){
   if(provider === 'openrouter'){
     const key = localStorage.getItem('or_api_key') || document.getElementById('aiKeyOR')?.value?.trim() || '';
     if(!key) throw new Error('OpenRouter API key girilmedi');
-    const model = localStorage.getItem('or_model') || document.getElementById('orModel')?.value || 'google/gemini-2.0-flash-lite-001:free';
+    const model = localStorage.getItem('or_model') || document.getElementById('orModel')?.value || 'meta-llama/llama-3.3-70b-instruct:free';
     const resp = await fetch('https://openrouter.ai/api/v1/chat/completions',{
       method:'POST',
       headers:{
         'Content-Type':'application/json',
         'Authorization':'Bearer '+key,
-        'HTTP-Referer':'https://localhost',
-        'X-Title':'5 Neden Analizi'
+        'HTTP-Referer':'https://github.com',
+        'X-Title':'5-Neden-Analizi'
       },
       body: JSON.stringify({ model, messages, temperature:temp, max_tokens:maxTokens })
     });
@@ -1428,41 +1427,34 @@ async function callAI(messages, maxTokens, temperature){
     const key = localStorage.getItem('gemini_api_key') || document.getElementById('aiKeyGemini')?.value?.trim() || '';
     if(!key) throw new Error('Gemini API key girilmedi');
 
-    // Build Gemini native request from OpenAI-style messages
-    const sysMsg  = messages.find(m=>m.role==='system')?.content || '';
-    const userMsg = messages.find(m=>m.role==='user')?.content   || '';
-    const combined = sysMsg ? sysMsg + '\n\n' + userMsg : userMsg;
-
-    const fetchGemini = async (model) => {
-      const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-        { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            contents:[{ role:'user', parts:[{text: combined}] }],
-            generationConfig:{ temperature:temp, maxOutputTokens:maxTokens }
-          })
-        }
-      );
-      return resp;
-    };
-
-    // Read model directly from dropdown (source of truth), persist to localStorage
+    // Use Google's OpenAI-compatible endpoint (more stable, supports system role)
     const geminiModelEl = document.getElementById('geminiModel');
-    const geminiModel = geminiModelEl?.value || localStorage.getItem('gemini_model') || 'gemini-2.0-flash-lite';
+    const geminiModel = geminiModelEl?.value || localStorage.getItem('gemini_model') || 'gemini-2.0-flash';
     if(geminiModelEl) localStorage.setItem('gemini_model', geminiModel);
 
-    let resp = await fetchGemini(geminiModel);
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+key},
+      body: JSON.stringify({ model:geminiModel, messages, temperature:temp, max_tokens:maxTokens })
+    });
     if(resp.status === 429 || resp.status === 503){
       await new Promise(r=>setTimeout(r,5000));
-      resp = await fetchGemini(geminiModel);
+      // retry once
+      const resp2 = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+        body: JSON.stringify({ model:geminiModel, messages, temperature:temp, max_tokens:maxTokens })
+      });
+      if(!resp2.ok){ const e2=await resp2.json().catch(()=>({})); throw new Error('Gemini: '+(e2?.error?.message||`HTTP ${resp2.status}`)); }
+      const d2 = await resp2.json();
+      return d2?.choices?.[0]?.message?.content || '';
     }
     if(!resp.ok){
       const e = await resp.json().catch(()=>({}));
-      const msg = e?.error?.message || `HTTP ${resp.status}`;
-      throw new Error('Gemini (' + geminiModel + '): ' + msg);
+      throw new Error('Gemini (' + geminiModel + '): ' + (e?.error?.message||`HTTP ${resp.status}`));
     }
     const data = await resp.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return data?.choices?.[0]?.message?.content || '';
 
   } else {
     const key = localStorage.getItem('groq_api_key') || document.getElementById('aiKey')?.value?.trim() || '';
