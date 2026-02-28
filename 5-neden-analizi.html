@@ -1154,9 +1154,15 @@ function renderStepBox(diag, it, tab, tk){
   el.querySelector('.root').onclick = ()=> toggleRoot(tab, tk, it.chain, it.stepIdx);
 
   el.querySelector('.add').onclick = ()=>{
-    // Extend THIS chain
+    // Insert new step right after current step in this chain
+    const insertFlatIdx = it.flatIdx + 1;  // action table position for the new step
     _S[tab][tk].chains[it.chain].steps.splice(it.stepIdx+1, 0, mkStep());
+    // Mirror: insert a blank action at the same flat position
+    if(!_S[tab].actions) _S[tab].actions = {os:[],nd:[]};
+    if(!_S[tab].actions[tk]) _S[tab].actions[tk] = [];
+    _S[tab].actions[tk].splice(insertFlatIdx, 0, mkAction());
     renderTrack(tab, tk);
+    renderActionTable(tab);
   };
   el.querySelector('.fork').onclick = ()=>{
     // column of the clicked step:
@@ -1515,7 +1521,6 @@ function syncActions(tab, tk){
 function renderActionTable(tab){
   const el = document.getElementById('actions-'+tab);
   if(!el) return;
-  ['os','nd'].forEach(tk => syncActions(tab, tk));
 
   el.innerHTML = '';
   const istech = tab === 'tech';
@@ -1549,7 +1554,17 @@ function buildActionSection(el, tab, tk, prefix, label, lblCls){
   secLbl.textContent = label;
   el.appendChild(secLbl);
 
-  const steps = getAllSteps(tab, tk);
+  // Use doLayout's flatIdx ordering so labels EXACTLY match the diagram
+  const {items} = doLayout(tab, tk);
+  const stepItems = items
+    .filter(it => it.type === 'step')
+    .sort((a,b) => a.flatIdx - b.flatIdx);
+  const steps = stepItems.map(it => it.data);
+
+  // Sync actions length
+  if(!_S[tab].actions[tk]) _S[tab].actions[tk] = [];
+  while(_S[tab].actions[tk].length < steps.length) _S[tab].actions[tk].push(mkAction());
+  _S[tab].actions[tk].length = steps.length;
 
   // Bulk AI button
   const bulkWrap = document.createElement('div');
@@ -1573,6 +1588,7 @@ function buildActionSection(el, tab, tk, prefix, label, lblCls){
   steps.forEach((step, i) => {
     if(!_S[tab].actions[tk][i]) _S[tab].actions[tk][i] = mkAction();
     const act = _S[tab].actions[tk][i];
+    const flatNum = stepItems[i].flatIdx + 1;  // same number as diagram label
 
     const row = document.createElement('div');
     row.className = 'ca-row' + (act.pinned ? ' act-pinned' : '');
@@ -1580,7 +1596,7 @@ function buildActionSection(el, tab, tk, prefix, label, lblCls){
     // #
     const lbl = document.createElement('div');
     lbl.className = 'ca-lbl';
-    lbl.textContent = prefix + (i + 1);
+    lbl.textContent = prefix + flatNum;
     row.appendChild(lbl);
 
     // Pin button
@@ -1599,9 +1615,9 @@ function buildActionSection(el, tab, tk, prefix, label, lblCls){
     // Faaliyet textarea
     const ta = document.createElement('textarea');
     ta.className = 'ca-input';
-    ta.placeholder = step.text ? step.text.slice(0, 35) + '…' : 'Faaliyet yazın…';
+    ta.placeholder = step.text ? step.text.slice(0, 40) + '…' : 'Faaliyet yazın…';
     ta.value = act.text;
-    ta.title = step.text ? 'Adım: ' + step.text : '';
+    ta.title = step.text ? '💡 Neden: ' + step.text : '';
     ta.oninput = e => { act.text = e.target.value; };
     row.appendChild(ta);
 
