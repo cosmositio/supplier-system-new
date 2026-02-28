@@ -487,12 +487,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       <label class="ai-label">Google AI Studio API Key</label>
       <input class="ai-key" id="aiKeyGemini" type="password" placeholder="AIzaSy...">
       <div class="key-hint">Ücretsiz · <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com → Get API key →</a></div>
-      <select class="or-model-sel" id="geminiModel">
-        <option value="gemini-2.0-flash">Gemini 2.0 Flash — Önerilen (kart gerekli)</option>
-        <option value="gemini-2.5-pro-exp-03-25">Gemini 2.5 Pro Exp — En İyi (kart gerekli)</option>
-        <option value="gemini-2.0-flash-lite">⭐ Gemini 2.0 Flash Lite — Ücretsiz (kartsız)</option>
-        <option value="gemini-1.5-flash">Gemini 1.5 Flash — Stabil eski</option>
-        <option value="gemini-1.5-pro">Gemini 1.5 Pro — Kaliteli eski</option>
+      <select class="or-model-sel" id="geminiModel" onchange="localStorage.setItem('gemini_model',this.value)">
+        <option value="gemini-2.5-pro-exp-03-25">⭐ Gemini 2.5 Pro Exp — En İyi</option>
+        <option value="gemini-2.0-flash">Gemini 2.0 Flash — Hızlı &amp; Ücretsiz</option>
+        <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
+        <option value="gemini-1.5-flash">Gemini 1.5 Flash — Stabil</option>
+        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
       </select>
     </div>
     <div id="keyBlockOR" style="display:none">
@@ -1409,21 +1409,20 @@ async function callAI(messages, maxTokens, temperature){
       return resp;
     };
 
-    // Use selected model from dropdown, fallback chain on error
-    const geminiModel = localStorage.getItem('gemini_model') || 'gemini-2.0-flash-lite';
+    // Read model directly from dropdown (source of truth), persist to localStorage
+    const geminiModelEl = document.getElementById('geminiModel');
+    const geminiModel = geminiModelEl?.value || localStorage.getItem('gemini_model') || 'gemini-2.5-pro-exp-03-25';
+    if(geminiModelEl) localStorage.setItem('gemini_model', geminiModel);
+
     let resp = await fetchGemini(geminiModel);
     if(resp.status === 429 || resp.status === 503){
-      await new Promise(r=>setTimeout(r,4000));
+      await new Promise(r=>setTimeout(r,5000));
       resp = await fetchGemini(geminiModel);
-    }
-    // If selected model unavailable, try lite as last resort
-    if(!resp.ok && (resp.status === 404 || resp.status === 400) && geminiModel !== 'gemini-2.0-flash-lite'){
-      resp = await fetchGemini('gemini-2.0-flash-lite');
     }
     if(!resp.ok){
       const e = await resp.json().catch(()=>({}));
       const msg = e?.error?.message || `HTTP ${resp.status}`;
-      throw new Error('Gemini: ' + msg);
+      throw new Error('Gemini (' + geminiModel + '): ' + msg);
     }
     const data = await resp.json();
     return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
