@@ -493,11 +493,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       <input class="ai-key" id="aiKeyOR" type="password" placeholder="sk-or-...">
       <div class="key-hint">Ücretsiz · <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai → Keys →</a></div>
       <select class="or-model-sel" id="orModel">
-        <option value="deepseek/deepseek-r1:free">⭐ DeepSeek R1 — En İyi (ücretsiz)</option>
-        <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (ücretsiz)</option>
-        <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 72B (ücretsiz)</option>
-        <option value="google/gemini-2.0-flash-lite-001:free">Gemini 2.0 Flash Lite (ücretsiz)</option>
+        <option value="meta-llama/llama-3.3-70b-instruct:free">⭐ Llama 3.3 70B — Önerilen (ücretsiz)</option>
+        <option value="deepseek/deepseek-chat-v3-0324:free">DeepSeek V3 (ücretsiz)</option>
+        <option value="deepseek/deepseek-r1:free">DeepSeek R1 — Akıl Yürütme (ücretsiz, yavaş)</option>
+        <option value="qwen/qwen2.5-72b-instruct:free">Qwen 2.5 72B (ücretsiz)</option>
         <option value="mistralai/mistral-small-3.1-24b-instruct:free">Mistral Small 3.1 (ücretsiz)</option>
+        <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash Exp (ücretsiz)</option>
       </select>
     </div>
 
@@ -1355,7 +1356,7 @@ async function callAI(messages, maxTokens, temperature){
   if(provider === 'openrouter'){
     const key = localStorage.getItem('or_api_key') || document.getElementById('aiKeyOR')?.value?.trim() || '';
     if(!key) throw new Error('OpenRouter API key girilmedi');
-    const model = localStorage.getItem('or_model') || 'deepseek/deepseek-r1:free';
+    const model = localStorage.getItem('or_model') || 'meta-llama/llama-3.3-70b-instruct:free';
     const resp = await fetch('https://openrouter.ai/api/v1/chat/completions',{
       method:'POST',
       headers:{
