@@ -56,7 +56,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   letter-spacing:.05em;margin-bottom:4px;color:#2563eb;}
 .pbox.nd-t .plbl{color:#7c3aed;}
 .pbox textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
-  font-size:.82rem;font-weight:500;color:#1e293b;font-family:inherit;line-height:1.45;min-height:44px;}
+  font-size:.82rem;font-weight:500;color:#1e293b;font-family:inherit;line-height:1.45;
+  min-height:36px;overflow:hidden;}
 
 /* ── STEP BOX ── */
 .sbox{position:absolute;border:2px solid #cbd5e1;border-radius:8px;
@@ -68,7 +69,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   padding:1px 7px;border-radius:10px;background:#dc2626;color:#fff;white-space:nowrap;}
 .sbox textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
   font-size:.83rem;font-weight:500;color:#1e293b;font-family:inherit;line-height:1.45;
-  min-height:36px;margin-top:14px;padding-left:2px;}
+  min-height:36px;margin-top:14px;padding-left:2px;overflow:hidden;}
 .sbox.is-root textarea{margin-top:18px;}
 .sacts{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap;}
 .sa{font-size:.56rem;padding:2px 5px;border-radius:4px;border:1px solid;
@@ -1063,8 +1064,10 @@ function renderProbBox(diag, it, tab, tk){
   d.innerHTML = `<div class="plbl">Problem Tanımı</div>
     <textarea placeholder="Problemi yazın…"></textarea>
     <button class="pin-btn${pinned?' pinned':''}" title="${pinned?'Sabiti kaldır':'Sabitle'}">&#128204;</button>`;
-  d.querySelector('textarea').value = _S[tab][tk].problem;
-  d.querySelector('textarea').oninput = e => { _S[tab][tk].problem = e.target.value; };
+  const ta = d.querySelector('textarea');
+  ta.value = _S[tab][tk].problem;
+  autoResize(ta);
+  ta.oninput = e => { _S[tab][tk].problem = e.target.value; autoResize(ta); };
   d.querySelector('.pin-btn').onclick = ()=>{ _S[tab][tk].problemPinned = !_S[tab][tk].problemPinned; renderTrack(tab, tk); };
   diag.appendChild(d);
 }
@@ -1089,7 +1092,8 @@ function renderStepBox(diag, it, tab, tk){
 
   const ta = el.querySelector('textarea');
   ta.value = node.text;
-  ta.oninput = e => { node.text = e.target.value; };
+  autoResize(ta);
+  ta.oninput = e => { node.text = e.target.value; autoResize(ta); };
   el.querySelector('.del').onclick = ()=> deleteStep(tab, tk, it.chain, it.stepIdx);
   el.querySelector('.root').onclick = ()=> toggleRoot(tab, tk, it.chain, it.stepIdx);
 
@@ -1125,7 +1129,8 @@ function renderRcbBox(diag, it, tab, tk){
     <textarea placeholder="Kök neden…"></textarea>
     <button class="pin-btn${pinned?' pinned':''}" title="${pinned?'Sabiti kaldır':'Sabitle'}">&#128204;</button>`;
   el.querySelector('textarea').value = _S[tab][tk].rcText;
-  el.querySelector('textarea').oninput = e => { _S[tab][tk].rcText = e.target.value; };
+  autoResize(el.querySelector('textarea'));
+  el.querySelector('textarea').oninput = e => { _S[tab][tk].rcText = e.target.value; autoResize(e.target); };
   el.querySelector('.pin-btn').onclick = ()=>{ _S[tab][tk].rcPinned = !_S[tab][tk].rcPinned; renderTrack(tab, tk); };
   diag.appendChild(el);
 }
@@ -1145,6 +1150,11 @@ function div(cls, x, y, w, h){
   el.className = cls;
   el.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${w}px;min-height:${h}px;`;
   return el;
+}
+
+function autoResize(ta){
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
 }
 
 // ══════════════════════════════════════════════════════
