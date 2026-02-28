@@ -2300,14 +2300,20 @@ window.addEventListener('beforeprint', ()=>{
     set('analyst',  analyst  || '—');
   });
 
-  // Auto-fit each canvas-outer to A4 portrait width (190mm ≈ 718px at 96dpi)
+  // Auto-fit each canvas-outer: read actual diag.style.width (set by layout JS)
+  // A4 portrait usable width ≈ 190mm → at 96dpi ≈ 718px
   const PAGE_W = 718;
   document.querySelectorAll('.canvas-outer').forEach(co=>{
-    co.style.zoom = ''; // reset first so scrollWidth is real
-    const natural = co.scrollWidth;
-    if(natural > 0){
-      const z = Math.min(1, (PAGE_W / natural) * 0.99);
-      co.style.zoom = String(z);
+    co.style.zoom = '';
+    // Each .diag has explicit style.width set by renderTrack → most reliable source
+    let maxW = 0;
+    co.querySelectorAll('.diag').forEach(d=>{
+      const w = parseFloat(d.style.width) || 0;
+      if(w > maxW) maxW = w;
+    });
+    if(maxW > 0){
+      const z = Math.min(1, PAGE_W / (maxW + 24)); // +24 for padding
+      co.style.zoom = z.toFixed(4);
     }
   });
 
