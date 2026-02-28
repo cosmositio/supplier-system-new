@@ -882,10 +882,10 @@ function doLayout(tab, tk){
       colBottomY[col] = Math.max(colBottomY[col]||0, y+BOX_H);
     }
 
-    // Fork connector: straight DOWN from fork anchor to first branch step (same column)
+    // Fork connector: straight DOWN from bottom-center of fork anchor to top-center of first branch step
     if(brItems.length)
-      conns.push({ x1:forkAnchor.cx, y1:forkAnchor.cy,
-                   x2:brItems[0].cx - BOX_W/2, y2:brItems[0].y, label:'', dashed:true });
+      conns.push({ x1:forkAnchor.cx - BOX_W/2, y1:forkAnchor.cy + BOX_H/2,
+                   x2:brItems[0].cx - BOX_W/2,  y2:brItems[0].y, label:'', dashed:true });
     // Branch internal connectors (forward direction)
     for(let si=0; si<brItems.length-1; si++)
       conns.push({ x1:brItems[si].cx,  y1:brItems[si].cy,
