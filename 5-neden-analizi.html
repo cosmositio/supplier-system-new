@@ -168,6 +168,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .or-model-sel{width:100%;margin-top:6px;padding:5px 8px;border:1.5px solid #e2e8f0;border-radius:7px;
   font-size:.78rem;color:#374151;background:#f8fafc;cursor:pointer;}
 .or-model-sel:focus{outline:none;border-color:#7c3aed;}
+/* API test button */
+.key-row{display:flex;gap:6px;align-items:center;}
+.key-row .ai-key{flex:1;margin:0;}
+.api-test-btn{padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:7px;background:#f8fafc;
+  font-size:.75rem;font-weight:700;color:#64748b;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.api-test-btn:hover{border-color:#2563eb;color:#2563eb;}
+.api-test-btn.ok{background:#dcfce7;border-color:#16a34a;color:#16a34a;}
+.api-test-btn.err{background:#fee2e2;border-color:#dc2626;color:#dc2626;}
+.api-test-btn.loading{opacity:.6;pointer-events:none;}
 /* wizard */
 .wiz-dots{display:flex;gap:6px;align-items:center;margin-bottom:16px;}
 .wiz-dot{width:22px;height:4px;border-radius:2px;background:#e2e8f0;transition:.2s;}
@@ -480,12 +489,18 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
     <!-- API key blocks (one shown at a time) -->
     <div id="keyBlockGroq">
       <label class="ai-label">Groq API Key</label>
-      <input class="ai-key" id="aiKey" type="password" placeholder="gsk_...">
+      <div class="key-row">
+        <input class="ai-key" id="aiKey" type="password" placeholder="gsk_...">
+        <button class="api-test-btn" id="testBtnGroq" onclick="testAPI('groq')">&#128301; Test</button>
+      </div>
       <div class="key-hint">Ücretsiz · <a href="https://console.groq.com" target="_blank">console.groq.com → API Keys →</a></div>
     </div>
     <div id="keyBlockGemini" style="display:none">
       <label class="ai-label">Google AI Studio API Key</label>
-      <input class="ai-key" id="aiKeyGemini" type="password" placeholder="AIzaSy...">
+      <div class="key-row">
+        <input class="ai-key" id="aiKeyGemini" type="password" placeholder="AIzaSy...">
+        <button class="api-test-btn" id="testBtnGemini" onclick="testAPI('gemini')">&#128301; Test</button>
+      </div>
       <div class="key-hint">Ücretsiz · <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com → Get API key →</a></div>
       <select class="or-model-sel" id="geminiModel" onchange="localStorage.setItem('gemini_model',this.value)">
         <option value="gemini-2.5-pro-exp-03-25">⭐ Gemini 2.5 Pro Exp — En İyi</option>
@@ -497,7 +512,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
     </div>
     <div id="keyBlockOR" style="display:none">
       <label class="ai-label">OpenRouter API Key</label>
-      <input class="ai-key" id="aiKeyOR" type="password" placeholder="sk-or-...">
+      <div class="key-row">
+        <input class="ai-key" id="aiKeyOR" type="password" placeholder="sk-or-...">
+        <button class="api-test-btn" id="testBtnOR" onclick="testAPI('openrouter')">&#128301; Test</button>
+      </div>
       <div class="key-hint">Ücretsiz · <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai → Keys →</a></div>
       <select class="or-model-sel" id="orModel">
         <option value="meta-llama/llama-3.3-70b-instruct:free">⭐ Llama 3.3 70B — Önerilen (ücretsiz)</option>
@@ -1458,6 +1476,53 @@ function openAiModal(){
 }
 
 function closeAiModal(){ document.getElementById('aiModal').classList.remove('open'); }
+
+// ── API Test ────────────────────────────────
+async function testAPI(provider){
+  const btnId = provider==='groq' ? 'testBtnGroq' : provider==='gemini' ? 'testBtnGemini' : 'testBtnOR';
+  const btn = document.getElementById(btnId);
+  btn.textContent = '⏳ Test...';
+  btn.className = 'api-test-btn loading';
+
+  const PING = [{role:'user', content:'Say OK in JSON: {"ok":true}'}];
+  try{
+    let raw = '';
+    if(provider === 'groq'){
+      const key = document.getElementById('aiKey').value.trim();
+      if(!key){ throw new Error('Key girilmedi'); }
+      localStorage.setItem('groq_api_key', key);
+      const prevProv = localStorage.getItem('ai_provider');
+      localStorage.setItem('ai_provider','groq');
+      raw = await callAI(PING, 20, 0.1);
+      localStorage.setItem('ai_provider', prevProv||'groq');
+    } else if(provider === 'gemini'){
+      const key = document.getElementById('aiKeyGemini').value.trim();
+      if(!key){ throw new Error('Key girilmedi'); }
+      localStorage.setItem('gemini_api_key', key);
+      const prevProv = localStorage.getItem('ai_provider');
+      localStorage.setItem('ai_provider','gemini');
+      raw = await callAI(PING, 20, 0.1);
+      localStorage.setItem('ai_provider', prevProv||'groq');
+    } else {
+      const key = document.getElementById('aiKeyOR').value.trim();
+      if(!key){ throw new Error('Key girilmedi'); }
+      localStorage.setItem('or_api_key', key);
+      const prevProv = localStorage.getItem('ai_provider');
+      localStorage.setItem('ai_provider','openrouter');
+      raw = await callAI(PING, 20, 0.1);
+      localStorage.setItem('ai_provider', prevProv||'groq');
+    }
+    // If we got any response without throwing, it's a success
+    btn.textContent = '✅ Çalışıyor';
+    btn.className = 'api-test-btn ok';
+    setTimeout(()=>{ btn.textContent='🔭 Test'; btn.className='api-test-btn'; }, 4000);
+  } catch(e){
+    const short = e.message.length > 60 ? e.message.slice(0,60)+'…' : e.message;
+    btn.textContent = '❌ ' + short;
+    btn.className = 'api-test-btn err';
+    setTimeout(()=>{ btn.textContent='🔭 Test'; btn.className='api-test-btn'; }, 6000);
+  }
+}
 
 async function aiGenerate(){
   wizSaveCurrent();
