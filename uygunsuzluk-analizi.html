@@ -2456,6 +2456,7 @@ let musteriSet = new Set();       // müşteri olarak işaretlenmiş cariler
 let cariTagsMap = {};             // {cariAdi: string[]} — cari etiket haritası
 let selectedTagFilters = new Set(); // aktif etiket filtreleri
 let _activeTagEditor = null;      // açık tag editor popup
+let _skipNextCariClose = false;   // tag editor kapanınca panelı açık tut
 let _cariAllList = [];            // cari dropdown listesi
 let selectedTespitYeriSet = new Set(); // tespit yeri çoklu seçim
 let _tespitYeriAllList = [];      // tespit yeri dropdown listesi
@@ -2921,6 +2922,7 @@ function _buildCariItems(list) {
         const nameSp = document.createElement('span');
         nameSp.className = 'cari-item-name';
         nameSp.textContent = c;
+        // Tıklayınca panel açık kalır — sadece seçimi toggle et
         nameSp.addEventListener('click', () => { _toggleCariSel(c); });
 
         row.appendChild(chk);
@@ -3147,6 +3149,7 @@ function openCariTagEditor(cariAdi, anchorEl) {
         const closeEd = ev => {
             if (_activeTagEditor && !_activeTagEditor.contains(ev.target) && ev.target !== anchorEl) {
                 _activeTagEditor.remove(); _activeTagEditor = null;
+                _skipNextCariClose = true;  // bu klik panelı kapatmasın
                 document.removeEventListener('click', closeEd);
             }
         };
@@ -3212,9 +3215,14 @@ function _updateEtktLabel() {
 // Dropdown dışına tıklayınca kapat
 document.addEventListener('click', e => {
     const dd = document.getElementById('cariDropdown');
+    // Cari panelı: aktif etiket editörü açıksa veya editör kapanırken kapanmasın
     if (dd && !dd.contains(e.target)) {
-        const panel = document.getElementById('cariPanel');
-        if (panel) panel.style.display = 'none';
+        const insideEditor = _activeTagEditor && _activeTagEditor.contains(e.target);
+        if (!insideEditor && !_skipNextCariClose) {
+            const panel = document.getElementById('cariPanel');
+            if (panel) panel.style.display = 'none';
+        }
+        _skipNextCariClose = false;
     }
     const tdd = document.getElementById('tespitDropdown');
     if (tdd && !tdd.contains(e.target)) {
