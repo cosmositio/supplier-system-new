@@ -318,6 +318,17 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .ca-ai-btn:hover{background:#fef3c7;}
 .ca-ai-btn.loading{animation:spin .6s linear infinite;pointer-events:none;}
 @keyframes spin{to{transform:rotate(360deg);}}
+.ca-bulk-wrap{display:flex;justify-content:flex-end;padding:5px 8px 3px;}
+.ca-bulk-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  border:none;cursor:pointer;
+  background:linear-gradient(135deg,#f59e0b,#d97706);
+  color:#fff;font-size:.72rem;font-weight:700;
+  padding:4px 11px;border-radius:6px;
+  letter-spacing:.03em;transition:.2s;white-space:nowrap;
+}
+.ca-bulk-btn:hover{background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 2px 8px #f59e0b60;}
+.ca-bulk-btn:disabled{opacity:.55;cursor:not-allowed;}
 .ca-cell{
   border-left:1px solid #f1f5f9;
   display:flex;align-items:center;padding:4px 5px;
@@ -1189,6 +1200,17 @@ function buildActionSection(el, tab, tk, prefix, label, lblCls){
 
   const steps = getAllSteps(tab, tk);
 
+  // Bulk AI button
+  const bulkWrap = document.createElement('div');
+  bulkWrap.className = 'ca-bulk-wrap';
+  const bulkBtn = document.createElement('button');
+  bulkBtn.className = 'ca-bulk-btn';
+  bulkBtn.textContent = '⚡ Tümüne AI Öner';
+  bulkBtn.title = 'Tüm adımlar için AI düzeltici faaliyet öner (pinliler atlanır)';
+  bulkBtn.onclick = () => aiSuggestAllActions(tab, tk, bulkBtn);
+  bulkWrap.appendChild(bulkBtn);
+  el.appendChild(bulkWrap);
+
   if(steps.length === 0){
     const empty = document.createElement('div');
     empty.style.cssText = 'font-size:.68rem;color:#94a3b8;padding:8px 12px;font-style:italic;';
@@ -1269,7 +1291,10 @@ function buildActionSection(el, tab, tk, prefix, label, lblCls){
 
 async function aiSuggestAction(tab, tk, idx, btn, step, ta){
   const _actProvider = localStorage.getItem('ai_provider') || 'groq';
-  const _actKey = _actProvider==='gemini' ? localStorage.getItem('gemini_api_key') : localStorage.getItem('groq_api_key');
+  const _actKey = _actProvider==='gemini'     ? localStorage.getItem('gemini_api_key')
+               : _actProvider==='openai'      ? localStorage.getItem('oai_api_key')
+               : _actProvider==='openrouter'  ? localStorage.getItem('or_api_key')
+               : localStorage.getItem('groq_api_key');
   if(!_actKey){ alert('Önce "AI ile Oluştur" butonundan API key girin.'); return; }
   const stepText = step.text || '';
   if(!stepText){ alert('Bu adımda henüz neden metni yok.'); return; }
@@ -1297,6 +1322,52 @@ async function aiSuggestAction(tab, tk, idx, btn, step, ta){
   }
   btn.textContent = '⚡';
   btn.classList.remove('loading');
+}
+
+async function aiSuggestAllActions(tab, tk, bulkBtn){
+  const _actProvider = localStorage.getItem('ai_provider') || 'groq';
+  const _actKey = _actProvider==='gemini'     ? localStorage.getItem('gemini_api_key')
+               : _actProvider==='openai'      ? localStorage.getItem('oai_api_key')
+               : _actProvider==='openrouter'  ? localStorage.getItem('or_api_key')
+               : localStorage.getItem('groq_api_key');
+  if(!_actKey){ alert('Önce "AI ile Oluştur" butonundan API key girin.'); return; }
+
+  const allSteps = getAllSteps(tab, tk);
+  const stepsWithText = allSteps.map((s, i) => ({ s, i })).filter(o => o.s.text);
+  if(!stepsWithText.length){ alert('Önce neden adımları ekleyin.'); return; }
+
+  const tabLabel = tab==='tech' ? 'Teknik' : 'Sistemsel';
+  const trkLabel = tk==='os'   ? 'Oluşum (problem neden oluştu)' : 'Tespit Edilememe (neden fark edilemedi)';
+  const problem  = _S[tab][tk].problem || '';
+
+  const origLabel = bulkBtn.textContent;
+  bulkBtn.textContent = '⏳ Yükleniyor…';
+  bulkBtn.disabled = true;
+
+  const numberedList = stepsWithText.map((o, pos) => `${pos+1}. "${o.s.text}"`).join('\n');
+
+  try{
+    const raw = await callAI([
+      { role:'system', content:'Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Kısa, spesifik ve uygulanabilir düzeltici faaliyet önerileri yap. Yalnızca JSON döndür.' },
+      { role:'user',   content: 'Kırılım: '+tabLabel+' — '+trkLabel+'\nProblem: "'+problem+'"\n\nAşağıdaki HER kök neden adımı için birer düzeltici faaliyet öner (max 20 kelime per action).\n\n'+numberedList+'\n\nYALNIZCA JSON: {"actions":["<1. faaliyet>","<2. faaliyet>",…]}' }
+    ], stepsWithText.length * 100, 0.3);
+
+    const parsed  = safeParseJSON(raw || '{}');
+    const actions = parsed.actions || [];
+
+    stepsWithText.forEach((o, pos) => {
+      const act = _S[tab].actions[tk][o.i];
+      if(act && !act.pinned && actions[pos]){
+        act.text = actions[pos];
+      }
+    });
+
+    renderActionTable(tab);
+  } catch(e){
+    alert('AI Hata: ' + e.message);
+  }
+  bulkBtn.textContent = origLabel;
+  bulkBtn.disabled = false;
 }
 
 // ══════════════════════════════════════════════════════
