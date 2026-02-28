@@ -807,7 +807,7 @@ let _S = {
     nd: { problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Tespit Edilememe)',
           problemPinned:false, rcPinned:false,
           chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
-    actions: { os:[], nd:[] }
+    actions: { os:{}, nd:{} }
   },
   sys: {
     os: { problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden\n(Oluşum)',
@@ -816,7 +816,7 @@ let _S = {
     nd: { problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden\n(Tespit Edilememe)',
           problemPinned:false, rcPinned:false,
           chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
-    actions: { os:[], nd:[] }
+    actions: { os:{}, nd:{} }
   }
 };
 
@@ -834,11 +834,10 @@ function addStep(tab, tk){
 
 function deleteStep(tab, tk, chainIdx, stepIdx){
   const chain = _S[tab][tk].chains[chainIdx];
-  // Remove the matching action entry (by flat index)
-  const flatIdx = _flatStepIdx(tab, tk, chainIdx, stepIdx);
-  if(flatIdx >= 0 && _S[tab].actions[tk][flatIdx]){
-    _S[tab].actions[tk].splice(flatIdx, 1);
-  }
+  const step = chain && chain.steps[stepIdx];
+  // Remove action linked to this step id
+  if(step && _S[tab].actions && _S[tab].actions[tk])
+    delete _S[tab].actions[tk][step.id];
   chain.steps.splice(stepIdx,1);
   if(chain.steps.length===0){
     if(chainIdx===0) chain.steps.push(mkStep());
@@ -1164,12 +1163,7 @@ function renderStepBox(diag, it, tab, tk){
 
   el.querySelector('.add').onclick = ()=>{
     // Insert new step right after current step in this chain
-    const insertFlatIdx = it.flatIdx + 1;  // action table position for the new step
     _S[tab][tk].chains[it.chain].steps.splice(it.stepIdx+1, 0, mkStep());
-    // Mirror: insert a blank action at the same flat position
-    if(!_S[tab].actions) _S[tab].actions = {os:[],nd:[]};
-    if(!_S[tab].actions[tk]) _S[tab].actions[tk] = [];
-    _S[tab].actions[tk].splice(insertFlatIdx, 0, mkAction());
     renderTrack(tab, tk);
     renderActionTable(tab);
   };
@@ -1474,14 +1468,14 @@ function resetAll(){
           problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
       nd:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden (Tespit)',
           problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
-      actions:{os:[],nd:[]}
+      actions:{os:{},nd:{}}
     },
     sys:{
       os:{problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden (Oluşum)',
           problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
       nd:{problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden (Tespit)',
           problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
-      actions:{os:[],nd:[]}
+      actions:{os:{},nd:{}}
     }
   };
   ['mPart','mCustomer','mDate','mAnalyst'].forEach(id=>document.getElementById(id).value='');
@@ -1520,11 +1514,17 @@ function getAllSteps(tab, tk){
 }
 
 function syncActions(tab, tk){
-  if(!_S[tab].actions) _S[tab].actions = { os:[], nd:[] };
-  const total = getAllSteps(tab, tk).length;
-  while(_S[tab].actions[tk].length < total) _S[tab].actions[tk].push(mkAction());
-  // trim extra if steps were deleted
-  _S[tab].actions[tk].length = total;
+  if(!_S[tab].actions) _S[tab].actions = { os:{}, nd:{} };
+  // Migrate old array format to id-based object
+  if(Array.isArray(_S[tab].actions[tk])){
+    const old = _S[tab].actions[tk];
+    const steps = getAllSteps(tab, tk);
+    const obj = {};
+    steps.forEach((s, i) => { if(old[i]) obj[s.id] = old[i]; });
+    _S[tab].actions[tk] = obj;
+  }
+  if(!_S[tab].actions[tk] || typeof _S[tab].actions[tk] !== 'object')
+    _S[tab].actions[tk] = {};
 }
 
 function renderActionTable(tab){
@@ -1570,10 +1570,8 @@ function buildActionSection(el, tab, tk, prefix, label, lblCls){
     .sort((a,b) => a.flatIdx - b.flatIdx);
   const steps = stepItems.map(it => it.data);
 
-  // Sync actions length
-  if(!_S[tab].actions[tk]) _S[tab].actions[tk] = [];
-  while(_S[tab].actions[tk].length < steps.length) _S[tab].actions[tk].push(mkAction());
-  _S[tab].actions[tk].length = steps.length;
+  // Ensure actions store is id-based object (migrate from old array if needed)
+  syncActions(tab, tk);
 
   // Bulk AI button
   const bulkWrap = document.createElement('div');
@@ -1595,8 +1593,9 @@ function buildActionSection(el, tab, tk, prefix, label, lblCls){
   }
 
   steps.forEach((step, i) => {
-    if(!_S[tab].actions[tk][i]) _S[tab].actions[tk][i] = mkAction();
-    const act = _S[tab].actions[tk][i];
+    // Keyed by step.id — persists across any reorder, insert or delete
+    if(!_S[tab].actions[tk][step.id]) _S[tab].actions[tk][step.id] = mkAction();
+    const act = _S[tab].actions[tk][step.id];
     const flatNum = stepItems[i].flatIdx + 1;  // same number as diagram label
 
     const row = document.createElement('div');
@@ -1705,7 +1704,7 @@ async function aiSuggestAction(tab, tk, idx, btn, step, ta){
     const parsed = safeParseJSON(raw || '{}');
     const action = parsed.action || parsed.text || parsed.faaliyet || parsed.corrective_action || '';
     if(action){
-      _S[tab].actions[tk][idx].text = action;
+      if(_S[tab].actions[tk][step.id]) _S[tab].actions[tk][step.id].text = action;
       if(ta) ta.value = action;
     }
   } catch(e){
@@ -1784,7 +1783,7 @@ async function aiSuggestAllActions(tab, tk, bulkBtn){
     const actions = parseActionsResponse(raw, expectedN);
 
     stepsWithText.forEach((o, pos) => {
-      const act = _S[tab].actions[tk][o.i];
+      const act = _S[tab].actions[tk][o.s.id];
       if(act && !act.pinned && actions[pos]){
         act.text = actions[pos];
       }
