@@ -1406,8 +1406,19 @@ async function callAI(messages, maxTokens, temperature){
   if(provider === 'openrouter'){
     const key = localStorage.getItem('or_api_key') || document.getElementById('aiKeyOR')?.value?.trim() || '';
     if(!key) throw new Error('OpenRouter API key girilmedi');
-    const model = localStorage.getItem('or_model') || document.getElementById('orModel')?.value || 'meta-llama/llama-3.3-70b-instruct:free';
-    const orFetch = () => fetch('https://openrouter.ai/api/v1/chat/completions',{
+    const chosenOR = localStorage.getItem('or_model') || document.getElementById('orModel')?.value || 'meta-llama/llama-3.3-70b-instruct:free';
+
+    // Free model fallback chain — OpenRouter models change frequently
+    const OR_FALLBACKS = [
+      chosenOR,
+      'meta-llama/llama-3.3-70b-instruct:free',
+      'mistralai/mistral-7b-instruct:free',
+      'google/gemma-2-9b-it:free',
+      'openchat/openchat-7b:free',
+      'nousresearch/nous-capybara-7b:free',
+    ].filter((v,i,a) => a.indexOf(v)===i); // deduplicate
+
+    const orPost = (model) => fetch('https://openrouter.ai/api/v1/chat/completions',{
       method:'POST',
       headers:{
         'Content-Type':'application/json',
@@ -1417,18 +1428,26 @@ async function callAI(messages, maxTokens, temperature){
       },
       body: JSON.stringify({ model, messages, temperature:temp, max_tokens:maxTokens })
     });
-    let resp = await orFetch();
-    if(resp.status === 429){
-      await new Promise(r=>setTimeout(r,4000));
-      resp = await orFetch();
+
+    let orLastErr = '';
+    for(const orModel of OR_FALLBACKS){
+      let resp = await orPost(orModel);
+      if(resp.status === 429){
+        await new Promise(r=>setTimeout(r,5000));
+        resp = await orPost(orModel);
+      }
+      if(resp.ok){
+        const d = await resp.json();
+        return d?.choices?.[0]?.message?.content || '';
+      }
+      const oe = await resp.json().catch(()=>({}));
+      const omsg = oe?.error?.message || ('HTTP '+resp.status);
+      if(resp.status === 401 || resp.status === 403) throw new Error('OpenRouter: API key geçersiz — openrouter.ai/keys kontrol edin.');
+      if(resp.status === 429){ orLastErr = 'Rate limit'; continue; }
+      if(resp.status === 404){ orLastErr = omsg; continue; } // model not found, try next
+      throw new Error('OpenRouter ('+orModel+'): '+omsg);
     }
-    if(!resp.ok){
-      const e=await resp.json().catch(()=>({}));
-      if(resp.status===429) throw new Error('⏳ OpenRouter rate limit — birkaç saniye bekleyip tekrar deneyin.');
-      throw new Error('OpenRouter: '+(e?.error?.message||`HTTP ${resp.status}`));
-    }
-    const data = await resp.json();
-    return data?.choices?.[0]?.message?.content || '';
+    throw new Error('OpenRouter: Hiçbir model çalışmadı. Son hata: '+orLastErr);
   } else if(provider === 'gemini'){
     const key = localStorage.getItem('gemini_api_key') || document.getElementById('aiKeyGemini')?.value?.trim() || '';
     if(!key) throw new Error('Gemini API key girilmedi');
@@ -1465,6 +1484,7 @@ async function callAI(messages, maxTokens, temperature){
     );
 
     let lastErr = 'bilinmeyen hata';
+    let all404 = true;
     for(const model of tryModels){
       for(const ver of ['v1beta','v1']){
         let resp = await doFetch(model, ver);
@@ -1479,12 +1499,20 @@ async function callAI(messages, maxTokens, temperature){
         const errBody = await resp.json().catch(()=>({}));
         const msg = errBody?.error?.message || ('HTTP '+resp.status);
         if(resp.status === 401 || resp.status === 403)
-          throw new Error('Gemini: API key gecersiz. Google AI Studio kontrol edin.');
+          throw new Error('Gemini: API key geçersiz — aistudio.google.com/apikey kontrol edin.');
         if(resp.status === 404){ lastErr = msg; continue; }
+        all404 = false;
         throw new Error('Gemini ('+model+'): '+msg);
       }
     }
-    throw new Error('Gemini: Hicbir model calismadi. Son hata: '+lastErr);
+    if(all404)
+      throw new Error(
+        'Gemini: API etkin değil.\n\n' +
+        'Çözüm: console.cloud.google.com adresine gidin → ' +
+        'Proje seçin → "Generative Language API" aratın → Etkinleştir.\n\n' +
+        'Veya aistudio.google.com/apikey adresinden yeni key oluşturun (API otomatik etkinleşir).'
+      );
+    throw new Error('Gemini: Hiçbir model çalışmadı. Son hata: '+lastErr);
   } else {
     const key = localStorage.getItem('groq_api_key') || document.getElementById('aiKey')?.value?.trim() || '';
     if(!key) throw new Error('Groq API key girilmedi');
@@ -1557,10 +1585,11 @@ async function testAPI(provider){
     btn.className = 'api-test-btn ok';
     setTimeout(()=>{ btn.textContent='🔭 Test'; btn.className='api-test-btn'; }, 4000);
   } catch(e){
-    const short = e.message.length > 60 ? e.message.slice(0,60)+'…' : e.message;
-    btn.textContent = '❌ ' + short;
+    // Show short label on button, full message in alert
+    btn.textContent = '❌ Hata — tıkla';
     btn.className = 'api-test-btn err';
-    setTimeout(()=>{ btn.textContent='🔭 Test'; btn.className='api-test-btn'; }, 6000);
+    btn.onclick = () => { alert(e.message); btn.onclick = null; btn.onclick = () => testAPI(provider); };
+    setTimeout(()=>{ btn.textContent='🔭 Test'; btn.className='api-test-btn'; btn.onclick = () => testAPI(provider); }, 10000);
   }
 }
 
