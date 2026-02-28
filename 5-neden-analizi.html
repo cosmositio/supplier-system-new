@@ -1837,7 +1837,14 @@ async function aiGenerate(){
   }
   const depthInstruction = isDerinlemesine
     ? `
-⚠️ DERİNLEMESINE MOD: Her neden adımını teknik açıdan çok daha ayrıntılı yaz (en fazla ${maxWordPerStep} kelime). Her adım için kısa bir teknik açıklama ekle: "Neden metni (Açıklama: fiziksel/sistemsel sebep)" formatında. Kök neden somut, ölçülmüş ve diüzeltmeye uygun biçimde ifade edilsin.`
+⚠️ DERİNLEMESINE MOD — KATMAN KATMAN KAZA ANALİZİ:
+Her adım fiziğin bir katman daha derinine inmeli; aynı veya benzer kelime grubu bir daha kullanilamaz.
+Adım 1: "ölçülen parametre sapması" (ne oluyor)
+Adım 2: "çünkü ekipman/malzeme düzeyi" (donanım nedeni)
+Adım 3: "çünkü süreç parımetresindeki sapma" (proses nedeni)
+Adım 4: "çünkü kontrol mekanizması eksikliği" (sistem nedeni)
+Adım 5: "çünkü yönetim/organizasyon boşluğu" (kök neden)
+Her adımın metni bilimsel açıdan doğru, ölçülmüş ve gerçek bir mekanizmayı işaret etmeli. (en fazla ${maxWordPerStep} kelime/adim)` 
     : isHizli
     ? `
 HIZLI MOD: Her adım en fazla ${maxWordPerStep} kelime, kısa ve net olsun.`
@@ -1862,6 +1869,7 @@ Zincirin tamamı aynı problem alanında kalmalı; konu dışı, genel veya alak
   Adım 4: "Bakım talimatı güncel değil"                    ← neden 3'ün nedeni
   Adım 5 (kök): "Bakım yönetim sistemi revize edilmedi"   ← kök neden
 Her adım bir öncekini AÇIKLAMALI; bağımsız, rastgele veya genel nedenler YAZMA.
+⛔️ TEKRAR KURALI: Zincirdeki hiçbir iki adım aynı veya çok benzer kelime grubunu içeremez. Her adım farklı bir mekanizma/katman ifade etmeli. (örn: ham madde → proses param → kontrol eksikliği → sistem boşluğu → yönetim açığı).
 
 4 ayrı iz oluştur:
 1. TEKNİK OLUŞUM: Fiziksel/mühendislik nedenler - Problem neden oluştu? (parametre, makine, malzeme, ölçüm)
@@ -1890,8 +1898,8 @@ ${context}`;
 
   try {
     const sysContent = isDerinlemesine
-      ? 'Sen IATF 16949 / VDA 6.3 uzmanı bir üst düzey kalite mühendisisin. Sadece istenen JSON formatında yanıt ver. Çok ayrıntılı, teknik ve somut nedenler yaz. Her adım bir öncekinin TEK ve DOĞRUDAN nedeni olmalı; genel veya belirsiz ifadeler YASAK. Fiziksel, kimyasal veya sistemik mekanizmayı açıkla.'
-      : 'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. EN ÖNEMLİ KURAL: 5 Neden zincirinde her adım bir önceki adımın DOĞRUDAN nedeni olmalıdır. Birbirinden bağımsız nedenler listesi kesinlikle kabul edilmez.';
+      ? 'Sen IATF 16949 / VDA 6.3 uzmanı bir üst düzey kalite mühendisisin. Sadece istenen JSON formatında yanıt ver. KESİN KURAL: Zincirdeki hiçbir iki adım aynı veya çok benzer kelime grubunu içeremez — her adım farklı bir fiziksel/sistemik katmanı açıklamalı (örn: ölçüm sapması → malzeme yorulması → proses parametresi → kontrol eksikliği → yönetim açığı). Belirsiz veya tekrarlayan ifadeler YASAK.'
+      : 'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. ÇOK ÖNEMLİ: Her zincirde hiçbir iki adım aynı veya çok benzer kelime grubunu içeremez; adımlar katman katman derinleşmeli. Birbirinden bağımsız veya tekrar eden nedenler listesi kesinlikle kabul edilmez.';
     const raw = await callAI([
       { role: 'system', content: sysContent },
       { role: 'user',   content: prompt }
@@ -2036,6 +2044,7 @@ Tüm adımlar aynı problem alanında kalmalı; konu dışı, genel veya alakas�
 Yanlış örnek: ["Vida hatalı", "Personel yorgun", "Makine eski"] ← birbiriyle alakasız, KABUL EDİLMEZ.
 Doğru örnek: ["Vida torku düşük", "Tornavida ucu aşındı", "Alet değişim planı yok", "Bakım talimatı eksik", "Doküman güncel değil"] ← her adım bir öncekini açıklıyor.
 Her adım bir öncekini AÇIKLAMALI; bağımsız, rastgele veya genel nedenler YAZMA.
+⛔️ TEKRAR KURALI: Zincirdeki hiçbir iki adım aynı veya çok benzer kelime grubunu içeremez. Her adım farklı bir mekanizma/katman ifade etmeli. (örn: sapma → donanım → proses → kontrol → sistem).
 
 2 iz oluştur:
 1. OLUŞUM (os): Bu kırılımda problem neden oluştu?
@@ -2043,7 +2052,7 @@ Her adım bir öncekini AÇIKLAMALI; bağımsız, rastgele veya genel nedenler Y
 
 Her iz için EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = kök neden.
 ${branchInstruction}
-Nedenler kısa ve teknik olsun (en fazla 10 kelime). Her adım bir öncekinin nedeni; bağımsız madde YAZMAK YASAKTIR.
+Nedenler teknik ve somut olsun (en fazla 12 kelime). Her adım bir öncekinin nedeni; aynı kelime grubunu tekrarlamak YASAKTIR.
 
 YALNIZCA JSON:
 {"os":{"problem":"...","mainSteps":["Neden 1","...(tam ${stepCount} adet)"],"rootCause":"..."${brJsonPart}},"nd":{"problem":"...","mainSteps":["Neden 1","...(tam ${stepCount} adet)"],"rootCause":"..."${brJsonPart}}}
@@ -2052,7 +2061,7 @@ ${context}`;
 
   try{
     const raw = await callAI([
-      {role:'system',content:'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. EN ÖNEMLİ KURAL: 5 Neden zincirinde her adım bir önceki adımın DOĞRUDAN nedeni olmalıdır. Birbirinden bağımsız nedenler listesi kesinlikle kabul edilmez.'},
+      {role:'system',content:'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. ÇOK ÖNEMLİ: Her zincirde her adım bir öncekinin DOĞRUDAN nedeni olmalı; hiçbir iki adım aynı veya çok benzer kelime grubunu içeremez. Adimlar katman katman derinleşmeli: sapma → donanım → proses → kontrol → sistem.'},
       {role:'user',content:prompt}
     ], 1800, 0.45);
     const parsed = safeParseJSON(raw);
