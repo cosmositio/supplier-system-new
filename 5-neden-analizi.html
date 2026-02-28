@@ -1271,13 +1271,17 @@ function _uygRenderRows(q){
   const filtered = lq
     ? _uygRows.filter(r => KEYS.some(k => String(r[k]||'').toLowerCase().includes(lq)))
     : _uygRows;
+  const dispRows = filtered.length > 2000 ? filtered.slice(0,2000) : filtered;
   document.getElementById('uygCount').textContent =
+    (filtered.length > 2000
+      ? 'İlk 2000 gösteriliyor — aramayı kullanarak daraltın | '
+      : '') +
     filtered.length + ' / ' + _uygRows.length + ' kayıt';
   if(!filtered.length){
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:22px;">Eşleşen kayıt bulunamadı.</td></tr>';
     return;
   }
-  tbody.innerHTML = filtered.slice(0,500).map(r => {
+  tbody.innerHTML = dispRows.map(r => {
     const idx = _uygRows.indexOf(r);
     const tarih  = _esc(r.uygunsuzlukTarih || r.tarih || '—');
     const stok   = _esc([r.stokAdi||'', r.stokKodu ? '['+r.stokKodu+']' : ''].filter(s=>s.trim()).join(' ') || '—');
