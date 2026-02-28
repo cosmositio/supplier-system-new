@@ -2450,7 +2450,8 @@ function toggleBreakdownClear() {
     });
     _refreshAllCharts();
 }
-let selectedCari = '';            // custom cari dropdown seçili değer
+let selectedCariSet = new Set();  // custom cari çoklu seçim
+let selectedCari = '';            // backward-compat: ilk seçili (fishbone için)
 let musteriSet = new Set();       // müşteri olarak işaretlenmiş cariler
 let cariTagsMap = {};             // {cariAdi: string[]} — cari etiket haritası
 let selectedTagFilters = new Set(); // aktif etiket filtreleri
@@ -2678,9 +2679,10 @@ function applyFilters() {
         if (uyTuru      && r.uygunsuzlukTuru !== uyTuru)  return false;
         if (selectedTespitYeriSet.size > 0 && !selectedTespitYeriSet.has(r.tespitYeri)) return false;
         if (makine      && r.makine      !== makine)       return false;
-        if (selectedCari && r.cariAdi    !== selectedCari) return false;
+        if (selectedCariSet.size > 0 && !selectedCariSet.has(r.cariAdi)) return false;
         if (cariTip === 'musteri'   && !musteriSet.has(r.cariAdi)) return false;
         if (cariTip === 'tedarikci' &&  musteriSet.has(r.cariAdi)) return false;
+        if (cariTip.startsWith('tag:')) { const tag = cariTip.slice(4); if (!(cariTagsMap[r.cariAdi]||[]).includes(tag)) return false; }
         if (selectedTagFilters.size > 0) {
             const tags = cariTagsMap[r.cariAdi] || [];
             if (!tags.some(t => selectedTagFilters.has(t))) return false;
@@ -2718,6 +2720,9 @@ function resetFilters() {
     document.getElementById('fMakine').value = '';
     document.getElementById('fCariTip').value = '';
     document.getElementById('fStokKodu').value = '';
+    selectedCariSet.clear();
+    selectedCari = '';
+    _updateCariLabel();
     selectedTagFilters.clear();
     _updateEtktLabel();
     _skSelect('');
@@ -2875,6 +2880,7 @@ function resetTespitYeri() {
 function populateCariDropdown() {
     _cariAllList = [...new Set(allData.map(r => r.cariAdi).filter(v => v))].sort();
     _buildCariItems(_cariAllList);
+    _refreshCariTipDropdown();
 }
 
 function filterCariList() {
@@ -2899,36 +2905,25 @@ function _buildCariItems(list) {
         'İhracat':    'background:#ede9fe;color:#5b21b6;',
     };
     list.forEach(c => {
-        const isMusteri = musteriSet.has(c);
-        const isSelected = selectedCari === c;
+        const isSelected = selectedCariSet.has(c);
         const row = document.createElement('div');
         row.className = 'cari-list-item' + (isSelected ? ' selected' : '');
         row.style.gap = '6px';
 
-        // Star (Müşteri) checkbox
+        // Multi-select checkbox
         const chk = document.createElement('input');
         chk.type = 'checkbox';
         chk.className = 'cari-musteri-chk';
-        chk.title = 'Müşteri olarak işaretle';
-        chk.checked = isMusteri;
-        chk.addEventListener('change', e => { e.stopPropagation(); toggleMusteriMark(c, e.target.checked); });
-
-        const star = document.createElement('span');
-        star.style.cssText = 'font-size:0.78em;color:#e07000;flex-shrink:0;cursor:pointer;';
-        star.textContent = '★';
-        star.title = 'Müşteri olarak işaretle';
-        star.addEventListener('click', e => { e.stopPropagation(); chk.click(); });
+        chk.title = 'Seç / Seçimi kaldır';
+        chk.checked = isSelected;
+        chk.addEventListener('change', e => { e.stopPropagation(); _toggleCariSel(c); });
 
         const nameSp = document.createElement('span');
         nameSp.className = 'cari-item-name';
         nameSp.textContent = c;
-        nameSp.addEventListener('click', () => {
-            selectCari(selectedCari === c ? '' : c);
-            document.getElementById('cariPanel').style.display = 'none';
-        });
+        nameSp.addEventListener('click', () => { _toggleCariSel(c); });
 
         row.appendChild(chk);
-        row.appendChild(star);
         row.appendChild(nameSp);
 
         // Tag pills area
@@ -2973,17 +2968,52 @@ function toggleCariDropdown() {
     }
 }
 
-function selectCari(val) {
-    selectedCari = val;
-    document.getElementById('cariSelectedText').textContent = val || 'Tümü';
-    // Tedarikçi analiz butonunu göster/gizle
-    const ab = document.getElementById('cariAnalyzeBtn');
-    if (ab) ab.style.display = val ? 'flex' : 'none';
-    // Rebuild visible list to update selected highlight
-    const q = (document.getElementById('cariSearch')?.value || '').toLowerCase();
-    const filtered = q ? _cariAllList.filter(c => c.toLowerCase().includes(q)) : _cariAllList;
-    _buildCariItems(filtered);
+function _toggleCariSel(c) {
+    if (selectedCariSet.has(c)) selectedCariSet.delete(c);
+    else selectedCariSet.add(c);
+    selectedCari = selectedCariSet.size === 1 ? [...selectedCariSet][0] : '';
+    _updateCariLabel();
+    _rebuildCariList();
     applyFilters();
+}
+
+function _updateCariLabel() {
+    const sz = selectedCariSet.size;
+    const txt = sz === 0 ? 'Tümü'
+              : sz === 1 ? [...selectedCariSet][0]
+              : sz + ' cari seçildi';
+    document.getElementById('cariSelectedText').textContent = txt;
+    const ab = document.getElementById('cariAnalyzeBtn');
+    if (ab) ab.style.display = sz === 1 ? 'flex' : 'none';
+}
+
+// Backward-compat: selectCari('') clears, selectCari('X') selects only X
+function selectCari(val) {
+    selectedCariSet.clear();
+    if (val) selectedCariSet.add(val);
+    selectedCari = val || '';
+    _updateCariLabel();
+    _rebuildCariList();
+    applyFilters();
+}
+
+// ─── Cari Tipi dropdown — dinamik etiket seçenekleri ─────────────────────
+function _refreshCariTipDropdown() {
+    const sel = document.getElementById('fCariTip');
+    if (!sel) return;
+    const curVal = sel.value;
+    sel.innerHTML = '<option value="">Tümü</option>';
+    // Her zaman olan sabitler
+    [['musteri','★ Müşteri'],['tedarikci','Tedarikçi']].forEach(([v,l]) => {
+        const o = document.createElement('option'); o.value = v; o.textContent = l; sel.appendChild(o);
+    });
+    // Etiketlerden gelen dinamik seçenekler (Müşteri/Tedarikçi hariç)
+    getAllCariTags().filter(t => t !== 'Müşteri').forEach(tag => {
+        const o = document.createElement('option');
+        o.value = 'tag:' + tag; o.textContent = '🏷 ' + tag; sel.appendChild(o);
+    });
+    // Eski değeri koru
+    if ([...sel.options].some(o => o.value === curVal)) sel.value = curVal;
 }
 
 function toggleMusteriMark(cariAdi, isMus) {
@@ -3035,6 +3065,7 @@ function addCariTag(cariAdi, tag) {
         }
     }
     saveCariTagsMap();
+    _refreshCariTipDropdown();
     _rebuildCariList();
     if (document.getElementById('etktPanel')?.style.display === 'block') _buildEtktList();
     applyFilters();
@@ -3051,6 +3082,7 @@ function removeCariTag(cariAdi, tag) {
         dbSet('musteriSet', arr);
     }
     saveCariTagsMap();
+    _refreshCariTipDropdown();
     _rebuildCariList();
     if (document.getElementById('etktPanel')?.style.display === 'block') _buildEtktList();
     applyFilters();
@@ -3836,7 +3868,7 @@ async function saveCurrentFilter() {
         dateStart:        document.getElementById('fDateStart').value,
         dateEnd:          document.getElementById('fDateEnd').value,
         cariTip:          document.getElementById('fCariTip').value,
-        selectedCari:     selectedCari,
+        selectedCaris:    [...selectedCariSet],
         tespitYeri:       [...selectedTespitYeriSet]
     };
     const list = (await _rIdbGet(_UA_FILTERS_KEY)) || [];
@@ -3883,7 +3915,11 @@ async function applySavedFilter(id) {
     document.getElementById('fCariTip').value         = s.cariTip         || '';
     selectedTespitYeriSet = new Set(s.tespitYeri || []);
     _updateTespitYeriLabel();
-    selectCari(s.selectedCari || '');
+    // Eski tek-seçim formatını da destekle
+    selectedCariSet = new Set(s.selectedCaris || (s.selectedCari ? [s.selectedCari] : []));
+    selectedCari = selectedCariSet.size === 1 ? [...selectedCariSet][0] : '';
+    _updateCariLabel();
+    _rebuildCariList();
     document.getElementById('uaFiltreModal').classList.remove('open');
     applyFilters();
     showToast('Filtre yüklendi: ' + entry.name, 'success');
@@ -3983,11 +4019,13 @@ async function openKapsamliRapor() {
     const pgKey        = document.getElementById('paretoGroup').value;
 
     // ── Başlık oluştur ──
-    const cariTipLabel = fCariTip === 'musteri' ? '★ Müşteri' : fCariTip === 'tedarikci' ? 'Tedarikçi' : '';
+    const cariTipLabel = fCariTip === 'musteri' ? '★ Müşteri'
+                       : fCariTip === 'tedarikci' ? 'Tedarikçi'
+                       : fCariTip.startsWith('tag:') ? '🏷 ' + fCariTip.slice(4) : '';
     let titleParts = [];
     if (fTipi)                      titleParts.push(fTipi);
     if (cariTipLabel)               titleParts.push(cariTipLabel);
-    if (selectedCari)               titleParts.push(selectedCari);
+    if (selectedCariSet.size)        titleParts.push([...selectedCariSet].join(', '));
     if (tespitList.length === 1)    titleParts.push(tespitList[0]);
     if (fHataTipi)                  titleParts.push(fHataTipi);
     if (_paretoSelected.size > 0)   titleParts.push([..._paretoSelected].join(', '));
@@ -4014,7 +4052,7 @@ async function openKapsamliRapor() {
     const batchId = 'b_' + Date.now();
     const batchFilters = {
         tarihStart: fTarih1, tarihEnd: fTarih2, tipi: fTipi, cariTip: fCariTip,
-        cari: selectedCari || '', tespitYeri: tespitList, hataTipi: fHataTipi,
+        cari: [...selectedCariSet].join(', ') || '', tespitYeri: tespitList, hataTipi: fHataTipi,
         hataKaynagi: fHataKaynagi, stokKodu: fStokKodu,
         excludedTypes:   [...excludedHataTipleri],
         paretoSelected:  [..._paretoSelected],
@@ -4151,8 +4189,8 @@ function openChartPickerModal() {
         filteredData.length + ' kayıt secildi',
         (fStart || fEnd) ? '📅 ' + (fStart||'—') + ' → ' + (fEnd||'—') : '',
         fTipi    ? '🏷️ ' + fTipi    : '',
-        fCariTip ? '🏢 ' + (fCariTip === 'musteri' ? '★ Müşteri' : 'Tedarikçi') : '',
-        selectedCari ? '👤 ' + selectedCari : '',
+        fCariTip ? '🏢 ' + (fCariTip === 'musteri' ? '★ Müşteri' : fCariTip === 'tedarikci' ? 'Tedarikçi' : fCariTip.startsWith('tag:') ? '🏷 '+fCariTip.slice(4) : fCariTip) : '',
+        selectedCariSet.size ? '👤 ' + [...selectedCariSet].join(', ') : '',
         fHT      ? '🔍 ' + fHT      : '',
         fKaynak  ? '⚙️ ' + fKaynak  : '',
         selectedTespitYeriSet?.size ? '📍 ' + [...selectedTespitYeriSet].join(', ') : '',
@@ -4291,8 +4329,9 @@ async function _cpmConfirm() {
 
 // Özellik 1: Tedarikçi bazında Fishbone — 6M yapısı
 function openFishboneTedarikci() {
-    if (!selectedCari) return;
-    const cariRows = filteredData.filter(r => r.cariAdi === selectedCari);
+    const fishCari = selectedCari || [...selectedCariSet][0];
+    if (!fishCari) return;
+    const cariRows = filteredData.filter(r => r.cariAdi === fishCari);
     if (!cariRows.length) { showToast('Bu cari için veri bulunamadı.', 'error'); return; }
     const BONE_COLORS = ['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#06b6d4','#22c55e'];
     let _nid = 1; const mkId = () => _nid++;
@@ -7903,6 +7942,7 @@ function loadFromStorage() {
             if (!cariTagsMap[c].includes('Müşteri')) cariTagsMap[c].push('Müşteri');
         });
         saveCariTagsMap();
+        _refreshCariTipDropdown();
         if (!meta || !data || !data.length) return;
         allData      = data;
         filteredData = [...allData];
