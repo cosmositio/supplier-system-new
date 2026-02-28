@@ -431,15 +431,22 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   /* — Stack diagram on top, actions below — */
   .panel-body{display:block !important;width:100%;}
 
-  /* — Diagram: scale down to fit A4 portrait width (~794px usable) — */
+  /* — Diagram: zoom will be set dynamically by beforeprint JS per canvas — */
   .diagram-side{overflow:visible !important;width:100%;}
   .canvas-outer{
     overflow:visible !important;
     background:#f8fafc !important;
-    padding:2px 2px 0 !important;
-    zoom:0.34;
+    padding:2px 4px 0 !important;
   }
-  .track-wrap{margin-bottom:12px !important;}
+  .track-wrap{margin-bottom:16px !important;}
+
+  /* — Boxes: let height grow to fit all text (JS sets exact heights in beforeprint) — */
+  .sbox,.pbox,.rcb{
+    overflow:visible !important;
+  }
+  .sbox textarea,.pbox textarea,.rcb textarea{
+    overflow:visible !important;
+  }
 
   /* — Actions: full width, compact, readable — */
   .actions-side{
@@ -2300,16 +2307,46 @@ window.addEventListener('beforeprint', ()=>{
     set('date',     dateStr  || '—');
     set('analyst',  analyst  || '—');
   });
-  // Convert textareas to show value as textContent for reliable print
+
+  // Auto-fit each canvas-outer to A4 portrait width (190mm ≈ 718px at 96dpi)
+  const PAGE_W = 718;
+  document.querySelectorAll('.canvas-outer').forEach(co=>{
+    co.style.zoom = ''; // reset first so scrollWidth is real
+    const natural = co.scrollWidth;
+    if(natural > 0){
+      const z = Math.min(1, (PAGE_W / natural) * 0.99);
+      co.style.zoom = String(z);
+    }
+  });
+
+  // Action textareas: auto height
   document.querySelectorAll('.ca-input').forEach(ta=>{
     ta.setAttribute('data-pv', ta.value);
     ta.style.height = 'auto';
   });
+  // Diagram box textareas: expand to full scroll height so text isn't clipped
+  document.querySelectorAll('.sbox textarea,.pbox textarea,.rcb textarea').forEach(ta=>{
+    ta.style.height = ta.scrollHeight + 'px';
+  });
+  // Box containers: release fixed min-height so they can grow
+  document.querySelectorAll('.sbox,.pbox,.rcb').forEach(el=>{
+    el.style.minHeight = '0';
+    el.style.overflow  = 'visible';
+  });
 });
 window.addEventListener('afterprint', ()=>{
+  document.querySelectorAll('.canvas-outer').forEach(co=>{ co.style.zoom = ''; });
   document.querySelectorAll('.ca-input').forEach(ta=>{
     ta.removeAttribute('data-pv');
     ta.style.height = '';
+  });
+  // Restore diagram boxes
+  document.querySelectorAll('.sbox textarea,.pbox textarea,.rcb textarea').forEach(ta=>{
+    ta.style.height = '';
+  });
+  document.querySelectorAll('.sbox,.pbox,.rcb').forEach(el=>{
+    el.style.minHeight = '';
+    el.style.overflow  = '';
   });
 });
 
