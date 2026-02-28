@@ -972,11 +972,11 @@ function renderTrack(tab, tk){
 
   const uid = tab+'_'+tk;
   svg.innerHTML = `<defs>
-    <marker id="ab_${uid}"  markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
-      <polygon points="0 0, 12 4, 0 8" fill="#3b82f6" opacity="0.85"/>
+    <marker id="ab_${uid}"  markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
     </marker>
-    <marker id="abr_${uid}" markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
-      <polygon points="0 0, 12 4, 0 8" fill="#8b5cf6" opacity="0.75"/>
+    <marker id="abr_${uid}" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#8b5cf6"/>
     </marker>
     <filter id="glow_${uid}" x="-30%" y="-30%" width="160%" height="160%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur"/>
@@ -993,35 +993,46 @@ function renderTrack(tab, tk){
   }
 }
 
+const MARKER_LEN = 10; // must match markerWidth in defs
+
 function drawConn(svg, c, tk){
   const dx = c.x2-c.x1, dy = c.y2-c.y1;
   const absDx = Math.abs(dx), absDy = Math.abs(dy);
   const isDiag = absDy > 10;
   let d;
-  // Store control points so we can reuse them for label bezier evaluation
   let cx1, cy1, cx2, cy2;
 
+  // Pull the path endpoint back by MARKER_LEN so the arrow TIP lands exactly at the target
+  // edge rather than the path end landing inside the box.
+  // For vertical dashes: pull up (y2 -= MARKER_LEN).
+  // For horizontal/diagonal arrivals: pull left (x2 -= MARKER_LEN).
+  let ex2 = c.x2, ey2 = c.y2; // effective endpoint (path stops here, tip lands at c.x2/c.y2)
+
   if(c.dashed && !c.label){
-    // Fork / branch connector — vertical or near-vertical dashed drop
+    // Fork connector — arrives from above (vertical)
+    ey2 = c.y2 - MARKER_LEN;
     if(absDx < 24){
-      d = `M${c.x1},${c.y1} L${c.x2},${c.y2}`;
-      cx1=c.x1; cy1=(c.y1+c.y2)/2; cx2=c.x2; cy2=(c.y1+c.y2)/2;
+      d = `M${c.x1},${c.y1} L${ex2},${ey2}`;
+      cx1=c.x1; cy1=(c.y1+ey2)/2; cx2=ex2; cy2=(c.y1+ey2)/2;
     } else {
       cx1 = c.x1; cy1 = c.y1 + absDy*0.45;
-      cx2 = c.x2; cy2 = c.y2 - absDy*0.25;
-      d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
+      cx2 = ex2;  cy2 = ey2 - absDy*0.25;
+      d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${ex2},${ey2}`;
     }
   } else if(isDiag){
-    // Staircase diagonal connector — horizontal S-bezier
-    // Both control points locked to source/target Y → departs & arrives perfectly horizontal.
+    // Staircase diagonal — arrives horizontally from left
+    ex2 = c.x2 - MARKER_LEN;
     cx1 = c.x1 + absDx * 0.5; cy1 = c.y1;
-    cx2 = c.x2 - absDx * 0.5; cy2 = c.y2;
-    d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
+    cx2 = ex2  - absDx * 0.5; cy2 = c.y2;
+    d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${ex2},${c.y2}`;
+    ey2 = c.y2;
   } else {
-    // Horizontal / near-horizontal connector
+    // Horizontal connector
+    ex2 = c.x2 - MARKER_LEN;
     cx1 = c.x1 + dx * 0.4; cy1 = c.y1;
-    cx2 = c.x2 - dx * 0.4; cy2 = c.y2;
-    d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
+    cx2 = ex2  - dx * 0.4; cy2 = c.y2;
+    d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${ex2},${c.y2}`;
+    ey2 = c.y2;
   }
 
   const path = document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -1039,12 +1050,9 @@ function drawConn(svg, c, tk){
   svg.appendChild(path);
 
   if(c.label==='why' && !c.toRcb){
-    // Rule: [Sol kutu] ——Neden?——→ ——Çünkü——→ [Sağ kutu]
-    // Labels sit ON the bezier curve at exact t-parameter positions:
-    //   "Neden?"  t≈0.12  → just after source box (reads as question FROM left box)
-    //   "Çünkü"  t≈0.82  → just before target box (reads as answer TO right box)
-    const pQ = bezPt(c.x1,c.y1, cx1,cy1, cx2,cy2, c.x2,c.y2, 0.12);
-    const pA = bezPt(c.x1,c.y1, cx1,cy1, cx2,cy2, c.x2,c.y2, 0.82);
+    // Labels sit ON the bezier at t positions (use actual path endpoints ex2/ey2)
+    const pQ = bezPt(c.x1,c.y1, cx1,cy1, cx2,cy2, ex2,ey2, 0.12);
+    const pA = bezPt(c.x1,c.y1, cx1,cy1, cx2,cy2, ex2,ey2, 0.82);
     svgTxt(svg, pQ.x + 3, pQ.y - 6, 'Neden?', '#1d4ed8', true,  10);
     svgTxt(svg, pA.x - 22, pA.y - 6, 'Çünkü',  '#6b7280', false,  9);
   }
