@@ -795,30 +795,30 @@ function drawConn(svg, c, tk){
   const absDx = Math.abs(dx), absDy = Math.abs(dy);
   const isDiag = absDy > 10;
   let d;
+  // Store control points so we can reuse them for label bezier evaluation
+  let cx1, cy1, cx2, cy2;
 
   if(c.dashed && !c.label){
     // Fork / branch connector — vertical or near-vertical dashed drop
     if(absDx < 24){
       d = `M${c.x1},${c.y1} L${c.x2},${c.y2}`;
+      cx1=c.x1; cy1=(c.y1+c.y2)/2; cx2=c.x2; cy2=(c.y1+c.y2)/2;
     } else {
-      const cpx1 = c.x1, cpy1 = c.y1 + absDy*0.45;
-      const cpx2 = c.x2, cpy2 = c.y2 - absDy*0.25;
-      d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
+      cx1 = c.x1; cy1 = c.y1 + absDy*0.45;
+      cx2 = c.x2; cy2 = c.y2 - absDy*0.25;
+      d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
     }
   } else if(isDiag){
     // Staircase diagonal connector — horizontal S-bezier
     // Both control points locked to source/target Y → departs & arrives perfectly horizontal.
-    // This keeps the arrowhead pointing straight right regardless of vertical drop.
-    const cpx1 = c.x1 + absDx * 0.5;
-    const cpy1 = c.y1;               // flat departure
-    const cpx2 = c.x2 - absDx * 0.5;
-    const cpy2 = c.y2;               // flat arrival
-    d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
+    cx1 = c.x1 + absDx * 0.5; cy1 = c.y1;
+    cx2 = c.x2 - absDx * 0.5; cy2 = c.y2;
+    d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
   } else {
     // Horizontal / near-horizontal connector
-    const cpx1 = c.x1 + dx * 0.4, cpy1 = c.y1;
-    const cpx2 = c.x2 - dx * 0.4, cpy2 = c.y2;
-    d = `M${c.x1},${c.y1} C${cpx1},${cpy1} ${cpx2},${cpy2} ${c.x2},${c.y2}`;
+    cx1 = c.x1 + dx * 0.4; cy1 = c.y1;
+    cx2 = c.x2 - dx * 0.4; cy2 = c.y2;
+    d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
   }
 
   const path = document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -836,16 +836,24 @@ function drawConn(svg, c, tk){
   svg.appendChild(path);
 
   if(c.label==='why' && !c.toRcb){
-    // Rule: [Sol kutu] — Neden? → Çünkü… — [Sağ kutu]
-    // "Neden?" appears near the SOURCE (left box) at ~20% along the connector.
-    // "Çünkü"  appears near the TARGET (right box) at ~68% along the connector.
-    const qx = c.x1 + absDx * 0.18;
-    const qy = c.y1 + dy     * 0.18 - 10;
-    const ax = c.x1 + absDx * 0.62;
-    const ay = c.y1 + dy     * 0.62 - 10;
-    svgTxt(svg, qx, qy, 'Neden?', '#1d4ed8', true,  10);
-    svgTxt(svg, ax, ay, 'Çünkü',  '#94a3b8', false,  9);
+    // Rule: [Sol kutu] ——Neden?——→ ——Çünkü——→ [Sağ kutu]
+    // Labels sit ON the bezier curve at exact t-parameter positions:
+    //   "Neden?"  t≈0.12  → just after source box (reads as question FROM left box)
+    //   "Çünkü"  t≈0.82  → just before target box (reads as answer TO right box)
+    const pQ = bezPt(c.x1,c.y1, cx1,cy1, cx2,cy2, c.x2,c.y2, 0.12);
+    const pA = bezPt(c.x1,c.y1, cx1,cy1, cx2,cy2, c.x2,c.y2, 0.82);
+    svgTxt(svg, pQ.x + 3, pQ.y - 6, 'Neden?', '#1d4ed8', true,  10);
+    svgTxt(svg, pA.x - 22, pA.y - 6, 'Çünkü',  '#6b7280', false,  9);
   }
+}
+
+// Evaluate cubic bezier at parameter t → {x, y}
+function bezPt(x1,y1,cx1,cy1,cx2,cy2,x2,y2,t){
+  const u=1-t;
+  return {
+    x: u*u*u*x1 + 3*u*u*t*cx1 + 3*u*t*t*cx2 + t*t*t*x2,
+    y: u*u*u*y1 + 3*u*u*t*cy1 + 3*u*t*t*cy2 + t*t*t*y2
+  };
 }
 
 function svgTxt(svg, x, y, t, fill, bold, size){
