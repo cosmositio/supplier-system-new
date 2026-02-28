@@ -3004,7 +3004,9 @@ function toggleMusteriMark(cariAdi, isMus) {
 
 // ─── Cari Tag System ──────────────────────────────────────────────────────
 function saveCariTagsMap() {
-    try { localStorage.setItem('uyg_cariTagsMap', JSON.stringify(cariTagsMap)); } catch(e) {}
+    // İndexedDB (birincil — boyut sınırı yok)
+    dbSet('cariTagsMap', cariTagsMap);
+    // localStorage'a yazmaz — IDB kullanılıyor
 }
 
 function getAllCariTags() {
@@ -7872,32 +7874,38 @@ function saveToStorage(fileName, sheetName) {
 }
 
 function loadFromStorage() {
-    // Önce localStorage'dan musteriSet yükle (hızlı)
+    // Önce localStorage'dan musteriSet yükle (hızlı başlangıç)
     try {
         const ls = localStorage.getItem('uyg_musteriSet');
         if (ls) musteriSet = new Set(JSON.parse(ls));
     } catch(e) {}
-    // cariTagsMap
+    // cariTagsMap localStorage fallback (eski sürüm)
     try {
         const lt = localStorage.getItem('uyg_cariTagsMap');
         if (lt) cariTagsMap = JSON.parse(lt);
     } catch(e) {}
-    // Migrate: musteriSet → cariTagsMap 'Müşteri' tag
-    musteriSet.forEach(c => {
-        if (!cariTagsMap[c]) cariTagsMap[c] = [];
-        if (!cariTagsMap[c].includes('Müşteri')) cariTagsMap[c].push('Müşteri');
-    });
-    saveCariTagsMap();
 
-    Promise.all([dbGet('meta'), dbGet('data'), dbGet('musteriSet')]).then(([meta, data, mSet]) => {
-        // IndexedDB'de varsa ve localStorage'dan daha büyükse onu kullan
+    Promise.all([dbGet('meta'), dbGet('data'), dbGet('musteriSet'), dbGet('cariTagsMap')]).then(([meta, data, mSet, tagMap]) => {
+        // IndexedDB musteriSet
         if (mSet && Array.isArray(mSet) && mSet.length > musteriSet.size) {
             musteriSet = new Set(mSet);
             try { localStorage.setItem('uyg_musteriSet', JSON.stringify(mSet)); } catch(e) {}
         }
+        // IndexedDB cariTagsMap (daha büyük/yeni ise öncelikli)
+        if (tagMap && typeof tagMap === 'object') {
+            const idbCount = Object.keys(tagMap).length;
+            const lsCount  = Object.keys(cariTagsMap).length;
+            if (idbCount >= lsCount) cariTagsMap = tagMap;
+        }
+        // Migrate: musteriSet → cariTagsMap '‘Müşteri' tag
+        musteriSet.forEach(c => {
+            if (!cariTagsMap[c]) cariTagsMap[c] = [];
+            if (!cariTagsMap[c].includes('Müşteri')) cariTagsMap[c].push('Müşteri');
+        });
+        saveCariTagsMap();
         if (!meta || !data || !data.length) return;
-        allData       = data;
-        filteredData  = [...allData];
+        allData      = data;
+        filteredData = [...allData];
         const savedAt = new Date(meta.savedAt).toLocaleString('tr-TR');
         showFileInfo(meta.fileName, meta.sheetName, allData.length, savedAt);
         initUI();
