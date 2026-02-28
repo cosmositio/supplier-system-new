@@ -160,6 +160,31 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .load-close-btn{padding:6px 18px;border:none;border-radius:8px;background:#f1f5f9;
   color:#64748b;font-size:.8rem;font-weight:700;cursor:pointer;}
 .load-close-btn:hover{background:#e2e8f0;}
+
+/* ── UYGUNSUZLUK SEÇİM MODALI ── */
+.uyg-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.48);
+  z-index:9900;align-items:flex-start;justify-content:center;padding-top:36px;overflow-y:auto;}
+.uyg-modal.open{display:flex;}
+.uyg-box{background:#fff;border-radius:14px;padding:20px 22px 14px;
+  width:min(980px,96vw);max-height:86vh;display:flex;flex-direction:column;
+  box-shadow:0 12px 50px rgba(0,0,0,.28);}
+.uyg-header{display:flex;align-items:center;gap:10px;margin-bottom:11px;flex-wrap:wrap;}
+.uyg-header h3{font-size:.92rem;font-weight:800;color:#1e293b;margin:0;flex:1;min-width:160px;}
+.uyg-search{flex:2;min-width:180px;padding:7px 12px;border:1.5px solid #e2e8f0;
+  border-radius:8px;font-size:.82rem;outline:none;font-family:inherit;}
+.uyg-search:focus{border-color:#2563eb;}
+.uyg-hint{font-size:.7rem;color:#94a3b8;margin-bottom:8px;}
+.uyg-table-wrap{flex:1;overflow:auto;border:1.5px solid #e2e8f0;border-radius:10px;}
+.uyg-table{width:100%;border-collapse:collapse;font-size:.76rem;}
+.uyg-table thead tr{background:#f1f5f9;position:sticky;top:0;z-index:1;}
+.uyg-table th{padding:8px 10px;text-align:left;font-weight:700;color:#475569;
+  border-bottom:2px solid #e2e8f0;white-space:nowrap;}
+.uyg-table td{padding:7px 10px;border-bottom:1px solid #f1f5f9;color:#1e293b;
+  max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.uyg-tr{cursor:pointer;transition:.12s;}
+.uyg-tr:hover{background:#eff6ff;}
+.uyg-tr:hover td{color:#1d4ed8;}
+.uyg-count{font-size:.68rem;color:#94a3b8;text-align:right;margin-top:7px;}
 /* Toast */
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
   background:#1e293b;color:#fff;padding:9px 22px;border-radius:10px;
@@ -488,6 +513,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   <button class="tbb" style="background:linear-gradient(135deg,rgba(124,58,237,.7),rgba(37,99,235,.7));border-color:rgba(167,139,250,.5);" onclick="openAiModal()">🤖 AI ile Oluştur</button>
   <button class="tbb" id="yenileTech" style="background:linear-gradient(135deg,#059669,#0891b2);" onclick="aiRefresh('tech')" title="Technical iz adımlarını AI ile yeniden oluştur">🔄 Teknik Yenile</button>
   <button class="tbb" id="yenileSys" style="background:linear-gradient(135deg,#7c3aed,#a21caf);" onclick="aiRefresh('sys')" title="Systemic iz adımlarını AI ile yeniden oluştur">🔄 Sistemsel Yenile</button>
+  <button class="tbb" style="background:linear-gradient(135deg,#0f766e,#0e7490);border-color:rgba(94,234,212,.35);" onclick="openUygModal()">📋 Uygunsuzluktan Seç</button>
   <button class="tbb ok"    onclick="saveData()">💾 Kaydet</button>
   <button class="tbb"       onclick="loadData()">📂 Yükle</button>
   <button class="tbb"       onclick="window.print()">🖨️ Yazdır / PDF</button>
@@ -1182,6 +1208,132 @@ function idbGetAllEntries(){ return idbOpen().then(db=>new Promise((ok,er)=>{
   tx.onerror=e=>er(e.target.error);
 })); }
 function idbDeleteByKey(key){ return idbOpen().then(db=>new Promise((ok,er)=>{ const r=db.transaction(ST,'readwrite').objectStore(ST).delete(key); r.onsuccess=()=>ok(); r.onerror=e=>er(e.target.error); })); }
+
+// ══════════════════════════════════════════════════════
+//  UYGUNSUZLUK VERİSİNDEN SEÇ
+//  UygunsuzlukDB → cache → 'data'  (uygunsuzluk-analizi.html'nin IDB'si)
+// ══════════════════════════════════════════════════════
+let _uygRows = [];
+
+function openUygModal(){
+  document.getElementById('uygModal').classList.add('open');
+  document.getElementById('uygSearch').value = '';
+  document.getElementById('uygCount').textContent = '';
+  const body = document.getElementById('uygBody');
+  body.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:.85rem;">⏳ Uygunsuzluk verisi okunuyor…</div>';
+  const req = indexedDB.open('UygunsuzlukDB', 5);
+  req.onerror = () => {
+    body.innerHTML = '<div style="color:#ef4444;padding:20px;text-align:center;font-size:.82rem;">❌ <b>UygunsuzlukDB açılamadı.</b><br>Önce uygunsuzluk-analizi sayfasında bir Excel dosyası yükleyin.</div>';
+  };
+  req.onsuccess = ev => {
+    const db = ev.target.result;
+    const storeNames = Array.from(db.objectStoreNames);
+    if(!storeNames.includes('cache')){
+      body.innerHTML = '<div style="color:#f59e0b;padding:20px;text-align:center;font-size:.82rem;">⚠️ Veri deposu bulunamadı. Uygunsuzluk analizine Excel yükleyin.</div>';
+      return;
+    }
+    const tx = db.transaction('cache','readonly');
+    const gr = tx.objectStore('cache').get('data');
+    gr.onsuccess = e2 => {
+      const data = e2.target.result;
+      if(!data || !data.length){
+        body.innerHTML = '<div style="color:#f59e0b;padding:20px;text-align:center;font-size:.82rem;">⚠️ Veri bulunamadı. Uygunsuzluk analizine Excel yükleyin.</div>';
+        return;
+      }
+      _uygRows = data;
+      _uygBuildTable();
+      _uygRenderRows('');
+    };
+    gr.onerror = () => {
+      body.innerHTML = '<div style="color:#ef4444;padding:20px;text-align:center;">❌ Veri okunamadı.</div>';
+    };
+  };
+}
+
+function _uygBuildTable(){
+  const body = document.getElementById('uygBody');
+  body.innerHTML = `<table class="uyg-table">
+    <thead><tr>
+      <th>Tarih</th><th>Stok Adı / Kodu</th><th>Cari Adı</th>
+      <th>Hata Kaynağı</th><th>Uyg. Türü</th><th>Hata Tipi</th>
+    </tr></thead>
+    <tbody id="uygTbody"></tbody>
+  </table>`;
+}
+
+function _uygSearch(q){ _uygRenderRows(q); }
+
+function _uygRenderRows(q){
+  const tbody = document.getElementById('uygTbody');
+  if(!tbody) return;
+  const lq = q.toLowerCase().trim();
+  const KEYS = ['stokAdi','stokKodu','cariAdi','hataTipi','hataKaynagi','uygunsuzlukTuru','uygunsuzlukTarih','tarih','tespitYeri'];
+  const filtered = lq
+    ? _uygRows.filter(r => KEYS.some(k => String(r[k]||'').toLowerCase().includes(lq)))
+    : _uygRows;
+  document.getElementById('uygCount').textContent =
+    filtered.length + ' / ' + _uygRows.length + ' kayıt';
+  if(!filtered.length){
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:22px;">Eşleşen kayıt bulunamadı.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.slice(0,500).map(r => {
+    const idx = _uygRows.indexOf(r);
+    const tarih  = _esc(r.uygunsuzlukTarih || r.tarih || '—');
+    const stok   = _esc([r.stokAdi||'', r.stokKodu ? '['+r.stokKodu+']' : ''].filter(s=>s.trim()).join(' ') || '—');
+    const cari   = _esc(r.cariAdi || '—');
+    const kaynak = _esc(r.hataKaynagi || '—');
+    const tur    = _esc(r.uygunsuzlukTuru || '—');
+    const tipi   = _esc(r.hataTipi || '—');
+    return `<tr class="uyg-tr" onclick="fillFromUyg(${idx})" title="Seç → form alanlarını doldur">
+      <td>${tarih}</td><td>${stok}</td><td>${cari}</td>
+      <td>${kaynak}</td><td>${tur}</td><td>${tipi}</td>
+    </tr>`;
+  }).join('');
+}
+
+function fillFromUyg(idx){
+  const r = _uygRows[idx];
+  if(!r) return;
+  // Problem / Parça No
+  const stokLabel = [r.stokAdi||'', r.stokKodu ? '('+r.stokKodu+')' : ''].filter(s=>s.trim()).join(' ');
+  document.getElementById('mPart').value = stokLabel;
+  // Müşteri
+  document.getElementById('mCustomer').value = r.cariAdi || '';
+  // Tarih
+  const pd = _parseUygDate(r.uygunsuzlukTarih || r.tarih || '');
+  if(pd) document.getElementById('mDate').value = pd;
+  // Problem metni (tüm paneller)
+  const probParts = [];
+  if(r.uygunsuzlukTuru || r.hataTipi) probParts.push(r.uygunsuzlukTuru || r.hataTipi);
+  if(r.hataKaynagi)  probParts.push('Kaynak: ' + r.hataKaynagi);
+  if(r.tespitYeri)   probParts.push('Tespit: ' + r.tespitYeri);
+  const problemText = probParts.filter(Boolean).join(' — ') || 'Problem tanımını buraya yazın…';
+  ['tech','sys'].forEach(tab => {
+    ['os','nd'].forEach(tk => {
+      if(_S[tab] && _S[tab][tk]) _S[tab][tk].problem = problemText;
+    });
+  });
+  render();
+  document.getElementById('uygModal').classList.remove('open');
+  showToast('✅ Kayıt aktarıldı — parça, müşteri, tarih ve problem alanları güncellendi.');
+}
+
+function _parseUygDate(s){
+  if(!s) return '';
+  s = String(s).trim();
+  // ISO YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  // DD.MM.YYYY veya DD/MM/YYYY
+  const m = s.match(/^(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{4})/);
+  if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  // YYYY.MM.DD
+  const m2 = s.match(/^(\d{4})[.\/\-](\d{1,2})[.\/\-](\d{1,2})/);
+  if(m2) return m2[1]+'-'+m2[2].padStart(2,'0')+'-'+m2[3].padStart(2,'0');
+  return '';
+}
+
+function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function gatherMeta(){
   _S.meta={
@@ -2340,13 +2492,29 @@ window.addEventListener('afterprint', ()=>{
 });
 
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape') { closeAiModal(); }
+  if(e.key==='Escape') { closeAiModal(); document.getElementById('uygModal').classList.remove('open'); document.getElementById('loadModal').classList.remove('open'); }
   if(e.key==='Enter' && document.getElementById('aiModal').classList.contains('open')){
     const isLast = _wizStep === WIZ_STEPS.length - 1;
     if(isLast) aiGenerate(); else wizNav(1);
   }
 });
 </script>
+
+<!-- UYGUNSUZLUK SEÇİM MODALI -->
+<div class="uyg-modal" id="uygModal">
+  <div class="uyg-box">
+    <div class="uyg-header">
+      <h3>📋 Uygunsuzluk Kayıtları</h3>
+      <input class="uyg-search" id="uygSearch" type="text"
+        placeholder="🔍 Stok adı, cari, kaynak, tür ara…"
+        oninput="_uygSearch(this.value)">
+      <button class="load-close-btn" onclick="document.getElementById('uygModal').classList.remove('open')">✕ Kapat</button>
+    </div>
+    <div class="uyg-hint">💡 Bir satıra tıklayın → Parça No, Müşteri, Tarih ve Problem alanları otomatik dolar. Sonra istediğiniz gibi düzenleyebilirsiniz.</div>
+    <div class="uyg-table-wrap" id="uygBody"></div>
+    <div class="uyg-count" id="uygCount"></div>
+  </div>
+</div>
 
 <!-- LOAD MODAL -->
 <div class="load-modal" id="loadModal">
