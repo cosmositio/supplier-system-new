@@ -1130,10 +1130,10 @@ function renderProbBox(diag, it, tab, tk){
     <button class="pin-btn${pinned?' pinned':''}" title="${pinned?'Sabiti kaldır':'Sabitle'}">&#128204;</button>`;
   const ta = d.querySelector('textarea');
   ta.value = _S[tab][tk].problem;
-  autoResize(ta);
   ta.oninput = e => { _S[tab][tk].problem = e.target.value; autoResize(ta); };
   d.querySelector('.pin-btn').onclick = ()=>{ _S[tab][tk].problemPinned = !_S[tab][tk].problemPinned; renderTrack(tab, tk); };
   diag.appendChild(d);
+  autoResize(ta);  // after DOM insertion so scrollHeight is correct
 }
 
 function renderStepBox(diag, it, tab, tk){
@@ -1156,7 +1156,6 @@ function renderStepBox(diag, it, tab, tk){
 
   const ta = el.querySelector('textarea');
   ta.value = node.text;
-  autoResize(ta);
   ta.oninput = e => {
     node.text = e.target.value;
     autoResize(ta);
@@ -1191,6 +1190,7 @@ function renderStepBox(diag, it, tab, tk){
   };
 
   diag.appendChild(el);
+  autoResize(ta);  // after DOM insertion so scrollHeight is correct
 }
 
 function renderRcbBox(diag, it, tab, tk){
@@ -1202,11 +1202,12 @@ function renderRcbBox(diag, it, tab, tk){
     <div class="rl">${tabLabel} ${trkLabel}</div>
     <textarea placeholder="Kök neden…"></textarea>
     <button class="pin-btn${pinned?' pinned':''}" title="${pinned?'Sabiti kaldır':'Sabitle'}">&#128204;</button>`;
-  el.querySelector('textarea').value = _S[tab][tk].rcText;
-  autoResize(el.querySelector('textarea'));
-  el.querySelector('textarea').oninput = e => { _S[tab][tk].rcText = e.target.value; autoResize(e.target); };
+  const rcTa = el.querySelector('textarea');
+  rcTa.value = _S[tab][tk].rcText;
+  rcTa.oninput = e => { _S[tab][tk].rcText = e.target.value; autoResize(e.target); };
   el.querySelector('.pin-btn').onclick = ()=>{ _S[tab][tk].rcPinned = !_S[tab][tk].rcPinned; renderTrack(tab, tk); };
   diag.appendChild(el);
+  autoResize(rcTa);  // after DOM insertion so scrollHeight is correct
 }
 
 function renderAddBranchBtn(diag, it, tab, tk){
