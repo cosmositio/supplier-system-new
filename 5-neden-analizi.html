@@ -402,8 +402,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .print-meta .pm-val{font-weight:700;}
 
 @media print{
-  /* — Page format — */
-  @page { size: A3 landscape; margin: 8mm 12mm; }
+  /* — Page format: A4 portrait — */
+  @page { size: A4 portrait; margin: 8mm 10mm; }
 
   /* — Preserve colors — */
   * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
@@ -414,28 +414,32 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
     display:none !important;
   }
 
-  body{background:#fff !important;margin:0;padding:0;}
+  body{background:#fff !important;margin:0;padding:0;width:100%;}
 
-  /* — Show both panels with page break — */
-  .consid-panel{display:block !important; break-after:page;}
+  /* — Show both panels, each on its own page — */
+  .consid-panel{display:block !important; break-after:page; width:100%;}
   .consid-panel:last-of-type{break-after:auto;}
 
+  /* — Banner: compact — */
+  .consid-banner{padding:4px 10px !important;font-size:.64rem !important;line-height:1.35 !important;}
+  .consid-banner .cbi{font-size:.9rem !important;}
+  .consid-banner strong{font-size:.7rem !important;}
+
   /* — Print meta bar — */
-  .print-meta{display:flex !important;}
+  .print-meta{display:flex !important;font-size:.62rem !important;padding:4px 10px !important;}
 
   /* — Stack diagram on top, actions below — */
-  .panel-body{display:block !important;}
+  .panel-body{display:block !important;width:100%;}
 
-  /* — Diagram: zoom to fit horizontally — */
-  .diagram-side{overflow:visible !important;}
+  /* — Diagram: scale down to fit A4 portrait width (~794px usable) — */
+  .diagram-side{overflow:visible !important;width:100%;}
   .canvas-outer{
     overflow:visible !important;
     background:#f8fafc !important;
-    padding:4px 4px 0 !important;
-    zoom:0.46;
+    padding:2px 2px 0 !important;
+    zoom:0.34;
   }
-  .track-wrap{margin-bottom:18px !important;}
-  .node-box textarea{resize:none !important;}
+  .track-wrap{margin-bottom:12px !important;}
 
   /* — Actions: full width, compact, readable — */
   .actions-side{
@@ -445,24 +449,25 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
     overflow:visible !important;
     border-left:none !important;
     border-top:3px solid #2563eb;
-    margin-top:5mm;
+    margin-top:0;
+    break-before:auto;
   }
-  /* Hide pin col (2nd child) and AI col (4th child), show: # faaliyet sorumlu termin */
+  /* Hide pin col (2nd) and AI col (4th) → show: # · Faaliyet · Sorumlu · Termin */
   .ca-row-hdr,.ca-row{
-    grid-template-columns:34px 1fr 110px 110px !important;
+    grid-template-columns:30px 1fr 100px 90px !important;
   }
   .ca-row-hdr>:nth-child(2),.ca-row-hdr>:nth-child(4),
   .ca-row>.ca-pin-btn,.ca-row>.ca-ai-btn{
     display:none !important;
   }
-  .ca-col,.ca-lbl{font-size:.65rem !important;}
-  .ca-input{font-size:.65rem !important;resize:none !important;height:auto !important;
+  .ca-col,.ca-lbl{font-size:.62rem !important;}
+  .ca-input{font-size:.62rem !important;resize:none !important;height:auto !important;
     border:none !important;background:transparent !important;overflow:visible !important;
-    white-space:pre-wrap !important;}
-  .ca-sinput{font-size:.65rem !important;}
-  .ca-row{min-height:26px !important;break-inside:avoid;}
-  .ca-hdr{font-size:.72rem !important;padding:5px 12px !important;}
-  .ca-section-lbl{font-size:.64rem !important;padding:4px 10px !important;}
+    white-space:pre-wrap !important;word-break:break-word !important;}
+  .ca-sinput{font-size:.62rem !important;}
+  .ca-row{min-height:22px !important;break-inside:avoid;}
+  .ca-hdr{font-size:.68rem !important;padding:5px 10px !important;}
+  .ca-section-lbl{font-size:.60rem !important;padding:3px 8px !important;}
 }
 </style>
 </head>
