@@ -496,7 +496,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
         <option value="deepseek/deepseek-r1:free">⭐ DeepSeek R1 — En İyi (ücretsiz)</option>
         <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (ücretsiz)</option>
         <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 72B (ücretsiz)</option>
-        <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (ücretsiz)</option>
+        <option value="google/gemini-2.0-flash-lite-001:free">Gemini 2.0 Flash Lite (ücretsiz)</option>
         <option value="mistralai/mistral-small-3.1-24b-instruct:free">Mistral Small 3.1 (ücretsiz)</option>
       </select>
     </div>
@@ -1396,11 +1396,15 @@ async function callAI(messages, maxTokens, temperature){
       return resp;
     };
 
-    // Try gemini-2.0-flash, on 429 wait and retry once
-    let resp = await fetchGemini('gemini-2.0-flash');
+    // Primary: gemini-2.0-flash-lite (tüm kullanıcılara açık), fallback: gemini-2.0-flash-001
+    let resp = await fetchGemini('gemini-2.0-flash-lite');
     if(resp.status === 429 || resp.status === 503){
       await new Promise(r=>setTimeout(r,4000));
-      resp = await fetchGemini('gemini-2.0-flash');
+      resp = await fetchGemini('gemini-2.0-flash-lite');
+    }
+    // If lite also fails with "not found", try versioned stable
+    if(!resp.ok && (resp.status === 404 || resp.status === 400)){
+      resp = await fetchGemini('gemini-2.0-flash-001');
     }
     if(!resp.ok){
       const e = await resp.json().catch(()=>({}));
