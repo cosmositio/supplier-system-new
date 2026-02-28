@@ -604,17 +604,6 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   </div>
 </div>
 
-<div class="mo" id="editModal">
-  <div class="mb">
-    <h3 id="mTitle">✏️ Nedeni Düzenle</h3>
-    <textarea id="mTa" rows="4" placeholder="Nedeni buraya yazın…"></textarea>
-    <div class="mbts">
-      <button class="mbt c" onclick="closeModal()">İptal</button>
-      <button class="mbt s" onclick="saveModal()">Kaydet</button>
-    </div>
-  </div>
-</div>
-
 <script>
 // ══════════════════════════════════════════════════════
 //  5 NEDEN   –  STAIRCASE LAYOUT
@@ -681,8 +670,6 @@ let _S = {
 
 function mkStep(t){ return {id:uid(), text:t||'', isRoot:false, pinned:false}; }
 function uid(){ return 'n'+Math.random().toString(36).slice(2,9); }
-
-let _mCb = null;
 
 // ══════════════════════════════════════════════════════
 //  ACTIONS
@@ -1018,10 +1005,6 @@ function renderStepBox(diag, it, tab, tk){
   const ta = el.querySelector('textarea');
   ta.value = node.text;
   ta.oninput = e => { node.text = e.target.value; };
-  ta.addEventListener('dblclick', e=>{
-    e.stopPropagation();
-    openModal('✏️ Nedeni Düzenle', node.text, val=>{ node.text=val; renderTrack(tab, tk); });
-  });
   el.querySelector('.del').onclick = ()=> deleteStep(tab, tk, it.chain, it.stepIdx);
   el.querySelector('.root').onclick = ()=> toggleRoot(tab, tk, it.chain, it.stepIdx);
 
@@ -1078,19 +1061,6 @@ function div(cls, x, y, w, h){
   el.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${w}px;min-height:${h}px;`;
   return el;
 }
-
-// ══════════════════════════════════════════════════════
-//  MODAL
-// ══════════════════════════════════════════════════════
-function openModal(title, txt, cb){
-  _mCb = cb;
-  document.getElementById('mTitle').textContent = title;
-  document.getElementById('mTa').value = txt;
-  document.getElementById('editModal').classList.add('open');
-  setTimeout(()=>document.getElementById('mTa').focus(), 60);
-}
-function closeModal(){ document.getElementById('editModal').classList.remove('open'); _mCb=null; }
-function saveModal(){ if(_mCb) _mCb(document.getElementById('mTa').value); closeModal(); }
 
 // ══════════════════════════════════════════════════════
 //  INDEXED DB
@@ -2211,8 +2181,7 @@ function setAiStatus(type, msg){
 }
 
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape') { closeAiModal(); closeModal(); }
-  if(e.key==='Enter' && e.ctrlKey && document.getElementById('editModal').classList.contains('open')) saveModal();
+  if(e.key==='Escape') { closeAiModal(); }
   if(e.key==='Enter' && document.getElementById('aiModal').classList.contains('open')){
     const isLast = _wizStep === WIZ_STEPS.length - 1;
     if(isLast) aiGenerate(); else wizNav(1);
