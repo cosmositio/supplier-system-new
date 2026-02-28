@@ -836,16 +836,15 @@ function drawConn(svg, c, tk){
   svg.appendChild(path);
 
   if(c.label==='why' && !c.toRcb){
-    // Both labels sit together at the midpoint of the connector as one Q→A unit:
-    //   "Neden?"  (above arc)  ← questions the LEFT box
-    //   "Çünkü"  (below arc)  ← RIGHT box is the answer
-    // Midpoint of our S-bezier is exactly (mx, my) for both diagonal and horizontal.
-    const mx = (c.x1 + c.x2) / 2;
-    const my = (c.y1 + c.y2) / 2;
-    // small horizontal nudge so text doesn't sit on top of the stroke
-    const nx = isDiag ? mx - absDx * 0.05 : mx;
-    svgTxt(svg, nx - 18, my - 11, 'Neden?', '#1d4ed8', true,  10);
-    svgTxt(svg, nx - 16, my +  3, 'Çünkü',  '#94a3b8', false,  9);
+    // Rule: [Sol kutu] — Neden? → Çünkü… — [Sağ kutu]
+    // "Neden?" appears near the SOURCE (left box) at ~20% along the connector.
+    // "Çünkü"  appears near the TARGET (right box) at ~68% along the connector.
+    const qx = c.x1 + absDx * 0.18;
+    const qy = c.y1 + dy     * 0.18 - 10;
+    const ax = c.x1 + absDx * 0.62;
+    const ay = c.y1 + dy     * 0.62 - 10;
+    svgTxt(svg, qx, qy, 'Neden?', '#1d4ed8', true,  10);
+    svgTxt(svg, ax, ay, 'Çünkü',  '#94a3b8', false,  9);
   }
 }
 
