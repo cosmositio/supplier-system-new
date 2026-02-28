@@ -395,7 +395,7 @@
         .cari-selected:hover { border-color: #b94fc4; }
         .cari-selected .cari-sel-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
         .cari-panel {
-            position: absolute; top: calc(100% + 4px); left: 0; width: 440px;
+            position: absolute; top: calc(100% + 4px); left: 0; width: 560px;
             background: white; border: 1px solid #d0b0e0; border-radius: 10px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 9999; overflow: hidden;
         }
@@ -418,6 +418,16 @@
         .cari-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .cari-badge { font-size: 0.70em; background: #e07000; color: white; border-radius: 4px; padding: 1px 5px; flex-shrink: 0; }
         .cari-clear-btn { font-size: 0.75em; border: none; background: #f3e0ff; color: #7b2d8b; border-radius: 5px; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
+        /* Cari tag pills */
+        .cari-tag-pill { display: inline-flex; align-items: center; gap: 2px; border-radius: 10px; padding: 1px 6px; font-size: 0.68em; white-space: nowrap; }
+        .cari-tag-add-btn { border: 1px dashed #aaa; background: none; border-radius: 10px; padding: 1px 5px; font-size: 0.7em; cursor: pointer; color: #888; flex-shrink: 0; }
+        .cari-tag-add-btn:hover { border-color: #6c3483; color: #6c3483; }
+        /* Etiket filter dropdown */
+        .etkt-dropdown { position: relative; }
+        .etkt-trigger { border: 1px solid #d0b0e0; border-radius: 8px; padding: 7px 12px; background: white; cursor: pointer; font-size: 0.88em; color: #333; display: flex; justify-content: space-between; align-items: center; min-height: 36px; gap: 6px; user-select: none; }
+        .etkt-trigger:hover { border-color: #b94fc4; }
+        .etkt-panel { position: absolute; top: calc(100% + 4px); left: 0; min-width: 200px; background: white; border: 1px solid #d0b0e0; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 9999; overflow: hidden; }
+        .etkt-list { max-height: 240px; overflow-y: auto; }
 
         /* Custom Tespit Yeri Multi-Select */
         .tespit-dropdown { position: relative; }
@@ -1197,6 +1207,18 @@
                     </div>
                 </div>
                 <button id="cariAnalyzeBtn" class="cari-fishbone-btn" onclick="openFishboneTedarikci()">🐟 Bu Tedarikçiyi Analiz Et</button>
+            </div>
+            <div class="filter-group" style="position:relative;">
+                <label>Etiket</label>
+                <div class="etkt-dropdown" id="etktDropdown">
+                    <div class="etkt-trigger" onclick="toggleEtktDropdown()">
+                        <span id="etktLabel" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">Tümü</span>
+                        <span style="color:#b94fc4;font-size:0.85em;">&#9660;</span>
+                    </div>
+                    <div class="etkt-panel" id="etktPanel" style="display:none;">
+                        <div class="etkt-list" id="etktList"></div>
+                    </div>
+                </div>
             </div>
             <div class="filter-group">
                 <label>Stok Kodu</label>
@@ -2430,6 +2452,9 @@ function toggleBreakdownClear() {
 }
 let selectedCari = '';            // custom cari dropdown seçili değer
 let musteriSet = new Set();       // müşteri olarak işaretlenmiş cariler
+let cariTagsMap = {};             // {cariAdi: string[]} — cari etiket haritası
+let selectedTagFilters = new Set(); // aktif etiket filtreleri
+let _activeTagEditor = null;      // açık tag editor popup
 let _cariAllList = [];            // cari dropdown listesi
 let selectedTespitYeriSet = new Set(); // tespit yeri çoklu seçim
 let _tespitYeriAllList = [];      // tespit yeri dropdown listesi
@@ -2656,6 +2681,10 @@ function applyFilters() {
         if (selectedCari && r.cariAdi    !== selectedCari) return false;
         if (cariTip === 'musteri'   && !musteriSet.has(r.cariAdi)) return false;
         if (cariTip === 'tedarikci' &&  musteriSet.has(r.cariAdi)) return false;
+        if (selectedTagFilters.size > 0) {
+            const tags = cariTagsMap[r.cariAdi] || [];
+            if (!tags.some(t => selectedTagFilters.has(t))) return false;
+        }
         if (stokKodu    && r.stokKodu    !== stokKodu)    return false;
         if (dateStart || dateEnd) {
             const d = parseDateStr(r.uygunsuzlukTarih);
@@ -2689,6 +2718,8 @@ function resetFilters() {
     document.getElementById('fMakine').value = '';
     document.getElementById('fCariTip').value = '';
     document.getElementById('fStokKodu').value = '';
+    selectedTagFilters.clear();
+    _updateEtktLabel();
     _skSelect('');
     _skBuild();
     document.getElementById('fDateStart').value = '';
@@ -2859,12 +2890,22 @@ function _buildCariItems(list) {
         container.innerHTML = '<div style="padding:12px;color:#aaa;text-align:center;font-size:0.85em;">Sonuç yok</div>';
         return;
     }
+    // Predefined tag colours (extendable)
+    const TAG_COLORS = {
+        'Müşteri':    'background:#fde8cc;color:#92400e;',
+        'Otomotiv':   'background:#dbeafe;color:#1e40af;',
+        'Beyaz Eşya': 'background:#dcfce7;color:#166534;',
+        'Savunma':    'background:#fce7f3;color:#9d174d;',
+        'İhracat':    'background:#ede9fe;color:#5b21b6;',
+    };
     list.forEach(c => {
         const isMusteri = musteriSet.has(c);
         const isSelected = selectedCari === c;
         const row = document.createElement('div');
         row.className = 'cari-list-item' + (isSelected ? ' selected' : '');
+        row.style.gap = '6px';
 
+        // Star (Müşteri) checkbox
         const chk = document.createElement('input');
         chk.type = 'checkbox';
         chk.className = 'cari-musteri-chk';
@@ -2873,10 +2914,9 @@ function _buildCariItems(list) {
         chk.addEventListener('change', e => { e.stopPropagation(); toggleMusteriMark(c, e.target.checked); });
 
         const star = document.createElement('span');
-        star.style.cssText = 'font-size:0.78em;color:#e07000;flex-shrink:0;';
+        star.style.cssText = 'font-size:0.78em;color:#e07000;flex-shrink:0;cursor:pointer;';
         star.textContent = '★';
         star.title = 'Müşteri olarak işaretle';
-        star.style.cursor = 'pointer';
         star.addEventListener('click', e => { e.stopPropagation(); chk.click(); });
 
         const nameSp = document.createElement('span');
@@ -2891,12 +2931,32 @@ function _buildCariItems(list) {
         row.appendChild(star);
         row.appendChild(nameSp);
 
-        if (isMusteri) {
-            const badge = document.createElement('span');
-            badge.className = 'cari-badge';
-            badge.textContent = 'Müşteri';
-            row.appendChild(badge);
-        }
+        // Tag pills area
+        const tagsWrap = document.createElement('div');
+        tagsWrap.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:3px;flex-shrink:0;max-width:170px;';
+        (cariTagsMap[c] || []).forEach(tag => {
+            const pill = document.createElement('span');
+            pill.className = 'cari-tag-pill';
+            pill.style.cssText = (TAG_COLORS[tag] || 'background:#e8f4ff;color:#1a5276;') + 'display:inline-flex;align-items:center;gap:2px;border-radius:10px;padding:1px 6px;font-size:0.68em;white-space:nowrap;';
+            pill.title = tag;
+            pill.appendChild(document.createTextNode(tag));
+            const rx = document.createElement('span');
+            rx.textContent = '×';
+            rx.style.cssText = 'cursor:pointer;opacity:0.55;font-size:0.9em;margin-left:1px;';
+            rx.title = 'Etiketi kaldır';
+            rx.addEventListener('click', e => { e.stopPropagation(); removeCariTag(c, tag); });
+            pill.appendChild(rx);
+            tagsWrap.appendChild(pill);
+        });
+        // 🏷+ button
+        const addTagBtn = document.createElement('button');
+        addTagBtn.textContent = '🏷+';
+        addTagBtn.title = 'Etiket ekle / düzenle';
+        addTagBtn.style.cssText = 'border:1px dashed #bbb;background:none;border-radius:10px;padding:1px 5px;font-size:0.68em;cursor:pointer;color:#999;flex-shrink:0;';
+        addTagBtn.addEventListener('click', e => { e.stopPropagation(); openCariTagEditor(c, addTagBtn); });
+        tagsWrap.appendChild(addTagBtn);
+
+        row.appendChild(tagsWrap);
         container.appendChild(row);
     });
 }
@@ -2930,13 +2990,189 @@ function toggleMusteriMark(cariAdi, isMus) {
     if (isMus) musteriSet.add(cariAdi);
     else musteriSet.delete(cariAdi);
     const arr = [...musteriSet];
-    // localStorage (birincil - hızlı ve güvenilir)
     try { localStorage.setItem('uyg_musteriSet', JSON.stringify(arr)); } catch(e) {}
-    // IndexedDB (yedek)
     dbSet('musteriSet', arr);
+    // Sync with cariTagsMap
+    if (!cariTagsMap[cariAdi]) cariTagsMap[cariAdi] = [];
+    const mi = cariTagsMap[cariAdi].indexOf('Müşteri');
+    if (isMus && mi === -1) cariTagsMap[cariAdi].push('Müşteri');
+    if (!isMus && mi !== -1) cariTagsMap[cariAdi].splice(mi, 1);
+    if (cariTagsMap[cariAdi].length === 0) delete cariTagsMap[cariAdi];
+    saveCariTagsMap();
+    _rebuildCariList();
+}
+
+// ─── Cari Tag System ──────────────────────────────────────────────────────
+function saveCariTagsMap() {
+    try { localStorage.setItem('uyg_cariTagsMap', JSON.stringify(cariTagsMap)); } catch(e) {}
+}
+
+function getAllCariTags() {
+    const tags = new Set();
+    Object.values(cariTagsMap).forEach(arr => (arr || []).forEach(t => tags.add(t)));
+    return [...tags].sort();
+}
+
+function _rebuildCariList() {
     const q = (document.getElementById('cariSearch')?.value || '').toLowerCase();
     const filtered = q ? _cariAllList.filter(c => c.toLowerCase().includes(q)) : _cariAllList;
     _buildCariItems(filtered);
+}
+
+function addCariTag(cariAdi, tag) {
+    tag = (tag || '').trim();
+    if (!tag) return;
+    if (!cariTagsMap[cariAdi]) cariTagsMap[cariAdi] = [];
+    if (!cariTagsMap[cariAdi].includes(tag)) {
+        cariTagsMap[cariAdi].push(tag);
+        if (tag === 'Müşteri') {
+            musteriSet.add(cariAdi);
+            const arr = [...musteriSet];
+            try { localStorage.setItem('uyg_musteriSet', JSON.stringify(arr)); } catch(e) {}
+            dbSet('musteriSet', arr);
+        }
+    }
+    saveCariTagsMap();
+    _rebuildCariList();
+    if (document.getElementById('etktPanel')?.style.display === 'block') _buildEtktList();
+    applyFilters();
+}
+
+function removeCariTag(cariAdi, tag) {
+    if (!cariTagsMap[cariAdi]) return;
+    cariTagsMap[cariAdi] = cariTagsMap[cariAdi].filter(t => t !== tag);
+    if (!cariTagsMap[cariAdi].length) delete cariTagsMap[cariAdi];
+    if (tag === 'Müşteri') {
+        musteriSet.delete(cariAdi);
+        const arr = [...musteriSet];
+        try { localStorage.setItem('uyg_musteriSet', JSON.stringify(arr)); } catch(e) {}
+        dbSet('musteriSet', arr);
+    }
+    saveCariTagsMap();
+    _rebuildCariList();
+    if (document.getElementById('etktPanel')?.style.display === 'block') _buildEtktList();
+    applyFilters();
+}
+
+function openCariTagEditor(cariAdi, anchorEl) {
+    if (_activeTagEditor) { _activeTagEditor.remove(); _activeTagEditor = null; }
+    const allTags = getAllCariTags();
+    const currentTags = new Set(cariTagsMap[cariAdi] || []);
+    const editor = document.createElement('div');
+    editor.style.cssText = 'position:fixed;background:white;border:1px solid #d0b0e0;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,0.2);z-index:10001;padding:10px 13px;min-width:215px;';
+    const rect = anchorEl.getBoundingClientRect();
+    editor.style.left = Math.min(rect.right + 6, window.innerWidth - 225) + 'px';
+    editor.style.top  = Math.max(rect.top - 4, 8) + 'px';
+
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:0.75em;font-weight:700;color:#6c3483;margin-bottom:8px;border-bottom:1px solid #f0e6ff;padding-bottom:5px;';
+    title.textContent = '🏷 Etiketler — ' + cariAdi.slice(0, 32);
+    editor.appendChild(title);
+
+    // Existing tags as checkboxes
+    if (allTags.length) {
+        const chkArea = document.createElement('div');
+        chkArea.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin-bottom:8px;';
+        allTags.forEach(tag => {
+            const lbl = document.createElement('label');
+            lbl.style.cssText = 'display:flex;align-items:center;gap:7px;font-size:0.82em;cursor:pointer;';
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.checked = currentTags.has(tag);
+            chk.addEventListener('change', () => {
+                if (chk.checked) { addCariTag(cariAdi, tag); currentTags.add(tag); }
+                else             { removeCariTag(cariAdi, tag); currentTags.delete(tag); }
+            });
+            lbl.appendChild(chk);
+            lbl.appendChild(document.createTextNode(tag));
+            chkArea.appendChild(lbl);
+        });
+        editor.appendChild(chkArea);
+    }
+
+    // New tag row
+    const newRow = document.createElement('div');
+    newRow.style.cssText = 'display:flex;gap:5px;';
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = 'Yeni etiket...';
+    inp.style.cssText = 'flex:1;border:1px solid #ddd;border-radius:6px;padding:4px 8px;font-size:0.8em;outline:none;';
+    const addBtn = document.createElement('button');
+    addBtn.textContent = '+ Ekle';
+    addBtn.style.cssText = 'background:#6c3483;color:white;border:none;border-radius:6px;padding:4px 9px;font-size:0.78em;cursor:pointer;white-space:nowrap;';
+    const doAdd = () => { const v = inp.value.trim(); if (v) { addCariTag(cariAdi, v); inp.value = ''; } };
+    addBtn.addEventListener('click', doAdd);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } });
+    newRow.appendChild(inp); newRow.appendChild(addBtn);
+    editor.appendChild(newRow);
+
+    document.body.appendChild(editor);
+    _activeTagEditor = editor;
+    inp.focus();
+    setTimeout(() => {
+        const closeEd = ev => {
+            if (_activeTagEditor && !_activeTagEditor.contains(ev.target) && ev.target !== anchorEl) {
+                _activeTagEditor.remove(); _activeTagEditor = null;
+                document.removeEventListener('click', closeEd);
+            }
+        };
+        document.addEventListener('click', closeEd);
+    }, 50);
+}
+
+// ── Etiket Filter Dropdown ─────────────────────────────────────────────────
+function toggleEtktDropdown() {
+    const panel = document.getElementById('etktPanel');
+    if (!panel) return;
+    const open = panel.style.display === 'block';
+    panel.style.display = open ? 'none' : 'block';
+    if (!open) _buildEtktList();
+}
+
+function _buildEtktList() {
+    const container = document.getElementById('etktList');
+    if (!container) return;
+    const allTags = getAllCariTags();
+    container.innerHTML = '';
+    if (!allTags.length) {
+        container.innerHTML = '<div style="padding:10px;color:#aaa;font-size:0.82em;text-align:center;">Henüz etiket yok — cari listesinden 🏷+ ile ekleyin</div>';
+        return;
+    }
+    const allRow = document.createElement('label');
+    allRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:0.84em;cursor:pointer;border-bottom:1px solid #f0e6ff;';
+    const allChk = document.createElement('input');
+    allChk.type = 'checkbox';
+    allChk.checked = selectedTagFilters.size === 0;
+    allChk.addEventListener('change', () => { selectedTagFilters.clear(); _buildEtktList(); _updateEtktLabel(); applyFilters(); });
+    allRow.appendChild(allChk);
+    allRow.appendChild(document.createTextNode('Tümü'));
+    container.appendChild(allRow);
+
+    allTags.forEach(tag => {
+        const row = document.createElement('label');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:0.83em;cursor:pointer;';
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.checked = selectedTagFilters.has(tag);
+        chk.addEventListener('change', () => {
+            if (chk.checked) selectedTagFilters.add(tag);
+            else selectedTagFilters.delete(tag);
+            _updateEtktLabel();
+            applyFilters();
+        });
+        const pill = document.createElement('span');
+        pill.style.cssText = 'background:#e8f4ff;color:#1a5276;border-radius:10px;padding:1px 8px;font-size:0.88em;';
+        pill.textContent = tag;
+        row.appendChild(chk);
+        row.appendChild(pill);
+        container.appendChild(row);
+    });
+}
+
+function _updateEtktLabel() {
+    const lbl = document.getElementById('etktLabel');
+    if (!lbl) return;
+    lbl.textContent = selectedTagFilters.size === 0 ? 'Tümü' : [...selectedTagFilters].join(', ');
 }
 
 // Dropdown dışına tıklayınca kapat
@@ -2950,6 +3186,11 @@ document.addEventListener('click', e => {
     if (tdd && !tdd.contains(e.target)) {
         const tpanel = document.getElementById('tespitPanel');
         if (tpanel) tpanel.style.display = 'none';
+    }
+    const etdd = document.getElementById('etktDropdown');
+    if (etdd && !etdd.contains(e.target)) {
+        const ep = document.getElementById('etktPanel');
+        if (ep) ep.style.display = 'none';
     }
 });
 
@@ -7636,6 +7877,17 @@ function loadFromStorage() {
         const ls = localStorage.getItem('uyg_musteriSet');
         if (ls) musteriSet = new Set(JSON.parse(ls));
     } catch(e) {}
+    // cariTagsMap
+    try {
+        const lt = localStorage.getItem('uyg_cariTagsMap');
+        if (lt) cariTagsMap = JSON.parse(lt);
+    } catch(e) {}
+    // Migrate: musteriSet → cariTagsMap 'Müşteri' tag
+    musteriSet.forEach(c => {
+        if (!cariTagsMap[c]) cariTagsMap[c] = [];
+        if (!cariTagsMap[c].includes('Müşteri')) cariTagsMap[c].push('Müşteri');
+    });
+    saveCariTagsMap();
 
     Promise.all([dbGet('meta'), dbGet('data'), dbGet('musteriSet')]).then(([meta, data, mSet]) => {
         // IndexedDB'de varsa ve localStorage'dan daha büyükse onu kullan
