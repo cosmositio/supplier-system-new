@@ -1258,7 +1258,7 @@ async function aiSuggestAction(tab, tk, idx, btn, step, ta){
       { role:'system', content:'Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Kısa, spesifik ve uygulanabilir düzeltici faaliyet önerileri yap. Yalnızca JSON döndür.' },
       { role:'user',   content: 'Kırılım: '+tabLabel+' — '+trkLabel+'\nProblem: "'+problem+'"\nKök neden adımı: "'+stepText+'"\n\nBu kök neden için bir düzeltici faaliyet öner.\nYALNIZCA JSON: {"action":"<faaliyet (en fazla 20 kelime)"}' }
     ], 150, 0.3);
-    const parsed = JSON.parse(raw || '{}');
+    const parsed = safeParseJSON(raw || '{}');
     const action = parsed.action || parsed.text || parsed.faaliyet || parsed.corrective_action || '';
     if(action){
       _S[tab].actions[tk][idx].text = action;
@@ -1378,6 +1378,20 @@ function setProvider(p){
   }
 }
 
+// ── Robust JSON parser (strips markdown fences, extracts first JSON object) ──
+function safeParseJSON(raw){
+  if(!raw) throw new SyntaxError('Boş yanıt');
+  // 1) Strip ```json ... ``` or ``` ... ```
+  let s = raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+  // 2) Try direct parse
+  try{ return JSON.parse(s); } catch(_){}
+  // 3) Extract first {...} block (handles preamble text from OpenRouter/Gemini)
+  const m = s.match(/\{[\s\S]*\}/);
+  if(m){ try{ return JSON.parse(m[0]); } catch(_){} }
+  // 4) Give up
+  throw new SyntaxError('JSON parse hatası. Ham yanıt: ' + s.slice(0,200));
+}
+
 // ── Unified AI caller (Groq / OpenRouter / Gemini) ─────
 async function callAI(messages, maxTokens, temperature){
   const provider = localStorage.getItem('ai_provider') || 'groq';
@@ -1395,12 +1409,12 @@ async function callAI(messages, maxTokens, temperature){
         'HTTP-Referer':'https://localhost',
         'X-Title':'5 Neden Analizi'
       },
-      body: JSON.stringify({ model, messages, temperature:temp, max_tokens:maxTokens, response_format:{type:'json_object'} })
+      body: JSON.stringify({ model, messages, temperature:temp, max_tokens:maxTokens })
     });
     if(!resp.ok){
       const e=await resp.json().catch(()=>({}));
       if(resp.status===429) throw new Error('⏳ OpenRouter rate limit — birkaç saniye bekleyip tekrar deneyin.');
-      throw new Error(e?.error?.message||`HTTP ${resp.status}`);
+      throw new Error('OpenRouter: '+(e?.error?.message||`HTTP ${resp.status}`));
     }
     const data = await resp.json();
     return data?.choices?.[0]?.message?.content || '';
@@ -1420,7 +1434,7 @@ async function callAI(messages, maxTokens, temperature){
         { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({
             contents:[{ role:'user', parts:[{text: combined}] }],
-            generationConfig:{ temperature:temp, maxOutputTokens:maxTokens, responseMimeType:'application/json' }
+            generationConfig:{ temperature:temp, maxOutputTokens:maxTokens }
           })
         }
       );
@@ -1621,8 +1635,7 @@ ${context}`;
       { role: 'system', content: 'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. EN ÖNEMLİ KURAL: 5 Neden zincirinde her adım bir önceki adımın DOĞRUDAN nedeni olmalıdır. Birbirinden bağımsız nedenler listesi kesinlikle kabul edilmez.' },
       { role: 'user',   content: prompt }
     ], 2800, 0.4);
-    const jsonStr = raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
-    const parsed  = JSON.parse(jsonStr);
+    const parsed  = safeParseJSON(raw);
 
     applyAiResult(parsed, q1);
     closeAiModal();
@@ -1781,7 +1794,7 @@ ${context}`;
       {role:'system',content:'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. EN ÖNEMLİ KURAL: 5 Neden zincirinde her adım bir önceki adımın DOĞRUDAN nedeni olmalıdır. Birbirinden bağımsız nedenler listesi kesinlikle kabul edilmez.'},
       {role:'user',content:prompt}
     ], 1800, 0.45);
-    const parsed = JSON.parse(raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim());
+    const parsed = safeParseJSON(raw);
 
     ['os','nd'].forEach(tk=>{
       const iz = parsed?.[tk];
