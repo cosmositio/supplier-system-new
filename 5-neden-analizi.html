@@ -129,8 +129,41 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .add-step-btn.nd{color:#7c3aed;background:#f5f3ff;border-color:#c4b5fd;}
 .add-step-btn.nd:hover{background:#ede9fe;}
 
-/* ── MODAL ── */
-.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.42);
+/* ── LOAD MODAL ── */
+.load-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);
+  z-index:9800;align-items:center;justify-content:center;}
+.load-modal.open{display:flex;}
+.load-box{background:#fff;border-radius:14px;padding:22px 24px 18px;
+  max-width:520px;width:96%;box-shadow:0 8px 40px rgba(0,0,0,.22);
+  max-height:80vh;display:flex;flex-direction:column;}
+.load-box h3{font-size:.92rem;font-weight:800;margin-bottom:14px;color:#1e293b;
+  display:flex;align-items:center;gap:8px;}
+.load-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+.load-row{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;
+  transition:.15s;}
+.load-row:hover{border-color:#93c5fd;background:#eff6ff;}
+.load-info{flex:1;min-width:0;}
+.load-name{font-size:.82rem;font-weight:700;color:#1e293b;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.load-meta{font-size:.67rem;color:#94a3b8;margin-top:2px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.load-btns{display:flex;gap:6px;flex-shrink:0;}
+.load-btn{padding:5px 12px;border:none;border-radius:7px;font-size:.76rem;
+  font-weight:700;cursor:pointer;transition:.15s;}
+.load-btn.ok{background:#2563eb;color:#fff;}
+.load-btn.ok:hover{background:#1d4ed8;}
+.load-btn.del{background:#fee2e2;color:#dc2626;}
+.load-btn.del:hover{background:#dc2626;color:#fff;}
+.load-close-row{display:flex;justify-content:flex-end;margin-top:14px;}
+.load-close-btn{padding:6px 18px;border:none;border-radius:8px;background:#f1f5f9;
+  color:#64748b;font-size:.8rem;font-weight:700;cursor:pointer;}
+.load-close-btn:hover{background:#e2e8f0;}
+/* Toast */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:#1e293b;color:#fff;padding:9px 22px;border-radius:10px;
+  font-size:.82rem;font-weight:600;opacity:0;transition:.3s;pointer-events:none;z-index:99999;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   z-index:9000;align-items:center;justify-content:center;}
 .mo.open{display:flex;}
 .mb{background:#fff;border-radius:14px;padding:22px 24px 18px;
@@ -1062,7 +1095,7 @@ function saveModal(){ if(_mCb) _mCb(document.getElementById('mTa').value); close
 // ══════════════════════════════════════════════════════
 //  INDEXED DB
 // ══════════════════════════════════════════════════════
-const DB='KaliteRaporDB', ST='payloads', KEY='5neden_v1';
+const DB='KaliteRaporDB', ST='payloads';
 function idbOpen(){
   return new Promise((ok,err)=>{
     const r=indexedDB.open(DB,5);
@@ -1071,8 +1104,19 @@ function idbOpen(){
     r.onerror=e=>err(e.target.error);
   });
 }
-function idbPut(d){ return idbOpen().then(db=>new Promise((ok,er)=>{ const r=db.transaction(ST,'readwrite').objectStore(ST).put(d,KEY); r.onsuccess=()=>ok(); r.onerror=e=>er(e.target.error); })); }
-function idbGet(){ return idbOpen().then(db=>new Promise((ok,er)=>{ const r=db.transaction(ST,'readonly').objectStore(ST).get(KEY); r.onsuccess=e=>ok(e.target.result); r.onerror=e=>er(e.target.error); })); }
+function idbPutKeyed(key,d){ return idbOpen().then(db=>new Promise((ok,er)=>{ const r=db.transaction(ST,'readwrite').objectStore(ST).put(d,key); r.onsuccess=()=>ok(); r.onerror=e=>er(e.target.error); })); }
+function idbGetByKey(key){ return idbOpen().then(db=>new Promise((ok,er)=>{ const r=db.transaction(ST,'readonly').objectStore(ST).get(key); r.onsuccess=e=>ok(e.target.result); r.onerror=e=>er(e.target.error); })); }
+function idbGetAllEntries(){ return idbOpen().then(db=>new Promise((ok,er)=>{
+  const tx=db.transaction(ST,'readonly'); const store=tx.objectStore(ST);
+  const keys=[]; const vals=[];
+  store.openCursor().onsuccess=e=>{
+    const c=e.target.result;
+    if(c){ if(c.key.toString().startsWith('5neden_')){ keys.push(c.key); vals.push(c.value); } c.continue(); }
+    else ok(keys.map((k,i)=>({key:k,data:vals[i]})));
+  };
+  tx.onerror=e=>er(e.target.error);
+})); }
+function idbDeleteByKey(key){ return idbOpen().then(db=>new Promise((ok,er)=>{ const r=db.transaction(ST,'readwrite').objectStore(ST).delete(key); r.onsuccess=()=>ok(); r.onerror=e=>er(e.target.error); })); }
 
 function gatherMeta(){
   _S.meta={
@@ -1090,15 +1134,70 @@ function applyMeta(){
 }
 function saveData(){
   gatherMeta();
-  idbPut(JSON.parse(JSON.stringify(_S)))
-    .then(()=>alert('✅ Analiz kaydedildi.'))
+  const defaultName = [_S.meta.part, _S.meta.customer, _S.meta.date].filter(Boolean).join(' — ') || 'Yeni Analiz';
+  const name = prompt('Bu analiz için bir isim girin:', defaultName);
+  if(name === null) return; // cancelled
+  const label = name.trim() || defaultName;
+  const key = '5neden_' + Date.now();
+  const payload = Object.assign(JSON.parse(JSON.stringify(_S)), { _saveName: label, _savedAt: new Date().toLocaleString('tr-TR') });
+  idbPutKeyed(key, payload)
+    .then(()=>{ showToast('✅ "'+label+'" kaydedildi.'); })
     .catch(e=>alert('❌ '+e));
 }
 function loadData(){
-  idbGet().then(d=>{
-    if(!d){alert('Kayıtlı analiz bulunamadı.');return;}
-    _S=d; applyMeta(); render(); alert('📂 Analiz yüklendi.');
+  idbGetAllEntries().then(entries=>{
+    if(!entries.length){ alert('Henüz kayıtlı analiz yok.'); return; }
+    renderLoadModal(entries);
   }).catch(e=>alert('❌ '+e));
+}
+function deleteEntry(key){
+  if(!confirm('Bu analiz silinsin mi?')) return;
+  idbDeleteByKey(key).then(()=>{
+    idbGetAllEntries().then(entries=>{
+      if(!entries.length){ document.getElementById('loadModal').classList.remove('open'); showToast('🗑 Silindi. Kayıtlı analiz kalmadı.'); return; }
+      renderLoadModal(entries);
+    });
+  });
+}
+function loadEntry(key){
+  idbGetByKey(key).then(d=>{
+    if(!d){ alert('Analiz bulunamadı.'); return; }
+    _S=d; applyMeta(); render();
+    document.getElementById('loadModal').classList.remove('open');
+    showToast('📂 "'+(d._saveName||'Analiz')+'" yüklendi.');
+  }).catch(e=>alert('❌ '+e));
+}
+function renderLoadModal(entries){
+  // sort newest first
+  entries.sort((a,b)=>b.key.localeCompare(a.key));
+  const list = document.getElementById('loadList');
+  list.innerHTML = '';
+  entries.forEach(({key, data})=>{
+    const name    = data._saveName || key;
+    const savedAt = data._savedAt  || '';
+    const part     = data.meta?.part     || '';
+    const customer = data.meta?.customer || '';
+    const row = document.createElement('div');
+    row.className = 'load-row';
+    row.innerHTML = `
+      <div class="load-info">
+        <div class="load-name">${name.replace(/</g,'&lt;')}</div>
+        <div class="load-meta">${[part,customer,savedAt].filter(Boolean).join(' · ')}</div>
+      </div>
+      <div class="load-btns">
+        <button class="load-btn ok" onclick="loadEntry('${key}')">📂 Yükle</button>
+        <button class="load-btn del" onclick="deleteEntry('${key}')">🗑</button>
+      </div>`;
+    list.appendChild(row);
+  });
+  document.getElementById('loadModal').classList.add('open');
+}
+function showToast(msg){
+  let t=document.getElementById('_toast');
+  if(!t){ t=document.createElement('div'); t.id='_toast'; document.body.appendChild(t); }
+  t.textContent=msg; t.className='toast show';
+  clearTimeout(t._tid);
+  t._tid=setTimeout(()=>t.classList.remove('show'),2600);
 }
 function resetAll(){
   if(!confirm('Tüm analiz sıfırlansın mı?')) return;
@@ -2120,5 +2219,16 @@ document.addEventListener('keydown', e=>{
   }
 });
 </script>
+
+<!-- LOAD MODAL -->
+<div class="load-modal" id="loadModal">
+  <div class="load-box">
+    <h3>📂 Kayıtlı Analizler</h3>
+    <div class="load-list" id="loadList"></div>
+    <div class="load-close-row">
+      <button class="load-close-btn" onclick="document.getElementById('loadModal').classList.remove('open')">Kapat</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
