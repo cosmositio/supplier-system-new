@@ -1000,7 +1000,7 @@ function renderTrack(tab, tk){
   }
 }
 
-const MARKER_LEN = 10; // must match markerWidth in defs
+const MARKER_LEN = 10; // tip offset handled via refX only — no path pullback needed
 
 function drawConn(svg, c, tk){
   const dx = c.x2-c.x1, dy = c.y2-c.y1;
@@ -1009,37 +1009,29 @@ function drawConn(svg, c, tk){
   let d;
   let cx1, cy1, cx2, cy2;
 
-  // Pull the path endpoint back by MARKER_LEN so the arrow TIP lands exactly at the target
-  // edge rather than the path end landing inside the box.
-  // For vertical dashes: pull up (y2 -= MARKER_LEN).
-  // For horizontal/diagonal arrivals: pull left (x2 -= MARKER_LEN).
-  let ex2 = c.x2, ey2 = c.y2; // effective endpoint (path stops here, tip lands at c.x2/c.y2)
-
+  // Path goes straight to the target point (c.x2, c.y2).
+  // refX=10 aligns the arrow TIP with that point, so the line visually
+  // meets the back-center of the arrowhead — never a corner/ear.
   if(c.dashed && !c.label){
-    // Fork connector — arrives from above (vertical)
-    ey2 = c.y2 - MARKER_LEN;
+    // Fork connector — arrives vertically from above
     if(absDx < 24){
-      d = `M${c.x1},${c.y1} L${ex2},${ey2}`;
-      cx1=c.x1; cy1=(c.y1+ey2)/2; cx2=ex2; cy2=(c.y1+ey2)/2;
+      d = `M${c.x1},${c.y1} L${c.x2},${c.y2}`;
+      cx1=c.x1; cy1=(c.y1+c.y2)/2; cx2=c.x2; cy2=(c.y1+c.y2)/2;
     } else {
       cx1 = c.x1; cy1 = c.y1 + absDy*0.45;
-      cx2 = ex2;  cy2 = ey2 - absDy*0.25;
-      d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${ex2},${ey2}`;
+      cx2 = c.x2; cy2 = c.y2 - absDy*0.25;
+      d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
     }
   } else if(isDiag){
-    // Staircase diagonal — arrives horizontally from left
-    ex2 = c.x2 - MARKER_LEN;
+    // Staircase diagonal — S-bezier, arrives horizontally
     cx1 = c.x1 + absDx * 0.5; cy1 = c.y1;
-    cx2 = ex2  - absDx * 0.5; cy2 = c.y2;
-    d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${ex2},${c.y2}`;
-    ey2 = c.y2;
+    cx2 = c.x2 - absDx * 0.5; cy2 = c.y2;
+    d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
   } else {
     // Horizontal connector
-    ex2 = c.x2 - MARKER_LEN;
     cx1 = c.x1 + dx * 0.4; cy1 = c.y1;
-    cx2 = ex2  - dx * 0.4; cy2 = c.y2;
-    d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${ex2},${c.y2}`;
-    ey2 = c.y2;
+    cx2 = c.x2 - dx * 0.4; cy2 = c.y2;
+    d = `M${c.x1},${c.y1} C${cx1},${cy1} ${cx2},${cy2} ${c.x2},${c.y2}`;
   }
 
   const path = document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -1057,9 +1049,9 @@ function drawConn(svg, c, tk){
   svg.appendChild(path);
 
   if(c.label==='why' && !c.toRcb){
-    // Labels sit ON the bezier at t positions (use actual path endpoints ex2/ey2)
-    const pQ = bezPt(c.x1,c.y1, cx1,cy1, cx2,cy2, ex2,ey2, 0.12);
-    const pA = bezPt(c.x1,c.y1, cx1,cy1, cx2,cy2, ex2,ey2, 0.82);
+    // Labels sit ON the bezier at t positions
+    const pQ = bezPt(c.x1,c.y1, cx1,cy1, cx2,cy2, c.x2,c.y2, 0.12);
+    const pA = bezPt(c.x1,c.y1, cx1,cy1, cx2,cy2, c.x2,c.y2, 0.82);
     svgTxt(svg, pQ.x + 3, pQ.y - 6, 'Neden?', '#1d4ed8', true,  10);
     svgTxt(svg, pA.x - 22, pA.y - 6, 'Çünkü',  '#6b7280', false,  9);
   }
