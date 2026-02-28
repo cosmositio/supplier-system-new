@@ -1347,19 +1347,21 @@ function _uygRenderRows(q){
 function fillFromUyg(idx){
   const r = _uygRows[idx];
   if(!r) return;
-  // Problem / Parça No
+  // Problem / Parça No  →  "Hata Tipi | Stok Adı (Kod)"
   const stokLabel = [r.stokAdi||'', r.stokKodu ? '('+r.stokKodu+')' : ''].filter(s=>s.trim()).join(' ');
-  document.getElementById('mPart').value = stokLabel;
+  const hataTipiLabel = (r.hataTipi || '').trim();
+  document.getElementById('mPart').value = hataTipiLabel ? hataTipiLabel + ' | ' + stokLabel : stokLabel;
   // Müşteri
   document.getElementById('mCustomer').value = r.cariAdi || '';
   // Tarih
   const pd = _parseUygDate(r.uygunsuzlukTarih || r.tarih || '');
   if(pd) document.getElementById('mDate').value = pd;
-  // Problem metni (tüm paneller)
+  // Problem metni (tüm paneller) — hata tipi + uygunsuzluk türü + kaynak + tespit
   const probParts = [];
-  if(r.uygunsuzlukTuru || r.hataTipi) probParts.push(r.uygunsuzlukTuru || r.hataTipi);
-  if(r.hataKaynagi)  probParts.push('Kaynak: ' + r.hataKaynagi);
-  if(r.tespitYeri)   probParts.push('Tespit: ' + r.tespitYeri);
+  if(r.hataTipi)         probParts.push('Hata Tipi: ' + r.hataTipi);
+  if(r.uygunsuzlukTuru)  probParts.push(r.uygunsuzlukTuru);
+  if(r.hataKaynagi)      probParts.push('Kaynak: ' + r.hataKaynagi);
+  if(r.tespitYeri)       probParts.push('Tespit: ' + r.tespitYeri);
   const problemText = probParts.filter(Boolean).join(' — ') || 'Problem tanımını buraya yazın…';
   ['tech','sys'].forEach(tab => {
     ['os','nd'].forEach(tk => {
