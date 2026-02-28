@@ -503,11 +503,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       </div>
       <div class="key-hint">Ücretsiz · <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com → Get API key →</a></div>
       <select class="or-model-sel" id="geminiModel" onchange="localStorage.setItem('gemini_model',this.value)">
-        <option value="gemini-1.5-flash">✅ Gemini 1.5 Flash — Her zaman çalışır</option>
-        <option value="gemini-1.5-pro">Gemini 1.5 Pro — Kaliteli, stabil</option>
-        <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Exp — Yeni (kart gerekli)</option>
-        <option value="gemini-2.0-flash">Gemini 2.0 Flash (kart gerekli)</option>
-        <option value="gemini-2.5-pro-exp-03-25">Gemini 2.5 Pro Exp (deneysel)</option>
+        <option value="gemini-2.0-flash-lite">✅ Gemini 2.0 Flash Lite — Ücretsiz, hızlı</option>
+        <option value="gemini-2.0-flash">Gemini 2.0 Flash — Güçlü, ücretsiz</option>
+        <option value="gemini-2.5-flash-preview-04-17">Gemini 2.5 Flash Preview — En güncel</option>
+        <option value="gemini-2.5-pro-preview-03-25">Gemini 2.5 Pro Preview (ücretli)</option>
       </select>
     </div>
     <div id="keyBlockOR" style="display:none">
@@ -518,11 +517,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       </div>
       <div class="key-hint">Kart gerekmez · Ücretsiz modeller dengesiz olabilir · <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai → Keys →</a></div>
       <select class="or-model-sel" id="orModel">
-        <option value="meta-llama/llama-3.1-8b-instruct:free">✅ Llama 3.1 8B — Stabil (ücretsiz)</option>
-        <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B — Kaliteli (ücretsiz, dengesiz)</option>
-        <option value="deepseek/deepseek-chat-v3-0324:free">DeepSeek V3 (ücretsiz, dengesiz)</option>
-        <option value="deepseek/deepseek-r1:free">DeepSeek R1 (ücretsiz, yavaş, dengesiz)</option>
-        <option value="qwen/qwen2.5-72b-instruct:free">Qwen 2.5 72B (ücretsiz, dengesiz)</option>
+        <option value="google/gemini-2.0-flash-lite-001:free">✅ Gemini 2.0 Flash Lite — Stabil (ücretsiz)</option>
+        <option value="google/gemini-2.0-flash-001:free">Gemini 2.0 Flash — Güçlü (ücretsiz)</option>
+        <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (ücretsiz)</option>
+        <option value="deepseek/deepseek-chat-v3-0324:free">DeepSeek V3 (ücretsiz)</option>
+        <option value="deepseek/deepseek-r1:free">DeepSeek R1 (ücretsiz, yavaş)</option>
         <option value="mistralai/mistral-small-3.1-24b-instruct:free">Mistral Small 3.1 (ücretsiz)</option>
       </select>
     </div>
@@ -1095,6 +1094,12 @@ function resetAll(){
 document.getElementById('mDate').valueAsDate = new Date();
 // Restore saved API keys and provider
 (function(){
+  // Migrate deprecated model names
+  const DEPRECATED_GEMINI = ['gemini-1.5-flash','gemini-1.5-pro','gemini-2.0-flash-exp','gemini-2.5-pro-exp-03-25'];
+  const DEPRECATED_OR     = ['meta-llama/llama-3.1-8b-instruct:free','qwen/qwen2.5-72b-instruct:free'];
+  if(DEPRECATED_GEMINI.includes(localStorage.getItem('gemini_model'))) localStorage.removeItem('gemini_model');
+  if(DEPRECATED_OR.includes(localStorage.getItem('or_model')))         localStorage.removeItem('or_model');
+
   const k  = localStorage.getItem('groq_api_key');   if(k)  document.getElementById('aiKey').value = k;
   const g  = localStorage.getItem('gemini_api_key'); if(g)  document.getElementById('aiKeyGemini').value = g;
   const or = localStorage.getItem('or_api_key');     if(or) document.getElementById('aiKeyOR').value = or;
@@ -1400,7 +1405,7 @@ async function callAI(messages, maxTokens, temperature){
   if(provider === 'openrouter'){
     const key = localStorage.getItem('or_api_key') || document.getElementById('aiKeyOR')?.value?.trim() || '';
     if(!key) throw new Error('OpenRouter API key girilmedi');
-    const model = localStorage.getItem('or_model') || document.getElementById('orModel')?.value || 'meta-llama/llama-3.1-8b-instruct:free';
+    const model = localStorage.getItem('or_model') || document.getElementById('orModel')?.value || 'google/gemini-2.0-flash-lite-001:free';
     const resp = await fetch('https://openrouter.ai/api/v1/chat/completions',{
       method:'POST',
       headers:{
@@ -1443,7 +1448,7 @@ async function callAI(messages, maxTokens, temperature){
 
     // Read model directly from dropdown (source of truth), persist to localStorage
     const geminiModelEl = document.getElementById('geminiModel');
-    const geminiModel = geminiModelEl?.value || localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
+    const geminiModel = geminiModelEl?.value || localStorage.getItem('gemini_model') || 'gemini-2.0-flash-lite';
     if(geminiModelEl) localStorage.setItem('gemini_model', geminiModel);
 
     let resp = await fetchGemini(geminiModel);
