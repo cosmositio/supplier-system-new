@@ -324,7 +324,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .ca-hdr.sys-hdr{background:linear-gradient(135deg,#5b21b6,#7c3aed);}
 .ca-row-hdr{
   display:grid;
-  grid-template-columns:28px 20px 1fr 26px 76px 88px;
+  grid-template-columns:28px 20px 1fr 26px 76px 88px 74px;
   background:#f8faff;
   border-bottom:2px solid #e2e8f0;
   padding:4px 0;
@@ -337,7 +337,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 }
 .ca-row{
   display:grid;
-  grid-template-columns:28px 20px 1fr 26px 76px 88px;
+  grid-template-columns:28px 20px 1fr 26px 76px 88px 74px;
   border-bottom:1px solid #f1f5f9;
   min-height:44px;
   transition:background .15s;
@@ -398,6 +398,18 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   width:100%;padding:2px 2px;
 }
 .ca-sinput[type=date]{font-size:.68rem;color:#475569;}
+/* Durum select */
+.ca-status{
+  border:none;outline:none;background:transparent;
+  font-size:.7rem;color:#1e293b;font-family:inherit;
+  width:100%;padding:2px 3px;cursor:pointer;
+  border-radius:5px;transition:.15s;
+}
+.ca-status:focus{outline:1.5px solid #93c5fd;}
+.ca-status[data-v="bekliyor"]{background:#f1f5f9;color:#64748b;}
+.ca-status[data-v="devam"]{background:#dbeafe;color:#1d4ed8;}
+.ca-status[data-v="tamam"]{background:#dcfce7;color:#15803d;}
+.ca-status[data-v="iptal"]{background:#fee2e2;color:#dc2626;}
 .ca-section-lbl{
   font-size:.62rem;font-weight:800;text-transform:uppercase;
   letter-spacing:.06em;padding:5px 10px;
@@ -485,9 +497,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
     margin-top:0;
     break-before:auto;
   }
-  /* Hide pin col (2nd) and AI col (4th) → show: # · Faaliyet · Sorumlu · Termin */
+  /* Hide pin col (2nd) and AI col (4th) → show: # · Faaliyet · Sorumlu · Termin · Durum */
   .ca-row-hdr,.ca-row{
-    grid-template-columns:30px 1fr 100px 90px !important;
+    grid-template-columns:30px 1fr 90px 80px 62px !important;
   }
   .ca-row-hdr>:nth-child(2),.ca-row-hdr>:nth-child(4),
   .ca-row>.ca-pin-btn,.ca-row>.ca-ai-btn{
@@ -808,26 +820,44 @@ function uid(){ return 'n'+Math.random().toString(36).slice(2,9); }
 function addStep(tab, tk){
   _S[tab][tk].chains[0].steps.push(mkStep());
   renderTrack(tab, tk);
+  renderActionTable(tab);
 }
 
 function deleteStep(tab, tk, chainIdx, stepIdx){
   const chain = _S[tab][tk].chains[chainIdx];
+  // Remove the matching action entry (by flat index)
+  const flatIdx = _flatStepIdx(tab, tk, chainIdx, stepIdx);
+  if(flatIdx >= 0 && _S[tab].actions[tk][flatIdx]){
+    _S[tab].actions[tk].splice(flatIdx, 1);
+  }
   chain.steps.splice(stepIdx,1);
   if(chain.steps.length===0){
     if(chainIdx===0) chain.steps.push(mkStep());
     else _S[tab][tk].chains.splice(chainIdx,1);
   }
   renderTrack(tab, tk);
+  renderActionTable(tab);
 }
 
 function addParallelBranch(tab, tk, afterMainStepIdx){
   _S[tab][tk].chains.push({ startAfter: afterMainStepIdx, steps: [mkStep()] });
   renderTrack(tab, tk);
+  renderActionTable(tab);
 }
 
 function addBranchStep(tab, tk, chainIdx){
   _S[tab][tk].chains[chainIdx].steps.push(mkStep());
   renderTrack(tab, tk);
+  renderActionTable(tab);
+}
+
+// Returns the flat (getAllSteps) index of a step at [chainIdx][stepIdx]. -1 if not found.
+function _flatStepIdx(tab, tk, chainIdx, stepIdx){
+  const all = getAllSteps(tab, tk);
+  const chain = _S[tab][tk].chains[chainIdx];
+  if(!chain || !chain.steps[stepIdx]) return -1;
+  const stepId = chain.steps[stepIdx].id;
+  return all.findIndex(s => s.id === stepId);
 }
 
 function toggleRoot(tab, tk, chainIdx, stepIdx){
@@ -1466,7 +1496,7 @@ render();
 // ══════════════════════════════════════════════════════
 //  CORRECTIVE ACTIONS TABLE
 // ══════════════════════════════════════════════════════
-function mkAction(){ return {text:'', responsible:'', date:'', pinned:false}; }
+function mkAction(){ return {text:'', responsible:'', date:'', status:'', pinned:false}; }
 
 function getAllSteps(tab, tk){
   const steps = [];
@@ -1505,7 +1535,8 @@ function renderActionTable(tab){
     '<div class="ca-col" style="justify-content:flex-start;padding-left:8px;">Faaliyet</div>' +
     '<div class="ca-col">⚡</div>' +
     '<div class="ca-col">Sorumlu</div>' +
-    '<div class="ca-col">Termin</div>';
+    '<div class="ca-col">Termin</div>' +
+    '<div class="ca-col">Durum</div>';
   el.appendChild(colHdr);
 
   buildActionSection(el, tab, 'os', 'A', '🔴 Oluşum', 'os-lbl');
@@ -1604,6 +1635,21 @@ function buildActionSection(el, tab, tk, prefix, label, lblCls){
     dt.oninput = e => { act.date = e.target.value; };
     dtCell.appendChild(dt);
     row.appendChild(dtCell);
+
+    // Durum
+    const stCell = document.createElement('div');
+    stCell.className = 'ca-cell';
+    const sel = document.createElement('select');
+    sel.className = 'ca-status';
+    sel.title = 'Faaliyet durumu';
+    [['','— Durum —'],['bekliyor','⬜ Bekliyor'],['devam','🔄 Devam'],['tamam','✅ Tamam'],['iptal','❌ İptal']]
+      .forEach(([v,lbl])=>{ const o=document.createElement('option'); o.value=v; o.textContent=lbl; if(act.status===v) o.selected=true; sel.appendChild(o); });
+    sel.dataset.v = act.status || '';
+    const _applyStatusColor = s => { sel.dataset.v = s; };
+    _applyStatusColor(act.status || '');
+    sel.onchange = e => { act.status = e.target.value; _applyStatusColor(e.target.value); };
+    stCell.appendChild(sel);
+    row.appendChild(stCell);
 
     el.appendChild(row);
   });
