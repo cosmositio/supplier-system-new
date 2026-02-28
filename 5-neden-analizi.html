@@ -155,9 +155,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   max-width:480px;width:96%;box-shadow:0 10px 50px rgba(0,0,0,.22);}
 .ai-box h3{font-size:.95rem;font-weight:800;color:#1e293b;margin-bottom:3px;
   display:flex;align-items:center;gap:8px;}
-.ai-subtitle{font-size:.68rem;color:#94a3b8;margin-bottom:14px;
-  padding-bottom:10px;border-bottom:1px solid #f1f5f9;}
+.ai-subtitle{font-size:.68rem;color:#94a3b8;margin-bottom:10px;}
 .ai-subtitle a{color:#2563eb;text-decoration:none;}
+/* Provider tabs */
+.ai-provider-tabs{display:flex;gap:6px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #f1f5f9;}
+.ai-ptab{flex:1;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;
+  cursor:pointer;font-size:.78rem;font-weight:700;color:#64748b;transition:all .15s;}
+.ai-ptab:hover{border-color:#93c5fd;color:#1d4ed8;}
+.ai-ptab.active{background:#1d4ed8;color:#fff;border-color:#1d4ed8;}
+.ai-ptab.active.gem{background:#0f9d58;border-color:#0f9d58;}
 /* wizard */
 .wiz-dots{display:flex;gap:6px;align-items:center;margin-bottom:16px;}
 .wiz-dot{width:22px;height:4px;border-radius:2px;background:#e2e8f0;transition:.2s;}
@@ -454,10 +460,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 <div class="ai-modal" id="aiModal">
   <div class="ai-box">
     <h3>🤖 AI ile 5 Neden Analizi Oluştur</h3>
-    <p class="ai-subtitle">
-      Groq ücretsiz API &nbsp;·&nbsp; Llama 3.3 70B &nbsp;·&nbsp;
-      <a href="https://console.groq.com" target="_blank">console.groq.com</a> → API Keys
-    </p>
+    <!-- Provider selector -->
+    <div class="ai-provider-tabs">
+      <button class="ai-ptab active" id="tabGroq" onclick="setProvider('groq')">🟠 Groq — Llama 3.3</button>
+      <button class="ai-ptab gem" id="tabGemini" onclick="setProvider('gemini')">🔵 Google — Gemini</button>
+    </div>
 
     <!-- wizard progress dots -->
     <div class="wiz-dots" id="wizDots"></div>
@@ -465,11 +472,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
     <!-- step content -->
     <div id="wizStep"></div>
 
-    <!-- API key (always visible at bottom) -->
-    <label class="ai-label">Groq API Key</label>
-    <input class="ai-key" id="aiKey" type="password" placeholder="gsk_...">
-    <div class="key-hint">Tarayıcıda saklanır &nbsp;·&nbsp;
-      <a href="https://console.groq.com" target="_blank">Ücretsiz key al →</a>
+    <!-- API key blocks (one shown at a time) -->
+    <div id="keyBlockGroq">
+      <label class="ai-label">Groq API Key</label>
+      <input class="ai-key" id="aiKey" type="password" placeholder="gsk_...">
+      <div class="key-hint">Ücretsiz · <a href="https://console.groq.com" target="_blank">console.groq.com → API Keys →</a></div>
+    </div>
+    <div id="keyBlockGemini" style="display:none">
+      <label class="ai-label">Google AI Studio API Key</label>
+      <input class="ai-key" id="aiKeyGemini" type="password" placeholder="AIzaSy...">
+      <div class="key-hint">Ücretsiz · <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com → Get API key →</a></div>
     </div>
 
     <div id="aiStatus" style="margin-top:10px;min-height:18px;"></div>
@@ -1038,9 +1050,13 @@ function resetAll(){
 }
 
 document.getElementById('mDate').valueAsDate = new Date();
-// Restore saved API key
-const _savedKey = localStorage.getItem('groq_api_key');
-if(_savedKey) document.getElementById('aiKey').value = _savedKey;
+// Restore saved API keys and provider
+(function(){
+  const k = localStorage.getItem('groq_api_key');   if(k) document.getElementById('aiKey').value = k;
+  const g = localStorage.getItem('gemini_api_key'); if(g) document.getElementById('aiKeyGemini').value = g;
+  const p = localStorage.getItem('ai_provider') || 'groq';
+  setProvider(p);
+})();
 render();
 
 // ══════════════════════════════════════════════════════
@@ -1179,8 +1195,9 @@ function buildActionSection(el, tab, tk, prefix, label, lblCls){
 }
 
 async function aiSuggestAction(tab, tk, idx, btn, step, ta){
-  const apiKey = localStorage.getItem('groq_api_key');
-  if(!apiKey){ alert('Önce AI ile Oluştur butonundan API key girin.'); return; }
+  const _actProvider = localStorage.getItem('ai_provider') || 'groq';
+  const _actKey = _actProvider==='gemini' ? localStorage.getItem('gemini_api_key') : localStorage.getItem('groq_api_key');
+  if(!_actKey){ alert('Önce "AI ile Oluştur" butonundan API key girin.'); return; }
   const stepText = step.text || '';
   if(!stepText){ alert('Bu adımda henüz neden metni yok.'); return; }
 
@@ -1192,24 +1209,11 @@ async function aiSuggestAction(tab, tk, idx, btn, step, ta){
   btn.classList.add('loading');
 
   try{
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-      body: JSON.stringify({
-        model:'llama-3.3-70b-versatile',
-        messages:[
-          { role:'system', content:'Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Kısa, spesifik ve uygulanabilir düzeltici faaliyet önerileri yap. Yalnızca JSON döndür.' },
-          { role:'user',   content: 'Kırılım: '+tabLabel+' — '+trkLabel+'\nProblem: "'+problem+'"\nKök neden adımı: "'+stepText+'"\n\nBu kök neden için bir düzeltici faaliyet öner.\nYALNIZCA JSON: {"action":"<faaliyet (en fazla 20 kelime)"}' }
-        ],
-        temperature:0.3,
-        max_tokens:100,
-        response_format:{ type:'json_object' }
-      })
-    });
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
-    const data   = await resp.json();
-    const raw    = data?.choices?.[0]?.message?.content || '{}';
-    const parsed = JSON.parse(raw);
+    const raw = await callAI([
+      { role:'system', content:'Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Kısa, spesifik ve uygulanabilir düzeltici faaliyet önerileri yap. Yalnızca JSON döndür.' },
+      { role:'user',   content: 'Kırılım: '+tabLabel+' — '+trkLabel+'\nProblem: "'+problem+'"\nKök neden adımı: "'+stepText+'"\n\nBu kök neden için bir düzeltici faaliyet öner.\nYALNIZCA JSON: {"action":"<faaliyet (en fazla 20 kelime)"}' }
+    ], 150, 0.3);
+    const parsed = JSON.parse(raw || '{}');
     const action = parsed.action || parsed.text || parsed.faaliyet || parsed.corrective_action || '';
     if(action){
       _S[tab].actions[tk][idx].text = action;
@@ -1306,6 +1310,44 @@ function wizNav(dir){
   wizRender();
 }
 
+// ── Provider toggle ──────────────────────────────────
+function setProvider(p){
+  localStorage.setItem('ai_provider', p);
+  document.getElementById('tabGroq').classList.toggle('active', p==='groq');
+  document.getElementById('tabGemini').classList.toggle('active', p==='gemini');
+  document.getElementById('keyBlockGroq').style.display   = p==='groq'    ? '' : 'none';
+  document.getElementById('keyBlockGemini').style.display = p==='gemini'  ? '' : 'none';
+}
+
+// ── Unified AI caller (Groq or Gemini) ───────────────
+async function callAI(messages, maxTokens, temperature){
+  const provider = localStorage.getItem('ai_provider') || 'groq';
+  const temp = temperature ?? 0.4;
+  if(provider === 'gemini'){
+    const key = localStorage.getItem('gemini_api_key') || document.getElementById('aiKeyGemini')?.value?.trim() || '';
+    if(!key) throw new Error('Gemini API key girilmedi');
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body: JSON.stringify({ model:'gemini-2.0-flash', messages, temperature:temp, max_tokens:maxTokens, response_format:{type:'json_object'} })
+    });
+    if(!resp.ok){ const e=await resp.json().catch(()=>({})); throw new Error(e?.error?.message||`HTTP ${resp.status}`); }
+    const data = await resp.json();
+    return data?.choices?.[0]?.message?.content || '';
+  } else {
+    const key = localStorage.getItem('groq_api_key') || document.getElementById('aiKey')?.value?.trim() || '';
+    if(!key) throw new Error('Groq API key girilmedi');
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages, temperature:temp, max_tokens:maxTokens, response_format:{type:'json_object'} })
+    });
+    if(!resp.ok){ const e=await resp.json().catch(()=>({})); throw new Error(e?.error?.message||`HTTP ${resp.status}`); }
+    const data = await resp.json();
+    return data?.choices?.[0]?.message?.content || '';
+  }
+}
+
 function openAiModal(){
   _wizStep = 0;
   const prob = (_S.tech.os.problem && !_S.tech.os.problem.includes('buraya')) ? _S.tech.os.problem : '';
@@ -1322,7 +1364,17 @@ function closeAiModal(){ document.getElementById('aiModal').classList.remove('op
 
 async function aiGenerate(){
   wizSaveCurrent();
-  const apiKey = document.getElementById('aiKey').value.trim();
+  // Save the currently visible key
+  const provider = localStorage.getItem('ai_provider') || 'groq';
+  if(provider==='gemini'){
+    const k = document.getElementById('aiKeyGemini').value.trim();
+    if(!k){ setAiStatus('error','⚠️ Lütfen Gemini API key girin.'); return; }
+    localStorage.setItem('gemini_api_key', k);
+  } else {
+    const k = document.getElementById('aiKey').value.trim();
+    if(!k){ setAiStatus('error','⚠️ Lütfen Groq API key girin.'); return; }
+    localStorage.setItem('groq_api_key', k);
+  }
 
   // Build context from wizard answers
   const q1 = _wizAnswers['wq1'] || '';
@@ -1331,13 +1383,11 @@ async function aiGenerate(){
   const q4 = _wizAnswers['wq4'] || '';
 
   if(!q1){ setAiStatus('error','⚠️ Lütfen en az 1. soruyu yanıtlayın.'); return; }
-  if(!apiKey){ setAiStatus('error','⚠️ Lütfen Groq API key girin.'); return; }
-
-  localStorage.setItem('groq_api_key', apiKey);
 
   const btn = document.getElementById('aiGenBtn');
   btn.disabled = true;
-  setAiStatus('loading','Groq üzerinde Llama 3.3 analiz ediyor…');
+  const provLabel = provider==='gemini' ? 'Google Gemini analiz ediyor…' : 'Groq — Llama 3.3 analiz ediyor…';
+  setAiStatus('loading', provLabel);
 
   const q5 = _wizAnswers['wq5'] || '5';
   const q6 = _wizAnswers['wq6'] || 'Yok';
@@ -1401,31 +1451,10 @@ YALNIZCA aşağıdaki JSON formatında yanıt ver:
 ${context}`;
 
   try {
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: 'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. EN ÖNEMLİ KURAL: 5 Neden zincirinde her adım bir önceki adımın DOĞRUDAN nedeni olmalıdır. Birbirinden bağımsız nedenler listesi kesinlikle kabul edilmez.' },
-          { role: 'user',   content: prompt }
-        ],
-        temperature: 0.4,
-        max_tokens: 2800,
-        response_format: { type: 'json_object' }
-      })
-    });
-
-    if(!resp.ok){
-      const err = await resp.json().catch(()=>({}));
-      throw new Error(err?.error?.message || `HTTP ${resp.status}`);
-    }
-
-    const data = await resp.json();
-    const raw  = data?.choices?.[0]?.message?.content || '';
+    const raw = await callAI([
+      { role: 'system', content: 'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. EN ÖNEMLİ KURAL: 5 Neden zincirinde her adım bir önceki adımın DOĞRUDAN nedeni olmalıdır. Birbirinden bağımsız nedenler listesi kesinlikle kabul edilmez.' },
+      { role: 'user',   content: prompt }
+    ], 2800, 0.4);
     const jsonStr = raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
     const parsed  = JSON.parse(jsonStr);
 
@@ -1509,8 +1538,9 @@ function applyAiResult(parsed, originalProblem){
 
 // Yenile: hem os hem nd izini yeniler (tab = 'tech' veya 'sys')
 async function aiRefresh(tab){
-  const apiKey = localStorage.getItem('groq_api_key');
-  if(!apiKey){ alert('Önce AI ile Oluştur butonundan API key girin.'); return; }
+  const _provider = localStorage.getItem('ai_provider') || 'groq';
+  const _chkKey = _provider==='gemini' ? localStorage.getItem('gemini_api_key') : localStorage.getItem('groq_api_key');
+  if(!_chkKey){ alert('Önce "AI ile Oluştur" butonundan API key girin.'); return; }
 
   const q1 = _wizAnswers['wq1'] || _S.tech.os.problem || _S.sys.os.problem || '';
   if(!q1 || q1.includes('buraya')){ alert('AI\'ye göndermek için önce problem tanımı girin.'); return; }
@@ -1581,15 +1611,10 @@ YALNIZCA JSON:
 ${context}`;
 
   try{
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-      body: JSON.stringify({ model:'llama-3.3-70b-versatile',
-        messages:[{role:'system',content:'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. EN ÖNEMLİ KURAL: 5 Neden zincirinde her adım bir önceki adımın DOĞRUDAN nedeni olmalıdır. Birbirinden bağımsız nedenler listesi kesinlikle kabul edilmez.'},{role:'user',content:prompt}],
-        temperature:0.45, max_tokens:1800, response_format:{type:'json_object'} })
-    });
-    if(!resp.ok){ const e=await resp.json().catch(()=>({})); throw new Error(e?.error?.message||`HTTP ${resp.status}`); }
-    const data = await resp.json();
-    const raw  = data?.choices?.[0]?.message?.content||'';
+    const raw = await callAI([
+      {role:'system',content:'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. EN ÖNEMLİ KURAL: 5 Neden zincirinde her adım bir önceki adımın DOĞRUDAN nedeni olmalıdır. Birbirinden bağımsız nedenler listesi kesinlikle kabul edilmez.'},
+      {role:'user',content:prompt}
+    ], 1800, 0.45);
     const parsed = JSON.parse(raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim());
 
     ['os','nd'].forEach(tk=>{
