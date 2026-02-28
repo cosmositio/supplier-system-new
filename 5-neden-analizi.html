@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -1429,73 +1429,62 @@ async function callAI(messages, maxTokens, temperature){
     }
     const data = await resp.json();
     return data?.choices?.[0]?.message?.content || '';
-
   } else if(provider === 'gemini'){
     const key = localStorage.getItem('gemini_api_key') || document.getElementById('aiKeyGemini')?.value?.trim() || '';
     if(!key) throw new Error('Gemini API key girilmedi');
 
     const geminiModelEl = document.getElementById('geminiModel');
-    const geminiModel = geminiModelEl?.value || localStorage.getItem('gemini_model') || 'gemini-2.0-flash';
-    if(geminiModelEl) localStorage.setItem('gemini_model', geminiModel);
+    const chosenModel = geminiModelEl?.value || localStorage.getItem('gemini_model') || 'gemini-2.0-flash';
+    if(geminiModelEl) localStorage.setItem('gemini_model', chosenModel);
 
-    // Helper: native generateContent endpoint
-    const nativeFetch = async () => {
-      const sysMsg  = messages.find(m=>m.role==='system')?.content || '';
-      const userMsg = messages.find(m=>m.role==='user')?.content   || '';
-      const combined = sysMsg ? sysMsg + '\n\n' + userMsg : userMsg;
-      return fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${key}`,
-        { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            contents:[{role:'user', parts:[{text:combined}]}],
-            generationConfig:{temperature:temp, maxOutputTokens:maxTokens}
-          })
-        }
-      );
+    // Build combined prompt (native API uses single user turn)
+    const sysMsg  = messages.find(m=>m.role==='system')?.content || '';
+    const userMsg = messages.find(m=>m.role==='user')?.content   || '';
+    const combined = sysMsg ? sysMsg + '\n\n' + userMsg : userMsg;
+
+    // Try multiple model name variants + both API versions for maximum compatibility
+    const MODEL_VARIANTS = {
+      'gemini-2.0-flash':               ['gemini-2.0-flash-001',            'gemini-2.0-flash'],
+      'gemini-2.0-flash-lite':          ['gemini-2.0-flash-lite-001',       'gemini-2.0-flash-lite'],
+      'gemini-1.5-flash':               ['gemini-1.5-flash-002',            'gemini-1.5-flash-latest', 'gemini-1.5-flash'],
+      'gemini-1.5-pro':                 ['gemini-1.5-pro-002',              'gemini-1.5-pro-latest',   'gemini-1.5-pro'],
+      'gemini-2.5-flash-preview-04-17': ['gemini-2.5-flash-preview-04-17'],
+      'gemini-2.5-pro-preview-03-25':   ['gemini-2.5-pro-preview-03-25'],
     };
+    const tryModels = (MODEL_VARIANTS[chosenModel] || [chosenModel]).slice();
+    if(!tryModels.includes('gemini-1.5-flash')) tryModels.push('gemini-1.5-flash');
 
-    // Try 1: OpenAI-compat endpoint (cleaner, supports roles natively)
-    let resp = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-      body: JSON.stringify({model:geminiModel, messages, temperature:temp, max_tokens:maxTokens})
-    });
-
-    // If OpenAI-compat not available, fall back to native API
-    if(resp.status === 404){
-      resp = await nativeFetch();
-      if(resp.status === 429 || resp.status === 503){
-        await new Promise(r=>setTimeout(r,5000));
-        resp = await nativeFetch();
+    const doFetch = (model, ver) => fetch(
+      `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${key}`,
+      { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          contents:[{role:'user', parts:[{text:combined}]}],
+          generationConfig:{temperature:temp, maxOutputTokens:maxTokens}
+        })
       }
-      if(!resp.ok){
-        const e = await resp.json().catch(()=>({}));
-        const msg = e?.error?.message || `HTTP ${resp.status}`;
-        if(resp.status===403||resp.status===401) throw new Error('Gemini: API key geçersiz veya Gemini API etkin değil. Google AI Studio’da key kontrol edin.');
-        if(resp.status===404) throw new Error(`Gemini: "${geminiModel}" modeli bulunamadı. Dropdown’dan başka bir model seçin.`);
-        throw new Error('Gemini: '+msg);
+    );
+
+    let lastErr = 'bilinmeyen hata';
+    for(const model of tryModels){
+      for(const ver of ['v1beta','v1']){
+        let resp = await doFetch(model, ver);
+        if(resp.status === 429 || resp.status === 503){
+          await new Promise(r=>setTimeout(r,4000));
+          resp = await doFetch(model, ver);
+        }
+        if(resp.ok){
+          const d = await resp.json();
+          return d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        }
+        const errBody = await resp.json().catch(()=>({}));
+        const msg = errBody?.error?.message || ('HTTP '+resp.status);
+        if(resp.status === 401 || resp.status === 403)
+          throw new Error('Gemini: API key gecersiz. Google AI Studio kontrol edin.');
+        if(resp.status === 404){ lastErr = msg; continue; }
+        throw new Error('Gemini ('+model+'): '+msg);
       }
-      const nd = await resp.json();
-      return nd?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     }
-
-    if(resp.status === 429 || resp.status === 503){
-      await new Promise(r=>setTimeout(r,5000));
-      resp = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-        body: JSON.stringify({model:geminiModel, messages, temperature:temp, max_tokens:maxTokens})
-      });
-    }
-    if(!resp.ok){
-      const e = await resp.json().catch(()=>({}));
-      const msg = e?.error?.message || `HTTP ${resp.status}`;
-      if(resp.status===403||resp.status===401) throw new Error('Gemini: API key geçersiz veya Gemini API etkin değil.');
-      throw new Error('Gemini ('+geminiModel+'): '+msg);
-    }
-    const data = await resp.json();
-    return data?.choices?.[0]?.message?.content || '';
-
+    throw new Error('Gemini: Hicbir model calismadi. Son hata: '+lastErr);
   } else {
     const key = localStorage.getItem('groq_api_key') || document.getElementById('aiKey')?.value?.trim() || '';
     if(!key) throw new Error('Groq API key girilmedi');
