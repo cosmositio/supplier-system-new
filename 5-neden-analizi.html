@@ -1324,6 +1324,38 @@ async function aiSuggestAction(tab, tk, idx, btn, step, ta){
   btn.classList.remove('loading');
 }
 
+// Robust multi-action parser — handles JSON array, object values, numbered/bullet lists
+function parseActionsResponse(raw, expectedN){
+  const s = (raw || '').trim();
+
+  // 1) Try JSON with .actions array
+  try{
+    const p = safeParseJSON(s);
+    if(p.actions && Array.isArray(p.actions) && p.actions.length) return p.actions.map(String);
+    // Model returned {"1":"...", "2":"..."} or similar object
+    const vals = Object.values(p).filter(v => typeof v === 'string' && v.length > 1);
+    if(vals.length >= expectedN) return vals.slice(0, expectedN);
+  } catch(_){}
+
+  // 2) Direct JSON array
+  const arrM = s.match(/\[[\s\S]*?\]/);
+  if(arrM){ try{ const a = JSON.parse(arrM[0]); if(Array.isArray(a) && a.length) return a.map(String); } catch(_){} }
+
+  // 3) Numbered list: "1. ...", "1) ..."
+  const numberedLines = s.split('\n').filter(l => /^\s*\d+[\.\)]\s+\S/.test(l));
+  if(numberedLines.length) return numberedLines.map(l => l.replace(/^\s*\d+[\.\)]\s+/, '').trim());
+
+  // 4) Bullet list: "- ...", "* ...", "• ..."
+  const bulletLines = s.split('\n').filter(l => /^\s*[-*•]\s+\S/.test(l));
+  if(bulletLines.length) return bulletLines.map(l => l.replace(/^\s*[-*•]\s+/, '').trim());
+
+  // 5) Non-empty lines fallback
+  const nonEmpty = s.split('\n').map(l => l.trim()).filter(l => l && !/^[{}\[\]]$/.test(l));
+  if(nonEmpty.length) return nonEmpty;
+
+  return [];
+}
+
 async function aiSuggestAllActions(tab, tk, bulkBtn){
   const _actProvider = localStorage.getItem('ai_provider') || 'groq';
   const _actKey = _actProvider==='gemini'     ? localStorage.getItem('gemini_api_key')
@@ -1344,16 +1376,21 @@ async function aiSuggestAllActions(tab, tk, bulkBtn){
   bulkBtn.textContent = '⏳ Yükleniyor…';
   bulkBtn.disabled = true;
 
-  const numberedList = stepsWithText.map((o, pos) => `${pos+1}. "${o.s.text}"`).join('\n');
+  const numberedList = stepsWithText.map((o, pos) => `${pos+1}. ${o.s.text}`).join('\n');
+  const expectedN = stepsWithText.length;
 
   try{
     const raw = await callAI([
-      { role:'system', content:'Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Kısa, spesifik ve uygulanabilir düzeltici faaliyet önerileri yap. Yalnızca JSON döndür.' },
-      { role:'user',   content: 'Kırılım: '+tabLabel+' — '+trkLabel+'\nProblem: "'+problem+'"\n\nAşağıdaki HER kök neden adımı için birer düzeltici faaliyet öner (max 20 kelime per action).\n\n'+numberedList+'\n\nYALNIZCA JSON: {"actions":["<1. faaliyet>","<2. faaliyet>",…]}' }
-    ], stepsWithText.length * 100, 0.3);
+      { role:'system', content:'Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Yalnızca JSON döndür, başka metin çıkarma.' },
+      { role:'user',   content:
+          'Kırılım: '+tabLabel+' — '+trkLabel+'\n'+
+          'Problem: '+problem+'\n\n'+
+          'Aşağıdaki '+expectedN+' kök neden için birer düzeltici faaliyet öner (en fazla 15 kelime her biri).\n\n'+
+          numberedList+'\n\n'+
+          'Tam olarak '+expectedN+' öğe içeren JSON döndür: {"actions":["faaliyet1","faaliyet2",...]}'}
+    ], Math.max(expectedN * 120, 200), 0.3);
 
-    const parsed  = safeParseJSON(raw || '{}');
-    const actions = parsed.actions || [];
+    const actions = parseActionsResponse(raw, expectedN);
 
     stepsWithText.forEach((o, pos) => {
       const act = _S[tab].actions[tk][o.i];
@@ -1619,10 +1656,14 @@ async function callAI(messages, maxTokens, temperature){
     const oaiModelEl = document.getElementById('oaiModel');
     const oaiModel = oaiModelEl?.value || localStorage.getItem('oai_model') || 'gpt-4o-mini';
     if(oaiModelEl) localStorage.setItem('oai_model', oaiModel);
+    // o-series models (o1, o3, o4…) don’t accept temperature≠1 or response_format
+    const isOSeries = /^o\d/.test(oaiModel);
+    const oaiBody = { model:oaiModel, messages, max_tokens:maxTokens };
+    if(!isOSeries){ oaiBody.temperature = temp; oaiBody.response_format = {type:'json_object'}; }
     const resp = await fetch('https://api.openai.com/v1/chat/completions',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-      body: JSON.stringify({ model:oaiModel, messages, temperature:temp, max_tokens:maxTokens, response_format:{type:'json_object'} })
+      body: JSON.stringify(oaiBody)
     });
     if(!resp.ok){
       const e = await resp.json().catch(()=>({}));
