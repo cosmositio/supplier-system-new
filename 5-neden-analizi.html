@@ -1432,7 +1432,14 @@ const WIZ_STEPS = [
     chips: ['3','4','5','6','7'], def: '5', id: 'wq5' },
   { q: 'Paralel dal eklensin mi?',
     hint: 'Her izde kaç bağımsız dal zinciri oluşturulsun',
-    chips: ['Yok','1 Dal','2 Dal'], def: 'Yok', id: 'wq6' }
+    chips: ['Yok','1 Dal','2 Dal'], def: 'Yok', id: 'wq6' },
+  { q: 'Teknik Ek Bilgi',
+    hint: 'Malzeme, makine kodu, proses parametresi, geçmiş hatalar — ne kadar çok o kadar isabetli analiz',
+    ph: 'örn: Çelik SAE 1045 · Tork anah. model P-2201 · Nominal 45 Nm · Son bakım 3 ay önce · Bölge: Gece vardiyası',
+    multi: true, id: 'wq7' },
+  { q: 'Yanıt Derinliği',
+    hint: 'AI’dan ne kadar kapsamlı analiz çıksın?',
+    chips: ['Hızlı ⚡', 'Standart ✓', 'Derinlemesine 🔬'], def: 'Standart ✓', id: 'wq8' }
 ];
 
 let _wizStep = 0;
@@ -1698,6 +1705,7 @@ function openAiModal(){
   // pre-set chip defaults
   if(!_wizAnswers['wq5']) _wizAnswers['wq5'] = '5';
   if(!_wizAnswers['wq6']) _wizAnswers['wq6'] = 'Yok';
+  if(!_wizAnswers['wq8']) _wizAnswers['wq8'] = 'Standart ✓';
   document.getElementById('aiStatus').innerHTML = '';
   document.getElementById('aiModal').classList.add('open');
   wizRender();
@@ -1801,14 +1809,24 @@ async function aiGenerate(){
 
   const q5 = _wizAnswers['wq5'] || '5';
   const q6 = _wizAnswers['wq6'] || 'Yok';
+  const q7 = _wizAnswers['wq7'] || '';
+  const q8 = _wizAnswers['wq8'] || 'Standart ✓';
   const stepCount   = parseInt(q5) || 5;
   const branchCount = q6==='1 Dal' ? 1 : q6==='2 Dal' ? 2 : 0;
+
+  // Depth mode settings
+  const isHizli       = q8.startsWith('Hızlı');
+  const isDerinlemesine = q8.startsWith('Derin');
+  const maxTokens     = isHizli ? 1800 : isDerinlemesine ? 4800 : 2800;
+  const temperature   = isHizli ? 0.5  : isDerinlemesine ? 0.25 : 0.4;
+  const maxWordPerStep = isHizli ? 8   : isDerinlemesine ? 18   : 10;
 
   const context = [
     `Problem: ${q1}`,
     q2 ? `Etki/Kapsam: ${q2}` : '',
     q3 ? `Süreç/Yer: ${q3}` : '',
-    q4 ? `Tespit: ${q4}` : ''
+    q4 ? `Tespit: ${q4}` : '',
+    q7 ? `Teknik ek bilgi: ${q7}` : ''
   ].filter(Boolean).join('\n');
 
   // Distribute branches evenly across the main chain steps
@@ -1817,6 +1835,15 @@ async function aiGenerate(){
     const sa = Math.round((b+1)*stepCount/(branchCount+1)) - 1;
     branchExamplesAi.push(`{"startAfterStep": ${Math.max(0,sa)}, "steps": ["Dal Neden 1","Dal Neden 2","Dal Neden 3"], "rootCause": "Dal kök"}`);
   }
+  const depthInstruction = isDerinlemesine
+    ? `
+⚠️ DERİNLEMESINE MOD: Her neden adımını teknik açıdan çok daha ayrıntılı yaz (en fazla ${maxWordPerStep} kelime). Her adım için kısa bir teknik açıklama ekle: "Neden metni (Açıklama: fiziksel/sistemsel sebep)" formatında. Kök neden somut, ölçülmüş ve diüzeltmeye uygun biçimde ifade edilsin.`
+    : isHizli
+    ? `
+HIZLI MOD: Her adım en fazla ${maxWordPerStep} kelime, kısa ve net olsun.`
+    : `
+STANDART MOD: Her adım en fazla ${maxWordPerStep} kelime, teknik ve somut.`;
+
   const branchInstruction = branchCount > 0
     ? `Her iz için ${branchCount} bağımsız paralel dal zinciri de oluştur. Dallar farklı startAfterStep değerlerine sahip olsun (zincire yayılmış dağılım).` : '';
   const branchJsonExample = branchCount > 0
@@ -1844,7 +1871,8 @@ Her adım bir öncekini AÇIKLAMALI; bağımsız, rastgele veya genel nedenler Y
 
 Her iz için EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = kök neden.
 ${branchInstruction}
-Nedenler kısa ve teknik olsun (en fazla 10 kelime). Her adım bir öncekinin nedeni; bağımsız madde YAZMAK YASAKTIR.
+Nedenler teknik ve somut olsun (en fazla ${maxWordPerStep} kelime). Her adım bir öncekinin nedeni; bağımsız madde YAZMAK YASAKTIR.
+${depthInstruction}
 
 YALNIZCA aşağıdaki JSON formatında yanıt ver:
 {
@@ -1861,10 +1889,13 @@ YALNIZCA aşağıdaki JSON formatında yanıt ver:
 ${context}`;
 
   try {
+    const sysContent = isDerinlemesine
+      ? 'Sen IATF 16949 / VDA 6.3 uzmanı bir üst düzey kalite mühendisisin. Sadece istenen JSON formatında yanıt ver. Çok ayrıntılı, teknik ve somut nedenler yaz. Her adım bir öncekinin TEK ve DOĞRUDAN nedeni olmalı; genel veya belirsiz ifadeler YASAK. Fiziksel, kimyasal veya sistemik mekanizmayı açıkla.'
+      : 'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. EN ÖNEMLİ KURAL: 5 Neden zincirinde her adım bir önceki adımın DOĞRUDAN nedeni olmalıdır. Birbirinden bağımsız nedenler listesi kesinlikle kabul edilmez.';
     const raw = await callAI([
-      { role: 'system', content: 'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. EN ÖNEMLİ KURAL: 5 Neden zincirinde her adım bir önceki adımın DOĞRUDAN nedeni olmalıdır. Birbirinden bağımsız nedenler listesi kesinlikle kabul edilmez.' },
+      { role: 'system', content: sysContent },
       { role: 'user',   content: prompt }
-    ], 2800, 0.4);
+    ], maxTokens, temperature);
     const parsed  = safeParseJSON(raw);
 
     applyAiResult(parsed, q1);
