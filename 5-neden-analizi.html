@@ -324,7 +324,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .ca-hdr.sys-hdr{background:linear-gradient(135deg,#5b21b6,#7c3aed);}
 .ca-row-hdr{
   display:grid;
-  grid-template-columns:28px 20px 1fr 26px 76px 88px 74px;
+  grid-template-columns:28px 20px 1fr 26px 76px 88px 92px;
   background:#f8faff;
   border-bottom:2px solid #e2e8f0;
   padding:4px 0;
@@ -337,7 +337,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 }
 .ca-row{
   display:grid;
-  grid-template-columns:28px 20px 1fr 26px 76px 88px 74px;
+  grid-template-columns:28px 20px 1fr 26px 76px 88px 92px;
   border-bottom:1px solid #f1f5f9;
   min-height:44px;
   transition:background .15s;
@@ -402,8 +402,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .ca-status{
   border:none;outline:none;background:transparent;
   font-size:.7rem;color:#1e293b;font-family:inherit;
-  width:100%;padding:2px 3px;cursor:pointer;
+  width:100%;padding:2px 4px;cursor:pointer;
   border-radius:5px;transition:.15s;
+  -webkit-appearance:auto;appearance:auto;
+  min-width:0;box-sizing:border-box;
 }
 .ca-status:focus{outline:1.5px solid #93c5fd;}
 .ca-status[data-v="bekliyor"]{background:#f1f5f9;color:#64748b;}
@@ -499,7 +501,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   }
   /* Hide pin col (2nd) and AI col (4th) → show: # · Faaliyet · Sorumlu · Termin · Durum */
   .ca-row-hdr,.ca-row{
-    grid-template-columns:30px 1fr 90px 80px 62px !important;
+    grid-template-columns:30px 1fr 88px 78px 82px !important;
   }
   .ca-row-hdr>:nth-child(2),.ca-row-hdr>:nth-child(4),
   .ca-row>.ca-pin-btn,.ca-row>.ca-ai-btn{
@@ -510,6 +512,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
     border:none !important;background:transparent !important;overflow:visible !important;
     white-space:pre-wrap !important;word-break:break-word !important;}
   .ca-sinput{font-size:.62rem !important;}
+  /* Print: Durum select → plain text badge */
+  .ca-status{
+    -webkit-appearance:none;appearance:none;
+    font-size:.62rem !important;font-weight:700;
+    pointer-events:none;padding:1px 4px !important;
+    border-radius:4px;
+  }
   .ca-row{min-height:22px !important;break-inside:avoid;}
   .ca-hdr{font-size:.68rem !important;padding:5px 10px !important;}
   .ca-section-lbl{font-size:.60rem !important;padding:3px 8px !important;}
