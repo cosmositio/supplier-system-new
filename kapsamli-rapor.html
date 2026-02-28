@@ -880,7 +880,7 @@ function fmtPct(p) { return '%' + Number(p).toFixed(1); }
 function truncate(s, n=40) { return s && s.length > n ? s.slice(0, n) + '…' : (s || ''); }
 
 // ── IndexedDB yardımcı ──
-const _IDB = { name:'KaliteRaporDB', store:'payloads', key:'rapor_payload', ver:1 };
+const _IDB = { name:'KaliteRaporDB', store:'payloads', key:'rapor_payload', ver:5 };
 function idbLoadRapor() {
     return new Promise((res, rej) => {
         const r = indexedDB.open(_IDB.name, _IDB.ver);
