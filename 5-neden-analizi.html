@@ -380,11 +380,89 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .ca-section-lbl.os-lbl{background:#eff6ff;color:#1d4ed8;border-left:3px solid #2563eb;}
 .ca-section-lbl.nd-lbl{background:#f5f3ff;color:#5b21b6;border-left:3px solid #7c3aed;}
 
+/* ── PRINT META BAR (screen hidden, print visible) ── */
+.print-meta{
+  display:none;
+  gap:0;
+  padding:6px 14px;
+  background:#f1f5f9;
+  border-bottom:2px solid #cbd5e1;
+  font-size:.71rem;
+  color:#1e293b;
+  flex-wrap:wrap;
+}
+.print-meta .pm-item{
+  display:flex;align-items:center;gap:4px;
+  padding:2px 14px 2px 0;
+  border-right:1px solid #cbd5e1;
+  margin-right:14px;
+}
+.print-meta .pm-item:last-child{border-right:none;margin-right:0;}
+.print-meta .pm-lbl{color:#64748b;font-weight:400;}
+.print-meta .pm-val{font-weight:700;}
+
 @media print{
-  .topbar,.meta-bar,.legend,.sacts,.add-step-btn,.tbb,.consid-tabs{display:none!important;}
-  body,.canvas-outer{background:#fff;}
-  .consid-panel{display:block!important;}
-  .actions-side{position:static;max-height:none;}
+  /* — Page format — */
+  @page { size: A3 landscape; margin: 8mm 12mm; }
+
+  /* — Preserve colors — */
+  * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+
+  /* — Hide interactive UI — */
+  .topbar,.meta-bar,.legend,.sacts,.add-step-btn,.tbb,
+  .consid-tabs,.ca-bulk-wrap,.ca-pin-btn,.ca-ai-btn,.pin-btn{
+    display:none !important;
+  }
+
+  body{background:#fff !important;margin:0;padding:0;}
+
+  /* — Show both panels with page break — */
+  .consid-panel{display:block !important; break-after:page;}
+  .consid-panel:last-of-type{break-after:auto;}
+
+  /* — Print meta bar — */
+  .print-meta{display:flex !important;}
+
+  /* — Stack diagram on top, actions below — */
+  .panel-body{display:block !important;}
+
+  /* — Diagram: zoom to fit horizontally — */
+  .diagram-side{overflow:visible !important;}
+  .canvas-outer{
+    overflow:visible !important;
+    background:#f8fafc !important;
+    padding:4px 4px 0 !important;
+    zoom:0.46;
+  }
+  .track-wrap{margin-bottom:18px !important;}
+  .node-box textarea{resize:none !important;}
+
+  /* — Actions: full width, compact, readable — */
+  .actions-side{
+    position:static !important;
+    width:100% !important;
+    max-height:none !important;
+    overflow:visible !important;
+    border-left:none !important;
+    border-top:3px solid #2563eb;
+    margin-top:5mm;
+  }
+  /* Hide pin col (2nd child) and AI col (4th child), show: # faaliyet sorumlu termin */
+  .ca-row-hdr,.ca-row{
+    grid-template-columns:34px 1fr 110px 110px !important;
+  }
+  .ca-row-hdr>:nth-child(2),.ca-row-hdr>:nth-child(4),
+  .ca-row>.ca-pin-btn,.ca-row>.ca-ai-btn{
+    display:none !important;
+  }
+  .ca-col,.ca-lbl{font-size:.65rem !important;}
+  .ca-input{font-size:.65rem !important;resize:none !important;height:auto !important;
+    border:none !important;background:transparent !important;overflow:visible !important;
+    white-space:pre-wrap !important;}
+  .ca-sinput{font-size:.65rem !important;}
+  .ca-row{min-height:26px !important;break-inside:avoid;}
+  .ca-hdr{font-size:.72rem !important;padding:5px 12px !important;}
+  .ca-section-lbl{font-size:.64rem !important;padding:4px 10px !important;}
 }
 </style>
 </head>
@@ -449,6 +527,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       <em style="font-style:normal;font-weight:700;"> → "Hata nasıl oluştu?"</em>
     </div>
   </div>
+  <div class="print-meta" id="print-meta-tech">
+    <div class="pm-item"><span class="pm-lbl">Analiz:</span><span class="pm-val">Teknik — 5 Neden Analizi</span></div>
+    <div class="pm-item"><span class="pm-lbl">Parça / Problem:</span><span class="pm-val" id="pmt-part"></span></div>
+    <div class="pm-item"><span class="pm-lbl">Müşteri:</span><span class="pm-val" id="pmt-customer"></span></div>
+    <div class="pm-item"><span class="pm-lbl">Tarih:</span><span class="pm-val" id="pmt-date"></span></div>
+    <div class="pm-item"><span class="pm-lbl">Analist:</span><span class="pm-val" id="pmt-analyst"></span></div>
+  </div>
   <div class="panel-body">
     <div class="diagram-side">
       <div class="canvas-outer" id="co-tech">
@@ -486,6 +571,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       Kontrol planı yeterliliği · PFMEA risk tespiti · Operatör eğitimi · Denetim frekansı · Yönetim sistemi açığı
       <em style="font-style:normal;font-weight:700;"> → "Sistem neden yakalayamadı?"</em>
     </div>
+  </div>
+  <div class="print-meta" id="print-meta-sys">
+    <div class="pm-item"><span class="pm-lbl">Analiz:</span><span class="pm-val">Sistemsel — 5 Neden Analizi</span></div>
+    <div class="pm-item"><span class="pm-lbl">Parça / Problem:</span><span class="pm-val" id="pms-part"></span></div>
+    <div class="pm-item"><span class="pm-lbl">Müşteri:</span><span class="pm-val" id="pms-customer"></span></div>
+    <div class="pm-item"><span class="pm-lbl">Tarih:</span><span class="pm-val" id="pms-date"></span></div>
+    <div class="pm-item"><span class="pm-lbl">Analist:</span><span class="pm-val" id="pms-analyst"></span></div>
   </div>
   <div class="panel-body">
     <div class="diagram-side">
@@ -2179,6 +2271,34 @@ function setAiStatus(type, msg){
   else
     el.innerHTML = `<div style="color:#16a34a;font-size:.74rem;">${msg}</div>`;
 }
+
+// ── PRINT PREP ──
+window.addEventListener('beforeprint', ()=>{
+  const part     = document.getElementById('mPart')?.value     || '';
+  const customer = document.getElementById('mCustomer')?.value || '';
+  const analyst  = document.getElementById('mAnalyst')?.value  || '';
+  const dateRaw  = document.getElementById('mDate')?.value     || '';
+  const dateStr  = dateRaw ? new Date(dateRaw).toLocaleDateString('tr-TR') : '';
+  ['t','s'].forEach(p=>{
+    const pfx = 'pm'+p+'-';
+    const set = (id, v) => { const el=document.getElementById(pfx+id); if(el) el.textContent=v; };
+    set('part',     part     || '—');
+    set('customer', customer || '—');
+    set('date',     dateStr  || '—');
+    set('analyst',  analyst  || '—');
+  });
+  // Convert textareas to show value as textContent for reliable print
+  document.querySelectorAll('.ca-input').forEach(ta=>{
+    ta.setAttribute('data-pv', ta.value);
+    ta.style.height = 'auto';
+  });
+});
+window.addEventListener('afterprint', ()=>{
+  document.querySelectorAll('.ca-input').forEach(ta=>{
+    ta.removeAttribute('data-pv');
+    ta.style.height = '';
+  });
+});
 
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape') { closeAiModal(); }
