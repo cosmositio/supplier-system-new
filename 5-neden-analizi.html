@@ -1346,17 +1346,15 @@ async function callAI(messages, maxTokens, temperature){
       return resp;
     };
 
-    // Try gemini-2.0-flash first, fall back to gemini-2.0-flash-lite on 429/quota
+    // Try gemini-2.0-flash, on 429 wait and retry once
     let resp = await fetchGemini('gemini-2.0-flash');
     if(resp.status === 429 || resp.status === 503){
-      // wait 3s and retry with lighter model
-      await new Promise(r=>setTimeout(r,3000));
-      resp = await fetchGemini('gemini-2.0-flash-lite');
+      await new Promise(r=>setTimeout(r,4000));
+      resp = await fetchGemini('gemini-2.0-flash');
     }
     if(!resp.ok){
       const e = await resp.json().catch(()=>({}));
       const msg = e?.error?.message || `HTTP ${resp.status}`;
-      if(resp.status === 429) throw new Error('⏳ Rate limit — Google kotası doldu. Birkaç saniye bekleyip tekrar deneyin veya Groq sekmesine geçin.');
       throw new Error('Gemini: ' + msg);
     }
     const data = await resp.json();
