@@ -519,11 +519,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
       </div>
       <div class="key-hint">Kart gerekmez · Ücretsiz modeller dengesiz olabilir · <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai → Keys →</a></div>
       <select class="or-model-sel" id="orModel">
-        <option value="meta-llama/llama-3.3-70b-instruct:free">✅ Llama 3.3 70B — Stabil (ücretsiz)</option>
-        <option value="deepseek/deepseek-chat:free">DeepSeek Chat (ücretsiz)</option>
-        <option value="deepseek/deepseek-r1:free">DeepSeek R1 (ücretsiz, yavaş)</option>
-        <option value="mistralai/mistral-7b-instruct:free">Mistral 7B (ücretsiz)</option>
-        <option value="microsoft/phi-3-mini-128k-instruct:free">Phi-3 Mini (ücretsiz)</option>
+        <option value="meta-llama/llama-3.3-70b-instruct:free">✅ Llama 3.3 70B (ücretsiz)</option>
+        <option value="arcee-ai/trinity-large-preview:free">Arcee Trinity Large (ücretsiz)</option>
+        <option value="stepfun/step-3.5-flash:free">StepFun 3.5 Flash (ücretsiz)</option>
+        <option value="openai/gpt-oss-120b:free">OpenAI GPT-OSS 120B (ücretsiz)</option>
+        <option value="arcee-ai/trinity-mini:free">Arcee Trinity Mini (ücretsiz)</option>
+        <option value="z-ai/glm-4.5-air:free">GLM 4.5 Air (ücretsiz)</option>
+        <option value="nvidia/nemotron-3-nano-30b-a3b:free">NVIDIA Nemotron 30B (ücretsiz)</option>
       </select>
     </div>
 
@@ -1408,14 +1410,16 @@ async function callAI(messages, maxTokens, temperature){
     if(!key) throw new Error('OpenRouter API key girilmedi');
     const chosenOR = localStorage.getItem('or_model') || document.getElementById('orModel')?.value || 'meta-llama/llama-3.3-70b-instruct:free';
 
-    // Free model fallback chain — OpenRouter models change frequently
+    // Free model fallback chain — verified working on OpenRouter (Feb 2026)
     const OR_FALLBACKS = [
       chosenOR,
       'meta-llama/llama-3.3-70b-instruct:free',
-      'mistralai/mistral-7b-instruct:free',
-      'google/gemma-2-9b-it:free',
-      'openchat/openchat-7b:free',
-      'nousresearch/nous-capybara-7b:free',
+      'arcee-ai/trinity-large-preview:free',
+      'stepfun/step-3.5-flash:free',
+      'openai/gpt-oss-120b:free',
+      'arcee-ai/trinity-mini:free',
+      'z-ai/glm-4.5-air:free',
+      'nvidia/nemotron-3-nano-30b-a3b:free',
     ].filter((v,i,a) => a.indexOf(v)===i); // deduplicate
 
     const orPost = (model) => fetch('https://openrouter.ai/api/v1/chat/completions',{
@@ -1507,10 +1511,10 @@ async function callAI(messages, maxTokens, temperature){
     }
     if(all404)
       throw new Error(
-        'Gemini: API etkin değil.\n\n' +
-        'Çözüm: console.cloud.google.com adresine gidin → ' +
-        'Proje seçin → "Generative Language API" aratın → Etkinleştir.\n\n' +
-        'Veya aistudio.google.com/apikey adresinden yeni key oluşturun (API otomatik etkinleşir).'
+        'Gemini: Tüm modeller 404 — iki olası neden:\n\n' +
+        '1️⃣ GOOGLE KESINTİSİ: Kontrol edin → aistudio.google.com/status\n' +
+        '   (Bugünü statüsü kırmızıysa bekleyin, kodda sorun yok.)\n\n' +
+        '2️⃣ APİ ETKİN DEĞİL: aistudio.google.com/apikey → Yeni key oluşturun.'
       );
     throw new Error('Gemini: Hiçbir model çalışmadı. Son hata: '+lastErr);
   } else {
