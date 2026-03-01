@@ -1118,6 +1118,16 @@
         }
         .bk-rctype-all-btn:hover { background:rgba(30,64,175,0.35); }
         .bk-rctype-desc { font-size:0.72em; color:#334155; font-style:italic; margin-top:5px; }
+
+        /* ===== PREVIEW PANEL RC-TYPE TABS ===== */
+        .bk-rcmulti-tabs { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:12px; }
+        .bk-rcmulti-tab {
+            padding:4px 13px; border-radius:5px; border:1.5px solid #1e293b;
+            background:transparent; color:#475569; cursor:pointer;
+            font-size:0.8em; font-weight:700; font-family:inherit; transition:all 0.15s;
+            white-space:nowrap;
+        }
+        .bk-rcmulti-tab:hover { border-color:#94a3b8; color:#cbd5e1; }
         .ai-messages {
             flex: 1; min-height: 0; overflow-y: auto;
             padding: 16px; display: flex; flex-direction: column; gap: 12px;
@@ -1986,7 +1996,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     localStorage.removeItem(_lcKey);
                     const _lcData = JSON.parse(_lcRaw);
                     _aiRcType = _lcData.rcType || _bkRt;
+                    _aiRcTypes.add(_aiRcType);
                     if (_lcData.problem) state.problem = _lcData.problem;
+                    if (_lcData.preBuildCauses) {
+                        _aiCauses = _lcData.preBuildCauses;
+                        _aiProblem = _lcData.problem || '';
+                        _aiCausesMulti[_aiRcType] = _lcData.preBuildCauses;
+                    }
                     _fromRcLaunch = true;
                 }
             }
@@ -2106,7 +2122,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (_fromRcLaunch) {
         _bkUpdateRcTypeUI();
         if (_aiRcType) document.title = `🎯 ${_aiRcType} — Balık Kılçığı Analizi`;
-        setTimeout(() => { switchView('ai'); }, 250);
+        if (Object.keys(_aiCauses).length > 0) {
+            // Causes geldi — doğrudan fishbone oluştur
+            setTimeout(() => {
+                switchView('fishbone');
+                aiGenerateFishbone();
+            }, 300);
+        } else {
+            setTimeout(() => { switchView('ai'); }, 250);
+        }
     }
 
     // Problem input listener
@@ -5346,7 +5370,9 @@ let _aiDepth = 2;          // 1=sadece ana, 2=ana+alt, 3=ana+alt+alt-alt
 let _aiWaitingForDepth = false;
 let _aiFlowState = 'problem'; // 'problem'|'ctx_when'|'ctx_what'|'ctx_tried'|'depth'|'generating'
 let _aiContext = { when: '', what: '', tried: '' };
-let _aiRcType = ''; // 'TCO'|'TCN'|'SCO'|'SCN'|''
+let _aiRcType = ''; // 'TCO'|'TCN'|'SCO'|'SCN'|'' — aktif sekme
+let _aiRcTypes = new Set(); // çoklu seçim
+let _aiCausesMulti = {};   // { 'TCO': {Makine:[...], ...}, 'TCN': {...}, ... }
 let _8dLinkKey = null; // if opened from 8D D4, this key is used as secondary autoSave target
 
 const BK_RCTYPE_INFO = {
@@ -5485,26 +5511,40 @@ function bkCtxSkip(field) {
 
 // ===== ROOT CAUSE TYPE SELECTOR =====
 function bkSetRcType(type) {
-    _aiRcType = (_aiRcType === type) ? '' : type; // toggle
+    if (_aiRcTypes.has(type)) {
+        _aiRcTypes.delete(type);
+        if (_aiRcType === type) _aiRcType = [..._aiRcTypes][0] || '';
+    } else {
+        _aiRcTypes.add(type);
+        if (!_aiRcType) _aiRcType = type;
+    }
     ['TCO','TCN','SCO','SCN'].forEach(t => {
         const btn = document.getElementById('bkRcBtn_' + t);
-        if (btn) btn.classList.toggle('active', t === _aiRcType);
+        if (btn) btn.classList.toggle('active', _aiRcTypes.has(t));
     });
     const desc = document.getElementById('bkRcTypeDesc');
     if (desc) {
-        if (_aiRcType) {
-            const info = BK_RCTYPE_INFO[_aiRcType];
-            desc.textContent = `${_aiRcType}: ${info.label} — ${info.short}`;
-            desc.style.color = info.color;
+        if (_aiRcTypes.size > 0) {
+            const parts = [..._aiRcTypes].map(t => {
+                const info = BK_RCTYPE_INFO[t];
+                return `<span style="color:${info.color};font-weight:700;">${t}</span>`;
+            });
+            desc.innerHTML = parts.join(' + ') + ' seçildi';
+            desc.style.color = '';
         } else {
             desc.textContent = 'Tip seçilmedi — genel analiz yapılır';
             desc.style.color = '';
         }
     }
-    // Sohbet başladıysa sıfırla ki yeni type context ile başlasın
     if (document.getElementById('aiMessages')?.children.length > 0) {
         aiReset();
     }
+}
+
+function bkSwitchRcTab(type) {
+    _aiRcType = type;
+    _aiCauses = _aiCausesMulti[type] || {};
+    aiRenderPreview();
 }
 
 function bkLaunchAllRcTypes() {
@@ -5523,14 +5563,17 @@ function bkLaunchAllRcTypes() {
 function _bkUpdateRcTypeUI() {
     ['TCO','TCN','SCO','SCN'].forEach(t => {
         const btn = document.getElementById('bkRcBtn_' + t);
-        if (btn) btn.classList.toggle('active', t === _aiRcType);
+        if (btn) btn.classList.toggle('active', _aiRcTypes.has(t));
     });
     const desc = document.getElementById('bkRcTypeDesc');
     if (!desc) return;
-    if (_aiRcType) {
-        const info = BK_RCTYPE_INFO[_aiRcType];
-        desc.textContent = `${_aiRcType}: ${info.label} — ${info.short}`;
-        desc.style.color = info.color;
+    if (_aiRcTypes.size > 0) {
+        const parts = [..._aiRcTypes].map(t => {
+            const info = BK_RCTYPE_INFO[t];
+            return `<span style="color:${info.color};font-weight:700;">${t}</span>`;
+        });
+        desc.innerHTML = parts.join(' + ') + ' seçildi';
+        desc.style.color = '';
     } else {
         desc.textContent = 'Tip seçilmedi — genel analiz yapılır';
         desc.style.color = '';
@@ -5541,10 +5584,17 @@ function aiReset() {
     _aiStep = 0;
     _aiProblem = '';
     _aiCauses = {};
+    _aiCausesMulti = {};
     _aiDepth = 2;
     _aiWaitingForDepth = false;
     _aiFlowState = 'problem';
     _aiContext = { when: '', what: '', tried: '' };
+    // Keep type selection; sync active tab to first selected
+    if (_aiRcTypes.size > 0 && (!_aiRcType || !_aiRcTypes.has(_aiRcType))) {
+        _aiRcType = [..._aiRcTypes][0];
+    } else if (_aiRcTypes.size === 0) {
+        _aiRcType = '';
+    }
     document.getElementById('aiMessages').innerHTML = '';
     document.getElementById('aiUserInput').value = '';
     document.getElementById('aiUserInput').disabled = false;
@@ -5712,6 +5762,14 @@ function aiSend() {
 }
 
 function aiDeleteCause(category, idx) {
+    const activeKey = _aiRcType || '';
+    // Update in _aiCausesMulti
+    const multiSrc = _aiCausesMulti[activeKey];
+    if (multiSrc?.[category]) {
+        multiSrc[category].splice(idx, 1);
+        if (multiSrc[category].length === 0) delete multiSrc[category];
+    }
+    // Update in _aiCauses (legacy / single-type)
     if (_aiCauses[category]) {
         _aiCauses[category].splice(idx, 1);
         if (_aiCauses[category].length === 0) delete _aiCauses[category];
@@ -5729,11 +5787,30 @@ function aiRenderPreview() {
         return `<div class="ai-step-dot ${isDone ? 'done' : isCurrent ? 'active' : ''}" title="${s.category}"></div>`;
     }).join('');
 
-    // Category cards
+    // Tab bar for multi-type selection
     const cards = document.getElementById('aiCategoryCards');
+    const allTypes = [..._aiRcTypes];
+    let tabBar = '';
+    if (allTypes.length > 0) {
+        tabBar = `<div class="bk-rcmulti-tabs">` +
+            allTypes.map(t => {
+                const info = BK_RCTYPE_INFO[t];
+                const hasCauses = _aiCausesMulti[t] && Object.keys(_aiCausesMulti[t]).length > 0;
+                const isActive = t === _aiRcType;
+                const style = isActive
+                    ? `background:${info.color};border-color:${info.color};color:#fff;`
+                    : `border-color:${hasCauses ? info.color : '#1e293b'};color:${hasCauses ? info.color : '#475569'};`;
+                return `<button class="bk-rcmulti-tab" style="${style}" onclick="bkSwitchRcTab('${t}')" title="${info.label}">${t}${hasCauses ? ' ✓' : ''}</button>`;
+            }).join('') +
+        `</div>`;
+    }
+
+    // Category cards based on active tab (_aiCausesMulti[active] or _aiCauses)
     const categoryStepKeys = AI_STEPS.filter(s => s.category).map(s => s.category);
-    cards.innerHTML = categoryStepKeys.map(cat => {
-        const causes = _aiCauses[cat] || [];
+    const activeCauses = (_aiRcType && _aiCausesMulti[_aiRcType]) ? _aiCausesMulti[_aiRcType] : _aiCauses;
+
+    cards.innerHTML = tabBar + categoryStepKeys.map(cat => {
+        const causes = activeCauses[cat] || [];
         return `<div class="ai-category-card">
             <div class="ai-category-title">${cat}</div>
             <div class="ai-tag-list">
@@ -5757,6 +5834,25 @@ function aiRenderPreview() {
 }
 
 function aiGenerateFishbone() {
+    // Çoklu tip seçilmişse her biri için ayrı sekme aç
+    if (_aiRcTypes.size > 1) {
+        const ts = Date.now();
+        let launched = 0;
+        [..._aiRcTypes].forEach((type, i) => {
+            const causes = _aiCausesMulti[type];
+            if (!causes || Object.keys(causes).length === 0) return;
+            const key = `_bk_rclaunch_${ts}_${type}`;
+            localStorage.setItem(key, JSON.stringify({
+                rcType: type,
+                problem: _aiProblem || state.problem,
+                preBuildCauses: causes
+            }));
+            setTimeout(() => window.open(`balik-kilcigi.html?bk_ts=${ts}&bk_rc=${type}`, '_blank'), launched * 420);
+            launched++;
+        });
+        if (launched > 0) { showNotification(`${launched} balık kılçığı sekme açılıyor…`, 'success'); return; }
+    }
+
     if (!_aiProblem && !state.problem) {
         showNotification('Problem adı bulunamadı', 'error');
         return;
