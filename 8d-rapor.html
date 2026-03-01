@@ -1705,6 +1705,66 @@ async function export8DReportPDF(retryCount = 0) {
         yPos = doc.lastAutoTable.finalY + 4;
     }
 
+    // D5
+    const d5rows = Array.from(document.querySelectorAll('.d5-action')).map(a => [
+        a.querySelector('.d5-action-text').value,
+        a.querySelector('.d5-responsible').value,
+        a.querySelector('.d5-plan-date').value,
+        a.querySelector('.d5-verification-date').value,
+        a.querySelector('.d5-verification-person').value
+    ]);
+    if (d5rows.length) {
+        addSection('D5 – CORRECTIVE ACTIONS', [123,31,162]);
+        doc.autoTable({
+            startY:yPos,
+            head:[['Action','Responsible','Plan Date','Verification Date','Verification Person']],
+            body:d5rows, theme:'grid', styles:{fontSize:9, cellPadding:3},
+            headStyles:{fillColor:[123,31,162], textColor:[255,255,255]},
+            margin:{left:margin, right:margin}
+        });
+        yPos = doc.lastAutoTable.finalY + 4;
+    }
+
+    // D6
+    const d6rows = Array.from(document.querySelectorAll('.d6-implementation')).map(i => [
+        i.querySelector('.d6-action').value,
+        i.querySelector('.d6-responsible').value,
+        i.querySelector('.d6-launch-date').value,
+        i.querySelector('.d6-effective-from').value,
+        i.querySelector('.d6-validated-on').value
+    ]);
+    if (d6rows.length) {
+        addSection('D6 – IMPLEMENTATION OF CORRECTIVE ACTIONS', [0,131,143]);
+        doc.autoTable({
+            startY:yPos,
+            head:[['Action','Responsible','Launch Date','Effective From','Validated On']],
+            body:d6rows, theme:'grid', styles:{fontSize:9, cellPadding:3},
+            headStyles:{fillColor:[0,131,143], textColor:[255,255,255]},
+            margin:{left:margin, right:margin}
+        });
+        yPos = doc.lastAutoTable.finalY + 4;
+    }
+
+    // D7
+    const d7rows = Array.from(document.querySelectorAll('.d7-prevention')).map(p => [
+        p.querySelector('.d7-description').value,
+        p.querySelector('.d7-responsible').value,
+        p.querySelector('.d7-planned').value,
+        p.querySelector('.d7-handover').value,
+        p.querySelector('.d7-assessment').value
+    ]);
+    if (d7rows.length) {
+        addSection('D7 – PREVENTION MEASURES', [230,74,25]);
+        doc.autoTable({
+            startY:yPos,
+            head:[['Description','Responsible','Planned','Hand Over Date','Assessment']],
+            body:d7rows, theme:'grid', styles:{fontSize:9, cellPadding:3},
+            headStyles:{fillColor:[230,74,25], textColor:[255,255,255]},
+            margin:{left:margin, right:margin}
+        });
+        yPos = doc.lastAutoTable.finalY + 4;
+    }
+
     // D8
     const d8res = v('f8d_d8_result');
     if (d8res) {
