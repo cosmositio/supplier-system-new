@@ -1984,9 +1984,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Çoklu RC-type başlat (bkLaunchAllRcTypes'dan yönlendirme)
     let _fromRcLaunch = false;
+    let _embedMode = false;
     (() => {
         try {
             const _urlPs = new URLSearchParams(location.search);
+
+            // ===== EMBED MODE (8D inline preview) =====
+            if (_urlPs.get('embed') === '1') {
+                _embedMode = true;
+                const _stKey = _urlPs.get('statekey') || '';
+                if (_stKey) {
+                    const _raw = localStorage.getItem(_stKey);
+                    if (_raw) {
+                        try {
+                            const _st = JSON.parse(_raw);
+                            Object.assign(state, _st);
+                        } catch(e) {}
+                    }
+                }
+                document.body.classList.add('embed-mode');
+                document.body.setAttribute('data-embed-label', '🐟 ' + (state.problem || 'Balık Kılçığı Analizi') + ' — 8D raporu için önizleme');
+            }
+
             const _bkTs  = _urlPs.get('bk_ts');
             const _bkRt  = _urlPs.get('bk_rc');
             if (_bkTs && _bkRt && ['TCO','TCN','SCO','SCN'].includes(_bkRt)) {
@@ -2079,6 +2098,16 @@ document.addEventListener('DOMContentLoaded', () => {
     initActionPlan();
     bkInitProviderUI();  // restore AI provider + keys from localStorage
     render();
+
+    // Embed mode — fishbone görünümüne geç ve etkileşimi devre dışı bırak
+    if (_embedMode) {
+        switchView('fishbone');
+        // canvas pointer-events disable (sürükleme hey⇒ sadece viewport pan aktif)
+        document.getElementById('canvasContainer')?.addEventListener('click', e => e.stopPropagation());
+        document.getElementById('canvasContainer')?.addEventListener('dblclick', e => e.stopPropagation());
+        document.addEventListener('contextmenu', e => e.preventDefault());
+    }
+
     checkFishbone8DSaved();  // yeniden yüklemede pending satırları kontrol et
 
     // Güvenlik: gelen cause'lar render sonrası da state'de olduğunu garantile
@@ -5204,40 +5233,90 @@ function bkSelectDepth(n) {
     const inputIdMap = {groq:'bkKeyGroqInput', gemini:'bkKeyGeminiInput', openai:'bkKeyOAIInput', openrouter:'bkKeyORInput'};
     if (n && n > 0) localStorage.setItem(keyMap[provider] + '_depth', n);
 
-    const providerLabel = {groq:'Groq 🟠', gemini:'Gemini 🔵', openai:'OpenAI 🟢', openrouter:'OpenRouter 🟣'}[provider] || provider;
-    const loadingId = 'bkLoading_' + Date.now();
-    aiAddMessage('bot', `<span class="bk-spinner"></span> ${providerLabel} ile ${n} seviyeli analiz oluşturuluyor…`);
-    const msgs = document.getElementById('aiMessages');
-    if (msgs.lastChild) msgs.lastChild.id = loadingId;
-
-    // store live key if needed
     const liveKey = document.getElementById(inputIdMap[provider])?.value?.trim() || '';
     const storedKey = localStorage.getItem(keyMap[provider]) || '';
     if (liveKey && !storedKey) localStorage.setItem(keyMap[provider], liveKey);
 
-    bkAIGenerateCauses(_aiProblem, n).then(result => {
-        const loadEl = document.getElementById(loadingId);
-        if (loadEl) loadEl.remove();
-        if (!result) {
-            aiAddMessage('bot', '⚠️ Sonuç gelmedi. Manuel moda geçiliyor.');
-            _aiStep++;
-            setTimeout(() => aiAsk(_aiStep), 300);
-            return;
-        }
+    const providerLabel = {groq:'Groq 🟠', gemini:'Gemini 🔵', openai:'OpenAI 🟢', openrouter:'OpenRouter 🟣'}[provider] || provider;
+    const typesToGen = _aiRcTypes.size > 0 ? [..._aiRcTypes] : [''];
+    const multiLabel = typesToGen.filter(Boolean).join(' + ');
+
+    const loadingId = 'bkLoading_' + Date.now();
+    aiAddMessage('bot',
+        typesToGen.length > 1
+            ? `<span class="bk-spinner"></span> ${providerLabel} ile <strong>${multiLabel}</strong> analizi oluşturuluyor…`
+            : `<span class="bk-spinner"></span> ${providerLabel} ile ${n} seviyeli analiz oluşturuluyor…`
+    );
+    if (document.getElementById('aiMessages').lastChild)
+        document.getElementById('aiMessages').lastChild.id = loadingId;
+
+    (async () => {
+        let totalAddedAll = 0;
         const categories = ['Makine','Malzeme','Metot','İnsan','Çevre','Ölçüm'];
-        let totalAdded = 0;
-        categories.forEach(cat => {
-            const items = result[cat];
-            if (Array.isArray(items) && items.length > 0) {
-                const parsed = items.flatMap(line => aiParseCauses(String(line)));
-                if (parsed.length > 0) { _aiCauses[cat] = parsed; totalAdded += parsed.length; }
+
+        for (let ti = 0; ti < typesToGen.length; ti++) {
+            const type = typesToGen[ti];
+
+            // Loading mesajını güncelle
+            if (typesToGen.length > 1) {
+                const loadEl2 = document.getElementById(loadingId);
+                const typeInfo = type ? BK_RCTYPE_INFO[type] : null;
+                if (loadEl2) loadEl2.querySelector('.ai-msg-bubble').innerHTML =
+                    `<span class="bk-spinner"></span>${typeInfo ? ` <strong style="color:${typeInfo.color}">${type}</strong>` : ''} analiz ediliyor… (${ti+1}/${typesToGen.length})`;
             }
-        });
+
+            // _aiRcType'ı geçici olarak bu tip için ayarla (prompt context için)
+            const prevRcType = _aiRcType;
+            _aiRcType = type;
+            let result;
+            try {
+                result = await bkAIGenerateCauses(_aiProblem, n);
+            } catch(e) {
+                _aiRcType = prevRcType;
+                document.getElementById(loadingId)?.remove();
+                aiAddMessage('bot', `⚠️ <strong>API Hatası${type ? ` (${type})` : ''}:</strong> ${e.message}<br><br>Manuel moda geçiliyor.`);
+                _aiStep++;
+                setTimeout(() => aiAsk(_aiStep), 400);
+                return;
+            }
+            _aiRcType = prevRcType;
+
+            if (!result) {
+                if (typesToGen.length === 1) {
+                    document.getElementById(loadingId)?.remove();
+                    aiAddMessage('bot', '⚠️ Sonuç gelmedi. Manuel moda geçiliyor.');
+                    _aiStep++;
+                    setTimeout(() => aiAsk(_aiStep), 300);
+                    return;
+                }
+                continue;
+            }
+
+            // Sonuçları _aiCausesMulti'ye yaz
+            const key = type || '';
+            _aiCausesMulti[key] = {};
+            categories.forEach(cat => {
+                const items = result[cat];
+                if (Array.isArray(items) && items.length > 0) {
+                    const parsed = items.flatMap(line => aiParseCauses(String(line)));
+                    if (parsed.length > 0) { _aiCausesMulti[key][cat] = parsed; totalAddedAll += parsed.length; }
+                }
+            });
+        }
+
+        document.getElementById(loadingId)?.remove();
+
+        // İlk seçili tipin sekmesine geç ve _aiCauses senkronize et
+        _aiRcType = typesToGen[0] || '';
+        _aiCauses = _aiCausesMulti[_aiRcType] || (_aiRcType === '' ? (_aiCausesMulti[''] || {}) : {});
         aiRenderPreview();
-        if (totalAdded > 0) {
-            const catCount = Object.keys(_aiCauses).length;
-            const depthDesc = {1:'tek seviye (ana nedenler)', 2:'2 seviye (ana → kök neden)', 3:'3 seviye (ana → ara → kök neden)'}[n];
-            aiAddMessage('bot', `🎉 AI analizi tamamlandı! <strong>${totalAdded} neden</strong> ${catCount} kategoride <em>${depthDesc}</em> derinlikte oluşturuldu.<br><br>Sağ taraftaki nedenleri inceleyip düzenleyebilirsiniz. Hazır olunca <strong>"Balık Kılçığını Oluştur"</strong> butonuna basın.<br><br><button onclick="bkRegenerateCauses(${n})" style="margin-top:6px;padding:6px 14px;border:1.5px solid #6366f1;border-radius:8px;background:rgba(99,102,241,0.15);color:#a5b4fc;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">&#x1F504; Nedenleri Yenile</button>`);
+
+        if (totalAddedAll > 0) {
+            const depthDescFull = {1:'tek seviye (ana nedenler)', 2:'2 seviye (ana → kök neden)', 3:'3 seviye (ana → ara → kök neden)'}[n];
+            const multiNote = typesToGen.length > 1
+                ? `<br><span style="color:#94a3b8;font-size:12px;">💡 Sağ panelde <strong>${typesToGen.filter(Boolean).join(' · ')}</strong> sekmelerini geçip nedenleri inceleyin.</span>`
+                : '';
+            aiAddMessage('bot', `🎉 AI analizi tamamlandı! <strong>${totalAddedAll} neden</strong> ${depthDescFull} derinliğinde oluşturuldu.${multiNote}<br><br>Hazır olunca <strong>"Balık Kılçığını Oluştur"</strong> butonuna basın.<br><br><button onclick="bkRegenerateCauses(${n})" style="margin-top:6px;padding:6px 14px;border:1.5px solid #6366f1;border-radius:8px;background:rgba(99,102,241,0.15);color:#a5b4fc;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">&#x1F504; Nedenleri Yenile</button>`);
             document.getElementById('aiGenerateBtn').disabled = false;
             document.getElementById('aiUserInput').disabled = false;
             document.getElementById('aiSendBtn').disabled = false;
@@ -5249,13 +5328,7 @@ function bkSelectDepth(n) {
             _aiStep++;
             setTimeout(() => aiAsk(_aiStep), 300);
         }
-    }).catch(err => {
-        const loadEl = document.getElementById(loadingId);
-        if (loadEl) loadEl.remove();
-        aiAddMessage('bot', `⚠️ <strong>API Hatası:</strong> ${err.message}<br><br>Manuel moda geçiliyor.`);
-        _aiStep++;
-        setTimeout(() => aiAsk(_aiStep), 400);
-    });
+    })();
 }
 
 // ── AI Auto-Generate all categories ──────────────────
@@ -5730,6 +5803,10 @@ function aiSend() {
             const causes = aiParseCauses(text);
             if (causes.length > 0) {
                 _aiCauses[step.category] = causes;
+                // _aiCausesMulti'ye de yaz (aktif sekme için)
+                const activeKey = _aiRcType || '';
+                if (!_aiCausesMulti[activeKey]) _aiCausesMulti[activeKey] = {};
+                _aiCausesMulti[activeKey][step.category] = causes;
                 const subCount = causes.reduce((s,c) => s + c.children.length + c.children.reduce((ss,cc) => ss + cc.children.length,0), 0);
                 const msg = subCount > 0
                     ? `✅ <strong>${step.category}</strong> için ${causes.length} neden, ${subCount} alt neden eklendi.`
@@ -6266,13 +6343,19 @@ async function bkRegenerateCauses(depth) {
         if (loadEl) loadEl.remove();
         if (!result) { aiAddMessage('bot', '⚠️ Sonuç gelmedi. Tekrar deneyin.'); return; }
         const categories = ['Makine','Malzeme','Metot','İnsan','Çevre','Ölçüm'];
+        const activeKey = _aiRcType || '';
         _aiCauses = {};
+        _aiCausesMulti[activeKey] = {};
         let totalAdded = 0;
         categories.forEach(cat => {
             const items = result[cat];
             if (Array.isArray(items) && items.length > 0) {
                 const parsed = items.flatMap(line => aiParseCauses(String(line)));
-                if (parsed.length > 0) { _aiCauses[cat] = parsed; totalAdded += parsed.length; }
+                if (parsed.length > 0) {
+                    _aiCauses[cat] = parsed;
+                    _aiCausesMulti[activeKey][cat] = parsed;
+                    totalAdded += parsed.length;
+                }
             }
         });
         aiRenderPreview();

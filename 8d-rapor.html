@@ -214,6 +214,20 @@
         /* ===== D4 LINKED ANALYSES ===== */
         .d4-linked-section { margin-top: 24px; padding-top: 18px; border-top: 1px dashed #c62828; }
         .d4-linked-title { font-weight: 700; color: #c62828; font-size: 0.95em; margin-bottom: 12px; display:flex; align-items:center; gap:6px; }
+        .d4-preview-btn {
+            padding:5px 12px; border:1.5px solid #1565c0; border-radius:5px;
+            background:rgba(21,101,192,0.08); color:#1565c0;
+            cursor:pointer; font-size:0.8em; font-weight:700; font-family:inherit;
+            transition:all 0.15s;
+        }
+        .d4-preview-btn:hover { background:rgba(21,101,192,0.18); }
+        .d4-preview-wrap {
+            margin-top:10px; border-radius:8px; overflow:hidden;
+            border:1.5px solid #c62828; width:100%;
+        }
+        .d4-preview-iframe {
+            display:block; width:100%; height:420px; border:none;
+        }
         .d4-link-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         @media(max-width:600px){ .d4-link-grid { grid-template-columns: 1fr; } }
         .d4-link-card {
@@ -715,7 +729,9 @@ function d4RenderLinkCards() {
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
                     <button class="d4-link-btn-open" style="background:${color};" onclick="d4OpenAnalysis('${type}')">&#8599;&#65039; Aç / Düzenle</button>
                     <button class="d4-link-btn-remove" onclick="d4UnlinkAnalysis('${type}')">&#128465; Kaldır</button>
+                    ${type === 'fishbone' && lk.key ? `<button class="d4-preview-btn" id="d4PrevBtn_${type}" onclick="d4ToggleFishbonePreview('${type}','${lk.key}')">&#128065; Diyagramı Göster</button>` : ''}
                 </div>
+                ${type === 'fishbone' && lk.key ? `<div class="d4-preview-wrap" id="d4PrevWrap_${type}" style="display:none;"><iframe class="d4-preview-iframe" id="d4PrevFrame_${type}"></iframe></div>` : ''}
             </div>`;
         } else {
             return `<div class="d4-link-card empty">
@@ -914,6 +930,26 @@ function d4UnlinkAnalysis(type) {
     if (!confirm('Bu analiz bağlantısını D4\'den kaldırmak istiyor musunuz?\nAnaliz verileri silinmez.')) return;
     _d4Links[type] = null;
     d4RenderLinkCards();
+}
+
+function d4ToggleFishbonePreview(type, key) {
+    const wrap  = document.getElementById('d4PrevWrap_'  + type);
+    const btn   = document.getElementById('d4PrevBtn_'   + type);
+    const frame = document.getElementById('d4PrevFrame_' + type);
+    if (!wrap) return;
+    const isOpen = wrap.style.display !== 'none';
+    if (isOpen) {
+        wrap.style.display = 'none';
+        if (btn) btn.innerHTML = '&#128065; Diyagramı Göster';
+        // iframe src temizleme — keyframe unload
+        if (frame) { frame.src = 'about:blank'; }
+    } else {
+        wrap.style.display = 'block';
+        if (btn) btn.innerHTML = '&#128065; Gizle';
+        if (frame && (!frame.src || frame.src === 'about:blank' || frame.src === '')) {
+            frame.src = `balik-kilcigi.html?embed=1&statekey=${encodeURIComponent(key)}`;
+        }
+    }
 }
 let d5ActionCount         = 0;
 let d6ImplementationCount = 0;
