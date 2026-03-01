@@ -4996,41 +4996,162 @@ async function bkTestAPI(provider) {
     }
 }
 
+// ── Depth chip buttons in chat ───────────────────────
+function bkAskDepth() {
+    _aiWaitingForDepth = true;
+    const depthMsgId = 'bkDepthMsg_' + Date.now();
+    const wrap = document.getElementById('aiMessages');
+    const div = document.createElement('div');
+    div.className = 'ai-msg bot';
+    div.id = depthMsgId;
+    div.innerHTML = `
+        <div class="ai-msg-avatar">🤖</div>
+        <div class="ai-msg-bubble">
+            <strong>Kaç seviye derinlikte analiz oluşturalım?</strong><br><br>
+            Balık kılçığında her alt kılçık, bağlandığı nedene ait kök nedendir.<br>
+            Derin kılçıklar → gerçek kök nedene daha yakın analiz.<br><br>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                <button onclick="bkSelectDepth(1)" style="padding:7px 14px;border:1.5px solid #3b82f6;border-radius:8px;background:#1e3a5f;color:#93c5fd;cursor:pointer;font-size:12px;font-weight:600;">
+                    1️⃣ 1 Seviye<br><span style="font-size:10px;font-weight:400;color:#94a3b8">Sadece ana nedenler</span>
+                </button>
+                <button onclick="bkSelectDepth(2)" style="padding:7px 14px;border:1.5px solid #6366f1;border-radius:8px;background:#2e1d5f;color:#a5b4fc;cursor:pointer;font-size:12px;font-weight:600;">
+                    2️⃣ 2 Seviye ✓<br><span style="font-size:10px;font-weight:400;color:#94a3b8">Ana neden → kök neden</span>
+                </button>
+                <button onclick="bkSelectDepth(3)" style="padding:7px 14px;border:1.5px solid #7c3aed;border-radius:8px;background:#3b1a6b;color:#c4b5fd;cursor:pointer;font-size:12px;font-weight:600;">
+                    3️⃣ 3 Seviye<br><span style="font-size:10px;font-weight:400;color:#94a3b8">Ana → ara → kök neden</span>
+                </button>
+            </div>
+        </div>`;
+    wrap.appendChild(div);
+    wrap.scrollTop = wrap.scrollHeight;
+}
+
+function bkSelectDepth(n) {
+    if (!_aiWaitingForDepth) return;
+    _aiWaitingForDepth = false;
+    _aiDepth = n;
+
+    const depthLabel = {1:'1 Seviye — sadece ana nedenler', 2:'2 Seviye — ana + kök neden', 3:'3 Seviye — ana + ara + kök neden'}[n];
+    aiAddMessage('user', depthLabel);
+
+    const provider = localStorage.getItem('ai_provider') || 'groq';
+    const keyMap = {groq:'groq_api_key', gemini:'gemini_api_key', openai:'oai_api_key', openrouter:'or_api_key'};
+    const inputIdMap = {groq:'bkKeyGroqInput', gemini:'bkKeyGeminiInput', openai:'bkKeyOAIInput', openrouter:'bkKeyORInput'};
+    if (n && n > 0) localStorage.setItem(keyMap[provider] + '_depth', n);
+
+    const providerLabel = {groq:'Groq 🟠', gemini:'Gemini 🔵', openai:'OpenAI 🟢', openrouter:'OpenRouter 🟣'}[provider] || provider;
+    const loadingId = 'bkLoading_' + Date.now();
+    aiAddMessage('bot', `<span class="bk-spinner"></span> ${providerLabel} ile ${n} seviyeli analiz oluşturuluyor…`);
+    const msgs = document.getElementById('aiMessages');
+    if (msgs.lastChild) msgs.lastChild.id = loadingId;
+
+    // store live key if needed
+    const liveKey = document.getElementById(inputIdMap[provider])?.value?.trim() || '';
+    const storedKey = localStorage.getItem(keyMap[provider]) || '';
+    if (liveKey && !storedKey) localStorage.setItem(keyMap[provider], liveKey);
+
+    bkAIGenerateCauses(_aiProblem, n).then(result => {
+        const loadEl = document.getElementById(loadingId);
+        if (loadEl) loadEl.remove();
+        if (!result) {
+            aiAddMessage('bot', '⚠️ Sonuç gelmedi. Manuel moda geçiliyor.');
+            _aiStep++;
+            setTimeout(() => aiAsk(_aiStep), 300);
+            return;
+        }
+        const categories = ['Makine','Malzeme','Metot','İnsan','Çevre','Ölçüm'];
+        let totalAdded = 0;
+        categories.forEach(cat => {
+            const items = result[cat];
+            if (Array.isArray(items) && items.length > 0) {
+                const parsed = items.flatMap(line => aiParseCauses(String(line)));
+                if (parsed.length > 0) { _aiCauses[cat] = parsed; totalAdded += parsed.length; }
+            }
+        });
+        aiRenderPreview();
+        if (totalAdded > 0) {
+            const catCount = Object.keys(_aiCauses).length;
+            const depthDesc = {1:'tek seviye (ana nedenler)', 2:'2 seviye (ana → kök neden)', 3:'3 seviye (ana → ara → kök neden)'}[n];
+            aiAddMessage('bot', `🎉 AI analizi tamamlandı! <strong>${totalAdded} neden</strong> ${catCount} kategoride <em>${depthDesc}</em> derinlikte oluşturuldu.<br><br>Sağ taraftaki nedenleri inceleyip düzenleyebilirsiniz. Hazır olunca <strong>"Balık Kılçığını Oluştur"</strong> butonuna basın.`);
+            document.getElementById('aiGenerateBtn').disabled = false;
+            document.getElementById('aiUserInput').disabled = false;
+            document.getElementById('aiSendBtn').disabled = false;
+            _aiStep = 1;
+            const bar = document.querySelector('.ai-template-bar');
+            if (bar) bar.style.display = 'flex';
+        } else {
+            aiAddMessage('bot', '⚠️ AI yanıtı boş geldi. Manuel olarak devam edelim.');
+            _aiStep++;
+            setTimeout(() => aiAsk(_aiStep), 300);
+        }
+    }).catch(err => {
+        const loadEl = document.getElementById(loadingId);
+        if (loadEl) loadEl.remove();
+        aiAddMessage('bot', `⚠️ <strong>API Hatası:</strong> ${err.message}<br><br>Manuel moda geçiliyor.`);
+        _aiStep++;
+        setTimeout(() => aiAsk(_aiStep), 400);
+    });
+}
+
 // ── AI Auto-Generate all categories ──────────────────
-async function bkAIGenerateCauses(problem) {
-    const categories = ['Makine','Malzeme','Metot','İnsan','Çevre','Ölçüm'];
+async function bkAIGenerateCauses(problem, depth) {
+    depth = depth || 2;
     const provider = localStorage.getItem('ai_provider') || 'groq';
 
     // Check if a key is stored
     const keyMap = {groq:'groq_api_key', gemini:'gemini_api_key', openai:'oai_api_key', openrouter:'or_api_key'};
     const storedKey = localStorage.getItem(keyMap[provider]) || '';
-    // Also check live input
     const inputMap = {groq:'bkKeyGroqInput', gemini:'bkKeyGeminiInput', openai:'bkKeyOAIInput', openrouter:'bkKeyORInput'};
     const liveKey = document.getElementById(inputMap[provider])?.value?.trim() || '';
     if (!storedKey && !liveKey) return null; // no key → manual mode
 
-    const systemPrompt = `Sen bir üretim kalitesi uzmanısın. Kullanıcı bir problemi tarif edecek. Sen Ishikawa (Balık Kılçığı) analizi yaparak 6 kategori için olası kök nedenleri oluşturacaksın.
+    // Build depth-specific format instructions
+    const depthInstructions = {
+        1: `Her kategoride 3-5 ana neden yaz. Alt neden YOK — sadece düz liste.
 
-Şu kategori başlıklarını kullan: Makine, Malzeme, Metot, İnsan, Çevre, Ölçüm
-
-Her kategoride 2-4 neden yaz. Alt nedenler için "Ana Neden > Alt1, Alt2" formatını kullan.
-
-SADECE JSON döndür, kesinlikle başka metin yazma:
+FORMAT:
 {
-  "Makine": ["Neden1", "Neden2 > Alt1, Alt2"],
-  "Malzeme": ["Neden1", "Neden2"],
-  "Metot": ["Neden1"],
-  "İnsan": ["Neden1", "Neden2"],
-  "Çevre": ["Neden1"],
-  "Ölçüm": ["Neden1", "Neden2"]
-}`;
+  "Makine": ["Kalibrasyon eksikliği", "Ekipman eskimesi", "Titreşim sorunu"],
+  "Malzeme": ["Hammadde kalitesi düşük", "Vida ölçü toleransı dışı"]
+}`,
+        2: `Her kategoride 2-4 ana neden yaz. Her ana nedenin altına 1-3 KÖK NEDEN ekle.
+Balık kılçığı kuralı: Alt kılçık = üst kılçığın KÖK NEDENİ (sebebi).
+"Ana Neden > KökNeden1, KökNeden2" formatını kullan.
+
+FORMAT:
+{
+  "Makine": ["Kalibrasyon eksikliği > Bakım yapılmıyor, Ölçüm aleti hatalı", "Ekipman eskimesi > Yenileme planı yok"],
+  "İnsan": ["Operatör hatası > Eğitim eksikliği, Dikkat dağınıklığı"],
+  "Malzeme": ["Vida kalitesi düşük"]
+}`,
+        3: `Her kategoride 2-3 ana neden yaz. Her ana nedenin altına 1-2 ARA NEDEN, her ara nedenin altına 1-3 KÖK NEDEN ekle.
+Balık kılçığı kuralı: Daha derin kılçık = daha temel kök neden.
+"Ana Neden > Ara Neden > KökNeden1, KökNeden2" formatını kullan.
+Bir satır = bir ana neden zinciri.
+
+FORMAT:
+{
+  "Makine": ["Kalibrasyon eksikliği > Bakım düzensiz > Bakım planı yok, Sorumlu atanmamış", "Ekipman eskimesi > Yatırım bütçesi yetersiz > Maliyet kısıtı, Önceliklendirme yok"],
+  "İnsan": ["Operatör hatası > Eğitim eksikliği > İş başı eğitim verilmemiş, Prosedür dokümanı yok"],
+  "Malzeme": ["Vida kalitesi düşük > Tedarikçi denetimi yok > Kalite kriterleri tanımsız"]
+}`
+    };
+
+    const systemPrompt = `Sen bir üretim kalitesi uzmanısın. Ishikawa (Balık Kılçığı) analizi yapıyorsun.
+
+KATEGORİLER: Makine, Malzeme, Metot, İnsan, Çevre, Ölçüm
+
+${depthInstructions[depth]}
+
+Tüm kategoriler için JSON üret. SADECE JSON döndür, başka hiçbir şey yazma. Türkçe yaz.`;
 
     const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user',   content: `Problem: ${problem}` }
     ];
 
-    const raw = await bkCallAI(messages, 1200, 0.6);
+    const tokenMap = {1: 800, 2: 1200, 3: 1800};
+    const raw = await bkCallAI(messages, tokenMap[depth] || 1200, 0.6);
     return bkSafeParseJSON(raw);
 }
 
@@ -5073,6 +5194,8 @@ const AI_STEPS = [
 let _aiStep = 0;
 let _aiProblem = '';
 let _aiCauses = {}; // { 'Makine': [{name, children:[{name, children:[]}]}, ...] }
+let _aiDepth = 2;          // 1=sadece ana, 2=ana+alt, 3=ana+alt+alt-alt
+let _aiWaitingForDepth = false;
 
 function switchView(view) {
     const fv = document.getElementById('fishboneView');
@@ -5126,6 +5249,8 @@ function aiReset() {
     _aiStep = 0;
     _aiProblem = '';
     _aiCauses = {};
+    _aiDepth = 2;
+    _aiWaitingForDepth = false;
     document.getElementById('aiMessages').innerHTML = '';
     document.getElementById('aiUserInput').value = '';
     document.getElementById('aiUserInput').disabled = false;
@@ -5215,66 +5340,8 @@ function aiSend() {
         if (hasKey) {
             // Store live key if not already saved
             if (liveKey && !storedKey) localStorage.setItem(keyMap[provider], liveKey);
-
-            const providerLabel = {groq:'Groq 🟠', gemini:'Gemini 🔵', openai:'OpenAI 🟢', openrouter:'OpenRouter 🟣'}[provider] || provider;
-            const loadingId = 'bkLoading_' + Date.now();
-            aiAddMessage('bot', `<span class="bk-spinner"></span> ${providerLabel} ile analiz oluşturuluyor…`);
-            // find latest bot msg and tag it
-            const msgs = document.getElementById('aiMessages');
-            if (msgs.lastChild) msgs.lastChild.id = loadingId;
-
-            bkAIGenerateCauses(text).then(result => {
-                // remove loading msg
-                const loadEl = document.getElementById(loadingId);
-                if (loadEl) loadEl.remove();
-
-                if (!result) {
-                    // no key fallback (shouldn't happen here)
-                    aiAddMessage('bot', `✅ Problem kaydedildi: <strong>${text}</strong><br><br>Şimdi her kategori için olası nedenleri soracağım.`);
-                    _aiStep++;
-                    setTimeout(() => aiAsk(_aiStep), 300);
-                    return;
-                }
-
-                // Fill _aiCauses from AI result
-                const categories = ['Makine','Malzeme','Metot','İnsan','Çevre','Ölçüm'];
-                let totalAdded = 0;
-                categories.forEach(cat => {
-                    const items = result[cat];
-                    if (Array.isArray(items) && items.length > 0) {
-                        const parsed = items.flatMap(line => aiParseCauses(String(line)));
-                        if (parsed.length > 0) { _aiCauses[cat] = parsed; totalAdded += parsed.length; }
-                    }
-                });
-
-                aiRenderPreview();
-
-                if (totalAdded > 0) {
-                    const catCount = Object.keys(_aiCauses).length;
-                    aiAddMessage('bot', `🎉 AI analizi tamamlandı! <strong>${totalAdded} neden</strong> ${catCount} kategoride oluşturuldu.<br><br>Sağ taraftaki nedenleri inceleyip düzenleyebilirsiniz. Hazır olunca <strong>"Balık Kılçığını Oluştur"</strong> butonuna basın.<br><br>Kategori eklemek veya değiştirmek istiyorsanız, herhangi bir kategori adını yazıp nedenlerini girebilirsiniz.`);
-                    document.getElementById('aiGenerateBtn').disabled = false;
-                    // Skip to done step
-                    _aiStep = AI_STEPS.findIndex(s => s.key === 'done');
-                    if (_aiStep < 0) _aiStep = AI_STEPS.length - 1;
-                    // Re-enable for manual changes
-                    document.getElementById('aiUserInput').disabled = false;
-                    document.getElementById('aiSendBtn').disabled = false;
-                    // Switch to manual category mode for edits
-                    _aiStep = 1; // let user edit any category
-                    const bar = document.querySelector('.ai-template-bar');
-                    if (bar) bar.style.display = 'flex';
-                } else {
-                    aiAddMessage('bot', '⚠️ AI yanıtı boş geldi. Manuel olarak devam edelim.');
-                    _aiStep++;
-                    setTimeout(() => aiAsk(_aiStep), 300);
-                }
-            }).catch(err => {
-                const loadEl = document.getElementById(loadingId);
-                if (loadEl) loadEl.remove();
-                aiAddMessage('bot', `⚠️ <strong>API Hatası:</strong> ${err.message}<br><br>Manuel moda geçiliyor — lütfen her kategori için nedenleri kendiniz girin.`);
-                _aiStep++;
-                setTimeout(() => aiAsk(_aiStep), 400);
-            });
+            aiAddMessage('bot', `✅ Problem kaydedildi: <strong>${text}</strong>`);
+            setTimeout(() => bkAskDepth(), 400);
 
         } else {
             // No key → manual flow
