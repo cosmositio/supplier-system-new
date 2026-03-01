@@ -5096,7 +5096,7 @@ function bkSelectDepth(n) {
         if (totalAdded > 0) {
             const catCount = Object.keys(_aiCauses).length;
             const depthDesc = {1:'tek seviye (ana nedenler)', 2:'2 seviye (ana → kök neden)', 3:'3 seviye (ana → ara → kök neden)'}[n];
-            aiAddMessage('bot', `🎉 AI analizi tamamlandı! <strong>${totalAdded} neden</strong> ${catCount} kategoride <em>${depthDesc}</em> derinlikte oluşturuldu.<br><br>Sağ taraftaki nedenleri inceleyip düzenleyebilirsiniz. Hazır olunca <strong>"Balık Kılçığını Oluştur"</strong> butonuna basın.`);
+            aiAddMessage('bot', `🎉 AI analizi tamamlandı! <strong>${totalAdded} neden</strong> ${catCount} kategoride <em>${depthDesc}</em> derinlikte oluşturuldu.<br><br>Sağ taraftaki nedenleri inceleyip düzenleyebilirsiniz. Hazır olunca <strong>"Balık Kılçığını Oluştur"</strong> butonuna basın.<br><br><button onclick="bkRegenerateCauses(${n})" style="margin-top:6px;padding:6px 14px;border:1.5px solid #6366f1;border-radius:8px;background:rgba(99,102,241,0.15);color:#a5b4fc;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">&#x1F504; Nedenleri Yenile</button>`);
             document.getElementById('aiGenerateBtn').disabled = false;
             document.getElementById('aiUserInput').disabled = false;
             document.getElementById('aiSendBtn').disabled = false;
@@ -5940,6 +5940,43 @@ function renderActionPlan() {
     updateContribTotal();
 }
 
+// ── Regenerate causes with same problem + new AI call ──
+async function bkRegenerateCauses(depth) {
+    if (!_aiProblem) { alert('Problem bilgisi bulunamadı. Lütfen yeni bir analiz başlatın.'); return; }
+    depth = depth || _aiDepth || 2;
+    const depthDesc = {1:'tek seviye', 2:'2 seviye', 3:'3 seviye'}[depth] || '2 seviye';
+    const loadingId = 'bkRegenLoad_' + Date.now();
+    const wrap = document.getElementById('aiMessages');
+    const ldiv = document.createElement('div');
+    ldiv.className = 'ai-msg bot'; ldiv.id = loadingId;
+    ldiv.innerHTML = `<div class="ai-msg-avatar">🤖</div><div class="ai-msg-bubble"><span class="bk-spinner"></span> Nedenler yeniden üreti liyor… (${depthDesc})</div>`;
+    wrap.appendChild(ldiv); wrap.scrollTop = wrap.scrollHeight;
+    try {
+        const result = await bkAIGenerateCauses(_aiProblem, depth);
+        const loadEl = document.getElementById(loadingId);
+        if (loadEl) loadEl.remove();
+        if (!result) { aiAddMessage('bot', '⚠️ Sonuç gelmedi. Tekrar deneyin.'); return; }
+        const categories = ['Makine','Malzeme','Metot','İnsan','Çevre','Ölçüm'];
+        _aiCauses = {};
+        let totalAdded = 0;
+        categories.forEach(cat => {
+            const items = result[cat];
+            if (Array.isArray(items) && items.length > 0) {
+                const parsed = items.flatMap(line => aiParseCauses(String(line)));
+                if (parsed.length > 0) { _aiCauses[cat] = parsed; totalAdded += parsed.length; }
+            }
+        });
+        aiRenderPreview();
+        const catCount = Object.keys(_aiCauses).length;
+        aiAddMessage('bot', `✅ Nedenler yenilendi! <strong>${totalAdded} neden</strong> ${catCount} kategoride oluşturuldu.<br><br><button onclick="bkRegenerateCauses(${depth})" style="margin-top:6px;padding:6px 14px;border:1.5px solid #6366f1;border-radius:8px;background:rgba(99,102,241,0.15);color:#a5b4fc;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">&#x1F504; Tekrar Yenile</button>`);
+        document.getElementById('aiGenerateBtn').disabled = false;
+    } catch(e) {
+        const loadEl = document.getElementById(loadingId);
+        if (loadEl) loadEl.remove();
+        aiAddMessage('bot', `❌ Hata: ${e.message}`);
+    }
+}
+
 // ── AI Aksiyon Öneri ───────────────────────────────
 async function apAISuggestAction(apId) {
     const provider = localStorage.getItem('ai_provider') || 'groq';
@@ -6002,41 +6039,18 @@ async function apAISuggestAll() {
     const allBtn = document.getElementById('apAIAllBtn');
     if (allBtn) { allBtn.disabled = true; allBtn.textContent = '⏳ Oluşturuluyor…'; }
 
-    const problem = state.problem || 'Belirtilmemiş';
-
-    // Build a single batch prompt for all causes to save API calls
-    const causeList = rows.map((r, i) =>
-        `${i + 1}. Kök Neden: "${r.causeName}"${r.parentCause ? ` (Kategori: ${r.parentCause})` : ''}`
-    ).join('\n');
-
-    const messages = [
-        { role: 'system', content: `Sen bir üretim kalitesi uzmanısın. Bir problemin kök nedenlerine karşı düzeltici aksiyonlar üreteceksin.\n\nHer kök neden için kısa, uygulanabilir, somut bir aksiyon yaz. Sadece JSON döndür:\n{"actions": ["aksiyon1", "aksiyon2", ...]}\n\nSıra kök neden sırasıyla eşleşmeli. Türkçe yaz.` },
-        { role: 'user',   content: `Problem: ${problem}\n\nKök Nedenler:\n${causeList}\n\nHer biri için bir aksiyon öner.` }
-    ];
-
-    try {
-        const raw = await bkCallAI(messages, Math.min(4000, rows.length * 120 + 400), 0.5);
-        let parsed;
-        try { parsed = bkSafeParseJSON(raw); } catch(_) {
-            // fallback: split by newlines
-            const lines = raw.split(/\n/).map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(l => l.length > 3);
-            parsed = { actions: lines };
-        }
-        const actions = parsed.actions || [];
-        rows.forEach((row, i) => {
-            if (!actions[i]) return;
-            const text = String(actions[i]).trim();
-            row.action = text;
-            const ta = document.getElementById('apActionTa_' + row.apId);
-            if (ta) ta.value = text;
-        });
-        autoSave();
-        showNotification(`✨ ${actions.length} aksiyon önerisi oluşturuldu!`, 'success');
-    } catch(e) {
-        alert('❌ API Hatası: ' + e.message);
-    } finally {
-        if (allBtn) { allBtn.disabled = false; allBtn.textContent = '✨ AI ile Tüm Aksiyonları Öner'; }
+    let done = 0;
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (allBtn) allBtn.textContent = `⏳ ${i + 1}/${rows.length} öneriliyor…`;
+        await apAISuggestAction(row.apId);
+        done++;
+        // small gap between requests to avoid rate limit
+        if (i < rows.length - 1) await new Promise(r => setTimeout(r, 600));
     }
+
+    if (allBtn) { allBtn.disabled = false; allBtn.textContent = '✨ AI ile Tüm Aksiyonları Öner'; }
+    showNotification(`✨ ${done} aksiyon önerisi oluşturuldu!`, 'success');
 }
 
 function faaliyetCellInner(apId, has8DLink, method) {
