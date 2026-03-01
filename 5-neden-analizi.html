@@ -1521,27 +1521,65 @@ document.getElementById('mDate').valueAsDate = new Date();
     const bridge = JSON.parse(raw);
     if (bridge.type !== 'why5') return;
     localStorage.removeItem('_8d_bridge');
-    const prob = bridge.problem || '';
-    if (!prob) return;
-    // Pre-fill meta bar
-    const mPart = document.getElementById('mPart');
-    if (mPart && !mPart.value) mPart.value = prob;
-    // Pre-fill problem field on all four tracks
-    ['tech','sys'].forEach(tab => {
-      ['os','nd'].forEach(tk => {
-        if (_S[tab][tk].problem === 'Problem tanımını buraya yazın…') {
-          _S[tab][tk].problem = prob;
-        }
+
+    function _showBridgeBanner() {
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1565c0;color:white;padding:12px 18px;border-radius:8px;font-size:0.9em;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);cursor:pointer;';
+      banner.innerHTML = '🔗 8D D4 bağlantısıyla açıldı — 7D bitince 8D sekmesine dönün ✕';
+      banner.onclick = () => banner.remove();
+      document.body.appendChild(banner);
+      setTimeout(() => { if (banner.parentNode) banner.remove(); }, 6000);
+    }
+
+    function _applyProblem(prob) {
+      if (!prob) return;
+      const mPart = document.getElementById('mPart');
+      if (mPart && !mPart.value) mPart.value = prob;
+      ['tech','sys'].forEach(tab => {
+        ['os','nd'].forEach(tk => {
+          if (_S[tab][tk].problem === 'Problem tanımını buraya yazın…') {
+            _S[tab][tk].problem = prob;
+          }
+        });
       });
-    });
+    }
+
+    // Kayıtlı analiz yükle (5neden_... anahtarı varsa)
+    if (bridge.key && bridge.key.toString().startsWith('5neden_')) {
+      const idbKey = bridge.key;
+      new Promise((ok, err) => {
+        const r = indexedDB.open('KaliteRaporDB', 5);
+        r.onsuccess = e => ok(e.target.result);
+        r.onerror   = e => err(e.target.error);
+        r.onupgradeneeded = e => {
+          const d = e.target.result;
+          if (!d.objectStoreNames.contains('payloads')) d.createObjectStore('payloads');
+        };
+      }).then(db => new Promise((ok, err) => {
+        const r = db.transaction(['payloads'],'readonly').objectStore('payloads').get(idbKey);
+        r.onsuccess = () => ok(r.result);
+        r.onerror   = e => err(e.target.error);
+      })).then(data => {
+        if (data) {
+          _S = data;
+          if (typeof applyMeta === 'function') applyMeta();
+        } else {
+          _applyProblem(bridge.problem || '');
+        }
+        render();
+        _showBridgeBanner();
+      }).catch(() => {
+        _applyProblem(bridge.problem || '');
+        render();
+        _showBridgeBanner();
+      });
+      return; // döngü aşağıya düşmesin, async handle etti
+    }
+
+    // Yeni analiz: sadece problem alanlarını ön-doldur
+    _applyProblem(bridge.problem || '');
     render();
-    // Show a banner
-    const banner = document.createElement('div');
-    banner.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1565c0;color:white;padding:12px 18px;border-radius:8px;font-size:0.9em;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
-    banner.innerHTML = '🔗 8D D4 bağlantısıyla açıldı — 7D bitince 8D sekmesine dönün ✕';
-    banner.onclick = () => banner.remove();
-    document.body.appendChild(banner);
-    setTimeout(() => { if (banner.parentNode) banner.remove(); }, 6000);
+    _showBridgeBanner();
   } catch(e) {}
 })();
 

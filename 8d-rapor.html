@@ -246,6 +246,60 @@
             background: transparent; margin-top: 4px;
         }
 
+        /* ===== D4 BAĞLA MODAL ===== */
+        #d4LinkModal {
+            display:none; position:fixed; inset:0;
+            background:rgba(0,0,0,0.55); z-index:10000;
+            align-items:center; justify-content:center;
+        }
+        #d4LinkModal.open { display:flex; }
+        .d4m-box {
+            background:#fff; border-radius:12px;
+            width:min(520px,95vw); max-height:88vh;
+            display:flex; flex-direction:column;
+            box-shadow:0 8px 32px rgba(0,0,0,0.3);
+            overflow:hidden;
+        }
+        .d4m-header {
+            padding:18px 22px 14px; border-bottom:1px solid #e8e8e8;
+            display:flex; align-items:center; justify-content:space-between;
+        }
+        .d4m-title { font-weight:700; font-size:1.05em; color:#222; }
+        .d4m-close {
+            background:none; border:none; font-size:1.3em;
+            cursor:pointer; color:#888; line-height:1; padding:2px 6px;
+        }
+        .d4m-close:hover { color:#333; }
+        .d4m-body { overflow-y:auto; padding:16px 20px 20px; flex:1; display:flex; flex-direction:column; gap:10px; }
+        .d4m-new-btn {
+            width:100%; padding:12px; border-radius:8px;
+            font-weight:700; font-size:0.95em; cursor:pointer;
+            border:2px dashed; font-family:inherit; background:transparent;
+            transition:background 0.15s;
+        }
+        .d4m-new-btn:hover { background:rgba(0,0,0,0.04); }
+        .d4m-separator {
+            font-weight:600; font-size:0.82em; color:#999;
+            text-transform:uppercase; letter-spacing:0.5px;
+            padding:4px 0 2px;
+        }
+        .d4m-record {
+            border:1px solid #e4e4e4; border-radius:8px;
+            padding:11px 14px; display:flex;
+            justify-content:space-between; align-items:center;
+            gap:10px; transition:background 0.12s;
+        }
+        .d4m-record:hover { background:#f9f9f9; }
+        .d4m-record-name { font-weight:600; font-size:0.88em; color:#222; }
+        .d4m-record-meta { font-size:0.76em; color:#999; margin-top:2px; }
+        .d4m-pick-btn {
+            padding:6px 14px; border:none; border-radius:5px;
+            color:white; font-weight:700; font-size:0.82em;
+            cursor:pointer; white-space:nowrap; font-family:inherit;
+        }
+        .d4m-empty { color:#aaa; text-align:center; padding:22px 0; font-size:0.9em; }
+        .d4m-error { color:#e53935; text-align:center; padding:16px 0; font-size:0.88em; }
+
         /* ===== FORM FOOTER ===== */
         .form-footer {
             padding: 14px 24px; border-top: 2px solid #ddd;
@@ -676,19 +730,173 @@ function d4RenderLinkCards() {
                 + makeCard('whyFive','🔵','5 Neden Analizi','#1565c0');
 }
 
+/* ===== D4 BAĞLA MODAL ===== */
+let _d4ModalType = null;
+
 function d4LinkAnalysis(type) {
+    _d4ModalType = type;
+    const isFish = type === 'fishbone';
+    const color  = isFish ? '#c62828' : '#1565c0';
+    const icon   = isFish ? '🐟' : '🔵';
+    const name   = isFish ? 'Balık Kılçığı Analizi' : '5 Neden Analizi';
+
+    document.getElementById('d4LMTitle').textContent = icon + ' ' + name + ' Bağla';
+    const nb = document.getElementById('d4LMNewBtn');
+    nb.style.color = color; nb.style.borderColor = color;
+    const body = document.getElementById('d4LMBody');
+    body.innerHTML = '<div class="d4m-empty">⏳ Yükleniyor…</div>';
+    document.getElementById('d4LinkModal').classList.add('open');
+
+    if (isFish) _d4LoadFishboneRecords(); else _d4LoadWhyFiveRecords();
+}
+
+function d4CloseLinkModal() {
+    document.getElementById('d4LinkModal').classList.remove('open');
+    _d4ModalType = null;
+}
+
+function d4CreateNew() {
+    const type = _d4ModalType;
+    if (!type) return;
+    d4CloseLinkModal();
     const prob = (document.getElementById('f8d_d2_problem')?.value
                || document.getElementById('f8d_d2_symptom')?.value
                || document.getElementById('f8d_partName')?.value || '').trim();
-    const label = prompt(
-        type === 'fishbone' ? '🐟 Balık Kılçığı için kısa bir etiket (opsiyonel):'
-                           : '🔵 5 Neden için kısa bir etiket (opsiyonel):', '');
-    if (label === null) return;
     const reportId = current8DData?.id || Date.now();
     const key = type === 'fishbone' ? `bk_8d_${reportId}` : null;
-    _d4Links[type] = { key, problem: prob, label: label||'', linkedAt: new Date().toLocaleString('tr-TR') };
+    _d4Links[type] = { key, problem: prob, label: '', linkedAt: new Date().toLocaleString('tr-TR') };
     d4RenderLinkCards();
     d4OpenAnalysis(type);
+}
+
+async function _d4LoadFishboneRecords() {
+    const body = document.getElementById('d4LMBody');
+    try {
+        const db = await new Promise((ok, err) => {
+            const r = indexedDB.open('FishboneAnalysisDB', 1);
+            r.onsuccess = e => ok(e.target.result);
+            r.onerror   = e => err(e.target.error);
+            r.onupgradeneeded = e => {
+                const d = e.target.result;
+                if (!d.objectStoreNames.contains('fishbones'))
+                    d.createObjectStore('fishbones', { keyPath:'id', autoIncrement:true });
+            };
+        });
+        const all = await new Promise((ok, err) => {
+            const r = db.transaction(['fishbones'], 'readonly').objectStore('fishbones').getAll();
+            r.onsuccess = () => ok(r.result);
+            r.onerror   = e => err(e.target.error);
+        });
+        if (!all.length) { body.innerHTML = '<div class="d4m-empty">🐟 Kayıtlı balık kılçığı analizi yok.<br>Yeni Oluştur ile başlayabilirsiniz.</div>'; return; }
+        body.innerHTML = '';
+        all.slice().reverse().forEach(rec => {
+            const d = document.createElement('div');
+            d.className = 'd4m-record';
+            d.innerHTML = `<div>
+                <div class="d4m-record-name">${(rec.problem||'Adsız Analiz').replace(/</g,'&lt;')}</div>
+                <div class="d4m-record-meta">${rec.savedAt||''}</div>
+              </div>
+              <button class="d4m-pick-btn" style="background:#c62828;" onclick="d4SelectFishboneRecord(${rec.id})">Bağla</button>`;
+            body.appendChild(d);
+        });
+    } catch(e) {
+        body.innerHTML = '<div class="d4m-error">❌ ' + e.message + '</div>';
+    }
+}
+
+async function _d4LoadWhyFiveRecords() {
+    const body = document.getElementById('d4LMBody');
+    try {
+        const db = await new Promise((ok, err) => {
+            const r = indexedDB.open('KaliteRaporDB', 5);
+            r.onsuccess = e => ok(e.target.result);
+            r.onerror   = e => err(e.target.error);
+            r.onupgradeneeded = e => {
+                const d = e.target.result;
+                if (!d.objectStoreNames.contains('payloads')) d.createObjectStore('payloads');
+            };
+        });
+        const entries = await new Promise((ok, err) => {
+            const tx = db.transaction(['payloads'], 'readonly');
+            const keys = [], vals = [];
+            tx.objectStore('payloads').openCursor().onsuccess = e => {
+                const c = e.target.result;
+                if (c) { if (c.key.toString().startsWith('5neden_')) { keys.push(c.key); vals.push(c.value); } c.continue(); }
+                else ok(keys.map((k, i) => ({ key: k, data: vals[i] })));
+            };
+            tx.onerror = e => err(e.target.error);
+        });
+        if (!entries.length) { body.innerHTML = '<div class="d4m-empty">🔵 Kayıtlı 5 Neden analizi yok.<br>Yeni Oluştur ile başlayabilirsiniz.</div>'; return; }
+        entries.sort((a, b) => b.key.localeCompare(a.key));
+        body.innerHTML = '';
+        entries.forEach(({ key, data }) => {
+            const name    = data._saveName || key;
+            const savedAt = data._savedAt  || '';
+            const part    = data.meta?.part || '';
+            const d = document.createElement('div');
+            d.className = 'd4m-record';
+            d.innerHTML = `<div>
+                <div class="d4m-record-name">${name.replace(/</g,'&lt;')}</div>
+                <div class="d4m-record-meta">${[part, savedAt].filter(Boolean).join(' · ')}</div>
+              </div>
+              <button class="d4m-pick-btn" style="background:#1565c0;" onclick="d4SelectWhyFiveRecord('${key.replace(/'/g,'&apos;')}')">Bağla</button>`;
+            body.appendChild(d);
+        });
+    } catch(e) {
+        body.innerHTML = '<div class="d4m-error">❌ ' + e.message + '</div>';
+    }
+}
+
+async function d4SelectFishboneRecord(recordId) {
+    try {
+        const db = await new Promise((ok, err) => {
+            const r = indexedDB.open('FishboneAnalysisDB', 1);
+            r.onsuccess = e => ok(e.target.result);
+            r.onerror   = e => err(e.target.error);
+        });
+        const rec = await new Promise((ok, err) => {
+            const r = db.transaction(['fishbones'], 'readonly').objectStore('fishbones').get(recordId);
+            r.onsuccess = () => ok(r.result);
+            r.onerror   = e => err(e.target.error);
+        });
+        if (!rec) { alert('Kayıt bulunamadı.'); return; }
+        const reportId = current8DData?.id || Date.now();
+        const lsKey = `bk_8d_${reportId}`;
+        localStorage.setItem(lsKey, JSON.stringify(rec.stateData));
+        _d4Links['fishbone'] = {
+            key: lsKey,
+            problem: rec.problem || '',
+            label: rec.problem || '',
+            linkedAt: new Date().toLocaleString('tr-TR')
+        };
+        d4CloseLinkModal();
+        d4RenderLinkCards();
+    } catch(e) { alert('Hata: ' + e.message); }
+}
+
+async function d4SelectWhyFiveRecord(idbKey) {
+    try {
+        const db = await new Promise((ok, err) => {
+            const r = indexedDB.open('KaliteRaporDB', 5);
+            r.onsuccess = e => ok(e.target.result);
+            r.onerror   = e => err(e.target.error);
+        });
+        const data = await new Promise((ok, err) => {
+            const r = db.transaction(['payloads'], 'readonly').objectStore('payloads').get(idbKey);
+            r.onsuccess = () => ok(r.result);
+            r.onerror   = e => err(e.target.error);
+        });
+        const name    = data?._saveName || idbKey;
+        const problem = data?.meta?.part || data?._saveName || '';
+        _d4Links['whyFive'] = {
+            key: idbKey,
+            problem: problem,
+            label: name,
+            linkedAt: new Date().toLocaleString('tr-TR')
+        };
+        d4CloseLinkModal();
+        d4RenderLinkCards();
+    } catch(e) { alert('Hata: ' + e.message); }
 }
 
 function d4OpenAnalysis(type) {
@@ -2028,5 +2236,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 </script>
+
+<!-- D4 BAĞLA MODAL -->
+<div id="d4LinkModal">
+  <div class="d4m-box">
+    <div class="d4m-header">
+      <span id="d4LMTitle" class="d4m-title"></span>
+      <button class="d4m-close" onclick="d4CloseLinkModal()">&#x2715;</button>
+    </div>
+    <div class="d4m-body" id="d4LMBody">
+      <button id="d4LMNewBtn" class="d4m-new-btn" onclick="d4CreateNew()">
+        &#10022; Yeni Oluştur — boş analize başla
+      </button>
+      <div class="d4m-separator">&#x2015; Kayıtlı analizler &#x2015;</div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
