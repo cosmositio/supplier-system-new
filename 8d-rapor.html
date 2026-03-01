@@ -729,9 +729,9 @@ function d4RenderLinkCards() {
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
                     <button class="d4-link-btn-open" style="background:${color};" onclick="d4OpenAnalysis('${type}')">&#8599;&#65039; Aç / Düzenle</button>
                     <button class="d4-link-btn-remove" onclick="d4UnlinkAnalysis('${type}')">&#128465; Kaldır</button>
-                    ${type === 'fishbone' && lk.key ? `<button class="d4-preview-btn" id="d4PrevBtn_${type}" onclick="d4ToggleFishbonePreview('${type}','${lk.key}')">&#128065; Diyagramı Göster</button>` : ''}
+                    ${type === 'fishbone' && (lk.idbId || lk.key) ? `<button class="d4-preview-btn" id="d4PrevBtn_${type}" onclick="d4ToggleFishbonePreview('${type}','${lk.idbId||''}','${lk.key||''}')">&#128065; Diyagramı Göster</button>` : ''}
                 </div>
-                ${type === 'fishbone' && lk.key ? `<div class="d4-preview-wrap" id="d4PrevWrap_${type}" style="display:none;"><iframe class="d4-preview-iframe" id="d4PrevFrame_${type}"></iframe></div>` : ''}
+                ${type === 'fishbone' && (lk.idbId || lk.key) ? `<div class="d4-preview-wrap" id="d4PrevWrap_${type}" style="display:none;"><iframe class="d4-preview-iframe" id="d4PrevFrame_${type}"></iframe></div>` : ''}
             </div>`;
         } else {
             return `<div class="d4-link-card empty">
@@ -880,9 +880,10 @@ async function d4SelectFishboneRecord(recordId) {
         const lsKey = `bk_8d_${reportId}`;
         localStorage.setItem(lsKey, JSON.stringify(rec.stateData));
         _d4Links['fishbone'] = {
-            key: lsKey,
+            key   : lsKey,
+            idbId : recordId,
             problem: rec.problem || '',
-            label: rec.problem || '',
+            label  : rec.problem || '',
             linkedAt: new Date().toLocaleString('tr-TR')
         };
         d4CloseLinkModal();
@@ -932,7 +933,7 @@ function d4UnlinkAnalysis(type) {
     d4RenderLinkCards();
 }
 
-function d4ToggleFishbonePreview(type, key) {
+function d4ToggleFishbonePreview(type, idbId, stateKey) {
     const wrap  = document.getElementById('d4PrevWrap_'  + type);
     const btn   = document.getElementById('d4PrevBtn_'   + type);
     const frame = document.getElementById('d4PrevFrame_' + type);
@@ -941,13 +942,16 @@ function d4ToggleFishbonePreview(type, key) {
     if (isOpen) {
         wrap.style.display = 'none';
         if (btn) btn.innerHTML = '&#128065; Diyagramı Göster';
-        // iframe src temizleme — keyframe unload
-        if (frame) { frame.src = 'about:blank'; }
+        if (frame) frame.src = 'about:blank';
     } else {
         wrap.style.display = 'block';
         if (btn) btn.innerHTML = '&#128065; Gizle';
         if (frame && (!frame.src || frame.src === 'about:blank' || frame.src === '')) {
-            frame.src = `balik-kilcigi.html?embed=1&statekey=${encodeURIComponent(key)}`;
+            // Önce idbId (IndexedDB), yoksa statekey (localStorage) kullan
+            const params = new URLSearchParams({ embed: '1' });
+            if (idbId)   params.set('idbid',    idbId);
+            if (stateKey) params.set('statekey', stateKey);
+            frame.src = `balik-kilcigi.html?${params.toString()}`;
         }
     }
 }

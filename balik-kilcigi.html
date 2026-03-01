@@ -351,24 +351,34 @@
         }
 
         /* ===== EMBED MODE — 8D raporu içi önizleme (iframe) ===== */
-        body.embed-mode { margin:0; overflow:hidden; background:#0f172a; }
-        body.embed-mode .header,
-        body.embed-mode .sidebar,
-        body.embed-mode .canvas-toolbar,
-        body.embed-mode .action-plan-view,
-        body.embed-mode .ai-assist-view,
-        body.embed-mode #notification,
-        body.embed-mode #fishboneRecordsModal,
-        body.embed-mode #bkAISettingsPanel,
-        body.embed-mode #contextMenu { display:none !important; }
+        body.embed-mode { margin:0; overflow:hidden; }
+        body.embed-mode .header          { display:none !important; }
+        body.embed-mode .sidebar         { display:none !important; }
+        body.embed-mode .canvas-toolbar  { display:none !important; }
+        body.embed-mode .action-plan-view { display:none !important; }
+        body.embed-mode .ai-assist-view  { display:none !important; }
+        body.embed-mode #notification     { display:none !important; }
+        body.embed-mode #fishboneRecordsModal { display:none !important; }
+        body.embed-mode #bkAISettingsPanel    { display:none !important; }
+        body.embed-mode #contextMenu          { display:none !important; }
         body.embed-mode .app-layout  { height:100vh; }
-        body.embed-mode .canvas-container { width:100vw; height:100vh; border-radius:0; border:none; }
+        body.embed-mode #fishboneView { height:100vh; display:flex !important; }
+        body.embed-mode .canvas-container {
+            width:100vw; height:100vh;
+            border-radius:0; border:none;
+            background:#fff !important;
+            background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px) !important;
+            background-size: 24px 24px !important;
+        }
+        /* SVG arka planı beyaz */
+        body.embed-mode .canvas-svg { background:transparent; }
         /* Üst bilgi etiketi */
         body.embed-mode #embedLabel {
             position:fixed; top:0; left:0; right:0; z-index:9999;
-            background:rgba(15,23,42,0.82); color:#94a3b8;
+            background:rgba(255,255,255,0.9); color:#64748b;
             font-size:11px; font-family:inherit; padding:3px 10px; text-align:center;
             pointer-events:none; backdrop-filter:blur(4px); letter-spacing:0.02em;
+            border-bottom:1px solid #e2e8f0;
         }
 
         .canvas-svg {
@@ -2013,21 +2023,20 @@ document.addEventListener('DOMContentLoaded', () => {
             // ===== EMBED MODE (8D inline preview) =====
             if (_urlPs.get('embed') === '1') {
                 _embedMode = true;
+                document.body.classList.add('embed-mode');
+                // idbid parametresi varsa IndexedDB'den asenkron yükle (render sonrası)
+                // statekey (localStorage fallback) sync yükle
                 const _stKey = _urlPs.get('statekey') || '';
                 if (_stKey) {
                     const _raw = localStorage.getItem(_stKey);
                     if (_raw) {
-                        try {
-                            const _st = JSON.parse(_raw);
-                            Object.assign(state, _st);
-                        } catch(e) {}
+                        try { Object.assign(state, JSON.parse(_raw)); } catch(e) {}
                     }
                 }
-                document.body.classList.add('embed-mode');
-                // Bilgi etiketi div'i oluştur
+                // Bilgi etiketi div'i
                 const _lbl = document.createElement('div');
                 _lbl.id = 'embedLabel';
-                _lbl.textContent = '🐟 ' + (state.problem || 'Balık Kılçığı Analizi') + ' — 8D raporu için önizleme';
+                _lbl.textContent = '🐟 ' + (state.problem || 'Balık Kılçığı Analizi') + ' — 8D raporu';
                 document.body.appendChild(_lbl);
             }
 
@@ -2054,7 +2063,7 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
 
     const _rawIncoming = localStorage.getItem('fishbone_incoming');
-    if (_rawIncoming) {
+    if (_rawIncoming && !_embedMode) {
         localStorage.removeItem('fishbone_incoming');
         try {
             const inData = JSON.parse(_rawIncoming);
@@ -2076,7 +2085,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 8D D4 köprüsü: 8D raporundan Balık Kılçığı sayfasına yönlendirme
     let _from8D = false;
     const _raw8dBridge = localStorage.getItem('_8d_bridge');
-    if (_raw8dBridge && !_fromUygunsuzluk) {
+    if (_raw8dBridge && !_fromUygunsuzluk && !_embedMode) {
         try {
             const bridge = JSON.parse(_raw8dBridge);
             if (bridge.type === 'fishbone') {
@@ -2124,13 +2133,25 @@ document.addEventListener('DOMContentLoaded', () => {
     bkInitProviderUI();  // restore AI provider + keys from localStorage
     render();
 
-    // Embed mode — fishbone görünümüne geç ve etkileşimi devre dışı bırak
+    // Embed mode — IndexedDB'den idbid ile yükle (statekey'den sonra üstele)
     if (_embedMode) {
+        const _idbId = parseInt(new URLSearchParams(location.search).get('idbid') || '0', 10);
+        if (_idbId) {
+            openFishboneDB().then(db => {
+                const r = db.transaction([FB_STORE],'readonly').objectStore(FB_STORE).get(_idbId);
+                r.onsuccess = () => {
+                    if (r.result?.stateData) {
+                        Object.assign(state, r.result.stateData);
+                        document.getElementById('problemTitle').value = state.problem || '';
+                        document.getElementById('problemDesc').value  = state.problemDesc || '';
+                        const lbl = document.getElementById('embedLabel');
+                        if (lbl) lbl.textContent = '🐟 ' + (state.problem || 'Balık Kılçığı') + ' — 8D raporu';
+                        render();
+                    }
+                };
+            }).catch(() => {});
+        }
         switchView('fishbone');
-        // canvas pointer-events disable (sürükleme hey⇒ sadece viewport pan aktif)
-        document.getElementById('canvasContainer')?.addEventListener('click', e => e.stopPropagation());
-        document.getElementById('canvasContainer')?.addEventListener('dblclick', e => e.stopPropagation());
-        document.addEventListener('contextmenu', e => e.preventDefault());
     }
 
     checkFishbone8DSaved();  // yeniden yüklemede pending satırları kontrol et
