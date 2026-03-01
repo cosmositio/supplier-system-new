@@ -4529,6 +4529,10 @@ function addMainCause() {
 // ===== SAVE / LOAD / EXPORT =====
 function autoSave() {
     localStorage.setItem('fishbone_state', JSON.stringify(state));
+    // 8D D4 bağlantısı varsa aynı durumu o anahtara da kaydet
+    if (_8dLinkKey) {
+        try { localStorage.setItem(_8dLinkKey, JSON.stringify(state)); } catch(e) {}
+    }
     // Özellik 3: Akşiyon özeti — Uygunsuzluk Analizi'ne geri besleme
     if (state.problem && state.problem !== 'Ana Problem') {
         try {
@@ -5229,6 +5233,7 @@ let _aiDepth = 2;          // 1=sadece ana, 2=ana+alt, 3=ana+alt+alt-alt
 let _aiWaitingForDepth = false;
 let _aiFlowState = 'problem'; // 'problem'|'ctx_when'|'ctx_what'|'ctx_tried'|'depth'|'generating'
 let _aiContext = { when: '', what: '', tried: '' };
+let _8dLinkKey = null; // if opened from 8D D4, this key is used as secondary autoSave target
 
 function switchView(view) {
     const fv = document.getElementById('fishboneView');

@@ -211,6 +211,41 @@
         .add-btn       { margin-top: 12px; padding: 8px 16px; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
         .add-btn-small { margin: 12px 4px 4px 0; padding: 8px 14px; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
 
+        /* ===== D4 LINKED ANALYSES ===== */
+        .d4-linked-section { margin-top: 24px; padding-top: 18px; border-top: 1px dashed #c62828; }
+        .d4-linked-title { font-weight: 700; color: #c62828; font-size: 0.95em; margin-bottom: 12px; display:flex; align-items:center; gap:6px; }
+        .d4-link-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media(max-width:600px){ .d4-link-grid { grid-template-columns: 1fr; } }
+        .d4-link-card {
+            border-radius: 8px; padding: 16px;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .d4-link-card.empty {
+            border: 2px dashed #bbb; background: #fafafa;
+            align-items: center; justify-content: center;
+            min-height: 110px; text-align: center;
+        }
+        .d4-link-card.linked { border: 2px solid; background: #fff; }
+        .d4-link-card-icon { font-size: 1.6em; }
+        .d4-link-card-name { font-weight: 700; font-size: 0.9em; }
+        .d4-link-card-problem { font-size: 0.82em; color: #555; }
+        .d4-link-card-meta { font-size: 0.76em; color: #888; }
+        .d4-link-btn-open {
+            padding: 6px 14px; border: none; border-radius: 4px;
+            color: white; cursor: pointer; font-weight: 600;
+            font-size: 0.84em; font-family: inherit;
+        }
+        .d4-link-btn-remove {
+            padding: 6px 12px; border: none; border-radius: 4px;
+            background: #ef5350; color: white; cursor: pointer;
+            font-size: 0.84em; font-family: inherit;
+        }
+        .d4-link-btn-add {
+            padding: 7px 16px; border-radius: 4px; cursor: pointer;
+            font-weight: 600; font-size: 0.85em; font-family: inherit;
+            background: transparent; margin-top: 4px;
+        }
+
         /* ===== FORM FOOTER ===== */
         .form-footer {
             padding: 14px 24px; border-top: 2px solid #ddd;
@@ -487,6 +522,11 @@
                 <button class="add-btn-small" style="background:#c62828;" onclick="addD4RootCause('sco')">+ SCO Ekle</button>
                 <button class="add-btn-small" style="background:#c62828;" onclick="addD4RootCause('scn')">+ SCN Ekle</button>
             </div>
+            <!-- Linked root cause analyses -->
+            <div class="d4-linked-section">
+                <div class="d4-linked-title">🔗 Bağlı Kök Neden Analizleri</div>
+                <div class="d4-link-grid" id="d4LinkCards"></div>
+            </div>
         </div>
 
         <!-- D5 -->
@@ -601,6 +641,72 @@ let d7Attachments         = [];
 let d1MemberCount         = 0;
 let d3ActionCount         = 0;
 let d4RootCauseCount      = 0;
+/* D4 linked analyses (fishbone + 5-neden) */
+let _d4Links = { fishbone: null, whyFive: null };
+
+function d4RenderLinkCards() {
+    const c = document.getElementById('d4LinkCards');
+    if (!c) return;
+    const makeCard = (type, icon, name, color) => {
+        const lk = _d4Links[type];
+        if (lk) {
+            return `<div class="d4-link-card linked" style="border-color:${color};">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="d4-link-card-icon">${icon}</span>
+                    <span class="d4-link-card-name" style="color:${color};">${name}</span>
+                </div>
+                <div class="d4-link-card-problem"><strong>Problem:</strong> ${esc(lk.problem||'')}</div>
+                ${lk.label ? `<div class="d4-link-card-problem">Etiket: ${esc(lk.label)}</div>` : ''}
+                <div class="d4-link-card-meta">Bağlandı: ${lk.linkedAt||''}</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                    <button class="d4-link-btn-open" style="background:${color};" onclick="d4OpenAnalysis('${type}')">&#8599;&#65039; Aç / Düzenle</button>
+                    <button class="d4-link-btn-remove" onclick="d4UnlinkAnalysis('${type}')">&#128465; Kaldır</button>
+                </div>
+            </div>`;
+        } else {
+            return `<div class="d4-link-card empty">
+                <span class="d4-link-card-icon">${icon}</span>
+                <span class="d4-link-card-name" style="color:${color};">${name}</span>
+                <span style="font-size:0.8em;color:#aaa;">Henüz bağlanmadı</span>
+                <button class="d4-link-btn-add" style="border:2px solid ${color};color:${color};" onclick="d4LinkAnalysis('${type}')">+ Bağla</button>
+            </div>`;
+        }
+    };
+    c.innerHTML = makeCard('fishbone','🐟','Balık Kılçığı Analizi','#c62828')
+                + makeCard('whyFive','🔵','5 Neden Analizi','#1565c0');
+}
+
+function d4LinkAnalysis(type) {
+    const prob = (document.getElementById('f8d_d2_problem')?.value
+               || document.getElementById('f8d_d2_symptom')?.value
+               || document.getElementById('f8d_partName')?.value || '').trim();
+    const label = prompt(
+        type === 'fishbone' ? '🐟 Balık Kılçığı için kısa bir etiket (opsiyonel):'
+                           : '🔵 5 Neden için kısa bir etiket (opsiyonel):', '');
+    if (label === null) return;
+    const reportId = current8DData?.id || Date.now();
+    const key = type === 'fishbone' ? `bk_8d_${reportId}` : null;
+    _d4Links[type] = { key, problem: prob, label: label||'', linkedAt: new Date().toLocaleString('tr-TR') };
+    d4RenderLinkCards();
+    d4OpenAnalysis(type);
+}
+
+function d4OpenAnalysis(type) {
+    const lk = _d4Links[type];
+    if (!lk) { d4LinkAnalysis(type); return; }
+    localStorage.setItem('_8d_bridge', JSON.stringify({
+        type: type === 'fishbone' ? 'fishbone' : 'why5',
+        key : lk.key,
+        problem: lk.problem
+    }));
+    window.open(type === 'fishbone' ? 'balik-kilcigi.html' : '5-neden-analizi.html', '_blank');
+}
+
+function d4UnlinkAnalysis(type) {
+    if (!confirm('Bu analiz bağlantısını D4\'den kaldırmak istiyor musunuz?\nAnaliz verileri silinmez.')) return;
+    _d4Links[type] = null;
+    d4RenderLinkCards();
+}
 let d5ActionCount         = 0;
 let d6ImplementationCount = 0;
 let d7PreventionCount     = 0;
@@ -990,7 +1096,9 @@ async function save8DReport() {
                 verification: c.querySelector('.d4-verification').value,
                 results     : c.querySelector('.d4-results').value,
                 date        : c.querySelector('.d4-date').value
-            }))
+            })),
+            fishboneLink: _d4Links.fishbone,
+            whyFiveLink : _d4Links.whyFive
         },
         d5: {
             actions: Array.from(document.querySelectorAll('.d5-action')).map(a => ({
@@ -1247,6 +1355,9 @@ function clear8DForm() {
     headDefectPhotos = []; d2Attachments = []; d5Attachments = [];
     d6Attachments    = []; d7Attachments = [];
 
+    _d4Links = { fishbone: null, whyFive: null };
+    d4RenderLinkCards();
+
     renderHeadDefectPhotos();
     renderD2Attachments(); renderD5Attachments();
     renderD6Attachments(); renderD7Attachments();
@@ -1296,6 +1407,9 @@ function populate8DForm(data) {
 
     if (data.d3?.actions)          data.d3.actions.forEach(a => addD3Action(a));
     if (data.d4?.rootCauses)       data.d4.rootCauses.forEach(c => addD4RootCause(c.type, c));
+    if (data.d4?.fishboneLink)     _d4Links.fishbone = data.d4.fishboneLink;
+    if (data.d4?.whyFiveLink)      _d4Links.whyFive  = data.d4.whyFiveLink;
+    d4RenderLinkCards();
     if (data.d5?.actions)          data.d5.actions.forEach(a => addD5Action(a));
     if (data.d5?.attachments)      { d5Attachments = data.d5.attachments; renderD5Attachments(); }
     if (data.d6?.implementations)  data.d6.implementations.forEach(i => addD6Implementation(i));
@@ -1352,6 +1466,12 @@ function addD3Action(data = {}) {
                     <input type="date" class="d3-date field-input" value="${esc(data.date||'')}"></div>
             </div>
         </div>`);
+}
+
+/* reset link state when opening a new form */
+function _resetD4Links() {
+    _d4Links = { fishbone: null, whyFive: null };
+    d4RenderLinkCards();
 }
 
 function addD4RootCause(type, data = {}) {
