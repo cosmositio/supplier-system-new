@@ -4781,10 +4781,14 @@ function openFishboneDB() {
 async function saveToFishboneDB() {
     try {
         const db  = await openFishboneDB();
+        const rcTypesArr = _aiRcTypes.size > 0 ? [..._aiRcTypes] : [];
+        const stateSnapshot = JSON.parse(JSON.stringify(state));
+        stateSnapshot._rcTypes = rcTypesArr; // state içinde de sakla
         const record = {
             problem  : state.problem || 'Ana Problem',
             savedAt  : new Date().toISOString(),
-            stateData: JSON.parse(JSON.stringify(state))  // tam state snapshot (causes + actionPlan + has8DLink)
+            rcTypes  : rcTypesArr,            // üst seviyede de sakla (hızlı erişim)
+            stateData: stateSnapshot
         };
         const tx  = db.transaction([FB_STORE], 'readwrite');
         const req = tx.objectStore(FB_STORE).add(record);
@@ -4828,11 +4832,16 @@ function renderFishboneRecordList(records) {
         const causes    = r.stateData?.causes?.length || 0;
         const has8d     = (r.stateData?.actionPlan?.rows || []).filter(row => row.has8DLink === true).length;
         const badge8d   = has8d > 0 ? ` · <span style="color:#6366f1">📋 ${has8d} 8D</span>` : '';
+        const rcTypesArr = r.rcTypes || r.stateData?._rcTypes || [];
+        const RC_COLORS = { TCO:'#f59e0b', TCN:'#3b82f6', SCO:'#10b981', SCN:'#a78bfa' };
+        const badgeRc = rcTypesArr.length > 0
+            ? ' · ' + rcTypesArr.map(t => `<span style="color:${RC_COLORS[t]||'#94a3b8'};font-weight:700;">${t}</span>`).join(' ')
+            : '';
         return `
         <div class="fm-record-card">
             <div class="fm-record-info">
                 <div class="fm-record-title">${escapeHtml(r.problem || 'İsimsiz')}</div>
-                <div class="fm-record-meta">${dateStr} &nbsp;·&nbsp; ${causes} ana neden &nbsp;·&nbsp; ${rows} aksiyon${badge8d}</div>
+                <div class="fm-record-meta">${dateStr} &nbsp;·&nbsp; ${causes} ana neden &nbsp;·&nbsp; ${rows} aksiyon${badge8d}${badgeRc}</div>
             </div>
             <div class="fm-record-actions">
                 <button class="fm-btn fm-btn-load" onclick="loadFishboneRecord(${r.id})">📂 Yükle</button>
@@ -4854,6 +4863,17 @@ async function loadFishboneRecord(recordId) {
             Object.assign(state, rec.stateData);
             document.getElementById('problemTitle').value = state.problem || '';
             document.getElementById('problemDesc').value  = state.problemDesc || '';
+            // RC tipi geri yükle
+            const _savedRcTypes = rec.rcTypes || state._rcTypes || [];
+            _aiRcTypes = new Set(_savedRcTypes);
+            _aiRcType  = [..._aiRcTypes][0] || '';
+            _bkUpdateRcTypeUI();
+            { const desc = document.getElementById('bkRcTypeDesc'); if (desc) {
+                if (_aiRcTypes.size > 0) {
+                    const parts = [..._aiRcTypes].map(t => { const info = BK_RCTYPE_INFO[t]; return `<span style="color:${info?.color||'#94a3b8'};font-weight:700;">${t}</span>`; });
+                    desc.innerHTML = parts.join(' + ') + ' seçildi';
+                } else { desc.textContent = 'Tip seçilmedi — genel analiz yapılır'; }
+            }}
             initActionPlan();
             render();
             renderActionPlan();
