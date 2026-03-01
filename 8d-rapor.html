@@ -1029,34 +1029,6 @@ function _render5NPreview(data) {
     return h;
 }
 
-async function _svgToDataUrl(svgEl) {
-    return new Promise(resolve => {
-        try {
-            const svgData = new XMLSerializer().serializeToString(svgEl);
-            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-            const url     = URL.createObjectURL(svgBlob);
-            const img     = new Image();
-            img.onload = () => {
-                try {
-                    const vb = svgEl.viewBox?.baseVal;
-                    const w  = (vb?.width  > 0 ? vb.width  : null) || svgEl.width?.baseVal?.value  || 1400;
-                    const h  = (vb?.height > 0 ? vb.height : null) || svgEl.height?.baseVal?.value || 700;
-                    const canvas = document.createElement('canvas');
-                    canvas.width = w; canvas.height = h;
-                    const ctx = canvas.getContext('2d');
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(0, 0, w, h);
-                    ctx.drawImage(img, 0, 0, w, h);
-                    URL.revokeObjectURL(url);
-                    resolve(canvas.toDataURL('image/jpeg', 0.88));
-                } catch(e) { URL.revokeObjectURL(url); resolve(null); }
-            };
-            img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
-            img.src = url;
-        } catch(e) { resolve(null); }
-    });
-}
-
 let d5ActionCount         = 0;
 let d6ImplementationCount = 0;
 let d7PreventionCount     = 0;
@@ -2029,325 +2001,373 @@ function downloadD7Attachment(i)    { _download(d7Attachments, i); }
 function removeD7Attachment(i)      { _remove(d7Attachments, i, renderD7Attachments); }
 
 /* ================================================================
-   PDF EXPORT
+   PDF EXPORT  — print-window approach (Turkish-safe, SVG-native)
 ================================================================ */
-async function export8DReportPDF(retryCount = 0) {
-    let jsPDF = null;
-    if (window.jspdf?.jsPDF) jsPDF = window.jspdf.jsPDF;
-    else if (window.jsPDF)    jsPDF = window.jsPDF;
+async function export8DReportPDF() {
+    const v   = id => document.getElementById(id)?.value?.trim() || '';
+    const esc = s  => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-    if (!jsPDF) {
-        if (retryCount < 5) {
-            showAlert(`⏳ PDF kütüphanesi yükleniyor... (${retryCount+1}/5)`, 'warning');
-            setTimeout(() => export8DReportPDF(retryCount+1), 1500);
-        } else {
-            showAlert('❌ PDF kütüphanesi yüklenemedi! Sayfayı yenileyin.','error');
-        }
-        return;
-    }
+    const supplierName = v('meta_supplier') || 'Tedarikçi';
 
-    const supplierName = document.getElementById('meta_supplier').value.trim() || 'Tedarikçi';
-    const doc = new jsPDF('p','mm','a4');
-    const margin = 15, pageWidth = doc.internal.pageSize.getWidth();
-    let yPos = 15;
-
-    const addSection = (title, color) => {
-        if (yPos > 240) { doc.addPage(); yPos = 15; }
-        doc.setFontSize(11); doc.setFont('helvetica','bold');
-        doc.setTextColor(...color);
-        doc.text(title, margin, yPos);
-        yPos += 5;
+    /* ── 1. Form data ────────────────────────────────────────────── */
+    const head = {
+        reportNo: v('f8d_reportNumber'), version: v('f8d_version'),
+        title:    v('f8d_title'),        startDate: v('f8d_startDate'),
+        subject:  v('f8d_subject'),      currentDate: v('f8d_currentDate'),
+        customer: v('f8d_customer'),     status: v('f8d_status'),
+        email:    v('f8d_email'),        phone: v('f8d_phone'),
+        source:   v('meta_source')
+    };
+    const defect = {
+        partNumber: v('f8d_partNumber'), partName: v('f8d_partName'),
+        description: v('f8d_defectDescription'),
+        defectQty: v('f8d_defectQuantity'), checkedQty: v('f8d_totalCheckedQuantity'),
+        defectRate: v('f8d_defectRate'), detectionPoint: v('f8d_detectionPoint')
+    };
+    const d1members = Array.from(document.querySelectorAll('.d1-team-member')).map(m => ({
+        name: m.querySelector('.d1-name')?.value||'', dept: m.querySelector('.d1-department')?.value||'',
+        pos:  m.querySelector('.d1-position')?.value||'', contact: m.querySelector('.d1-contact')?.value||''
+    }));
+    const d2 = {
+        symptom: v('f8d_d2_symptom'), problem: v('f8d_d2_problem'),
+        errorType: v('f8d_d2_errorType'), errorLocation: v('f8d_d2_errorLocation'),
+        risk: v('f8d_d2_riskAssessment'), riskDate: v('f8d_d2_riskDate')
+    };
+    const d3actions = Array.from(document.querySelectorAll('.d3-action')).map(a => ({
+        desc: a.querySelector('.d3-description')?.value||'',
+        resp: a.querySelector('.d3-responsible')?.value||'',
+        date: a.querySelector('.d3-date')?.value||''
+    }));
+    const d4causes = Array.from(document.querySelectorAll('.d4-root-cause')).map(c => ({
+        type: c.querySelector('.d4-type')?.value||'',
+        title: c.querySelector('.d4-title')?.value||'',
+        desc:  c.querySelector('.d4-description')?.value||''
+    }));
+    const d5actions = Array.from(document.querySelectorAll('.d5-action')).map(a => ({
+        action: a.querySelector('.d5-action-text')?.value||'',
+        resp:   a.querySelector('.d5-responsible')?.value||'',
+        plan:   a.querySelector('.d5-plan-date')?.value||'',
+        verDate:a.querySelector('.d5-verification-date')?.value||'',
+        verPer: a.querySelector('.d5-verification-person')?.value||''
+    }));
+    const d6rows = Array.from(document.querySelectorAll('.d6-implementation')).map(i => ({
+        action: i.querySelector('.d6-action')?.value||'',
+        resp:   i.querySelector('.d6-responsible')?.value||'',
+        launch: i.querySelector('.d6-launch-date')?.value||'',
+        effFrom:i.querySelector('.d6-effective-from')?.value||'',
+        validOn:i.querySelector('.d6-validated-on')?.value||''
+    }));
+    const d7rows = Array.from(document.querySelectorAll('.d7-prevention')).map(p => ({
+        desc:     p.querySelector('.d7-description')?.value||'',
+        resp:     p.querySelector('.d7-responsible')?.value||'',
+        planned:  p.querySelector('.d7-planned')?.value||'',
+        handover: p.querySelector('.d7-handover')?.value||'',
+        assess:   p.querySelector('.d7-assessment')?.value||''
+    }));
+    const d8 = {
+        result: v('f8d_d8_result'), by: v('f8d_d8_assessmentBy'),
+        on: v('f8d_d8_performedOn'), discuss: v('f8d_d8_finalDiscussion')
     };
 
-    // Header
-    doc.setFillColor(30,60,114);
-    doc.rect(margin, yPos, pageWidth-2*margin, 12, 'F');
-    doc.setTextColor(255,255,255); doc.setFontSize(16); doc.setFont('helvetica','bold');
-    doc.text('8D Report', pageWidth/2, yPos+8, {align:'center'});
-    yPos += 16;
-
-    doc.setTextColor(0,0,0); doc.setFontSize(10); doc.setFont('helvetica','bold');
-    doc.text(`Supplier: ${supplierName}`, margin, yPos);
-    yPos += 8;
-
-    const v = id => document.getElementById(id)?.value || '';
-
-    // Head Data
-    addSection('HEAD DATA', [30,60,114]);
-    doc.autoTable({
-        startY: yPos,
-        body: [
-            ['Report Number', v('f8d_reportNumber'), 'Version',      v('f8d_version')],
-            ['Title',         v('f8d_title'),        'Start Date',   v('f8d_startDate')],
-            ['Subject',       v('f8d_subject'),      'Current Date', v('f8d_currentDate')],
-            ['Customer',      v('f8d_customer'),     'Status',       v('f8d_status')],
-            ['E-Mail',        v('f8d_email'),        'Phone',        v('f8d_phone')],
-        ],
-        theme:'grid', styles:{fontSize:9, cellPadding:3},
-        columnStyles:{0:{fontStyle:'bold',fillColor:[240,244,255]},2:{fontStyle:'bold',fillColor:[240,244,255]}},
-        margin:{left:margin, right:margin}
-    });
-    yPos = doc.lastAutoTable.finalY + 4;
-
-    // Preliminary Defect Info
-    addSection('PRELIMINARY DEFECT INFORMATION', [30,60,114]);
-    doc.autoTable({
-        startY: yPos,
-        body: [
-            ['Part Number',       v('f8d_partNumber'),   'Part Name',        v('f8d_partName')],
-            ['Defect Qty',        v('f8d_defectQuantity'),'Checked Qty',     v('f8d_totalCheckedQuantity')],
-            ['Defect Rate',       v('f8d_defectRate')+'%','Detection Point', v('f8d_detectionPoint')],
-        ],
-        theme:'grid', styles:{fontSize:9, cellPadding:3},
-        columnStyles:{0:{fontStyle:'bold',fillColor:[240,244,255]},2:{fontStyle:'bold',fillColor:[240,244,255]}},
-        margin:{left:margin, right:margin}
-    });
-    yPos = doc.lastAutoTable.finalY + 4;
-    const desc = v('f8d_defectDescription');
-    if (desc) {
-        doc.autoTable({
-            startY:yPos, body:[['Defect Description', desc]],
-            theme:'grid', styles:{fontSize:9, cellPadding:3},
-            columnStyles:{0:{fontStyle:'bold',fillColor:[240,244,255], cellWidth:45}},
-            margin:{left:margin, right:margin}
-        });
-        yPos = doc.lastAutoTable.finalY + 4;
+    /* ── 2. Fishbone SVG ─────────────────────────────────────────── */
+    let fishboneSvgHtml = '';
+    let fishboneProblem = _d4Links?.fishbone?.problem || '';
+    const _fishFrame = document.getElementById('d4PrevFrame_fishbone');
+    const _fishWrap  = document.getElementById('d4PrevWrap_fishbone');
+    if (_fishFrame?.contentDocument && _fishWrap?.style?.display !== 'none') {
+        try {
+            const svgEl = _fishFrame.contentDocument.getElementById('fishboneSvg')
+                       || _fishFrame.contentDocument.querySelector('svg');
+            if (svgEl) {
+                // Fix dimensions for proper rendering
+                const clone = svgEl.cloneNode(true);
+                const vb = svgEl.viewBox?.baseVal;
+                const bBox = svgEl.getBoundingClientRect();
+                const w = (vb?.width > 0 ? vb.width : bBox.width) || 1400;
+                const h = (vb?.height> 0 ? vb.height: bBox.height)||  700;
+                clone.setAttribute('width',  w);
+                clone.setAttribute('height', h);
+                clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+                fishboneSvgHtml = new XMLSerializer().serializeToString(clone);
+            }
+        } catch(e) { console.warn('Fishbone SVG capture:', e); }
     }
+
+    /* ── 3. 5-why chain HTML ─────────────────────────────────────── */
+    function build5WhySection(secLabel, secColor, d) {
+        if (!d?.chains?.some(c => c.steps?.some(s => s.text?.trim()))) return '';
+        let rows = '';
+        d.chains.forEach((chain, ci) => {
+            const branchLabel = ci === 0 ? '' : ` (Dal ${ci+1})`;
+            chain.steps?.forEach((step, si) => {
+                if (!step.text?.trim()) return;
+                const rootBadge = step.isRoot
+                    ? `<span style="background:#ef4444;color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;margin-left:8px;">Kök Neden</span>` : '';
+                const pinnedBadge = step.pinned
+                    ? `<span style="background:#8b5cf6;color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;margin-left:4px;">📌</span>` : '';
+                const indent = (si + (ci > 0 ? 1 : 0)) * 20;
+                rows += `<tr>
+                    <td style="padding:5px 8px;font-size:12px;color:#555;white-space:nowrap;width:80px;">Adım ${si+1}${branchLabel}</td>
+                    <td style="padding:5px 8px;padding-left:${indent+8}px;">
+                        <span style="font-weight:${step.isRoot?'700':'400'};color:${step.isRoot?'#b91c1c':'#1e293b'}">${esc(step.text)}</span>${rootBadge}${pinnedBadge}
+                    </td>
+                </tr>`;
+            });
+        });
+        const rcRow = (d.rcText && !['Teknik Kök Neden\n(Oluşum)','Teknik Kök Neden\n(Tespit Edilememe)','Sistemsel Kök Neden\n(Oluşum)','Sistemsel Kök Neden\n(Tespit Edilememe)'].includes(d.rcText))
+            ? `<tr style="background:#fef3c7"><td colspan="2" style="padding:5px 8px;font-size:12px;"><b>Kök Neden Özeti:</b> ${esc(d.rcText)}</td></tr>` : '';
+        return `<div class="section-block" style="margin-bottom:18px;">
+            <div class="sec-hdr" style="background:${secColor}">${esc(secLabel)}</div>
+            <table class="data-table" style="width:100%">${rows}${rcRow}</table>
+        </div>`;
+    }
+
+    let whyFiveHtml = '';
+    if (_d4WhyFiveData) {
+        const meta = _d4WhyFiveData.meta || {};
+        whyFiveHtml = `<div class="section-block">
+            <div class="ph-hdr" style="background:#1559b0">D4 – BAĞLI 5 NEDEN ANALİZİ</div>
+            ${meta.part ? `<div style="font-size:13px;font-weight:700;margin-bottom:2px;">${esc(meta.part)}</div>` : ''}
+            ${meta.customer ? `<div style="font-size:12px;color:#555;margin-bottom:8px;">${esc(meta.customer)}</div>` : ''}
+            ${build5WhySection('TCO — Teknik Kök Neden (Oluşum)',    '#f59e0b', _d4WhyFiveData.tech?.os)}
+            ${build5WhySection('TCN — Teknik Kök Neden (Tespit)',      '#3b82f6', _d4WhyFiveData.tech?.nd)}
+            ${build5WhySection('SCO — Sistemsel Kök Neden (Oluşum)',  '#10b981', _d4WhyFiveData.sys?.os)}
+            ${build5WhySection('SCN — Sistemsel Kök Neden (Tespit)',   '#8b5cf6', _d4WhyFiveData.sys?.nd)}
+        </div>`;
+    }
+
+    /* ── 4. HTML helpers ─────────────────────────────────────────── */
+    const phHdr = (label, color) =>
+        `<div class="ph-hdr" style="background:${color}">${esc(label)}</div>`;
+
+    const kv2 = (pairs) => `<table class="kv-table">${pairs.map(([k,v])=>
+        `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>`;
+
+    const kv4 = (pairs) => `<table class="kv-table">${pairs.map(([k1,v1,k2,v2])=>
+        `<tr><th>${esc(k1)}</th><td>${esc(v1)}</td><th>${esc(k2)}</th><td>${esc(v2)}</td></tr>`).join('')}</table>`;
+
+    const dataTable = (heads, rows, color) => {
+        if (!rows.length) return '';
+        const hCells = heads.map(h=>`<th>${esc(h)}</th>`).join('');
+        const rRows  = rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('');
+        return `<table class="data-table">
+            <thead style="background:${color};color:#fff"><tr>${hCells}</tr></thead>
+            <tbody>${rRows}</tbody></table>`;
+    };
+
+    const sectionBlock = (hdrLabel, hdrColor, content) => content
+        ? `<div class="section-block">${phHdr(hdrLabel, hdrColor)}${content}</div>` : '';
+
+    /* ── 5. Build all sections ───────────────────────────────────── */
+
+    // HEAD
+    const headHtml = kv4([
+        ['Rapor No',   head.reportNo,   'Versiyon',      head.version],
+        ['Başlık',     head.title,      'Başlangıç',     head.startDate],
+        ['Konu',       head.subject,    'Tarih',         head.currentDate],
+        ['Müşteri',    head.customer,   'Durum',         head.status],
+        ['E-Posta',    head.email,      'Telefon',       head.phone],
+        ['Tedarikçi',  supplierName,    'Kaynak',        head.source],
+    ]);
+
+    // PRELIMINARY
+    const preHtml = kv4([
+        ['Parça No',         defect.partNumber,     'Parça Adı',    defect.partName],
+        ['Hatalı Miktar',    defect.defectQty,      'Kontrol Mik.', defect.checkedQty],
+        ['Hata Oranı',       defect.defectRate+'%', 'Tespit Noktası',defect.detectionPoint],
+    ]) + (defect.description ? kv2([['Hata Tanımı', defect.description]]) : '');
 
     // D1
-    const members = Array.from(document.querySelectorAll('.d1-team-member')).map(m => [
-        m.querySelector('.d1-name').value, m.querySelector('.d1-department').value,
-        m.querySelector('.d1-position').value, m.querySelector('.d1-contact').value
-    ]);
-    if (members.length) {
-        addSection('D1 – PROBLEM SOLVING TEAM', [46,125,50]);
-        doc.autoTable({
-            startY:yPos, head:[['Name','Department','Position','Contact']],
-            body:members, theme:'grid', styles:{fontSize:9, cellPadding:3},
-            headStyles:{fillColor:[46,125,50], textColor:[255,255,255]},
-            margin:{left:margin, right:margin}
-        });
-        yPos = doc.lastAutoTable.finalY + 4;
-    }
+    const d1Html = dataTable(
+        ['Ad Soyad','Departman','Görev','İletişim'],
+        d1members.map(m=>[m.name,m.dept,m.pos,m.contact]),
+        '#2e7d32'
+    );
 
     // D2
-    const d2s = v('f8d_d2_symptom'), d2p = v('f8d_d2_problem');
-    if (d2s || d2p) {
-        addSection('D2 – PROBLEM DESCRIPTION', [2,119,189]);
-        doc.autoTable({
-            startY:yPos, body:[['Symptom',d2s],['Problem',d2p]], theme:'grid',
-            styles:{fontSize:9, cellPadding:3},
-            columnStyles:{0:{fontStyle:'bold',fillColor:[240,248,255],cellWidth:40}},
-            margin:{left:margin, right:margin}
-        });
-        yPos = doc.lastAutoTable.finalY + 4;
-    }
+    const d2Html = kv2([
+        ['Semptom',         d2.symptom],
+        ['Problem',         d2.problem],
+        ['Hata Tipi',       d2.errorType],
+        ['Hata Yeri',       d2.errorLocation],
+        ['Risk Değerlendirme', d2.risk],
+        ['Risk Tarihi',     d2.riskDate],
+    ].filter(([,val])=>val));
 
     // D3
-    const d3rows = Array.from(document.querySelectorAll('.d3-action')).map(a => [
-        a.querySelector('.d3-description').value,
-        a.querySelector('.d3-responsible').value,
-        a.querySelector('.d3-date').value
-    ]);
-    if (d3rows.length) {
-        addSection('D3 – CONTAINMENT ACTIONS', [245,124,0]);
-        doc.autoTable({
-            startY:yPos, head:[['Description','Responsible','Date']], body:d3rows,
-            theme:'grid', styles:{fontSize:9, cellPadding:3},
-            headStyles:{fillColor:[245,124,0], textColor:[255,255,255]},
-            margin:{left:margin, right:margin}
-        });
-        yPos = doc.lastAutoTable.finalY + 4;
-    }
+    const d3Html = dataTable(
+        ['Önlem Tanımı','Sorumlu','Tarih'],
+        d3actions.map(a=>[a.desc,a.resp,a.date]),
+        '#e65100'
+    );
 
-    // D4
-    const d4rows = Array.from(document.querySelectorAll('.d4-root-cause')).map(c => [
-        c.querySelector('.d4-type').value.toUpperCase(),
-        c.querySelector('.d4-title').value,
-        c.querySelector('.d4-description').value
-    ]);
-    if (d4rows.length) {
-        addSection('D4 – ROOT CAUSE ANALYSIS', [198,40,40]);
-        doc.autoTable({
-            startY:yPos, head:[['Type','Title','Description']], body:d4rows,
-            theme:'grid', styles:{fontSize:9, cellPadding:3},
-            headStyles:{fillColor:[198,40,40], textColor:[255,255,255]},
-            margin:{left:margin, right:margin}
-        });
-        yPos = doc.lastAutoTable.finalY + 4;
-    }
+    // D4 root causes table
+    const TYPE_COLORS = {tco:'#f59e0b',tcn:'#3b82f6',sco:'#10b981',scn:'#8b5cf6'};
+    const d4RcHtml = d4causes.length ? `<table class="data-table">
+        <thead style="background:#c62828;color:#fff"><tr><th>Tip</th><th>Başlık</th><th>Açıklama</th></tr></thead>
+        <tbody>${d4causes.map(c=>{
+            const tc = TYPE_COLORS[c.type.toLowerCase()]||'#6b7280';
+            return `<tr><td><span style="background:${tc};color:#fff;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700">${esc(c.type.toUpperCase())}</span></td>
+            <td style="font-weight:600">${esc(c.title)}</td><td>${esc(c.desc)}</td></tr>`;
+        }).join('')}</tbody></table>` : '';
+
+    // Fishbone
+    const fishboneHtml = fishboneSvgHtml
+        ? `<div style="margin-top:12px;border:1px solid #e5e7eb;border-radius:8px;padding:8px;background:#f8fafc;">
+            ${fishboneProblem ? `<div style="font-size:12px;color:#555;margin-bottom:6px;"><b>Problem:</b> ${esc(fishboneProblem)}</div>` : ''}
+            <div style="overflow:hidden;">${fishboneSvgHtml}</div>
+          </div>` : '';
 
     // D5
-    const d5rows = Array.from(document.querySelectorAll('.d5-action')).map(a => [
-        a.querySelector('.d5-action-text').value,
-        a.querySelector('.d5-responsible').value,
-        a.querySelector('.d5-plan-date').value,
-        a.querySelector('.d5-verification-date').value,
-        a.querySelector('.d5-verification-person').value
-    ]);
-    if (d5rows.length) {
-        addSection('D5 – CORRECTIVE ACTIONS', [123,31,162]);
-        doc.autoTable({
-            startY:yPos,
-            head:[['Action','Responsible','Plan Date','Verification Date','Verification Person']],
-            body:d5rows, theme:'grid', styles:{fontSize:9, cellPadding:3},
-            headStyles:{fillColor:[123,31,162], textColor:[255,255,255]},
-            margin:{left:margin, right:margin}
-        });
-        yPos = doc.lastAutoTable.finalY + 4;
-    }
+    const d5Html = dataTable(
+        ['Düzeltici Faaliyet','Sorumlu','Plan Tarihi','Doğrulama Tarihi','Doğrulayan'],
+        d5actions.map(a=>[a.action,a.resp,a.plan,a.verDate,a.verPer]),
+        '#6a1e9a'
+    );
 
     // D6
-    const d6rows = Array.from(document.querySelectorAll('.d6-implementation')).map(i => [
-        i.querySelector('.d6-action').value,
-        i.querySelector('.d6-responsible').value,
-        i.querySelector('.d6-launch-date').value,
-        i.querySelector('.d6-effective-from').value,
-        i.querySelector('.d6-validated-on').value
-    ]);
-    if (d6rows.length) {
-        addSection('D6 – IMPLEMENTATION OF CORRECTIVE ACTIONS', [0,131,143]);
-        doc.autoTable({
-            startY:yPos,
-            head:[['Action','Responsible','Launch Date','Effective From','Validated On']],
-            body:d6rows, theme:'grid', styles:{fontSize:9, cellPadding:3},
-            headStyles:{fillColor:[0,131,143], textColor:[255,255,255]},
-            margin:{left:margin, right:margin}
-        });
-        yPos = doc.lastAutoTable.finalY + 4;
-    }
+    const d6Html = dataTable(
+        ['Faaliyet','Sorumlu','Başlangıç','Yürürlük','Doğrulama'],
+        d6rows.map(r=>[r.action,r.resp,r.launch,r.effFrom,r.validOn]),
+        '#00838f'
+    );
 
     // D7
-    const d7rows = Array.from(document.querySelectorAll('.d7-prevention')).map(p => [
-        p.querySelector('.d7-description').value,
-        p.querySelector('.d7-responsible').value,
-        p.querySelector('.d7-planned').value,
-        p.querySelector('.d7-handover').value,
-        p.querySelector('.d7-assessment').value
-    ]);
-    if (d7rows.length) {
-        addSection('D7 – PREVENTION MEASURES', [230,74,25]);
-        doc.autoTable({
-            startY:yPos,
-            head:[['Description','Responsible','Planned','Hand Over Date','Assessment']],
-            body:d7rows, theme:'grid', styles:{fontSize:9, cellPadding:3},
-            headStyles:{fillColor:[230,74,25], textColor:[255,255,255]},
-            margin:{left:margin, right:margin}
-        });
-        yPos = doc.lastAutoTable.finalY + 4;
-    }
+    const d7Html = dataTable(
+        ['Önlem','Sorumlu','Planlanan','Devir Tarihi','Değerlendirme'],
+        d7rows.map(r=>[r.desc,r.resp,r.planned,r.handover,r.assess]),
+        '#d84315'
+    );
 
     // D8
-    const d8res = v('f8d_d8_result');
-    if (d8res) {
-        addSection('D8 – CONCLUSION', [85,139,47]);
-        doc.autoTable({
-            startY:yPos,
-            body:[['Result', d8res],['Assessment by', v('f8d_d8_assessmentBy')],['Performed on', v('f8d_d8_performedOn')]],
-            theme:'grid', styles:{fontSize:9, cellPadding:3},
-            columnStyles:{0:{fontStyle:'bold',fillColor:[240,248,255],cellWidth:40}},
-            margin:{left:margin, right:margin}
-        });
-    }
+    const d8Html = kv2([
+        ['Sonuç',            d8.result],
+        ['Değerlendiren',    d8.by],
+        ['Gerçekleştirme',   d8.on],
+        ['Final Görüşme',    d8.discuss],
+    ].filter(([,val])=>val));
 
-    // === Bağlı Balık Kılcığı Analizi (SVG görüntüsü) ===
-    const _fishWrap  = document.getElementById('d4PrevWrap_fishbone');
-    const _fishFrame = document.getElementById('d4PrevFrame_fishbone');
-    if (_fishWrap && _fishWrap.style.display !== 'none' && _fishFrame?.contentDocument) {
-        try {
-            const _svgEl  = _fishFrame.contentDocument.getElementById('fishboneSvg')
-                         || _fishFrame.contentDocument.querySelector('svg');
-            if (_svgEl) {
-                const _imgData = await _svgToDataUrl(_svgEl);
-                if (_imgData) {
-                    doc.addPage();
-                    yPos = 15;
-                    doc.setFillColor(198,40,40);
-                    doc.rect(margin, yPos, pageWidth-2*margin, 8, 'F');
-                    doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
-                    doc.text('D4 – BAĞLI BALIK KILCIĞI ANALiZİ', pageWidth/2, yPos+5.5, {align:'center'});
-                    yPos += 12;
-                    if (_d4Links.fishbone?.problem) {
-                        doc.setTextColor(80,80,80); doc.setFontSize(9); doc.setFont('helvetica','normal');
-                        doc.text('Problem: ' + (_d4Links.fishbone.problem||''), margin, yPos);
-                        yPos += 6;
-                    }
-                    const _vb    = _svgEl.viewBox?.baseVal;
-                    const _svgW  = (_vb?.width  > 0 ? _vb.width  : 1400);
-                    const _svgH  = (_vb?.height > 0 ? _vb.height : 700);
-                    const _iW    = pageWidth - 2 * margin;
-                    const _iH    = Math.min(_iW * (_svgH / _svgW), 185);
-                    doc.addImage(_imgData, 'JPEG', margin, yPos, _iW, _iH);
-                }
-            }
-        } catch(e) { console.warn('Fishbone PDF capture failed:', e); }
-    }
+    /* ── 6. Full HTML document ───────────────────────────────────── */
+    const today = new Date().toLocaleDateString('tr-TR');
+    const html = `<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>8D Raporu – ${esc(supplierName)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1e293b;background:#fff;padding:0}
+  @page{size:A4;margin:14mm 12mm}
+  .report-header{background:linear-gradient(135deg,#1e3a6e 0%,#2563eb 100%);color:#fff;padding:16px 20px;border-radius:0 0 8px 8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end}
+  .report-header h1{font-size:22px;font-weight:800;letter-spacing:0.5px}
+  .report-header .meta{font-size:12px;opacity:0.88;text-align:right;line-height:1.6}
+  .ph-hdr{color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:4px 4px 0 0;letter-spacing:0.3px;margin-top:10px}
+  .sec-hdr{color:#fff;font-size:11px;font-weight:700;padding:4px 8px;border-radius:3px;margin:6px 0 2px 0}
+  .section-block{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:10px 10px 6px;margin-bottom:12px;page-break-inside:avoid}
+  .kv-table{width:100%;border-collapse:collapse;font-size:12px}
+  .kv-table th{background:#f0f4ff;font-weight:600;padding:5px 8px;border:1px solid #cbd5e1;white-space:nowrap;width:20%;color:#334155}
+  .kv-table td{padding:5px 8px;border:1px solid #cbd5e1;color:#1e293b}
+  .data-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:2px}
+  .data-table th{padding:5px 8px;text-align:left;font-size:11px;font-weight:600;border:1px solid rgba(255,255,255,0.3)}
+  .data-table td{padding:5px 8px;border:1px solid #e2e8f0;vertical-align:top}
+  .data-table tbody tr:nth-child(even){background:#f8fafc}
+  .page-break{page-break-before:always}
+  svg{max-width:100%;height:auto;display:block}
+  @media print{
+    .no-print{display:none!important}
+    body{padding:0}
+    .section-block{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
 
-    // === Bağlı 5 Neden Analizi (tablo) ===
-    if (_d4WhyFiveData) {
-        const _5nSECS = [
-            { label:'TCO — Teknik Kök Neden (Oluşum)',     d: _d4WhyFiveData.tech?.os  },
-            { label:'TCN — Teknik Kök Neden (Tespit)',       d: _d4WhyFiveData.tech?.nd  },
-            { label:'SCO — Sistemsel Kök Neden (Oluşum)',   d: _d4WhyFiveData.sys?.os   },
-            { label:'SCN — Sistemsel Kök Neden (Tespit)',     d: _d4WhyFiveData.sys?.nd   },
-        ];
-        doc.addPage(); yPos = 15;
-        doc.setFillColor(21,101,192);
-        doc.rect(margin, yPos, pageWidth-2*margin, 8, 'F');
-        doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
-        doc.text('D4 – BAĞLI 5 NEDEN ANALiZİ', pageWidth/2, yPos+5.5, {align:'center'});
-        yPos += 12;
-        if (_d4WhyFiveData.meta?.part) {
-            doc.setTextColor(0,0,0); doc.setFontSize(10); doc.setFont('helvetica','bold');
-            doc.text(_d4WhyFiveData.meta.part, margin, yPos); yPos += 5;
-        }
-        if (_d4WhyFiveData.meta?.customer) {
-            doc.setTextColor(80,80,80); doc.setFontSize(9); doc.setFont('helvetica','normal');
-            doc.text(_d4WhyFiveData.meta.customer, margin, yPos); yPos += 6;
-        }
-        const _defaultRcText = new Set(['Teknik Kök Neden\n(Oluşum)', 'Teknik Kök Neden\n(Tespit Edilememe)', 'Sistemsel Kök Neden\n(Oluşum)', 'Sistemsel Kök Neden\n(Tespit Edilememe)']);
-        for (const sec of _5nSECS) {
-            const d = sec.d;
-            if (!d?.chains?.some(c => c.steps?.some(s => s.text))) continue;
-            const rows = [];
-            d.chains.forEach((chain, ci) => {
-                chain.steps?.forEach((step, si) => {
-                    if (!step.text) return;
-                    rows.push([ `Adım ${si+1}${chain.steps.length<d.chains[0]?.steps?.length?` (dal ${ci+1})`:si===0&&ci===0?'':''} `, step.text, step.isRoot ? '⬤ KÖK' : '' ]);
-                });
-            });
-            if (!rows.length) continue;
-            if (yPos > 240) { doc.addPage(); yPos = 15; }
-            doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(21,101,192);
-            doc.text(sec.label, margin, yPos); yPos += 4;
-            doc.autoTable({
-                startY: yPos,
-                head: [['Adım','Neden Metni','Kök Neden?']],
-                body: rows,
-                theme: 'grid',
-                styles: { fontSize: 8, cellPadding: 2 },
-                headStyles: { fillColor:[21,101,192], textColor:[255,255,255] },
-                columnStyles: { 0:{cellWidth:22}, 2:{cellWidth:18, halign:'center'} },
-                margin: { left:margin, right:margin }
-            });
-            yPos = doc.lastAutoTable.finalY + 3;
-            if (d.rcText && !_defaultRcText.has(d.rcText)) {
-                doc.autoTable({
-                    startY: yPos,
-                    body: [['Kök Neden Özeti', d.rcText]],
-                    theme:'grid', styles:{fontSize:8, cellPadding:2},
-                    columnStyles:{0:{fontStyle:'bold',fillColor:[240,248,255],cellWidth:35}},
-                    margin:{left:margin, right:margin}
-                });
-                yPos = doc.lastAutoTable.finalY + 6;
-            }
-        }
-    }
+<div class="report-header">
+  <div>
+    <div style="font-size:12px;opacity:0.8;text-transform:uppercase;letter-spacing:1px">Kalite Yönetim Sistemi</div>
+    <h1>8D Problem Çözme Raporu</h1>
+    <div style="font-size:13px;margin-top:4px;opacity:0.9">${esc(supplierName)}</div>
+  </div>
+  <div class="meta">
+    ${head.reportNo ? `<div>Rapor No: <b>${esc(head.reportNo)}</b></div>` : ''}
+    ${head.currentDate ? `<div>Tarih: <b>${esc(head.currentDate)}</b></div>` : ''}
+    ${head.status ? `<div>Durum: <b>${esc(head.status)}</b></div>` : ''}
+    <div style="margin-top:4px;font-size:10px;opacity:0.7">Oluşturma: ${today}</div>
+  </div>
+</div>
 
-    const fileName = `8D_${supplierName.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.pdf`;
-    doc.save(fileName);
-    showAlert(`✅ PDF oluşturuldu: ${fileName}`, 'success');
+${sectionBlock('HEAD DATA', '#1e3a6e', headHtml)}
+${sectionBlock('ÖN HATA BİLGİSİ', '#475569', preHtml)}
+${d1members.length ? sectionBlock('D1 – PROBLEM ÇÖZME EKİBİ', '#2e7d32', d1Html) : ''}
+${(d2.symptom||d2.problem) ? sectionBlock('D2 – PROBLEM TANIMI', '#0277bd', d2Html) : ''}
+${d3actions.length ? sectionBlock('D3 – ALTYAPI / KONTEYMENT ÖNLEMLERİ', '#e65100', d3Html) : ''}
+
+<div class="section-block">
+  ${phHdr('D4 – KÖK NEDEN ANALİZİ', '#c62828')}
+  ${d4RcHtml}
+  ${fishboneHtml ? `<div style="font-size:11px;font-weight:700;color:#c62828;margin:10px 0 4px">Balık Kılçığı Diyagramı</div>${fishboneHtml}` : ''}
+  ${whyFiveHtml}
+</div>
+
+${d5actions.length ? sectionBlock('D5 – DÜZELTİCİ FAALİYETLER', '#6a1e9a', d5Html) : ''}
+${d6rows.length ? sectionBlock('D6 – DÜZELTİCİ FAALİYET UYGULAMASI', '#00838f', d6Html) : ''}
+${d7rows.length ? sectionBlock('D7 – TEKRARLANMAYI ÖNLEYICI TEDBIRLER', '#d84315', d7Html) : ''}
+${d8.result ? sectionBlock('D8 – SONUÇ VE KAPANIŞ', '#388e3c', d8Html) : ''}
+
+<div style="margin-top:20px;font-size:10px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:8px">
+  Bu rapor 8D Problem Çözme Metodolojisi çerçevesinde hazırlanmıştır. • ${today}
+</div>
+
+<div class="no-print" style="position:fixed;bottom:20px;right:20px;display:flex;gap:8px;">
+  <button onclick="window.print()" style="background:#1e3a6e;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-size:14px;cursor:pointer;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.25)">🖨️ Yazdır / PDF</button>
+  <button onclick="window.close()" style="background:#64748b;color:#fff;border:none;padding:10px 16px;border-radius:6px;font-size:14px;cursor:pointer">✕</button>
+</div>
+
+</body>
+</html>`;
+
+    /* ── 7. Open print window ─────────────────────────────────────── */
+    const pw = window.open('', '_blank', 'width=960,height=800,scrollbars=yes');
+    if (!pw) {
+        showAlert('⚠️ Pop-up engellendi! Lütfen tarayıcıda pop-up\'a izin verin.', 'error');
+        return;
+    }
+    pw.document.open();
+    pw.document.write(html);
+    pw.document.close();
+    pw.focus();
+    showAlert('✅ Rapor penceresi açıldı — "Yazdır / PDF" butonuna tıklayın.', 'success');
 }
+
+// legacy SVG helper kept for potential reuse
+async function _svgToDataUrl(svgEl) {
+    return new Promise(resolve => {
+        try {
+            const vb = svgEl.viewBox?.baseVal;
+            const bb = svgEl.getBoundingClientRect();
+            const w  = (vb?.width  > 0 ? vb.width  : bb.width)  || 1400;
+            const h  = (vb?.height > 0 ? vb.height : bb.height) ||  700;
+            const clone = svgEl.cloneNode(true);
+            clone.setAttribute('width',  w);
+            clone.setAttribute('height', h);
+            clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+            const xml  = new XMLSerializer().serializeToString(clone);
+            const blob = new Blob([xml], {type:'image/svg+xml'});
+            const url  = URL.createObjectURL(blob);
+            const img  = new Image();
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                c.width = w; c.height = h;
+                c.getContext('2d').drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+                resolve(c.toDataURL('image/jpeg', 0.92));
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+            img.src = url;
+        } catch(e) { resolve(null); }
+    });
+}
+
 
 /* ================================================================
    INIT
