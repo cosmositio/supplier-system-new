@@ -1578,11 +1578,12 @@
                     <div class="bk-key-hint">Ücretsiz modeller · <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai</a></div>
                     <select class="bk-model-sel" id="bkORModel" onchange="localStorage.setItem('or_model',this.value)">
                         <option value="meta-llama/llama-3.3-70b-instruct:free">✅ Llama 3.3 70B (ücretsiz)</option>
-                        <option value="google/gemma-3-27b-it:free">Google Gemma 3 27B (ücretsiz)</option>
-                        <option value="deepseek/deepseek-r1-0528:free">DeepSeek R1-0528 (ücretsiz)</option>
-                        <option value="qwen/qwen3-235b-a22b:free">Qwen3 235B (ücretsiz)</option>
-                        <option value="mistralai/mistral-small-3.1-24b-instruct:free">Mistral Small 3.1 24B (ücretsiz)</option>
-                        <option value="microsoft/phi-4-reasoning-plus:free">Phi-4 Reasoning+ (ücretsiz)</option>
+                        <option value="arcee-ai/trinity-large-preview:free">Arcee Trinity Large (ücretsiz)</option>
+                        <option value="stepfun/step-3.5-flash:free">StepFun 3.5 Flash (ücretsiz)</option>
+                        <option value="openai/gpt-oss-120b:free">OpenAI GPT-OSS 120B (ücretsiz)</option>
+                        <option value="arcee-ai/trinity-mini:free">Arcee Trinity Mini (ücretsiz)</option>
+                        <option value="z-ai/glm-4.5-air:free">GLM 4.5 Air (ücretsiz)</option>
+                        <option value="nvidia/nemotron-3-nano-30b-a3b:free">NVIDIA Nemotron 30B (ücretsiz)</option>
                     </select>
                 </div>
             </div>
@@ -4895,11 +4896,12 @@ async function bkCallAI(messages, maxTokens, temperature) {
         const chosenOR  = document.getElementById('bkORModel')?.value || localStorage.getItem('or_model') || 'meta-llama/llama-3.3-70b-instruct:free';
         const OR_FREE_MODELS = [
             'meta-llama/llama-3.3-70b-instruct:free',
-            'google/gemma-3-27b-it:free',
-            'deepseek/deepseek-r1-0528:free',
-            'qwen/qwen3-235b-a22b:free',
-            'mistralai/mistral-small-3.1-24b-instruct:free',
-            'microsoft/phi-4-reasoning-plus:free',
+            'arcee-ai/trinity-large-preview:free',
+            'stepfun/step-3.5-flash:free',
+            'openai/gpt-oss-120b:free',
+            'arcee-ai/trinity-mini:free',
+            'z-ai/glm-4.5-air:free',
+            'nvidia/nemotron-3-nano-30b-a3b:free',
         ];
         const FALLBACKS = [chosenOR, ...OR_FREE_MODELS].filter((v,i,a)=>a.indexOf(v)===i);
         const orPost = (model) => fetch('https://openrouter.ai/api/v1/chat/completions',{
