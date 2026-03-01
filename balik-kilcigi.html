@@ -1560,10 +1560,11 @@
                     <div class="bk-key-hint">Ücretsiz modeller · <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai</a></div>
                     <select class="bk-model-sel" id="bkORModel" onchange="localStorage.setItem('or_model',this.value)">
                         <option value="meta-llama/llama-3.3-70b-instruct:free">✅ Llama 3.3 70B (ücretsiz)</option>
-                        <option value="arcee-ai/trinity-large-preview:free">Arcee Trinity Large (ücretsiz)</option>
-                        <option value="stepfun/step-3.5-flash:free">StepFun 3.5 Flash (ücretsiz)</option>
-                        <option value="openai/gpt-oss-120b:free">OpenAI GPT-OSS 120B (ücretsiz)</option>
-                        <option value="z-ai/glm-4.5-air:free">GLM 4.5 Air (ücretsiz)</option>
+                        <option value="google/gemma-3-27b-it:free">Google Gemma 3 27B (ücretsiz)</option>
+                        <option value="deepseek/deepseek-r1-0528:free">DeepSeek R1-0528 (ücretsiz)</option>
+                        <option value="qwen/qwen3-235b-a22b:free">Qwen3 235B (ücretsiz)</option>
+                        <option value="mistralai/mistral-small-3.1-24b-instruct:free">Mistral Small 3.1 24B (ücretsiz)</option>
+                        <option value="microsoft/phi-4-reasoning-plus:free">Phi-4 Reasoning+ (ücretsiz)</option>
                     </select>
                 </div>
             </div>
@@ -4871,22 +4872,36 @@ async function bkCallAI(messages, maxTokens, temperature) {
         const key = localStorage.getItem('or_api_key') || document.getElementById('bkKeyORInput')?.value?.trim() || '';
         if (!key) throw new Error('OpenRouter API key girilmedi — ⚙️ API Ayarları bölümünden girin.');
         const chosenOR  = document.getElementById('bkORModel')?.value || localStorage.getItem('or_model') || 'meta-llama/llama-3.3-70b-instruct:free';
-        const FALLBACKS = [chosenOR,'meta-llama/llama-3.3-70b-instruct:free','arcee-ai/trinity-large-preview:free','stepfun/step-3.5-flash:free','openai/gpt-oss-120b:free','z-ai/glm-4.5-air:free'].filter((v,i,a)=>a.indexOf(v)===i);
+        const OR_FREE_MODELS = [
+            'meta-llama/llama-3.3-70b-instruct:free',
+            'google/gemma-3-27b-it:free',
+            'deepseek/deepseek-r1-0528:free',
+            'qwen/qwen3-235b-a22b:free',
+            'mistralai/mistral-small-3.1-24b-instruct:free',
+            'microsoft/phi-4-reasoning-plus:free',
+        ];
+        const FALLBACKS = [chosenOR, ...OR_FREE_MODELS].filter((v,i,a)=>a.indexOf(v)===i);
         const orPost = (model) => fetch('https://openrouter.ai/api/v1/chat/completions',{
             method:'POST',
             headers:{'Content-Type':'application/json','Authorization':'Bearer '+key,'HTTP-Referer':'https://github.com','X-Title':'Balik-Kilcigi'},
             body:JSON.stringify({model, messages, temperature:temp, max_tokens:maxTokens})
         });
-        for (const model of FALLBACKS) {
+        let orLastErr = '';
+        for (let fi = 0; fi < FALLBACKS.length; fi++) {
+            const model = FALLBACKS[fi];
+            if (fi > 0) await new Promise(r=>setTimeout(r,1500)); // avoid cascade 429
             let resp = await orPost(model);
-            if (resp.status===429) { await new Promise(r=>setTimeout(r,5000)); resp = await orPost(model); }
+            if (resp.status === 429) {
+                await new Promise(r=>setTimeout(r,6000));
+                resp = await orPost(model);
+            }
             if (resp.ok) { const d=await resp.json(); return d?.choices?.[0]?.message?.content||''; }
             const oe=await resp.json().catch(()=>({})); const omsg=oe?.error?.message||('HTTP '+resp.status);
-            if (resp.status===401||resp.status===403) throw new Error('OpenRouter: API key geçersiz.');
-            if (resp.status===404) continue;
+            if (resp.status===401||resp.status===403) throw new Error('OpenRouter: API key geçersiz — openrouter.ai/keys kontrol edin.');
+            if (resp.status===404 || resp.status===429) { orLastErr = `${model}: ${omsg}`; continue; } // try next
             throw new Error('OpenRouter ('+model+'): '+omsg);
         }
-        throw new Error('OpenRouter: Hiçbir model çalışmadı.');
+        throw new Error('OpenRouter: Hiçbir model çalışmadı. Son hata: '+orLastErr);
 
     } else if (provider === 'gemini') {
         const key = localStorage.getItem('gemini_api_key') || document.getElementById('bkKeyGeminiInput')?.value?.trim() || '';
