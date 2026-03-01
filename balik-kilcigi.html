@@ -1950,8 +1950,39 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) { console.error('fishbone_incoming parse hatası:', e); }
     }
 
+    // 8D D4 köprüsü: 8D raporundan Balık Kılçığı sayfasına yönlendirme
+    let _from8D = false;
+    const _raw8dBridge = localStorage.getItem('_8d_bridge');
+    if (_raw8dBridge && !_fromUygunsuzluk) {
+        try {
+            const bridge = JSON.parse(_raw8dBridge);
+            if (bridge.type === 'fishbone') {
+                localStorage.removeItem('_8d_bridge');
+                _8dLinkKey = bridge.key || null;
+                // Key varsa önceki 8D bağlantılı analizi yükle
+                let _loaded8D = false;
+                if (_8dLinkKey) {
+                    const _8dSaved = localStorage.getItem(_8dLinkKey);
+                    if (_8dSaved) {
+                        try {
+                            const parsed = JSON.parse(_8dSaved);
+                            Object.assign(state, parsed);
+                            _loaded8D = true;
+                        } catch(e) {}
+                    }
+                }
+                // Kayıtlı durum yoksa problemi ön-doldur
+                if (!_loaded8D && bridge.problem) {
+                    state.problem = bridge.problem;
+                    state.causes  = [];
+                }
+                _from8D = true;
+            }
+        } catch(e) {}
+    }
+
     // Kayıtlı durumu yükle (gelen veri yoksa)
-    if (!_fromUygunsuzluk) {
+    if (!_fromUygunsuzluk && !_from8D) {
         const saved = localStorage.getItem('fishbone_state');
         if (saved) {
             try {
@@ -1994,6 +2025,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Uygunsuzluk analizinden gelindiyse bildirim göster
     if (_fromUygunsuzluk) {
         setTimeout(() => showNotification('Uygunsuzluk Analizi\'nden problem aktarıldı 🐟', 'success'), 600);
+    }
+
+    // 8D D4 bağlantısıyla açıldıysa banner göster
+    if (_from8D) {
+        setTimeout(() => {
+            const banner = document.createElement('div');
+            banner.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#c62828;color:white;padding:12px 18px;border-radius:8px;font-size:0.9em;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);cursor:pointer;max-width:340px;line-height:1.4;';
+            banner.innerHTML = '🔗 8D D4 bağlantısıyla açıldı — Analiz tamamlandığında 8D sekmesine dönün <span style="opacity:0.7;margin-left:6px;">✕</span>';
+            banner.onclick = () => banner.remove();
+            document.body.appendChild(banner);
+            setTimeout(() => { if (banner.parentNode) banner.remove(); }, 7000);
+        }, 500);
     }
 
     // Problem input listener
