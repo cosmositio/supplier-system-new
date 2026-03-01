@@ -5021,6 +5021,7 @@ async function bkTestAPI(provider) {
 
 // ── Depth chip buttons in chat ───────────────────────
 function bkAskDepth() {
+    _aiFlowState = 'depth';
     _aiWaitingForDepth = true;
     const depthMsgId = 'bkDepthMsg_' + Date.now();
     const wrap = document.getElementById('aiMessages');
@@ -5168,9 +5169,16 @@ ${depthInstructions[depth]}
 
 Tüm kategoriler için JSON üret. SADECE JSON döndür, başka hiçbir şey yazma. Türkçe yaz.`;
 
+    // Build context string from progressive Q&A
+    const ctxParts = [];
+    if (_aiContext.when  && _aiContext.when  !== '— (atlandı)') ctxParts.push(`Ne zamandan beri / sıklık: ${_aiContext.when}`);
+    if (_aiContext.what  && _aiContext.what  !== '— (atlandı)') ctxParts.push(`Etkilenen ürün / hat / süreç: ${_aiContext.what}`);
+    if (_aiContext.tried && _aiContext.tried !== '— (atlandı)') ctxParts.push(`Daha önce denenip işe yaramayanlar: ${_aiContext.tried}`);
+    const contextStr = ctxParts.length > 0 ? '\n\nEk Bağlam:\n' + ctxParts.join('\n') : '';
+
     const messages = [
         { role: 'system', content: systemPrompt },
-        { role: 'user',   content: `Problem: ${problem}` }
+        { role: 'user',   content: `Problem: ${problem}${contextStr}` }
     ];
 
     const tokenMap = {1: 800, 2: 1200, 3: 1800};
@@ -5219,6 +5227,8 @@ let _aiProblem = '';
 let _aiCauses = {}; // { 'Makine': [{name, children:[{name, children:[]}]}, ...] }
 let _aiDepth = 2;          // 1=sadece ana, 2=ana+alt, 3=ana+alt+alt-alt
 let _aiWaitingForDepth = false;
+let _aiFlowState = 'problem'; // 'problem'|'ctx_when'|'ctx_what'|'ctx_tried'|'depth'|'generating'
+let _aiContext = { when: '', what: '', tried: '' };
 
 function switchView(view) {
     const fv = document.getElementById('fishboneView');
@@ -5268,12 +5278,73 @@ function aiInsertChip(type) {
     ta.setSelectionRange(insertAt + sel[0], insertAt + sel[1]);
 }
 
+function bkAskCtxWhen() {
+    _aiFlowState = 'ctx_when';
+    const wrap = document.getElementById('aiMessages');
+    const div = document.createElement('div');
+    div.className = 'ai-msg bot';
+    div.innerHTML = `
+        <div class="ai-msg-avatar">🤖</div>
+        <div class="ai-msg-bubble">
+            <strong>📅 Bu problem ne zamandan beri oluşuyor?</strong><br>
+            <span style="color:#94a3b8;font-size:12px">Süre ve sıklık bilgisi analizi kişiselleştirir.</span><br><br>
+            Örnek: <em>"2 haftadır, her gün 5-6 kez"</em> veya <em>"Son teslimatlarda tespit edildi"</em><br><br>
+            <button onclick="bkCtxSkip('when')" style="padding:4px 12px;border:1px dashed #475569;border-radius:6px;background:transparent;color:#64748b;cursor:pointer;font-size:11px;">Atla →</button>
+        </div>`;
+    wrap.appendChild(div);
+    wrap.scrollTop = wrap.scrollHeight;
+}
+
+function bkAskCtxWhat() {
+    _aiFlowState = 'ctx_what';
+    const wrap = document.getElementById('aiMessages');
+    const div = document.createElement('div');
+    div.className = 'ai-msg bot';
+    div.innerHTML = `
+        <div class="ai-msg-avatar">🤖</div>
+        <div class="ai-msg-bubble">
+            <strong>🏭 Hangi ürün, makine veya süreçte oluşuyor?</strong><br>
+            <span style="color:#94a3b8;font-size:12px">Hat, bölüm veya ürün kodu bilgisi AI'nın daha hedefli neden üretmesini sağlar.</span><br><br>
+            Örnek: <em>"Hat-3, montaj istasyonu, ürün kodu A-201"</em><br><br>
+            <button onclick="bkCtxSkip('what')" style="padding:4px 12px;border:1px dashed #475569;border-radius:6px;background:transparent;color:#64748b;cursor:pointer;font-size:11px;">Atla →</button>
+        </div>`;
+    wrap.appendChild(div);
+    wrap.scrollTop = wrap.scrollHeight;
+}
+
+function bkAskCtxTried() {
+    _aiFlowState = 'ctx_tried';
+    const wrap = document.getElementById('aiMessages');
+    const div = document.createElement('div');
+    div.className = 'ai-msg bot';
+    div.innerHTML = `
+        <div class="ai-msg-avatar">🤖</div>
+        <div class="ai-msg-bubble">
+            <strong>🔧 Daha önce ne denenip sonuç alınamadı?</strong><br>
+            <span style="color:#94a3b8;font-size:12px">Başarısız girişimleri öğrenen AI, daha önce denenenleri tekrar önermez.</span><br><br>
+            Örnek: <em>"Vida torku artırıldı fark etmedi"</em> — yoksa <em>"yok"</em> yazabilirsiniz.<br><br>
+            <button onclick="bkCtxSkip('tried')" style="padding:4px 12px;border:1px dashed #475569;border-radius:6px;background:transparent;color:#64748b;cursor:pointer;font-size:11px;">Atla →</button>
+        </div>`;
+    wrap.appendChild(div);
+    wrap.scrollTop = wrap.scrollHeight;
+}
+
+function bkCtxSkip(field) {
+    _aiContext[field] = '';
+    aiAddMessage('user', '— (atlandı)');
+    if      (field === 'when')  setTimeout(() => bkAskCtxWhat(),  400);
+    else if (field === 'what')  setTimeout(() => bkAskCtxTried(), 400);
+    else if (field === 'tried') setTimeout(() => bkAskDepth(),    400);
+}
+
 function aiReset() {
     _aiStep = 0;
     _aiProblem = '';
     _aiCauses = {};
     _aiDepth = 2;
     _aiWaitingForDepth = false;
+    _aiFlowState = 'problem';
+    _aiContext = { when: '', what: '', tried: '' };
     document.getElementById('aiMessages').innerHTML = '';
     document.getElementById('aiUserInput').value = '';
     document.getElementById('aiUserInput').disabled = false;
@@ -5347,6 +5418,24 @@ function aiSend() {
     aiAddMessage('user', text.replace(/\n/g,'<br>'));
     input.value = '';
 
+    // ── Progressive context gathering (AI mode, before depth selection) ──
+    if (_aiFlowState === 'ctx_when') {
+        _aiContext.when = text;
+        setTimeout(() => bkAskCtxWhat(), 400);
+        return;
+    }
+    if (_aiFlowState === 'ctx_what') {
+        _aiContext.what = text;
+        setTimeout(() => bkAskCtxTried(), 400);
+        return;
+    }
+    if (_aiFlowState === 'ctx_tried') {
+        _aiContext.tried = text;
+        setTimeout(() => bkAskDepth(), 400);
+        return;
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     const step = AI_STEPS[_aiStep];
 
     if (step.key === 'problem') {
@@ -5363,8 +5452,8 @@ function aiSend() {
         if (hasKey) {
             // Store live key if not already saved
             if (liveKey && !storedKey) localStorage.setItem(keyMap[provider], liveKey);
-            aiAddMessage('bot', `✅ Problem kaydedildi: <strong>${text}</strong>`);
-            setTimeout(() => bkAskDepth(), 400);
+            aiAddMessage('bot', `✅ Problem kaydedildi: <strong>${text}</strong><br><br>Analizi kişiselleştirmek için birkaç kısa soru soracağım.`);
+            setTimeout(() => bkAskCtxWhen(), 500);
 
         } else {
             // No key → manual flow
