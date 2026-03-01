@@ -350,6 +350,27 @@
             cursor: grabbing;
         }
 
+        /* ===== EMBED MODE — 8D raporu içi önizleme (iframe) ===== */
+        body.embed-mode { margin:0; overflow:hidden; background:#0f172a; }
+        body.embed-mode .header,
+        body.embed-mode .sidebar,
+        body.embed-mode .canvas-toolbar,
+        body.embed-mode .action-plan-view,
+        body.embed-mode .ai-assist-view,
+        body.embed-mode #notification,
+        body.embed-mode #fishboneRecordsModal,
+        body.embed-mode #bkAISettingsPanel,
+        body.embed-mode #contextMenu { display:none !important; }
+        body.embed-mode .app-layout  { height:100vh; }
+        body.embed-mode .canvas-container { width:100vw; height:100vh; border-radius:0; border:none; }
+        /* Üst bilgi etiketi */
+        body.embed-mode #embedLabel {
+            position:fixed; top:0; left:0; right:0; z-index:9999;
+            background:rgba(15,23,42,0.82); color:#94a3b8;
+            font-size:11px; font-family:inherit; padding:3px 10px; text-align:center;
+            pointer-events:none; backdrop-filter:blur(4px); letter-spacing:0.02em;
+        }
+
         .canvas-svg {
             position: absolute;
             top: 0;
@@ -2003,7 +2024,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 document.body.classList.add('embed-mode');
-                document.body.setAttribute('data-embed-label', '🐟 ' + (state.problem || 'Balık Kılçığı Analizi') + ' — 8D raporu için önizleme');
+                // Bilgi etiketi div'i oluştur
+                const _lbl = document.createElement('div');
+                _lbl.id = 'embedLabel';
+                _lbl.textContent = '🐟 ' + (state.problem || 'Balık Kılçığı Analizi') + ' — 8D raporu için önizleme';
+                document.body.appendChild(_lbl);
             }
 
             const _bkTs  = _urlPs.get('bk_ts');
@@ -2080,7 +2105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Kayıtlı durumu yükle (gelen veri yoksa)
-    if (!_fromUygunsuzluk && !_from8D) {
+    if (!_fromUygunsuzluk && !_from8D && !_embedMode) {
         const saved = localStorage.getItem('fishbone_state');
         if (saved) {
             try {
