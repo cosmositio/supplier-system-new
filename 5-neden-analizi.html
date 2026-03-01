@@ -523,6 +523,29 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   .ca-hdr{font-size:.68rem !important;padding:5px 10px !important;}
   .ca-section-lbl{font-size:.60rem !important;padding:3px 8px !important;}
 }
+
+/* ═══ EMBED MODE ═══ */
+body.embed-mode .topbar       { display:none !important; }
+body.embed-mode .meta-bar     { display:none !important; }
+body.embed-mode .legend       { display:none !important; }
+body.embed-mode .consid-tabs  { display:none !important; }
+body.embed-mode .actions-side { display:none !important; }
+body.embed-mode .consid-banner { display:none !important; }
+body.embed-mode .print-meta    { display:none !important; }
+body.embed-mode .add-step-btn  { display:none !important; }
+body.embed-mode .sacts         { display:none !important; }
+body.embed-mode .pin-btn       { display:none !important; }
+body.embed-mode body, body.embed-mode { margin:0; overflow:auto; background:#fff; }
+body.embed-mode .consid-panel { display:block !important; }
+body.embed-mode .panel-body   { flex-direction:column; }
+body.embed-mode .diagram-side { overflow:auto; }
+body.embed-mode .canvas-outer {
+  background:#fff !important;
+  background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px) !important;
+  background-size: 24px 24px !important;
+  min-height:100vh;
+  padding:14px 14px 40px;
+}
 </style>
 </head>
 <body>
@@ -1584,6 +1607,32 @@ document.getElementById('mDate').valueAsDate = new Date();
 })();
 
 render();
+
+// ═══ EMBED MODE (8D preview iframe) ═══
+(function(){
+  const _ep = new URLSearchParams(location.search);
+  if (_ep.get('embed') !== '1') return;
+  document.body.classList.add('embed-mode');
+  // Show only the requested consideration tab (default: tech)
+  const _tab = _ep.get('tab') || 'tech';
+  document.querySelectorAll('.consid-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.ctab').forEach(b => b.classList.remove('active'));
+  const _panelEl = document.getElementById('panel-' + _tab);
+  if (_panelEl) _panelEl.style.display = 'block';
+  const _tabEl   = document.getElementById('ctab-' + _tab);
+  if (_tabEl) _tabEl.classList.add('active');
+  // Load data from IDB using statekey
+  const _stKey = _ep.get('statekey') || '';
+  if (!_stKey) return;
+  idbGetByKey(_stKey).then(d => {
+    if (!d) return;
+    _S = d;
+    if (_S.meta) applyMeta();
+    // activate tab via switchConsid
+    switchConsid(_tab, document.getElementById('ctab-'+_tab) || document.createElement('button'));
+    render();
+  }).catch(()=>{});
+})();
 
 // ══════════════════════════════════════════════════════
 //  CORRECTIVE ACTIONS TABLE

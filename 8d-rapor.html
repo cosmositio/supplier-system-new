@@ -731,10 +731,10 @@ function d4RenderLinkCards() {
                     <button class="d4-link-btn-open" style="background:${color};" onclick="d4OpenAnalysis('${type}')">&#8599;&#65039; Aç / Düzenle</button>
                     <button class="d4-link-btn-remove" onclick="d4UnlinkAnalysis('${type}')">&#128465; Kaldır</button>
                     ${type === 'fishbone' && (lk.idbId || lk.key) ? `<button class="d4-preview-btn" id="d4PrevBtn_${type}" onclick="d4ToggleFishbonePreview('${type}','${lk.idbId||''}','${lk.key||''}')">&#128065; Diyagramı Göster</button>` : ''}
-                    ${type === 'whyFive' && lk.key ? `<button class="d4-preview-btn" id="d4PrevBtn_whyFive" style="border-color:#1565c0;color:#1565c0;" onclick="d4ToggleWhyFivePreview('${lk.key}')">&#128065; 5 Nedeni Göster</button>` : ''}
+                ${type === 'whyFive' && lk.key ? `<button class="d4-preview-btn" id="d4PrevBtn_whyFive" style="border-color:#1565c0;color:#1565c0;" onclick="d4ToggleWhyFivePreview('${lk.key}')">&#128065; 5 Nedeni Göster</button>` : ''}
                 </div>
                 ${type === 'fishbone' && (lk.idbId || lk.key) ? `<div class="d4-preview-wrap" id="d4PrevWrap_${type}" style="display:none;"><iframe class="d4-preview-iframe" id="d4PrevFrame_${type}"></iframe></div>` : ''}
-                ${type === 'whyFive' && lk.key ? `<div class="d4-preview-wrap" id="d4PrevWrap_whyFive" style="display:none;border-color:#1565c0;max-height:420px;overflow-y:auto;"></div>` : ''}
+                ${type === 'whyFive' && lk.key ? `<div class="d4-preview-wrap" id="d4PrevWrap_whyFive" style="display:none;border-color:#1565c0;"><iframe class="d4-preview-iframe" id="d4PrevFrame_whyFive" style="height:520px;"></iframe></div>` : ''}
             </div>`;
         } else {
             return `<div class="d4-link-card empty">
@@ -959,27 +959,32 @@ function d4ToggleFishbonePreview(type, idbId, stateKey) {
     }
 }
 async function d4ToggleWhyFivePreview(stateKey) {
-    const wrap = document.getElementById('d4PrevWrap_whyFive');
-    const btn  = document.getElementById('d4PrevBtn_whyFive');
+    const wrap  = document.getElementById('d4PrevWrap_whyFive');
+    const btn   = document.getElementById('d4PrevBtn_whyFive');
+    const frame = document.getElementById('d4PrevFrame_whyFive');
     if (!wrap) return;
     const isOpen = wrap.style.display !== 'none';
     if (isOpen) {
         wrap.style.display = 'none';
-        if (btn) btn.innerHTML = '&#128065; 5 Nedeni Göster';
+        if (btn)   btn.innerHTML = '&#128065; 5 Nedeni Göster';
+        if (frame) frame.src = 'about:blank';
         _d4WhyFiveData = null;
         return;
     }
     wrap.style.display = 'block';
     if (btn) btn.innerHTML = '&#128065; Gizle';
-    wrap.innerHTML = '<div style="padding:16px;text-align:center;color:#64748b">Yüklüyor...</div>';
-    try {
-        const db   = await new Promise((ok, err) => { const r = indexedDB.open('KaliteRaporDB', 5); r.onsuccess = e => ok(e.target.result); r.onerror = e => err(e.target.error); });
-        const data = await new Promise((ok, err) => { const r = db.transaction(['payloads'],'readonly').objectStore('payloads').get(stateKey); r.onsuccess = () => ok(r.result); r.onerror = e => err(e.target.error); });
-        if (!data) { wrap.innerHTML = '<div style="padding:16px;color:#ef4444">Veri bulunamadı.</div>'; return; }
-        _d4WhyFiveData = data;
-        wrap.innerHTML = _render5NPreview(data);
-    } catch(e) {
-        wrap.innerHTML = '<div style="padding:16px;color:#ef4444">Hata: ' + esc(e.message) + '</div>';
+    if (frame && (!frame.src || frame.src === 'about:blank' || frame.src === '')) {
+        const params = new URLSearchParams({ embed: '1', tab: 'tech' });
+        if (stateKey) params.set('statekey', stateKey);
+        frame.src = `5-neden-analizi.html?${params.toString()}`;
+    }
+    // Load data for PDF export too
+    if (!_d4WhyFiveData && stateKey) {
+        try {
+            const db   = await new Promise((ok, err) => { const r = indexedDB.open('KaliteRaporDB', 5); r.onsuccess = e => ok(e.target.result); r.onerror = e => err(e.target.error); });
+            const data = await new Promise((ok, err) => { const r = db.transaction(['payloads'],'readonly').objectStore('payloads').get(stateKey); r.onsuccess = () => ok(r.result); r.onerror = e => err(e.target.error); });
+            if (data) _d4WhyFiveData = data;
+        } catch(e) { /* silent */ }
     }
 }
 
