@@ -710,7 +710,8 @@ let d1MemberCount         = 0;
 let d3ActionCount         = 0;
 let d4RootCauseCount      = 0;
 /* D4 linked analyses (fishbone + 5-neden) */
-let _d4Links = { fishbone: null, whyFive: null };
+let _d4Links       = { fishbone: null, whyFive: null };
+let _d4WhyFiveData = null;   // yüklenen 5-neden verisi (preview + PDF için)
 
 function d4RenderLinkCards() {
     const c = document.getElementById('d4LinkCards');
@@ -730,8 +731,10 @@ function d4RenderLinkCards() {
                     <button class="d4-link-btn-open" style="background:${color};" onclick="d4OpenAnalysis('${type}')">&#8599;&#65039; Aç / Düzenle</button>
                     <button class="d4-link-btn-remove" onclick="d4UnlinkAnalysis('${type}')">&#128465; Kaldır</button>
                     ${type === 'fishbone' && (lk.idbId || lk.key) ? `<button class="d4-preview-btn" id="d4PrevBtn_${type}" onclick="d4ToggleFishbonePreview('${type}','${lk.idbId||''}','${lk.key||''}')">&#128065; Diyagramı Göster</button>` : ''}
+                    ${type === 'whyFive' && lk.key ? `<button class="d4-preview-btn" id="d4PrevBtn_whyFive" style="border-color:#1565c0;color:#1565c0;" onclick="d4ToggleWhyFivePreview('${lk.key}')">&#128065; 5 Nedeni Göster</button>` : ''}
                 </div>
                 ${type === 'fishbone' && (lk.idbId || lk.key) ? `<div class="d4-preview-wrap" id="d4PrevWrap_${type}" style="display:none;"><iframe class="d4-preview-iframe" id="d4PrevFrame_${type}"></iframe></div>` : ''}
+                ${type === 'whyFive' && lk.key ? `<div class="d4-preview-wrap" id="d4PrevWrap_whyFive" style="display:none;border-color:#1565c0;max-height:420px;overflow-y:auto;"></div>` : ''}
             </div>`;
         } else {
             return `<div class="d4-link-card empty">
@@ -955,6 +958,100 @@ function d4ToggleFishbonePreview(type, idbId, stateKey) {
         }
     }
 }
+async function d4ToggleWhyFivePreview(stateKey) {
+    const wrap = document.getElementById('d4PrevWrap_whyFive');
+    const btn  = document.getElementById('d4PrevBtn_whyFive');
+    if (!wrap) return;
+    const isOpen = wrap.style.display !== 'none';
+    if (isOpen) {
+        wrap.style.display = 'none';
+        if (btn) btn.innerHTML = '&#128065; 5 Nedeni Göster';
+        _d4WhyFiveData = null;
+        return;
+    }
+    wrap.style.display = 'block';
+    if (btn) btn.innerHTML = '&#128065; Gizle';
+    wrap.innerHTML = '<div style="padding:16px;text-align:center;color:#64748b">Yüklüyor...</div>';
+    try {
+        const db   = await new Promise((ok, err) => { const r = indexedDB.open('KaliteRaporDB', 5); r.onsuccess = e => ok(e.target.result); r.onerror = e => err(e.target.error); });
+        const data = await new Promise((ok, err) => { const r = db.transaction(['payloads'],'readonly').objectStore('payloads').get(stateKey); r.onsuccess = () => ok(r.result); r.onerror = e => err(e.target.error); });
+        if (!data) { wrap.innerHTML = '<div style="padding:16px;color:#ef4444">Veri bulunamadı.</div>'; return; }
+        _d4WhyFiveData = data;
+        wrap.innerHTML = _render5NPreview(data);
+    } catch(e) {
+        wrap.innerHTML = '<div style="padding:16px;color:#ef4444">Hata: ' + esc(e.message) + '</div>';
+    }
+}
+
+function _render5NPreview(data) {
+    const SECS = [
+        { label:'&#128308; TCO — Teknik Kök Neden (Oluşum)',     d: data.tech?.os  },
+        { label:'&#128309; TCN — Teknik Kök Neden (Tespit)',       d: data.tech?.nd  },
+        { label:'&#128994; SCO — Sistemsel Kök Neden (Oluşum)',   d: data.sys?.os   },
+        { label:'&#128995; SCN — Sistemsel Kök Neden (Tespit)',     d: data.sys?.nd   },
+    ];
+    let h = '<div style="padding:12px 14px;font-family:inherit;font-size:13px;">';
+    if (data.meta?.part)     h += `<div style="font-weight:700;margin-bottom:2px;">${esc(data.meta.part)}</div>`;
+    if (data.meta?.customer) h += `<div style="color:#64748b;margin-bottom:10px;font-size:12px;">${esc(data.meta.customer)}</div>`;
+    for (const sec of SECS) {
+        const d = sec.d;
+        if (!d?.chains?.some(c => c.steps?.some(s => s.text))) continue;
+        h += `<div style="margin-bottom:14px;">`;
+        h += `<div style="font-weight:700;font-size:12px;margin-bottom:6px;">${sec.label}</div>`;
+        if (d.problem) h += `<div style="font-size:11px;color:#475569;margin-bottom:4px;">Problem: ${esc(d.problem)}</div>`;
+        d.chains.forEach((chain, ci) => {
+            const validSteps = chain.steps?.filter(s => s.text) || [];
+            if (!validSteps.length) return;
+            h += `<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:4px;">`;
+            validSteps.forEach((step, si) => {
+                const bg = step.isRoot ? '#fee2e2' : '#eff6ff';
+                const bd = step.isRoot ? '#fca5a5' : '#bfdbfe';
+                const cl = step.isRoot ? '#b91c1c' : '#1d4ed8';
+                h += `<span style="background:${bg};border:1px solid ${bd};color:${cl};border-radius:4px;padding:2px 8px;font-size:12px;">`
+                   + `${si+1}. ${esc(step.text)}`
+                   + `</span>`;
+                if (si < validSteps.length - 1) h += `<span style="color:#94a3b8;font-size:14px">→</span>`;
+            });
+            h += `</div>`;
+        });
+        const defaultRc = ['Teknik Kök Neden\n(Oluşum)', 'Teknik Kök Neden\n(Tespit Edilememe)', 'Sistemsel Kök Neden\n(Oluşum)', 'Sistemsel Kök Neden\n(Tespit Edilememe)'];
+        if (d.rcText && !defaultRc.includes(d.rcText)) {
+            h += `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:4px;padding:4px 8px;margin-top:4px;font-size:11px;color:#166534;"><strong>Kök Neden:</strong> ${esc(d.rcText)}</div>`;
+        }
+        h += `</div>`;
+    }
+    h += '</div>';
+    return h;
+}
+
+async function _svgToDataUrl(svgEl) {
+    return new Promise(resolve => {
+        try {
+            const svgData = new XMLSerializer().serializeToString(svgEl);
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url     = URL.createObjectURL(svgBlob);
+            const img     = new Image();
+            img.onload = () => {
+                try {
+                    const vb = svgEl.viewBox?.baseVal;
+                    const w  = (vb?.width  > 0 ? vb.width  : null) || svgEl.width?.baseVal?.value  || 1400;
+                    const h  = (vb?.height > 0 ? vb.height : null) || svgEl.height?.baseVal?.value || 700;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.drawImage(img, 0, 0, w, h);
+                    URL.revokeObjectURL(url);
+                    resolve(canvas.toDataURL('image/jpeg', 0.88));
+                } catch(e) { URL.revokeObjectURL(url); resolve(null); }
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+            img.src = url;
+        } catch(e) { resolve(null); }
+    });
+}
+
 let d5ActionCount         = 0;
 let d6ImplementationCount = 0;
 let d7PreventionCount     = 0;
@@ -1604,6 +1701,7 @@ function clear8DForm() {
     d6Attachments    = []; d7Attachments = [];
 
     _d4Links = { fishbone: null, whyFive: null };
+    _d4WhyFiveData = null;
     d4RenderLinkCards();
 
     renderHeadDefectPhotos();
@@ -1719,6 +1817,7 @@ function addD3Action(data = {}) {
 /* reset link state when opening a new form */
 function _resetD4Links() {
     _d4Links = { fishbone: null, whyFive: null };
+    _d4WhyFiveData = null;
     d4RenderLinkCards();
 }
 
@@ -2144,6 +2243,100 @@ async function export8DReportPDF(retryCount = 0) {
             columnStyles:{0:{fontStyle:'bold',fillColor:[240,248,255],cellWidth:40}},
             margin:{left:margin, right:margin}
         });
+    }
+
+    // === Bağlı Balık Kılcığı Analizi (SVG görüntüsü) ===
+    const _fishWrap  = document.getElementById('d4PrevWrap_fishbone');
+    const _fishFrame = document.getElementById('d4PrevFrame_fishbone');
+    if (_fishWrap && _fishWrap.style.display !== 'none' && _fishFrame?.contentDocument) {
+        try {
+            const _svgEl  = _fishFrame.contentDocument.getElementById('fishboneSvg')
+                         || _fishFrame.contentDocument.querySelector('svg');
+            if (_svgEl) {
+                const _imgData = await _svgToDataUrl(_svgEl);
+                if (_imgData) {
+                    doc.addPage();
+                    yPos = 15;
+                    doc.setFillColor(198,40,40);
+                    doc.rect(margin, yPos, pageWidth-2*margin, 8, 'F');
+                    doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
+                    doc.text('D4 – BAĞLI BALIK KILCIĞI ANALiZİ', pageWidth/2, yPos+5.5, {align:'center'});
+                    yPos += 12;
+                    if (_d4Links.fishbone?.problem) {
+                        doc.setTextColor(80,80,80); doc.setFontSize(9); doc.setFont('helvetica','normal');
+                        doc.text('Problem: ' + (_d4Links.fishbone.problem||''), margin, yPos);
+                        yPos += 6;
+                    }
+                    const _vb    = _svgEl.viewBox?.baseVal;
+                    const _svgW  = (_vb?.width  > 0 ? _vb.width  : 1400);
+                    const _svgH  = (_vb?.height > 0 ? _vb.height : 700);
+                    const _iW    = pageWidth - 2 * margin;
+                    const _iH    = Math.min(_iW * (_svgH / _svgW), 185);
+                    doc.addImage(_imgData, 'JPEG', margin, yPos, _iW, _iH);
+                }
+            }
+        } catch(e) { console.warn('Fishbone PDF capture failed:', e); }
+    }
+
+    // === Bağlı 5 Neden Analizi (tablo) ===
+    if (_d4WhyFiveData) {
+        const _5nSECS = [
+            { label:'TCO — Teknik Kök Neden (Oluşum)',     d: _d4WhyFiveData.tech?.os  },
+            { label:'TCN — Teknik Kök Neden (Tespit)',       d: _d4WhyFiveData.tech?.nd  },
+            { label:'SCO — Sistemsel Kök Neden (Oluşum)',   d: _d4WhyFiveData.sys?.os   },
+            { label:'SCN — Sistemsel Kök Neden (Tespit)',     d: _d4WhyFiveData.sys?.nd   },
+        ];
+        doc.addPage(); yPos = 15;
+        doc.setFillColor(21,101,192);
+        doc.rect(margin, yPos, pageWidth-2*margin, 8, 'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
+        doc.text('D4 – BAĞLI 5 NEDEN ANALiZİ', pageWidth/2, yPos+5.5, {align:'center'});
+        yPos += 12;
+        if (_d4WhyFiveData.meta?.part) {
+            doc.setTextColor(0,0,0); doc.setFontSize(10); doc.setFont('helvetica','bold');
+            doc.text(_d4WhyFiveData.meta.part, margin, yPos); yPos += 5;
+        }
+        if (_d4WhyFiveData.meta?.customer) {
+            doc.setTextColor(80,80,80); doc.setFontSize(9); doc.setFont('helvetica','normal');
+            doc.text(_d4WhyFiveData.meta.customer, margin, yPos); yPos += 6;
+        }
+        const _defaultRcText = new Set(['Teknik Kök Neden\n(Oluşum)', 'Teknik Kök Neden\n(Tespit Edilememe)', 'Sistemsel Kök Neden\n(Oluşum)', 'Sistemsel Kök Neden\n(Tespit Edilememe)']);
+        for (const sec of _5nSECS) {
+            const d = sec.d;
+            if (!d?.chains?.some(c => c.steps?.some(s => s.text))) continue;
+            const rows = [];
+            d.chains.forEach((chain, ci) => {
+                chain.steps?.forEach((step, si) => {
+                    if (!step.text) return;
+                    rows.push([ `Adım ${si+1}${chain.steps.length<d.chains[0]?.steps?.length?` (dal ${ci+1})`:si===0&&ci===0?'':''} `, step.text, step.isRoot ? '⬤ KÖK' : '' ]);
+                });
+            });
+            if (!rows.length) continue;
+            if (yPos > 240) { doc.addPage(); yPos = 15; }
+            doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(21,101,192);
+            doc.text(sec.label, margin, yPos); yPos += 4;
+            doc.autoTable({
+                startY: yPos,
+                head: [['Adım','Neden Metni','Kök Neden?']],
+                body: rows,
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 2 },
+                headStyles: { fillColor:[21,101,192], textColor:[255,255,255] },
+                columnStyles: { 0:{cellWidth:22}, 2:{cellWidth:18, halign:'center'} },
+                margin: { left:margin, right:margin }
+            });
+            yPos = doc.lastAutoTable.finalY + 3;
+            if (d.rcText && !_defaultRcText.has(d.rcText)) {
+                doc.autoTable({
+                    startY: yPos,
+                    body: [['Kök Neden Özeti', d.rcText]],
+                    theme:'grid', styles:{fontSize:8, cellPadding:2},
+                    columnStyles:{0:{fontStyle:'bold',fillColor:[240,248,255],cellWidth:35}},
+                    margin:{left:margin, right:margin}
+                });
+                yPos = doc.lastAutoTable.finalY + 6;
+            }
+        }
     }
 
     const fileName = `8D_${supplierName.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.pdf`;
