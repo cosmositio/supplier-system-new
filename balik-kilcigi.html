@@ -1305,6 +1305,24 @@
         .ap-contrib-total.over { color: #ef4444; border-color: #ef4444; }
         /* Action textarea */
         .ap-action-ta { resize: vertical; min-height: 40px; }
+        .ap-action-cell { position: relative; }
+        .ap-ai-btn {
+            position: absolute; top: 4px; right: 4px;
+            background: linear-gradient(135deg,#6366f1,#3b82f6);
+            border: none; border-radius: 6px; color: #fff;
+            font-size: 11px; font-weight: 700; padding: 3px 7px;
+            cursor: pointer; font-family: inherit; z-index: 1;
+            opacity: 0.85; transition: opacity 0.15s, transform 0.15s;
+            white-space: nowrap; line-height: 1.4;
+        }
+        .ap-ai-btn:hover { opacity: 1; transform: scale(1.05); }
+        .ap-ai-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        .ap-ai-btn.loading { background: #475569; }
+        .btn-ai-all {
+            background: linear-gradient(135deg,#6366f1,#3b82f6);
+            border-color: transparent; color: #fff;
+        }
+        .btn-ai-all:hover { opacity: 0.88; background: linear-gradient(135deg,#6366f1,#3b82f6); }
         /* ===== FISHBONE DB MODAL ===== */
         .fishbone-modal-overlay {
             position:fixed; inset:0; background:rgba(0,0,0,0.7);
@@ -1611,6 +1629,9 @@
             <span class="ap-problem-badge" id="apProblemBadge">Ana Problem</span>
         </div>
         <div class="ap-toolbar-right">
+            <button class="btn btn-ai-all" id="apAIAllBtn" onclick="apAISuggestAll()" title="Tüm kök nedenler için AI ile aksiyon üret">
+                ✨ AI ile Tüm Aksiyonları Öner
+            </button>
             <button class="btn" onclick="syncCausesToActionPlan()" title="Balık kılçığındaki nedenleri aksiyon planına ekle">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
                 Kılçıktan Senkronize Et
@@ -5764,9 +5785,12 @@ function renderActionPlan() {
                        </select>`
                     : (row.parentCause ? `<div class="ap-parent-label">${escapeHtml(row.parentCause)}</div>` : '')}
             </td>
-            <td>
+            <td class="ap-action-cell">
+                <button class="ap-ai-btn" id="apAIBtn_${row.apId}" onclick="apAISuggestAction(${row.apId})" title="AI ile aksiyon öner">✨ Öner</button>
                 <textarea class="ap-input ap-action-ta" rows="2"
+                    style="padding-right:58px"
                     placeholder="Yapılacak aksiyon..."
+                    id="apActionTa_${row.apId}"
                     onchange="updateActionRow(${row.apId},'action',this.value)">${escapeHtml(row.action)}</textarea>
             </td>
             <td>
@@ -5823,6 +5847,105 @@ function renderActionPlan() {
     });
 
     updateContribTotal();
+}
+
+// ── AI Aksiyon Öneri ───────────────────────────────
+async function apAISuggestAction(apId) {
+    const provider = localStorage.getItem('ai_provider') || 'groq';
+    const keyMap = {groq:'groq_api_key', gemini:'gemini_api_key', openai:'oai_api_key', openrouter:'or_api_key'};
+    const inputMap = {groq:'bkKeyGroqInput', gemini:'bkKeyGeminiInput', openai:'bkKeyOAIInput', openrouter:'bkKeyORInput'};
+    const storedKey = localStorage.getItem(keyMap[provider]) || '';
+    const liveKey   = (document.getElementById(inputMap[provider])?.value || '').trim();
+    if (!storedKey && !liveKey) {
+        alert('⚠️ AI aksiyon önerisi için önce Balık Kılçığı → AI Asistan sekmesindeki ⚙️ API Ayarları bölümünden bir API key girin.');
+        return;
+    }
+    if (liveKey && !storedKey) localStorage.setItem(keyMap[provider], liveKey);
+
+    initActionPlan();
+    const row = state.actionPlan.rows.find(r => r.apId === apId);
+    if (!row) return;
+
+    const btn = document.getElementById('apAIBtn_' + apId);
+    const ta  = document.getElementById('apActionTa_' + apId);
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; btn.classList.add('loading'); }
+
+    const problem  = state.problem || 'Belirtilmemiş';
+    const cause    = row.causeName    || 'Kök neden';
+    const parent   = row.parentCause  || '';
+    const category = parent ? `(Kategori: ${parent})` : '';
+
+    const messages = [
+        { role: 'system', content: `Sen bir üretim kalitesi uzmanısın. Kök neden için kısa, uygulanabilir ve somut bir düzeltici aksiyon öner. Sadece aksiyonu yaz, başka bir şey yazma. Türkçe yaz. Maksimum 2 cümle.` },
+        { role: 'user',   content: `Problem: ${problem}\nKök Neden: ${cause} ${category}\n\nBu kök nedeni gidermek için ne yapılmalı?` }
+    ];
+
+    try {
+        const result = await bkCallAI(messages, 200, 0.5);
+        const text = result.replace(/^```[\s\S]*?```$/gm, '').replace(/^"|"$/g, '').trim();
+        if (ta) { ta.value = text; }
+        updateActionRow(apId, 'action', text);
+    } catch(e) {
+        alert('❌ API Hatası: ' + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '✨ Öner'; btn.classList.remove('loading'); }
+    }
+}
+
+async function apAISuggestAll() {
+    const provider = localStorage.getItem('ai_provider') || 'groq';
+    const keyMap = {groq:'groq_api_key', gemini:'gemini_api_key', openai:'oai_api_key', openrouter:'or_api_key'};
+    const inputMap = {groq:'bkKeyGroqInput', gemini:'bkKeyGeminiInput', openai:'bkKeyOAIInput', openrouter:'bkKeyORInput'};
+    const storedKey = localStorage.getItem(keyMap[provider]) || '';
+    const liveKey   = (document.getElementById(inputMap[provider])?.value || '').trim();
+    if (!storedKey && !liveKey) {
+        alert('⚠️ AI aksiyon önerisi için önce Balık Kılçığı → AI Asistan sekmesindeki ⚙️ API Ayarları bölümünden bir API key girin.');
+        return;
+    }
+    if (liveKey && !storedKey) localStorage.setItem(keyMap[provider], liveKey);
+
+    initActionPlan();
+    const rows = state.actionPlan.rows;
+    if (!rows.length) { showNotification('Aksiyon planı boş. Önce kılçıktan senkronize edin.', 'error'); return; }
+
+    const allBtn = document.getElementById('apAIAllBtn');
+    if (allBtn) { allBtn.disabled = true; allBtn.textContent = '⏳ Oluşturuluyor…'; }
+
+    const problem = state.problem || 'Belirtilmemiş';
+
+    // Build a single batch prompt for all causes to save API calls
+    const causeList = rows.map((r, i) =>
+        `${i + 1}. Kök Neden: "${r.causeName}"${r.parentCause ? ` (Kategori: ${r.parentCause})` : ''}`
+    ).join('\n');
+
+    const messages = [
+        { role: 'system', content: `Sen bir üretim kalitesi uzmanısın. Bir problemin kök nedenlerine karşı düzeltici aksiyonlar üreteceksin.\n\nHer kök neden için kısa, uygulanabilir, somut bir aksiyon yaz. Sadece JSON döndür:\n{"actions": ["aksiyon1", "aksiyon2", ...]}\n\nSıra kök neden sırasıyla eşleşmeli. Türkçe yaz.` },
+        { role: 'user',   content: `Problem: ${problem}\n\nKök Nedenler:\n${causeList}\n\nHer biri için bir aksiyon öner.` }
+    ];
+
+    try {
+        const raw = await bkCallAI(messages, Math.min(4000, rows.length * 120 + 400), 0.5);
+        let parsed;
+        try { parsed = bkSafeParseJSON(raw); } catch(_) {
+            // fallback: split by newlines
+            const lines = raw.split(/\n/).map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(l => l.length > 3);
+            parsed = { actions: lines };
+        }
+        const actions = parsed.actions || [];
+        rows.forEach((row, i) => {
+            if (!actions[i]) return;
+            const text = String(actions[i]).trim();
+            row.action = text;
+            const ta = document.getElementById('apActionTa_' + row.apId);
+            if (ta) ta.value = text;
+        });
+        autoSave();
+        showNotification(`✨ ${actions.length} aksiyon önerisi oluşturuldu!`, 'success');
+    } catch(e) {
+        alert('❌ API Hatası: ' + e.message);
+    } finally {
+        if (allBtn) { allBtn.disabled = false; allBtn.textContent = '✨ AI ile Tüm Aksiyonları Öner'; }
+    }
 }
 
 function faaliyetCellInner(apId, has8DLink, method) {
