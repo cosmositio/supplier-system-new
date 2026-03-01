@@ -4933,7 +4933,7 @@ function bkSafeParseJSON(raw) {
 }
 
 // ── Unified AI caller ────────────────────────────────
-async function bkCallAI(messages, maxTokens, temperature) {
+async function bkCallAI(messages, maxTokens, temperature, useJson = true) {
     const provider = localStorage.getItem('ai_provider') || 'groq';
     const temp = temperature ?? 0.5;
 
@@ -5011,7 +5011,7 @@ async function bkCallAI(messages, maxTokens, temperature) {
         const oaiModel = document.getElementById('bkOAIModel')?.value || localStorage.getItem('oai_model') || 'gpt-4o-mini';
         const isOSeries = /^o\d/.test(oaiModel);
         const body = {model:oaiModel, messages, max_tokens:maxTokens};
-        if (!isOSeries) { body.temperature=temp; body.response_format={type:'json_object'}; }
+        if (!isOSeries) { body.temperature=temp; if (useJson) body.response_format={type:'json_object'}; }
         const resp = await fetch('https://api.openai.com/v1/chat/completions',{
             method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
             body:JSON.stringify(body)
@@ -5031,7 +5031,7 @@ async function bkCallAI(messages, maxTokens, temperature) {
         const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
             method:'POST',
             headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-            body:JSON.stringify({model:'llama-3.3-70b-versatile', messages, temperature:temp, max_tokens:maxTokens, response_format:{type:'json_object'}})
+            body:JSON.stringify({model:'llama-3.3-70b-versatile', messages, temperature:temp, max_tokens:maxTokens, ...(useJson ? {response_format:{type:'json_object'}} : {})})
         });
         if (!resp.ok) {
             const e=await resp.json().catch(()=>({}));
@@ -6057,7 +6057,7 @@ async function apAISuggestAction(apId) {
     ];
 
     try {
-        const result = await bkCallAI(messages, 200, 0.5);
+        const result = await bkCallAI(messages, 200, 0.5, false);
         const text = result.replace(/^```[\s\S]*?```$/gm, '').replace(/^"|"$/g, '').trim();
         if (ta) { ta.value = text; }
         updateActionRow(apId, 'action', text);
