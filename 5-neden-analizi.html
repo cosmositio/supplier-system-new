@@ -441,6 +441,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .print-meta .pm-lbl{color:#64748b;font-weight:400;}
 .print-meta .pm-val{font-weight:700;}
 
+/* Print mode: hide non-selected panels */
+body.print-tech-only #panel-sys { display:none !important; }
+body.print-sys-only  #panel-tech { display:none !important; }
+
 @media print{
   /* — Page format: A4 portrait — */
   @page { size: A4 portrait; margin: 8mm 10mm; }
@@ -450,13 +454,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 
   /* — Hide interactive UI — */
   .topbar,.meta-bar,.legend,.sacts,.add-step-btn,.tbb,
-  .consid-tabs,.ca-bulk-wrap,.ca-pin-btn,.ca-ai-btn,.pin-btn{
+  .consid-tabs,.ca-bulk-wrap,.ca-pin-btn,.ca-ai-btn,.pin-btn,
+  #printModal{
     display:none !important;
   }
 
   body{background:#fff !important;margin:0;padding:0;width:100%;}
 
-  /* — Show both panels, each on its own page — */
+  /* — Show panels, each on its own page (hidden ones already removed above) — */
   .consid-panel{display:block !important; break-after:page; width:100%;}
   .consid-panel:last-of-type{break-after:auto;}
 
@@ -560,8 +565,22 @@ body.embed-mode .canvas-outer {
   <button class="tbb" style="background:linear-gradient(135deg,#0f766e,#0e7490);border-color:rgba(94,234,212,.35);" onclick="openUygModal()">📋 Uygunsuzluktan Seç</button>
   <button class="tbb ok"    onclick="saveData()">💾 Kaydet</button>
   <button class="tbb"       onclick="loadData()">📂 Yükle</button>
-  <button class="tbb"       onclick="window.print()">🖨️ Yazdır / PDF</button>
+  <button class="tbb"       onclick="openPrintDialog()">🖨️ Yazdır / PDF</button>
   <button class="tbb danger" onclick="resetAll()">🗑 Sıfırla</button>
+</div>
+
+<!-- ═══ PRINT SELECTION MODAL ═══ -->
+<div id="printModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;padding:28px 32px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.28);">
+    <div style="font-size:1rem;font-weight:800;color:#1e293b;margin-bottom:6px;">🖨️ Yazdır / PDF</div>
+    <div style="font-size:.74rem;color:#64748b;margin-bottom:20px;">Hangi bölümü yazdırmak istiyorsunuz?</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="executePrint('both')"   style="padding:11px 18px;border-radius:9px;border:2px solid #2563eb;background:#eff6ff;color:#1d4ed8;font-weight:700;font-size:.85rem;cursor:pointer;text-align:left;">📄 Teknik + Sistemsel <span style="font-size:.68rem;font-weight:400;color:#64748b;">(2 sayfa)</span></button>
+      <button onclick="executePrint('tech')"   style="padding:11px 18px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#1e293b;font-weight:600;font-size:.85rem;cursor:pointer;text-align:left;">🔧 Yalnızca Teknik</button>
+      <button onclick="executePrint('sys')"    style="padding:11px 18px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#1e293b;font-weight:600;font-size:.85rem;cursor:pointer;text-align:left;">🏗️ Yalnızca Sistemsel</button>
+      <button onclick="closePrintDialog()"     style="padding:8px 18px;border-radius:9px;border:none;background:transparent;color:#94a3b8;font-size:.8rem;cursor:pointer;margin-top:2px;">İptal</button>
+    </div>
+  </div>
 </div>
 
 <div class="meta-bar">
@@ -2662,6 +2681,31 @@ ${context}`;
     btn.disabled = false;
     alert('❌ Yenile hatası: '+e.message);
   }
+}
+
+// ── PRINT DIALOG ──────────────────────────────────────
+function openPrintDialog(){
+  const m = document.getElementById('printModal');
+  m.style.display = 'flex';
+}
+function closePrintDialog(){
+  document.getElementById('printModal').style.display = 'none';
+}
+function executePrint(mode){
+  closePrintDialog();
+  document.body.classList.remove('print-tech-only','print-sys-only');
+  if(mode === 'tech') document.body.classList.add('print-tech-only');
+  if(mode === 'sys')  document.body.classList.add('print-sys-only');
+  // Small delay so CSS class takes effect before browser captures layout
+  setTimeout(()=>{
+    window.print();
+    // Clean up after print dialog closes
+    const cleanup = () => {
+      document.body.classList.remove('print-tech-only','print-sys-only');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+  }, 80);
 }
 
 function setAiStatus(type, msg){
