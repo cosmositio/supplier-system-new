@@ -411,6 +411,13 @@ td.nowrap{white-space:nowrap;}
   .dash-pdf,.dash-close,.hm-dim-btn,#hmMaxRows,#hmMaxRowsLabel{display:none!important;}
   .dc{break-inside:avoid;box-shadow:none!important;}
   .dash-grid{gap:10px!important;}
+  #dashPrintTitle{display:block!important;border-bottom:2px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px;}
+  #dashPrintTitle h1{font-size:1.2rem;font-weight:900;color:#111827;margin:0 0 6px;}
+  #dashPrintTitle .pt-meta{font-size:.75rem;color:#6b7280;margin:0 0 8px;}
+  #dashPrintTitle .pt-pills{display:flex;flex-wrap:wrap;gap:6px;}
+  #dashPrintTitle .pt-pill{background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;
+    padding:3px 10px;font-size:.7rem;color:#1d4ed8;font-weight:700;}
+  #dashPrintTitle .pt-pill.date{background:#f0fdf4;border-color:#bbf7d0;color:#15803d;}
   @page{size:A3 landscape;margin:10mm;}
 }
 </style>
@@ -612,6 +619,7 @@ td.nowrap{white-space:nowrap;}
 <!-- ═══ DASHBOARD MODAL ═══ -->
 <div class="dash-bg" id="dashModal">
   <div class="dash-box">
+    <div id="dashPrintTitle" style="display:none;"></div>
     <div class="dash-header">
       <h2>📊 DÖF Analiz Dashboard'u</h2>
       <span class="dash-scope" id="dashScope">Tüm kayıtlar</span>
@@ -2309,6 +2317,46 @@ function openDashboard(){
   renderDashboard();
 }
 function printDashboard(){
+  // Build print title from active filters
+  const titleEl = document.getElementById('dashPrintTitle');
+  const today = new Date().toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'});
+  const scopeTxt = document.getElementById('dashScope')?.textContent || '';
+
+  // Collect active filter pills
+  const pills = [];
+  const dateGroups = {}; // e.g. { sikayetTar: {from:'...', to:'...'} }
+
+  Object.entries(_filterVals).forEach(([k,v])=>{
+    if(!v) return;
+    if(k.endsWith('_from')||k.endsWith('_to')){
+      const base = k.replace(/_from$/,'').replace(/_to$/,'');
+      if(!dateGroups[base]) dateGroups[base]={from:'',to:''};
+      if(k.endsWith('_from')) dateGroups[base].from=v;
+      else dateGroups[base].to=v;
+    } else {
+      const field = FIELDS.find(f=>f.key===k);
+      const label = field ? field.label : k;
+      pills.push(`<span class="pt-pill">${esc(label)}: <strong>${esc(v)}</strong></span>`);
+    }
+  });
+
+  Object.entries(dateGroups).forEach(([base,{from,to}])=>{
+    const field = FIELDS.find(f=>f.key===base);
+    const label = field ? field.label : base;
+    const fmt = d => d ? new Date(d).toLocaleDateString('tr-TR',{day:'2-digit',month:'short',year:'numeric'}) : '';
+    const range = from && to ? `${fmt(from)} – ${fmt(to)}` : from ? `${fmt(from)} sonrası` : `${fmt(to)} öncesi`;
+    pills.push(`<span class="pt-pill date">${esc(label)}: <strong>${range}</strong></span>`);
+  });
+
+  const pillsHtml = pills.length
+    ? `<div class="pt-pills">${pills.join('')}</div>`
+    : `<div class="pt-pills"><span class="pt-pill">Tüm kayıtlar (filtre yok)</span></div>`;
+
+  titleEl.innerHTML = `
+    <h1>📊 DÖF Analiz Raporu</h1>
+    <p class="pt-meta">Oluşturma tarihi: <strong>${today}</strong> &nbsp;|&nbsp; Kapsam: <strong>${esc(scopeTxt)}</strong></p>
+    ${pillsHtml}`;
+
   window.print();
 }
 function closeDashboard(){
