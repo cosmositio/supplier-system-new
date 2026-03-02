@@ -94,12 +94,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .fg select:focus,.fg input:focus{border-color:#2563eb;}
 
 /* ── TABLE ── */
-.table-outer{overflow:auto;margin:0 0 24px;padding:0 18px;}
+.table-outer{overflow:auto;max-height:calc(100vh - 210px);margin:0 0 24px;padding:0 18px;}
 .table-wrap{min-width:100%;}
 
 table{width:100%;border-collapse:collapse;font-size:.74rem;background:#fff;
-  border-radius:10px;overflow:hidden;box-shadow:0 1px 8px rgba(0,0,0,.07);}
+  border-radius:10px;box-shadow:0 1px 8px rgba(0,0,0,.07);}
 thead{position:sticky;top:0;z-index:10;}
+thead tr th{position:sticky;top:0;}
 th{background:linear-gradient(135deg,#1e3a5f,#0f766e);color:#fff;
   padding:8px 10px;font-size:.64rem;font-weight:700;text-transform:uppercase;
   letter-spacing:.05em;white-space:nowrap;text-align:left;cursor:pointer;user-select:none;}
