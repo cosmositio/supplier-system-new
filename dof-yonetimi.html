@@ -617,6 +617,7 @@ function initUI(){
   document.getElementById('aiCatBtn').style.display='';
   updateSnapBtn();
   buildFilterGrid();
+  refreshAiCatFilter();
   applyFilters();
 }
 
@@ -700,6 +701,11 @@ function applyFilters(){
         if(!cellDate) return false;
         if(k.endsWith('_from') && cellDate < new Date(v)) return false;
         if(k.endsWith('_to')   && cellDate > new Date(v)) return false;
+        continue;
+      }
+      // AI Kategori select — exact match
+      if(k === '_aiKategori'){
+        if((row._aiKategori||'') !== v) return false;
         continue;
       }
       const cell = (row[k]||'').toLowerCase();
