@@ -655,19 +655,22 @@ function parseMusteriFile(file){
     }
 
     console.log('[MüşteriParser] Ham sütun başlıkları:', headers);
-    console.log('[MüşteriParser] Normalize edilmiş:', headers.map(normCol));
 
     // Map headers → MUSTERI_MAP keys
+    // Each cell may contain "Turkish\nEnglish" — split and check each part
     const colMap = {}; // fieldKey → colIndex
     headers.forEach((h,i)=>{
-      const hn = normCol(h);
-      if(!hn) return;
+      // Split on newline in case cell has multi-line header (TR\nEN)
+      const parts = String(h||'').split(/[\n\r]+/).map(p=>normCol(p)).filter(Boolean);
+      if(!parts.length) return;
       Object.entries(MUSTERI_MAP).forEach(([fk,aliases])=>{
         if(colMap[fk]!==undefined) return;
-        if(aliases.some(a=>normCol(a)===hn)) colMap[fk]=i;
+        const normAliases = aliases.map(a=>normCol(a));
+        if(parts.some(p=>normAliases.includes(p))) colMap[fk]=i;
       });
     });
 
+    console.log('[MüşteriParser] Normalize parçalar:', headers.map(h=>String(h||'').split(/[\n\r]+/).map(normCol)));
     console.log('[MüşteriParser] Eşleşen sütunlar:', colMap);
 
     if(!Object.keys(colMap).length){
