@@ -813,6 +813,8 @@ function parseMusteriFile(file){
         if(v!==null&&v!==undefined) obj[fk]=String(v).trim();
       });
       obj._kaynakTipi = 'Müşteri Şikayeti';
+      // Açma tarihi yoksa şikayet tarihini kullan
+      if(!obj.acmaTarihi && obj.sikayetTar) obj.acmaTarihi = obj.sikayetTar;
       if(!obj._rowId) obj._rowId = crypto.randomUUID();
       return obj;
     }).filter(r=>FIELDS.some(f=>r[f.key]&&r[f.key]));
