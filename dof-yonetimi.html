@@ -277,6 +277,43 @@ td.nowrap{white-space:nowrap;}
   opacity:0;transform:translateY(12px);transition:.3s;pointer-events:none;}
 .snap-toast.show{opacity:1;transform:translateY(0);}
 
+/* ── ATTACHMENTS MODAL ── */
+.att-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9600;
+  align-items:center;justify-content:center;}
+.att-bg.open{display:flex;}
+.att-box{background:#fff;border-radius:14px;padding:26px 28px 22px;width:min(580px,96vw);
+  max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);}
+.att-box h3{font-size:.95rem;font-weight:800;color:#1e293b;margin-bottom:4px;}
+.att-close{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;}
+.att-sub{font-size:.72rem;color:#64748b;margin-bottom:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.att-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;}
+.att-upload-btn{background:#2563eb;color:#fff;border:none;border-radius:8px;
+  padding:8px 18px;font-size:.78rem;font-weight:700;cursor:pointer;}
+.att-upload-btn:hover{background:#1d4ed8;}
+.att-list{display:flex;flex-direction:column;gap:8px;}
+.att-item{border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 13px;
+  display:flex;align-items:center;gap:10px;background:#f8fafc;}
+.att-item:hover{border-color:#bfdbfe;}
+.att-item-icon{font-size:1.5rem;line-height:1;flex-shrink:0;}
+.att-item-info{flex:1;min-width:0;}
+.att-item-name{font-size:.8rem;font-weight:700;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.att-item-meta{font-size:.65rem;color:#94a3b8;margin-top:2px;}
+.att-dl-btn{background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:7px;
+  padding:5px 11px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.att-dl-btn:hover{background:#bbf7d0;}
+.att-del-btn{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:7px;
+  padding:5px 9px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.att-del-btn:hover{background:#fecaca;}
+.att-empty{text-align:center;padding:28px;color:#94a3b8;font-size:.8rem;}
+.att-chip{display:inline-flex;align-items:center;gap:3px;background:#eff6ff;
+  color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;padding:1px 7px;
+  font-size:.62rem;font-weight:700;cursor:pointer;white-space:nowrap;line-height:1.6;}
+.att-chip:hover{background:#dbeafe;}
+.att-chip-empty{display:inline-flex;align-items:center;background:#f1f5f9;
+  color:#94a3b8;border:1px solid #e2e8f0;border-radius:10px;padding:1px 7px;
+  font-size:.62rem;cursor:pointer;line-height:1.6;}
+.att-chip-empty:hover{background:#e2e8f0;color:#475569;}
+
 /* ── DASHBOARD MODAL ── */
 .dash-bg{display:none;position:fixed;inset:0;background:rgba(8,16,32,.82);z-index:9800;
   align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 12px 40px;}
@@ -539,6 +576,23 @@ td.nowrap{white-space:nowrap;}
   </div>
 </div>
 
+<!-- ═══ ATTACHMENTS MODAL ═══ -->
+<div class="att-bg" id="attModal">
+  <div class="att-box">
+    <button class="att-close" onclick="closeAttachModal()">✕</button>
+    <h3>📎 Dokümanlar</h3>
+    <p class="att-sub" id="attModalSub"></p>
+    <div class="att-toolbar">
+      <input type="file" id="attFileInput" multiple
+        accept=".xlsx,.xls,.doc,.docx,.pdf,.jpg,.jpeg,.png,.gif,.webp"
+        style="display:none" onchange="handleAttachFiles(this)">
+      <button class="att-upload-btn" onclick="document.getElementById('attFileInput').click()">+ Dosya Ekle</button>
+      <span style="font-size:.68rem;color:#94a3b8;">Excel, Word, PDF, Resim</span>
+    </div>
+    <div class="att-list" id="attList"></div>
+  </div>
+</div>
+
 <!-- ═══ SNAPSHOTS MODAL ═══ -->
 <div class="snap-modal-bg" id="snapModal">
   <div class="snap-box">
@@ -688,8 +742,9 @@ function parseMusteriFile(file){
         if(v!==null&&v!==undefined) obj[fk]=String(v).trim();
       });
       obj._kaynakTipi = 'Müşteri Şikayeti';
+      if(!obj._rowId) obj._rowId = crypto.randomUUID();
       return obj;
-    }).filter(r=>Object.values(r).some(v=>v&&v!=='Müşteri Şikayeti'));
+    }).filter(r=>FIELDS.some(f=>r[f.key]&&r[f.key]));
 
     if(!newRows.length){ alert('Geçerli satır bulunamadı.'); return; }
 
@@ -821,6 +876,7 @@ function applyMappingDirect(){
   }).filter(r=>Object.values(r).some(v=>v));
 
   if(!_rawRows.length){ alert('Veri yüklenemedi. Kolon eşleştirmeyi kontrol edin.'); openMapModal(); return; }
+  _rawRows.forEach(r=>{ if(!r._rowId) r._rowId = crypto.randomUUID(); });
   _filterVals = {};
   initUI();
 }
@@ -1029,11 +1085,15 @@ function renderTable(){
 
   const visibleFields = FIELDS.filter(f=>f.key!=='dofS' && _rawRows.some(r=>r[f.key]));
   // Build a map from dofSeri (or index) to _aiKategori for safe lookup
-  const allFields = _aiCatDone
-    ? [...visibleFields, {key:'_aiKategori', label:'🤖 AI Kategori', type:'select'}]
-    : visibleFields;
+  const allFields = [
+    ..._aiCatDone
+      ? [...visibleFields, {key:'_aiKategori', label:'🤖 AI Kategori', type:'select'}]
+      : visibleFields,
+    {key:'_attach', label:'📎', type:'attach'}
+  ];
 
   thead.innerHTML = '<tr>'+allFields.map(f=>{
+    if(f.key==='_attach') return `<th style="width:48px;text-align:center;cursor:default;">📎</th>`;
     const sc = _sortCol===f.key ? (_sortDir===1?'sort-asc':'sort-desc') : '';
     return `<th class="${sc}" onclick="toggleSort('${f.key}')">${f.label}<span class="sort-icon"></span></th>`;
   }).join('')+'</tr>';
@@ -1048,6 +1108,14 @@ function renderTable(){
     }
     const cells = allFields.map(f=>{
       let cls='';
+      if(f.key==='_attach'){
+        const cnt = _attCounts[row._rowId]||0;
+        const label = row.dofSeri || row.baslik || 'Satır';
+        if(cnt>0){
+          return `<td style="text-align:center;"><span class="att-chip" onclick="openAttachModal('${row._rowId||''}','${esc(label)}')">📎 ${cnt}</span></td>`;
+        }
+        return `<td style="text-align:center;"><span class="att-chip-empty" title="Doküman ekle" onclick="openAttachModal('${row._rowId||''}','${esc(label)}')">📎</span></td>`;
+      }
       if(f.key==='_aiKategori'){
         const v = row._aiKategori||'';
         const badge = v
@@ -1744,8 +1812,9 @@ document.getElementById('snapModal').addEventListener('click', function(e){ if(e
 //  INDEXED DB  —  dof_yonetimi_db / snapshots
 // ─────────────────────────────────────────────
 const IDB_NAME    = 'dof_yonetimi_db';
-const IDB_VER     = 1;
+const IDB_VER     = 2;
 const IDB_STORE   = 'snapshots';
+const ATT_STORE   = 'attachments';
 
 function idbOpen(){
   return new Promise((res, rej)=>{
@@ -1755,6 +1824,10 @@ function idbOpen(){
       if(!db.objectStoreNames.contains(IDB_STORE)){
         const store = db.createObjectStore(IDB_STORE, {keyPath:'id', autoIncrement:true});
         store.createIndex('savedAt','savedAt',{unique:false});
+      }
+      if(!db.objectStoreNames.contains(ATT_STORE)){
+        const astore = db.createObjectStore(ATT_STORE, {keyPath:'id', autoIncrement:true});
+        astore.createIndex('rowId','rowId',{unique:false});
       }
     };
     req.onsuccess = e => res(e.target.result);
@@ -1790,6 +1863,58 @@ async function idbDelete(id){
     req.onsuccess = () => res();
     req.onerror   = e  => rej(e.target.error);
   });
+}
+
+// ── Attachment IDB helpers ──
+let _attCounts = {}; // rowId → count (cache)
+
+async function attAdd(rowId, name, type, size, data){
+  const db = await idbOpen();
+  const id = await new Promise((res,rej)=>{
+    const tx  = db.transaction(ATT_STORE,'readwrite');
+    const req = tx.objectStore(ATT_STORE).add({rowId, name, type, size, data, addedAt:Date.now()});
+    req.onsuccess = e=>res(e.target.result);
+    req.onerror   = e=>rej(e.target.error);
+  });
+  _attCounts[rowId] = (_attCounts[rowId]||0)+1;
+  return id;
+}
+async function attGetByRow(rowId){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const idx = db.transaction(ATT_STORE,'readonly').objectStore(ATT_STORE).index('rowId');
+    const req = idx.getAll(rowId);
+    req.onsuccess = e=>res(e.target.result);
+    req.onerror   = e=>rej(e.target.error);
+  });
+}
+async function attGetOne(id){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const req = db.transaction(ATT_STORE,'readonly').objectStore(ATT_STORE).get(id);
+    req.onsuccess = e=>res(e.target.result);
+    req.onerror   = e=>rej(e.target.error);
+  });
+}
+async function attDelete(id, rowId){
+  const db = await idbOpen();
+  await new Promise((res,rej)=>{
+    const tx  = db.transaction(ATT_STORE,'readwrite');
+    const req = tx.objectStore(ATT_STORE).delete(id);
+    req.onsuccess = ()=>res();
+    req.onerror   = e=>rej(e.target.error);
+  });
+  if(rowId && _attCounts[rowId]) _attCounts[rowId] = Math.max(0, (_attCounts[rowId]||1)-1);
+}
+async function loadAttachCounts(){
+  const db = await idbOpen();
+  const all = await new Promise((res,rej)=>{
+    const req = db.transaction(ATT_STORE,'readonly').objectStore(ATT_STORE).getAll();
+    req.onsuccess = e=>res(e.target.result);
+    req.onerror   = e=>rej(e.target.error);
+  });
+  _attCounts = {};
+  all.forEach(a=>{ _attCounts[a.rowId] = (_attCounts[a.rowId]||0)+1; });
 }
 
 // ── toast helper ──
@@ -1862,6 +1987,7 @@ async function loadSnapshot(id){
   });
   if(!rec){ showToast('❌ Kayıt bulunamadı.'); return; }
   _rawRows      = rec.rows;
+  _rawRows.forEach(r=>{ if(!r._rowId) r._rowId = crypto.randomUUID(); });
   _mapping      = rec.mapping;
   _aiCategories = rec.aiCategories || [...DEFAULT_CATEGORIES];
   _aiCatDone    = _rawRows.some(r=>r._aiKategori);
@@ -2089,6 +2215,98 @@ function renderDashboard(){
   const cariData = freq(rows,'cariAdi',10);
   mkBarH('dch_cari', cariData.map(d=>d[0].length>28?d[0].slice(0,28)+'…':d[0]), cariData.map(d=>d[1]));
 }
+
+// ─────────────────────────────────────────────
+//  ATTACHMENTS
+// ─────────────────────────────────────────────
+let _attRowId = null;
+
+async function openAttachModal(rowId, label){
+  if(!rowId){ showToast('⚠️ Bu satırın ID\u0027si yok. Veriyi kaydet/yeniden yükle.'); return; }
+  _attRowId = rowId;
+  const sub = document.getElementById('attModalSub');
+  sub.textContent = label || rowId;
+  sub.title = label || rowId;
+  document.getElementById('attModal').classList.add('open');
+  await renderAttachList();
+}
+function closeAttachModal(){
+  document.getElementById('attModal').classList.remove('open');
+  _attRowId = null;
+}
+async function renderAttachList(){
+  const list = document.getElementById('attList');
+  list.innerHTML = '<div class="att-empty">⏳ Yükleniyor...</div>';
+  const items = await attGetByRow(_attRowId);
+  if(!items.length){ list.innerHTML='<div class="att-empty">📂 Henüz dosya eklenmedi.</div>'; return; }
+  list.innerHTML = items.map(it=>{
+    const icon = attFileIcon(it.name);
+    const kb = it.size < 1024*1024 ? (it.size/1024).toFixed(0)+' KB' : (it.size/1048576).toFixed(1)+' MB';
+    const dt = new Date(it.addedAt).toLocaleString('tr-TR');
+    return `<div class="att-item" id="attit_${it.id}">
+      <span class="att-item-icon">${icon}</span>
+      <div class="att-item-info">
+        <div class="att-item-name" title="${esc(it.name)}">${esc(it.name)}</div>
+        <div class="att-item-meta">${kb} &bull; ${dt}</div>
+      </div>
+      <button class="att-dl-btn" onclick="downloadAttach(${it.id})">⬇️ İndir</button>
+      <button class="att-del-btn" onclick="deleteAttach(${it.id},'${it.rowId}')">✕</button>
+    </div>`;
+  }).join('');
+}
+async function handleAttachFiles(input){
+  const files = Array.from(input.files);
+  if(!files.length || !_attRowId) return;
+  for(const f of files){
+    const data = await attReadBase64(f);
+    await attAdd(_attRowId, f.name, f.type, f.size, data);
+  }
+  input.value='';
+  await renderAttachList();
+  renderTable();
+  showToast('✅ '+files.length+' dosya eklendi.');
+}
+async function downloadAttach(id){
+  const rec = await attGetOne(id);
+  if(!rec) return;
+  const mime = rec.type || 'application/octet-stream';
+  const a = document.createElement('a');
+  a.href = 'data:'+mime+';base64,'+rec.data;
+  a.download = rec.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+async function deleteAttach(id, rowId){
+  if(!confirm('Bu dosya silinsin mi?')) return;
+  await attDelete(id, rowId);
+  const el = document.getElementById('attit_'+id);
+  el?.remove();
+  const list = document.getElementById('attList');
+  if(!list.querySelector('.att-item'))
+    list.innerHTML='<div class="att-empty">📂 Henüz dosya eklenmedi.</div>';
+  renderTable();
+}
+function attReadBase64(file){
+  return new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(',')[1]);
+    r.onerror = e => rej(e.target.error);
+    r.readAsDataURL(file);
+  });
+}
+function attFileIcon(name){
+  const ext = (name||'').split('.').pop().toLowerCase();
+  if(['jpg','jpeg','png','gif','webp','bmp'].includes(ext)) return '🖼️';
+  if(ext==='pdf') return '📕';
+  if(['doc','docx'].includes(ext)) return '📝';
+  if(['xls','xlsx'].includes(ext)) return '📊';
+  return '📄';
+}
+document.getElementById('attModal').addEventListener('click', function(e){ if(e.target===this) closeAttachModal(); });
+
+// Startup: load attachment counts
+loadAttachCounts();
 
 // Close dashboard on backdrop click
 document.getElementById('dashModal').addEventListener('click', function(e){ if(e.target===this) closeDashboard(); });
