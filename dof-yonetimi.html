@@ -305,14 +305,34 @@ td.nowrap{white-space:nowrap;}
   padding:5px 9px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;}
 .att-del-btn:hover{background:#fecaca;}
 .att-empty{text-align:center;padding:28px;color:#94a3b8;font-size:.8rem;}
-.att-chip{display:inline-flex;align-items:center;gap:3px;background:#eff6ff;
-  color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;padding:1px 7px;
-  font-size:.62rem;font-weight:700;cursor:pointer;white-space:nowrap;line-height:1.6;}
-.att-chip:hover{background:#dbeafe;}
+.att-chip{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#059669,#0891b2);
+  color:#fff;border:none;border-radius:10px;padding:2px 9px;
+  font-size:.65rem;font-weight:800;cursor:pointer;white-space:nowrap;line-height:1.6;
+  box-shadow:0 2px 8px rgba(5,150,105,.45);}
+.att-chip:hover{filter:brightness(1.1);transform:scale(1.05);}
 .att-chip-empty{display:inline-flex;align-items:center;background:#f1f5f9;
   color:#94a3b8;border:1px solid #e2e8f0;border-radius:10px;padding:1px 7px;
   font-size:.62rem;cursor:pointer;line-height:1.6;}
 .att-chip-empty:hover{background:#e2e8f0;color:#475569;}
+/* all-files modal */
+.attall-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9700;
+  align-items:center;justify-content:center;}
+.attall-bg.open{display:flex;}
+.attall-box{background:#fff;border-radius:14px;padding:26px 28px 22px;width:min(720px,96vw);
+  max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);}
+.attall-box h3{font-size:.95rem;font-weight:800;color:#1e293b;margin-bottom:4px;}
+.attall-close{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;}
+.attall-search{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 12px;
+  font-size:.8rem;margin-bottom:14px;outline:none;box-sizing:border-box;}
+.attall-search:focus{border-color:#2563eb;}
+.attall-row{border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 14px;
+  display:flex;align-items:center;gap:10px;background:#f8fafc;margin-bottom:7px;}
+.attall-row:hover{border-color:#bfdbfe;background:#eff6ff;}
+.attall-rowlabel{font-size:.67rem;font-weight:700;color:#0891b2;background:#ecfeff;
+  border:1px solid #a5f3fc;border-radius:8px;padding:2px 8px;white-space:nowrap;}
+/* topbar dosyalar badge */
+#allFilesBadge{display:inline-block;background:#ef4444;color:#fff;border-radius:9px;
+  padding:0 5px;font-size:.6rem;font-weight:800;margin-left:3px;line-height:1.6;vertical-align:middle;}
 
 /* ── DASHBOARD MODAL ── */
 .dash-bg{display:none;position:fixed;inset:0;background:rgba(8,16,32,.82);z-index:9800;
@@ -378,6 +398,7 @@ td.nowrap{white-space:nowrap;}
   <button class="tbb ok" id="snapSaveBtn" style="display:none" onclick="saveSnapshot()">💾 Kaydet</button>
   <button class="tbb" id="snapLoadBtn" onclick="openSnapModal()">🗂 Kayıtlar</button>
   <button class="tbb danger" onclick="clearData()">🗑 Temizle</button>
+  <button class="tbb" id="allFilesBtn" onclick="openAllFilesModal()" style="background:rgba(5,150,105,.55);border-color:rgba(5,150,105,.7);">📎 Dosyalar<span id="allFilesBadge" style="display:none;"></span></button>
   <button class="tbb" id="dashBtn" style="display:none;background:linear-gradient(135deg,rgba(16,185,129,.7),rgba(37,99,235,.7));" onclick="openDashboard()">📊 Dashboard</button>
   <button class="tbb" id="aiCatBtn" style="display:none;background:linear-gradient(135deg,rgba(124,58,237,.85),rgba(37,99,235,.85));border-color:rgba(167,139,250,.5);" onclick="openAiCatModal()">🤖 AI Kategorize</button>
   <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" onchange="handleFile(this)" style="display:none">
@@ -573,6 +594,17 @@ td.nowrap{white-space:nowrap;}
       <div class="dc dc-c6"><h4><span class="dci">👤</span> Top Açan Kişiler</h4><canvas id="dch_acan" height="200"></canvas></div>
       <div class="dc dc-c6"><h4><span class="dci">🏭</span> Cari (Müşteri) Dağılımı</h4><canvas id="dch_cari" height="200"></canvas></div>
     </div>
+  </div>
+</div>
+
+<!-- ═══ ALL FILES MODAL ═══ -->
+<div class="attall-bg" id="allFilesModal">
+  <div class="attall-box">
+    <button class="attall-close" onclick="closeAllFilesModal()">✕</button>
+    <h3>📎 Tüm Ekli Dosyalar</h3>
+    <p style="font-size:.72rem;color:#64748b;margin-bottom:12px;">Tüm satırlara eklenen dosyaların listesi. Tıklayarak indirebilir veya silebilirsiniz.</p>
+    <input class="attall-search" id="allFilesSearch" type="text" placeholder="Dosya adı veya satır ara..." oninput="renderAllFiles()">
+    <div id="allFilesList"></div>
   </div>
 </div>
 
@@ -1903,9 +1935,12 @@ let _attCounts = {}; // rowId → count (cache)
 
 async function attAdd(rowId, name, type, size, data){
   const db = await idbOpen();
+  // find a human-readable label for this row
+  const matchRow = _rawRows.find(r=>r._rowId===rowId);
+  const rowLabel = matchRow ? (matchRow.dofSeri||matchRow.baslik||rowId) : rowId;
   const id = await new Promise((res,rej)=>{
     const tx  = db.transaction(ATT_STORE,'readwrite');
-    const req = tx.objectStore(ATT_STORE).add({rowId, name, type, size, data, addedAt:Date.now()});
+    const req = tx.objectStore(ATT_STORE).add({rowId, rowLabel, name, type, size, data, addedAt:Date.now()});
     req.onsuccess = e=>res(e.target.result);
     req.onerror   = e=>rej(e.target.error);
   });
@@ -1948,7 +1983,64 @@ async function loadAttachCounts(){
   });
   _attCounts = {};
   all.forEach(a=>{ _attCounts[a.rowId] = (_attCounts[a.rowId]||0)+1; });
+  updateAttBadge();
 }
+
+function updateAttBadge(){
+  const total = Object.values(_attCounts).reduce((s,v)=>s+v, 0);
+  const el = document.getElementById('allFilesBadge');
+  if(!el) return;
+  if(total > 0){ el.textContent = total; el.style.display=''; }
+  else el.style.display='none';
+}
+
+async function openAllFilesModal(){
+  document.getElementById('allFilesModal').classList.add('open');
+  document.getElementById('allFilesSearch').value='';
+  await renderAllFiles();
+}
+function closeAllFilesModal(){
+  document.getElementById('allFilesModal').classList.remove('open');
+}
+async function renderAllFiles(){
+  const list = document.getElementById('allFilesList');
+  list.innerHTML='<div class="att-empty">⏳ Yükleniyor...</div>';
+  const db = await idbOpen();
+  const all = await new Promise((res,rej)=>{
+    const req = db.transaction(ATT_STORE,'readonly').objectStore(ATT_STORE).getAll();
+    req.onsuccess = e=>res(e.target.result.sort((a,b)=>b.addedAt-a.addedAt));
+    req.onerror   = e=>rej(e.target.error);
+  });
+  const q = (document.getElementById('allFilesSearch')?.value||'').toLowerCase();
+  const filtered = q ? all.filter(a=>a.name.toLowerCase().includes(q)||(a.rowLabel||'').toLowerCase().includes(q)) : all;
+  if(!filtered.length){ list.innerHTML='<div class="att-empty">📂 Dosya bulunamadı.</div>'; return; }
+  list.innerHTML = filtered.map(a=>{
+    const icon = attFileIcon(a.name);
+    const kb = a.size < 1024*1024 ? (a.size/1024).toFixed(0)+' KB' : (a.size/1048576).toFixed(1)+' MB';
+    const dt = new Date(a.addedAt).toLocaleString('tr-TR');
+    const rowLabel = a.rowLabel || a.rowId;
+    return `<div class="attall-row" id="aall_${a.id}">
+      <span style="font-size:1.4rem;">${icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:.8rem;font-weight:700;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(a.name)}">${esc(a.name)}</div>
+        <div style="font-size:.65rem;color:#94a3b8;margin-top:2px;">${kb} &bull; ${dt}</div>
+      </div>
+      <span class="attall-rowlabel" title="${esc(rowLabel)}">${esc(rowLabel.length>28?rowLabel.slice(0,28)+'…':rowLabel)}</span>
+      <button class="att-dl-btn" onclick="downloadAttach(${a.id})">⬇️ İndir</button>
+      <button class="att-del-btn" onclick="deleteAttachAll(${a.id},'${a.rowId}')">✕</button>
+    </div>`;
+  }).join('');
+}
+async function deleteAttachAll(id, rowId){
+  if(!confirm('Bu dosya silinsin mi?')) return;
+  await attDelete(id, rowId);
+  document.getElementById('aall_'+id)?.remove();
+  const list = document.getElementById('allFilesList');
+  if(!list.querySelector('.attall-row')) list.innerHTML='<div class="att-empty">📂 Dosya bulunamadı.</div>';
+  updateAttBadge();
+  renderTable();
+}
+document.getElementById('allFilesModal').addEventListener('click', function(e){ if(e.target===this) closeAllFilesModal(); });
 
 // ── toast helper ──
 function showToast(msg){
@@ -2296,6 +2388,7 @@ async function handleAttachFiles(input){
   }
   input.value='';
   await renderAttachList();
+  updateAttBadge();
   renderTable();
   showToast('✅ '+files.length+' dosya eklendi.');
 }
@@ -2318,6 +2411,7 @@ async function deleteAttach(id, rowId){
   const list = document.getElementById('attList');
   if(!list.querySelector('.att-item'))
     list.innerHTML='<div class="att-empty">📂 Henüz dosya eklenmedi.</div>';
+  updateAttBadge();
   renderTable();
 }
 function attReadBase64(file){
