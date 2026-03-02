@@ -766,6 +766,34 @@ function parseMusteriFile(file){
   reader.readAsArrayBuffer(file);
 }
 
+function deleteRow(rowId){
+  const idx = _rawRows.findIndex(r=>r._rowId===rowId);
+  if(idx===-1) return;
+  const label = _rawRows[idx].dofSeri || _rawRows[idx].baslik || 'Bu satır';
+  if(!confirm(`"${label}" silinsin mi?`)) return;
+  _rawRows.splice(idx,1);
+  buildFilterGrid();
+  refreshAiCatFilter();
+  syncFilterDOM();
+  applyFilters();
+  updateSnapBtn();
+  showToast('🗑 Satır silindi.');
+}
+
+function deleteRow(rowId){
+  const idx = _rawRows.findIndex(r=>r._rowId===rowId);
+  if(idx===-1) return;
+  const label = _rawRows[idx].dofSeri || _rawRows[idx].baslik || 'Bu satır';
+  if(!confirm(`"${label}" silinsin mi?`)) return;
+  _rawRows.splice(idx,1);
+  buildFilterGrid();
+  refreshAiCatFilter();
+  syncFilterDOM();
+  applyFilters();
+  updateSnapBtn();
+  showToast('🗑 Satır silindi.');
+}
+
 function editSubeAdi(e, ridx){
   e.stopPropagation();
   const row = _filtered[ridx];
@@ -1089,11 +1117,13 @@ function renderTable(){
     ..._aiCatDone
       ? [...visibleFields, {key:'_aiKategori', label:'🤖 AI Kategori', type:'select'}]
       : visibleFields,
-    {key:'_attach', label:'📎', type:'attach'}
+    {key:'_attach', label:'📎', type:'attach'},
+    {key:'_del', label:'', type:'del'}
   ];
 
   thead.innerHTML = '<tr>'+allFields.map(f=>{
     if(f.key==='_attach') return `<th style="width:48px;text-align:center;cursor:default;">📎</th>`;
+    if(f.key==='_del') return `<th style="width:34px;cursor:default;"></th>`;
     const sc = _sortCol===f.key ? (_sortDir===1?'sort-asc':'sort-desc') : '';
     return `<th class="${sc}" onclick="toggleSort('${f.key}')">${f.label}<span class="sort-icon"></span></th>`;
   }).join('')+'</tr>';
@@ -1115,6 +1145,9 @@ function renderTable(){
           return `<td style="text-align:center;"><span class="att-chip" onclick="openAttachModal('${row._rowId||''}','${esc(label)}')">📎 ${cnt}</span></td>`;
         }
         return `<td style="text-align:center;"><span class="att-chip-empty" title="Doküman ekle" onclick="openAttachModal('${row._rowId||''}','${esc(label)}')">📎</span></td>`;
+      }
+      if(f.key==='_del'){
+        return `<td style="text-align:center;"><button onclick="deleteRow('${row._rowId||''}')" title="Satırı sil" style="background:none;border:none;cursor:pointer;font-size:.95rem;opacity:.3;transition:.15s;padding:2px 5px;" onmouseover="this.style.opacity=1;this.style.color='#dc2626'" onmouseout="this.style.opacity=.3;this.style.color=''">🗑</button></td>`;
       }
       if(f.key==='_aiKategori'){
         const v = row._aiKategori||'';
