@@ -57,6 +57,19 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
 .filter-toggle{background:#e2e8f0;color:#475569;border:none;border-radius:7px;
   padding:5px 12px;font-size:.74rem;font-weight:600;cursor:pointer;}
 .filter-toggle:hover{background:#cbd5e1;}
+.filter-save-preset{background:#1e40af;color:#fff;border:none;border-radius:7px;
+  padding:5px 12px;font-size:.74rem;font-weight:700;cursor:pointer;}
+.filter-save-preset:hover{background:#1d4ed8;}
+#filterPresets{display:none;flex-wrap:wrap;gap:6px;align-items:center;
+  padding:6px 18px;background:#f0f4ff;border-bottom:1px solid #c7d2fe;}
+#filterPresets .fp-label{font-size:.68rem;color:#6366f1;font-weight:700;white-space:nowrap;}
+.fpreset-chip{display:inline-flex;align-items:center;background:#1e293b;
+  border:1.5px solid #6366f1;border-radius:20px;font-size:.72rem;color:#c7d2fe;
+  overflow:hidden;white-space:nowrap;}
+.fpreset-chip .pname{padding:4px 10px;cursor:pointer;max-width:200px;overflow:hidden;text-overflow:ellipsis;}
+.fpreset-chip .pname:hover{background:rgba(99,102,241,.25);}
+.fpreset-chip .pdel{padding:4px 8px;color:#94a3b8;border-left:1px solid #334155;cursor:pointer;}
+.fpreset-chip .pdel:hover{background:#ef4444;color:#fff;}
 
 /* ── QUICK FILTERS ── */
 .quick-filters{display:flex;flex-wrap:wrap;gap:10px;padding:10px 18px 12px;
@@ -316,8 +329,11 @@ td.nowrap{white-space:nowrap;}
       <input type="text" class="filter-search" id="globalSearch"
         placeholder="Genel arama (tüm alanlarda)..." oninput="applyFilters()">
       <button class="filter-reset" onclick="resetFilters()">✕ Sıfırla</button>
+      <button class="filter-save-preset" onclick="saveFilterPreset()">📌 Filtre Kaydet</button>
       <button class="filter-toggle" onclick="toggleFilters()">⚙ Diğer Filtreler</button>
     </div>
+    <!-- Saved filter presets -->
+    <div id="filterPresets"></div>
     <!-- Quick filters — always visible -->
     <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;">
       <div class="quick-filters" id="quickFilters" style="flex:1;min-width:0;"></div>
@@ -628,6 +644,8 @@ function initUI(){
   updateSnapBtn();
   buildFilterGrid();
   refreshAiCatFilter();
+  syncFilterDOM();
+  renderFilterPresets();
   applyFilters();
 }
 
@@ -898,6 +916,70 @@ function toggleFilters(){
   const g=document.getElementById('filterGrid');
   g.style.display = g.style.display==='none' ? '' : 'none';
 }
+// ─────────────────────────────────────────────
+//  FILTER PRESETS  (localStorage)
+// ─────────────────────────────────────────────
+const FILTER_PRESETS_KEY = 'dof_filter_presets';
+function getFilterPresets(){ try{ return JSON.parse(localStorage.getItem(FILTER_PRESETS_KEY)||'[]'); }catch{ return []; } }
+
+function saveFilterPreset(){
+  const fv = JSON.parse(JSON.stringify(_filterVals));
+  const gs = document.getElementById('globalSearch')?.value||'';
+  if(!Object.keys(fv).length && !gs){ showToast('⚠️ Aktif filtre yok.'); return; }
+  // Build a descriptive auto-name
+  const parts = Object.entries(fv).map(([k,v])=>v).filter(Boolean);
+  const autoName = [...parts, gs].filter(Boolean).slice(0,3).join(' · ') || 'Filtre';
+  const name = prompt('Filtre adı:', autoName);
+  if(name === null) return;
+  const presets = getFilterPresets();
+  presets.push({ name: name.trim() || autoName, filterVals: fv, globalSearch: gs, savedAt: Date.now() });
+  localStorage.setItem(FILTER_PRESETS_KEY, JSON.stringify(presets));
+  renderFilterPresets();
+  showToast('📌 Filtre kaydedildi: '+(name.trim()||autoName));
+}
+
+function deleteFilterPreset(idx){
+  const presets = getFilterPresets();
+  presets.splice(idx, 1);
+  localStorage.setItem(FILTER_PRESETS_KEY, JSON.stringify(presets));
+  renderFilterPresets();
+}
+
+function applyFilterPreset(idx){
+  const p = getFilterPresets()[idx];
+  if(!p) return;
+  _filterVals = JSON.parse(JSON.stringify(p.filterVals));
+  if(document.getElementById('globalSearch')) document.getElementById('globalSearch').value = p.globalSearch||'';
+  syncFilterDOM();
+  applyFilters();
+  showToast('📌 Filtre yüklendi: '+p.name);
+}
+
+function renderFilterPresets(){
+  const el = document.getElementById('filterPresets');
+  if(!el) return;
+  const presets = getFilterPresets();
+  if(!presets.length){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='flex';
+  el.innerHTML = '<span class="fp-label">📌 Kayıtlı Filtreler:</span>'
+    + presets.map((p,i)=>`<span class="fpreset-chip">`
+      +`<span class="pname" onclick="applyFilterPreset(${i})" title="${esc(p.name)}">${esc(p.name)}</span>`
+      +`<span class="pdel" onclick="deleteFilterPreset(${i})" title="Sil">✕</span>`
+      +`</span>`).join('');
+}
+
+function syncFilterDOM(){
+  // Push _filterVals into DOM select/input elements after buildFilterGrid()
+  document.querySelectorAll('#quickFilters select,#filterGrid select').forEach(s=>{
+    const key = s.id.replace(/^flt_/,'');
+    s.value = _filterVals[key]||'';
+  });
+  document.querySelectorAll('#quickFilters input,#filterGrid input').forEach(i=>{
+    const key = i.id.replace(/^flt_/,'');
+    i.value = _filterVals[key]||'';
+  });
+}
+
 function resetFilters(){
   _filterVals={};
   document.getElementById('globalSearch').value='';
@@ -1552,11 +1634,13 @@ async function saveSnapshot(){
   const autoName = d.toLocaleDateString('tr-TR')+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})
     +' — '+(rawName || _rawRows.length+' kayıt');
   const record = {
-    name     : rawName || autoName,
-    savedAt  : Date.now(),
-    rows     : JSON.parse(JSON.stringify(_rawRows)),   // deep copy incl. _aiKategori
-    mapping  : JSON.parse(JSON.stringify(_mapping)),
+    name        : rawName || autoName,
+    savedAt     : Date.now(),
+    rows        : JSON.parse(JSON.stringify(_rawRows)),
+    mapping     : JSON.parse(JSON.stringify(_mapping)),
     aiCategories: JSON.parse(JSON.stringify(_aiCategories)),
+    filterVals  : JSON.parse(JSON.stringify(_filterVals)),
+    globalSearch: document.getElementById('globalSearch')?.value||'',
   };
   try{
     await idbPut(record);
@@ -1578,11 +1662,14 @@ async function loadSnapshot(id){
   _mapping      = rec.mapping;
   _aiCategories = rec.aiCategories || [...DEFAULT_CATEGORIES];
   _aiCatDone    = _rawRows.some(r=>r._aiKategori);
-  _filterVals   = {};
+  _filterVals   = rec.filterVals ? JSON.parse(JSON.stringify(rec.filterVals)) : {};
   _sortCol      = null; _sortDir = 1;
   closeSnapModal();
   initUI();
-  showToast('✅ Yüklendi: '+rec.name);
+  // Restore global search (syncFilterDOM handles _filterVals → selects/inputs)
+  if(rec.globalSearch) document.getElementById('globalSearch').value = rec.globalSearch;
+  applyFilters();
+  showToast('✅ Yüklendi: '+rec.name+(Object.keys(_filterVals).length||rec.globalSearch ? ' (filtre geri yüklendi)' : ''));
 }
 
 async function deleteSnapshot(id){
