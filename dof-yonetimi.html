@@ -319,7 +319,13 @@ td.nowrap{white-space:nowrap;}
       <button class="filter-toggle" onclick="toggleFilters()">⚙ Diğer Filtreler</button>
     </div>
     <!-- Quick filters — always visible -->
-    <div class="quick-filters" id="quickFilters"></div>
+    <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;">
+      <div class="quick-filters" id="quickFilters" style="flex:1;min-width:0;"></div>
+      <button onclick="resetFilters()" title="Tüm filtreleri sıfırla"
+        style="flex-shrink:0;height:36px;padding:0 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+        ✕ Filtreleri Sıfırla
+      </button>
+    </div>
     <!-- Full column filter grid — toggled -->
     <div class="filter-grid" id="filterGrid" style="display:none;"></div>
   </div>
