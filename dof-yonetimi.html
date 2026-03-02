@@ -514,6 +514,28 @@ td.nowrap{white-space:nowrap;}
   </div>
 </div>
 
+<!-- ═══ DASHBOARD MODAL ═══ -->
+<div class="dash-bg" id="dashModal">
+  <div class="dash-box">
+    <div class="dash-header">
+      <h2>📊 DÖF Analiz Dashboard'u</h2>
+      <span class="dash-scope" id="dashScope">Tüm kayıtlar</span>
+      <button class="dash-close" onclick="closeDashboard()">✕ Kapat</button>
+    </div>
+    <div class="dash-kpis" id="dashKpis"></div>
+    <div class="dash-grid">
+      <div class="dc dc-c4"><h4><span class="dci">🎯</span> Tipi Dağılımı</h4><canvas id="dch_tipi" height="220"></canvas></div>
+      <div class="dc dc-c4"><h4><span class="dci">📦</span> Cinsi Dağılımı</h4><canvas id="dch_cinsi" height="220"></canvas></div>
+      <div class="dc dc-c4"><h4><span class="dci">🤖</span> AI Kategori Dağılımı</h4><canvas id="dch_aikat" height="220"></canvas></div>
+      <div class="dc dc-c8"><h4><span class="dci">📅</span> Yıllara Göre DÖF Sayısı</h4><canvas id="dch_yil" height="200"></canvas></div>
+      <div class="dc dc-c4"><h4><span class="dci">🏢</span> Top Şubeler</h4><ul class="dash-top5" id="dch_sube_top"></ul></div>
+      <div class="dc dc-c12"><h4><span class="dci">📈</span> Aylık DÖF Trendi (Şikayet Tarihine Göre)</h4><canvas id="dch_trend" height="110"></canvas></div>
+      <div class="dc dc-c6"><h4><span class="dci">👤</span> Top Açan Kişiler</h4><canvas id="dch_acan" height="200"></canvas></div>
+      <div class="dc dc-c6"><h4><span class="dci">🏭</span> Cari (Müşteri) Dağılımı</h4><canvas id="dch_cari" height="200"></canvas></div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ SNAPSHOTS MODAL ═══ -->
 <div class="snap-modal-bg" id="snapModal">
   <div class="snap-box">
