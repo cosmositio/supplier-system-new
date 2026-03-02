@@ -181,9 +181,15 @@ td.nowrap{white-space:nowrap;}
 .ai-cat-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;}
 .ai-run-btn{flex:1;padding:10px;border-radius:8px;border:none;
   background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;
-  font-weight:800;font-size:.85rem;cursor:pointer;transition:.15s;}
-.ai-run-btn:hover{opacity:.9;}
-.ai-run-btn:disabled{opacity:.5;cursor:not-allowed;}
+  font-weight:800;font-size:.85rem;cursor:pointer;transition:background .4s ease;
+  position:relative;overflow:hidden;min-height:42px;}
+.ai-run-btn:hover{filter:brightness(1.08);}
+.ai-run-btn:disabled{cursor:not-allowed;}
+.ai-run-btn .btn-fill{
+  position:absolute;left:0;top:0;height:100%;
+  background:linear-gradient(135deg,#16a34a,#0891b2);
+  transition:width .5s ease;width:0%;border-radius:8px;z-index:0;}
+.ai-run-btn .btn-label{position:relative;z-index:1;pointer-events:none;}
 .ai-clear-btn{padding:10px 16px;border-radius:8px;border:none;
   background:#f1f5f9;color:#475569;font-weight:700;font-size:.78rem;cursor:pointer;}
 .ai-clear-btn:hover{background:#e2e8f0;}
@@ -368,15 +374,15 @@ td.nowrap{white-space:nowrap;}
     </div>
 
     <!-- Progress -->
-    <div class="ai-progress-wrap" id="aiCatProgressWrap">
-      <div class="ai-progress-bar-bg"><div class="ai-progress-bar" id="aiCatBar"></div></div>
-      <div class="ai-progress-txt" id="aiCatProgressTxt"></div>
-    </div>
+
     <div class="ai-status" id="aiCatStatus"></div>
 
     <!-- Actions -->
     <div class="ai-cat-actions">
-      <button class="ai-run-btn" id="aiRunBtn" onclick="startCategorization()">🤖 Tüm Satırları Kategorize Et (<span id="aiRunCount">0</span> kayıt)</button>
+      <button class="ai-run-btn" id="aiRunBtn" onclick="startCategorization()">
+        <span class="btn-fill" id="aiRunFill"></span>
+        <span class="btn-label" id="aiRunLabel">🤖 Tüm Satırları Kategorize Et (<span id="aiRunCount">0</span> kayıt)</span>
+      </button>
       <button class="ai-clear-btn" onclick="clearAiCategories()">🗑 Kategorileri Temizle</button>
     </div>
   </div>
@@ -812,7 +818,8 @@ function openAiCatModal(){
   renderCatTags();
   document.getElementById('aiRunCount').textContent = _rawRows.length;
   setAiCatStatus('');
-  document.getElementById('aiCatProgressWrap').style.display='none';
+  document.getElementById('aiRunFill').style.width='0%';
+  document.getElementById('aiRunLabel').innerHTML='🤖 Tüm Satırları Kategorize Et (<span id="aiRunCount">'+_rawRows.length+'</span> kayıt)';
   document.getElementById('aiCatModal').classList.add('open');
 }
 function closeAiCatModal(){ if(_aiRunning) return; document.getElementById('aiCatModal').classList.remove('open'); }
@@ -877,14 +884,12 @@ function setAiCatStatus(msg, type=''){
 }
 
 function setAiCatProgress(done, total){
-  const wrap = document.getElementById('aiCatProgressWrap');
-  const bar  = document.getElementById('aiCatBar');
-  const txt  = document.getElementById('aiCatProgressTxt');
-  if(total<=0){ wrap.style.display='none'; return; }
-  wrap.style.display='';
+  if(total<=0) return;
   const pct = Math.round(done/total*100);
-  bar.style.width = pct+'%';
-  txt.textContent = pct+'% ('+done+' / '+total+' kayıt işlendi)';
+  document.getElementById('aiRunFill').style.width = pct+'%';
+  document.getElementById('aiRunLabel').textContent = pct===100
+    ? '✅ Tamamlandı! ('+total+' kayıt)'
+    : '⏳ '+pct+'% — '+done+' / '+total+' kayıt işlendi...';
 }
 
 // ── callAI (DÖF version — shares localStorage keys with 5-neden page) ──
@@ -1082,6 +1087,11 @@ async function startCategorization(){
     _aiRunning = false;
     document.getElementById('aiRunBtn').disabled = false;
     document.getElementById('suggestBtn').disabled = false;
+    // Reset button fill after short delay so user sees 100%
+    setTimeout(()=>{
+      document.getElementById('aiRunFill').style.width='0%';
+      document.getElementById('aiRunLabel').innerHTML='🤖 Tüm Satırları Kategorize Et (<span id="aiRunCount">'+_rawRows.length+'</span> kayıt)';
+    }, 2500);
   }
 }
 
