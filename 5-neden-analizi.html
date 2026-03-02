@@ -1950,6 +1950,10 @@ const WIZ_STEPS = [
     hint: 'Tespit yöntemi ve ne zaman fark edildiği',
     ph: 'örn: Müşteri iadesi, sevkiyattan 3 gün sonra',
     multi: false, id: 'wq4' },
+  { q: 'Olası Hata Nedenleri',
+    hint: 'Biçimsel ya da gözönünde bulundurulan olası nedenler — AI analizi bu ipucu üzerine odaklanır',
+    ph: 'örn: Operatör değişimi · Yeni hammadde partisi · Tork anahtarı kalibrasyonu geçti · İki haftılık üretim durakl. sonrası ilk vardiya',
+    multi: true, id: 'wq_causes' },
   { q: 'Kaç neden adımı olsun?',
     hint: 'Her bir iz için ana zincirdeki adım sayısı',
     chips: ['3','4','5','6','7'], def: '5', id: 'wq5' },
@@ -2337,6 +2341,7 @@ async function aiGenerate(){
                   : 'Groq — Llama 3.3 analiz ediyor…';
   setAiStatus('loading', provLabel);
 
+  const qCauses = _wizAnswers['wq_causes'] || '';
   const q5 = _wizAnswers['wq5'] || '5';
   const q6 = _wizAnswers['wq6'] || 'Yok';
   const q7 = _wizAnswers['wq7'] || '';
@@ -2356,6 +2361,7 @@ async function aiGenerate(){
     q2 ? `Etki/Kapsam: ${q2}` : '',
     q3 ? `Süreç/Yer: ${q3}` : '',
     q4 ? `Tespit: ${q4}` : '',
+    qCauses ? `Olası hata nedenleri (ipucu): ${qCauses}` : '',
     q7 ? `Teknik ek bilgi: ${q7}` : ''
   ].filter(Boolean).join('\n');
 
@@ -2410,7 +2416,7 @@ Her adım bir öncekini AÇIKLAMALI; bağımsız, rastgele veya genel nedenler Y
 Her iz için EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = kök neden.
 ${branchInstruction}
 Nedenler teknik ve somut olsun (en fazla ${maxWordPerStep} kelime). Her adım bir öncekinin nedeni; bağımsız madde YAZMAK YASAKTIR.
-${depthInstruction}
+${qCauses ? `💡 OLASI NEDEN İPUCU: Kullanıcı şu potansiyel nedenleri belirtti → "${qCauses}"\nBu ipuçlarını inceleyerek analizi bu doğrultuda şekillendir; doğru görünmeyenleri göz ardı edebilirsin.\n` : ''}${depthInstruction}
 
 YALNIZCA aşağıdaki JSON formatında yanıt ver:
 {
