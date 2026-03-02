@@ -756,13 +756,13 @@ body.embed-mode .canvas-outer {
       </div>
       <div class="key-hint">Kart gerekmez · Ücretsiz modeller dengesiz olabilir · <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai → Keys →</a></div>
       <select class="or-model-sel" id="orModel">
-        <option value="meta-llama/llama-3.3-70b-instruct:free">✅ Llama 3.3 70B (ücretsiz)</option>
-        <option value="arcee-ai/trinity-large-preview:free">Arcee Trinity Large (ücretsiz)</option>
-        <option value="stepfun/step-3.5-flash:free">StepFun 3.5 Flash (ücretsiz)</option>
-        <option value="openai/gpt-oss-120b:free">OpenAI GPT-OSS 120B (ücretsiz)</option>
-        <option value="arcee-ai/trinity-mini:free">Arcee Trinity Mini (ücretsiz)</option>
-        <option value="z-ai/glm-4.5-air:free">GLM 4.5 Air (ücretsiz)</option>
-        <option value="nvidia/nemotron-3-nano-30b-a3b:free">NVIDIA Nemotron 30B (ücretsiz)</option>
+        <option value="deepseek/deepseek-r1:free">✅ DeepSeek R1 (ücretsiz)</option>
+        <option value="deepseek/deepseek-chat:free">DeepSeek V3 Chat (ücretsiz)</option>
+        <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (ücretsiz)</option>
+        <option value="google/gemma-3-27b-it:free">Gemma 3 27B (ücretsiz)</option>
+        <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 72B (ücretsiz)</option>
+        <option value="mistralai/mistral-7b-instruct:free">Mistral 7B (ücretsiz)</option>
+        <option value="microsoft/phi-3-mini-128k-instruct:free">Phi-3 Mini 128K (ücretsiz)</option>
       </select>
     </div>
 
@@ -2073,16 +2073,16 @@ async function callAI(messages, maxTokens, temperature){
     if(!key) throw new Error('OpenRouter API key girilmedi');
     const chosenOR = localStorage.getItem('or_model') || document.getElementById('orModel')?.value || 'meta-llama/llama-3.3-70b-instruct:free';
 
-    // Free model fallback chain — verified working on OpenRouter (Feb 2026)
+    // Free model fallback chain — verified working on OpenRouter (Mar 2026)
     const OR_FALLBACKS = [
       chosenOR,
+      'deepseek/deepseek-r1:free',
+      'deepseek/deepseek-chat:free',
       'meta-llama/llama-3.3-70b-instruct:free',
-      'arcee-ai/trinity-large-preview:free',
-      'stepfun/step-3.5-flash:free',
-      'openai/gpt-oss-120b:free',
-      'arcee-ai/trinity-mini:free',
-      'z-ai/glm-4.5-air:free',
-      'nvidia/nemotron-3-nano-30b-a3b:free',
+      'google/gemma-3-27b-it:free',
+      'qwen/qwen-2.5-72b-instruct:free',
+      'mistralai/mistral-7b-instruct:free',
+      'microsoft/phi-3-mini-128k-instruct:free',
     ].filter((v,i,a) => a.indexOf(v)===i); // deduplicate
 
     const orPost = (model) => fetch('https://openrouter.ai/api/v1/chat/completions',{
@@ -2096,13 +2096,20 @@ async function callAI(messages, maxTokens, temperature){
       body: JSON.stringify({ model, messages, temperature:temp, max_tokens:maxTokens })
     });
 
+    // Exponential backoff for 429 rate limits
+    const orRetry = async (model, attempt=0) => {
+      const resp = await orPost(model);
+      if(resp.status === 429 && attempt < 2){
+        const wait = (attempt+1) * 8000; // 8s, then 16s
+        await new Promise(r=>setTimeout(r,wait));
+        return orRetry(model, attempt+1);
+      }
+      return resp;
+    };
+
     let orLastErr = '';
     for(const orModel of OR_FALLBACKS){
-      let resp = await orPost(orModel);
-      if(resp.status === 429){
-        await new Promise(r=>setTimeout(r,5000));
-        resp = await orPost(orModel);
-      }
+      const resp = await orRetry(orModel);
       if(resp.ok){
         const d = await resp.json();
         return d?.choices?.[0]?.message?.content || '';
@@ -2110,8 +2117,8 @@ async function callAI(messages, maxTokens, temperature){
       const oe = await resp.json().catch(()=>({}));
       const omsg = oe?.error?.message || ('HTTP '+resp.status);
       if(resp.status === 401 || resp.status === 403) throw new Error('OpenRouter: API key geçersiz — openrouter.ai/keys kontrol edin.');
-      if(resp.status === 429){ orLastErr = 'Rate limit'; continue; }
-      if(resp.status === 404){ orLastErr = omsg; continue; } // model not found, try next
+      if(resp.status === 429){ orLastErr = 'Rate limit — çok fazla istek'; continue; }
+      if(resp.status === 404){ orLastErr = 'Model bulunamadı: '+orModel; continue; } // model not found, try next
       throw new Error('OpenRouter ('+orModel+'): '+omsg);
     }
     throw new Error('OpenRouter: Hiçbir model çalışmadı. Son hata: '+orLastErr);
