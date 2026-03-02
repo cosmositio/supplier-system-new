@@ -2100,13 +2100,12 @@ async function callAI(messages, maxTokens, temperature){
       body: JSON.stringify({ model, messages, temperature:temp, max_tokens:maxTokens })
     });
 
-    // Exponential backoff for 429 rate limits
-    const orRetry = async (model, attempt=0) => {
+    // Single retry with backoff for 429 rate limits
+    const orRetry = async (model) => {
       const resp = await orPost(model);
-      if(resp.status === 429 && attempt < 2){
-        const wait = (attempt+1) * 8000; // 8s, then 16s
-        await new Promise(r=>setTimeout(r,wait));
-        return orRetry(model, attempt+1);
+      if(resp.status === 429){
+        await new Promise(r=>setTimeout(r,10000)); // 10s backoff
+        return orPost(model);
       }
       return resp;
     };
@@ -2121,6 +2120,7 @@ async function callAI(messages, maxTokens, temperature){
       const oe = await resp.json().catch(()=>({}));
       const omsg = oe?.error?.message || ('HTTP '+resp.status);
       if(resp.status === 401 || resp.status === 403) throw new Error('OpenRouter: API key geçersiz — openrouter.ai/keys kontrol edin.');
+      if(resp.status === 402) throw new Error('OpenRouter: Hesap bakiyesi yetersiz — openrouter.ai/credits adresine giderek bakiye yükleyin (1-2 USD yeterli).');
       if(resp.status === 429){ orLastErr = 'Rate limit — çok fazla istek'; continue; }
       if(resp.status === 404){ orLastErr = 'Model bulunamadı: '+orModel; continue; } // model not found, try next
       throw new Error('OpenRouter ('+orModel+'): '+omsg);
@@ -2454,16 +2454,29 @@ ${context}`;
 }
 
 function buildChainsFromAi(iz){
-  const mainSteps = (iz.mainSteps || iz.steps || []);
+  // Normalize mainSteps — AI sometimes returns object {"1":"...","2":"..."} instead of array
+  const rawSteps = iz.mainSteps || iz.steps || [];
+  const mainSteps = Array.isArray(rawSteps)
+    ? rawSteps
+    : Object.values(rawSteps).filter(v => typeof v === 'string' && v.trim());
+
   const chains = [{ startAfter:null, steps: mainSteps.map((t,i,a)=>
-    ({ id:uid(), text:t, isRoot: i===a.length-1 })
+    ({ id:uid(), text:String(t), isRoot: i===a.length-1 })
   )}];
   if(!chains[0].steps.length) chains[0].steps.push(mkStep());
-  // parallel branches
-  for(const br of (iz.branches||[])){
+
+  // parallel branches — also normalize
+  const rawBranches = iz.branches || [];
+  const branches = Array.isArray(rawBranches)
+    ? rawBranches
+    : Object.values(rawBranches).filter(v => v && typeof v === 'object');
+
+  for(const br of branches){
     const sa = typeof br.startAfterStep === 'number' ? br.startAfterStep : 0;
-    const bSteps = (br.steps||[]).map((t,i,a)=>({ id:uid(), text:t, isRoot: i===a.length-1 }));
-    if(bSteps.length) chains.push({ startAfter: sa, steps: bSteps });
+    const brRaw = br.steps || [];
+    const brSteps = (Array.isArray(brRaw) ? brRaw : Object.values(brRaw).filter(v=>typeof v==='string'))
+      .map((t,i,a)=>({ id:uid(), text:String(t), isRoot: i===a.length-1 }));
+    if(brSteps.length) chains.push({ startAfter: sa, steps: brSteps });
   }
   return chains;
 }
