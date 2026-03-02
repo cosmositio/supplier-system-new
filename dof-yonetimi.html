@@ -1034,7 +1034,7 @@ Kural: Her başlık için EN UYGUN kategoriyi seç. Liste dışında bir şey ya
   } catch(e){
     // Fallback: try to extract array directly
     try{ parsed = {results: JSON.parse(raw.match(/\[[\s\S]*\]/)[0])}; }
-    catch(){ throw new Error('AI yanıtı JSON olarak ayrıştırılamadı: '+raw.slice(0,120)); }
+    catch(e2){ throw new Error('AI yanıtı JSON olarak ayrıştırılamadı: '+raw.slice(0,120)); }
   }
 
   const results = Array.isArray(parsed?.results) ? parsed.results
