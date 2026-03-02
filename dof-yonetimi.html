@@ -401,6 +401,15 @@ td.nowrap{white-space:nowrap;}
 .hm-dim-btn.active{background:#2563eb;border-color:#3b82f6;color:#fff;}
 .hm-dim-btn:hover:not(.active){border-color:#94a3b8;color:#1e293b;}
 
+/* ── DASHBOARD PRINT TITLE (screen) ── */
+#dashPrintTitle{border-bottom:2px solid #e2e8f0;padding-bottom:14px;margin-bottom:20px;}
+#dashPrintTitle h1{font-size:1.05rem;font-weight:900;color:#111827;margin:0 0 5px;}
+#dashPrintTitle .pt-meta{font-size:.72rem;color:#6b7280;margin:0 0 8px;}
+#dashPrintTitle .pt-nofilter{font-size:.72rem;color:#94a3b8;font-style:italic;}
+#dashPrintTitle .pt-pills{display:flex;flex-wrap:wrap;gap:6px;}
+#dashPrintTitle .pt-pill{background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:3px 10px;font-size:.7rem;color:#1d4ed8;font-weight:600;}
+#dashPrintTitle .pt-pill.date{background:#f0fdf4;border-color:#bbf7d0;color:#15803d;}
+
 /* ── PRINT / PDF ── */
 @media print{
   body *{visibility:hidden;}
@@ -619,7 +628,7 @@ td.nowrap{white-space:nowrap;}
 <!-- ═══ DASHBOARD MODAL ═══ -->
 <div class="dash-bg" id="dashModal">
   <div class="dash-box">
-    <div id="dashPrintTitle" style="display:none;"></div>
+    <div id="dashPrintTitle"></div>
     <div class="dash-header">
       <h2>📊 DÖF Analiz Dashboard'u</h2>
       <span class="dash-scope" id="dashScope">Tüm kayıtlar</span>
@@ -2316,16 +2325,15 @@ function openDashboard(){
   document.getElementById('dashModal').classList.add('open');
   renderDashboard();
 }
-function printDashboard(){
-  // Build print title from active filters
+function buildDashTitle(reportDate){
   const titleEl = document.getElementById('dashPrintTitle');
-  const today = new Date().toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'});
+  if(!titleEl) return;
+  const defaultDate = new Date().toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'});
+  if(!reportDate) reportDate = defaultDate;
   const scopeTxt = document.getElementById('dashScope')?.textContent || '';
 
-  // Collect active filter pills
   const pills = [];
-  const dateGroups = {}; // e.g. { sikayetTar: {from:'...', to:'...'} }
-
+  const dateGroups = {};
   Object.entries(_filterVals).forEach(([k,v])=>{
     if(!v) return;
     if(k.endsWith('_from')||k.endsWith('_to')){
@@ -2339,7 +2347,6 @@ function printDashboard(){
       pills.push(`<span class="pt-pill">${esc(label)}: <strong>${esc(v)}</strong></span>`);
     }
   });
-
   Object.entries(dateGroups).forEach(([base,{from,to}])=>{
     const field = FIELDS.find(f=>f.key===base);
     const label = field ? field.label : base;
@@ -2350,14 +2357,23 @@ function printDashboard(){
 
   const pillsHtml = pills.length
     ? `<div class="pt-pills">${pills.join('')}</div>`
-    : `<div class="pt-pills"><span class="pt-pill">Tüm kayıtlar (filtre yok)</span></div>`;
+    : `<p class="pt-nofilter">Filtre uygulanmadı — tüm kayıtlar görüntüleniyor.</p>`;
 
   titleEl.innerHTML = `
     <h1>📊 DÖF Analiz Raporu</h1>
-    <p class="pt-meta">Oluşturma tarihi: <strong>${today}</strong> &nbsp;|&nbsp; Kapsam: <strong>${esc(scopeTxt)}</strong></p>
+    <p class="pt-meta">Oluşturma tarihi: <strong>${esc(reportDate)}</strong> | Kapsam: <strong>${esc(scopeTxt)}</strong></p>
     ${pillsHtml}`;
+}
 
-  window.print();
+function printDashboard(){
+  const defaultDate = new Date().toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'});
+  const enteredDate = prompt('Rapor tarihi (düzenleyebilirsiniz):', defaultDate);
+  if(enteredDate === null) return; // iptal
+  buildDashTitle(enteredDate || defaultDate);
+  setTimeout(()=>{
+    window.print();
+    buildDashTitle(); // ekran görünümünü bugene döndür
+  }, 150);
 }
 function closeDashboard(){
   document.getElementById('dashModal').classList.remove('open');
@@ -2372,6 +2388,7 @@ function renderDashboard(){
   const isFiltered = rows.length < _rawRows.length;
   document.getElementById('dashScope').textContent =
     isFiltered ? `Filtreli: ${rows.length} / ${_rawRows.length} kayıt` : `Toplam: ${rows.length} kayıt`;
+  buildDashTitle();
 
   // ── KPIs ──
   const today = new Date(); today.setHours(0,0,0,0);
