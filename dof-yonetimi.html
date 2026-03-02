@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DÖF Yönetimi — Düzeltici Önleyici Faaliyetler</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;min-height:100vh;}
@@ -274,6 +275,52 @@ td.nowrap{white-space:nowrap;}
   border-radius:10px;padding:10px 20px;font-size:.8rem;font-weight:600;z-index:9999;
   opacity:0;transform:translateY(12px);transition:.3s;pointer-events:none;}
 .snap-toast.show{opacity:1;transform:translateY(0);}
+
+/* ── DASHBOARD MODAL ── */
+.dash-bg{display:none;position:fixed;inset:0;background:rgba(8,16,32,.82);z-index:9800;
+  align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 12px 40px;}
+.dash-bg.open{display:flex;}
+.dash-box{background:#0f172a;border-radius:18px;width:min(1380px,100%);padding:28px 28px 32px;
+  box-shadow:0 32px 80px rgba(0,0,0,.5);border:1px solid #1e293b;}
+.dash-header{display:flex;align-items:center;gap:14px;margin-bottom:24px;flex-wrap:wrap;}
+.dash-header h2{font-size:1.1rem;font-weight:900;color:#e2e8f0;flex:1;}
+.dash-scope{font-size:.72rem;color:#94a3b8;background:#1e293b;border-radius:20px;padding:4px 14px;border:1px solid #334155;}
+.dash-close{background:rgba(255,255,255,.08);border:1px solid #334155;color:#94a3b8;
+  border-radius:8px;padding:6px 14px;font-size:.78rem;cursor:pointer;font-weight:700;}
+.dash-close:hover{background:rgba(239,68,68,.25);color:#fca5a5;border-color:rgba(239,68,68,.4);}
+.dash-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:24px;}
+.dash-kpi{background:linear-gradient(135deg,#1e293b,#0f2040);border:1px solid #334155;
+  border-radius:12px;padding:14px 18px;}
+.dash-kpi .kp-label{font-size:.62rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+.dash-kpi .kp-value{font-size:1.55rem;font-weight:900;color:#e2e8f0;line-height:1;}
+.dash-kpi .kp-sub{font-size:.65rem;color:#94a3b8;margin-top:3px;}
+.dash-kpi.accent-green .kp-value{color:#34d399;}
+.dash-kpi.accent-red .kp-value{color:#f87171;}
+.dash-kpi.accent-amber .kp-value{color:#fbbf24;}
+.dash-kpi.accent-blue .kp-value{color:#60a5fa;}
+.dash-kpi.accent-purple .kp-value{color:#a78bfa;}
+.dash-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;}
+.dc{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:18px 20px;}
+.dc h4{font-size:.7rem;font-weight:800;color:#94a3b8;text-transform:uppercase;
+  letter-spacing:.07em;margin-bottom:14px;display:flex;align-items:center;gap:7px;}
+.dc h4 .dci{font-size:.95rem;}
+.dc-c3{grid-column:span 3;}
+.dc-c4{grid-column:span 4;}
+.dc-c5{grid-column:span 5;}
+.dc-c6{grid-column:span 6;}
+.dc-c7{grid-column:span 7;}
+.dc-c8{grid-column:span 8;}
+.dc-c12{grid-column:span 12;}
+.dc canvas{display:block;width:100%!important;}
+@media(max-width:900px){
+  .dc-c3,.dc-c4,.dc-c5,.dc-c6,.dc-c7,.dc-c8{grid-column:span 12;}
+}
+.dash-top5{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;}
+.dash-top5 li{display:flex;align-items:center;gap:8px;font-size:.72rem;}
+.dash-top5 li .t5-label{flex:1;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
+.dash-top5 li .t5-bar-bg{flex:2;background:#0f172a;border-radius:20px;height:7px;overflow:hidden;}
+.dash-top5 li .t5-bar{height:100%;border-radius:20px;background:linear-gradient(90deg,#7c3aed,#2563eb);}
+.dash-top5 li .t5-cnt{min-width:28px;text-align:right;color:#64748b;font-size:.68rem;font-weight:700;}
 </style>
 </head>
 <body>
@@ -291,6 +338,7 @@ td.nowrap{white-space:nowrap;}
   <button class="tbb ok" id="snapSaveBtn" style="display:none" onclick="openSnapModal()">💾 Kaydet</button>
   <button class="tbb" id="snapLoadBtn" onclick="openSnapModal()">🗂 Kayıtlar</button>
   <button class="tbb danger" onclick="clearData()">🗑 Temizle</button>
+  <button class="tbb" id="dashBtn" style="display:none;background:linear-gradient(135deg,rgba(16,185,129,.7),rgba(37,99,235,.7));" onclick="openDashboard()">📊 Dashboard</button>
   <button class="tbb" id="aiCatBtn" style="display:none;background:linear-gradient(135deg,rgba(124,58,237,.85),rgba(37,99,235,.85));border-color:rgba(167,139,250,.5);" onclick="openAiCatModal()">🤖 AI Kategorize</button>
   <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" onchange="handleFile(this)" style="display:none">
 </div>
@@ -641,6 +689,7 @@ function initUI(){
   document.getElementById('uploadZone').style.display='none';
   document.getElementById('mainArea').style.display='';
   document.getElementById('aiCatBtn').style.display='';
+  document.getElementById('dashBtn').style.display='';
   updateSnapBtn();
   buildFilterGrid();
   refreshAiCatFilter();
@@ -1691,7 +1740,208 @@ async function deleteSnapshot(id){
 function updateSnapBtn(){
   const has = _rawRows.length > 0;
   document.getElementById('snapSaveBtn').style.display = has ? '' : 'none';
+  document.getElementById('dashBtn').style.display    = has ? '' : 'none';
 }
+
+// ─────────────────────────────────────────────
+//  DASHBOARD
+// ─────────────────────────────────────────────
+const _dashCharts = {};
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = '#1e293b';
+Chart.defaults.font.family = "'Segoe UI', Arial, sans-serif";
+Chart.defaults.font.size   = 11;
+
+const PALETTE = [
+  '#7c3aed','#2563eb','#0891b2','#059669','#d97706',
+  '#dc2626','#7c3aed','#db2777','#0d9488','#8b5cf6',
+  '#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899',
+  '#14b8a6','#a855f7','#f97316','#84cc16','#06b6d4'
+];
+function mkColors(n){ return Array.from({length:n},(_,i)=>PALETTE[i%PALETTE.length]); }
+function freq(rows, key, top=20){
+  const m={};
+  rows.forEach(r=>{ const v=(r[key]||'').trim(); if(v){ m[v]=(m[v]||0)+1; } });
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,top);
+}
+function destroyDash(){
+  Object.values(_dashCharts).forEach(c=>{ try{c.destroy();}catch(e){} });
+  Object.keys(_dashCharts).forEach(k=>delete _dashCharts[k]);
+}
+function mkChart(id, type, labels, data, opts={}){
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  const colors = mkColors(labels.length);
+  const ds = {
+    data,
+    backgroundColor: type==='line' ? 'rgba(124,58,237,.18)' : colors,
+    borderColor    : type==='line' ? '#7c3aed' : colors,
+    borderWidth    : type==='line' ? 2.5 : 1,
+    borderRadius   : type==='bar' ? 5 : 0,
+    fill           : type==='line',
+    tension        : 0.4,
+    pointBackgroundColor: '#7c3aed',
+    pointRadius    : type==='line' ? 3 : 0,
+    hoverOffset    : 8,
+    ...opts.dataset
+  };
+  const base = {
+    type,
+    data:{ labels, datasets:[ds] },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      animation:{ duration:700, easing:'easeOutQuart' },
+      plugins:{
+        legend:{ display: ['doughnut','pie'].includes(type), position:'right',
+          labels:{ padding:10, boxWidth:12, font:{size:10} } },
+        tooltip:{
+          backgroundColor:'#1e293b', borderColor:'#334155', borderWidth:1,
+          titleFont:{size:11,weight:'bold'}, bodyFont:{size:11},
+          callbacks:{
+            label: ctx => {
+              const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+              const pct = total ? ((ctx.parsed.y??ctx.parsed)/(type==='bar'||type==='line'?1:total)*100).toFixed(1) : 0;
+              return type==='bar'||type==='line'
+                ? ` ${ctx.formattedValue} kayıt`
+                : ` ${ctx.label}: ${ctx.formattedValue} (${pct}%)`;
+            }
+          }
+        }
+      },
+      scales: ['bar','line'].includes(type) ? {
+        x:{ grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#64748b', maxRotation:45} },
+        y:{ grid:{color:'rgba(255,255,255,.07)'}, ticks:{color:'#64748b'}, beginAtZero:true }
+      } : {},
+      ...opts.chartOpts
+    }
+  };
+  _dashCharts[id] = new Chart(ctx, base);
+}
+function mkBarH(id, labels, data){
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  const colors = mkColors(labels.length);
+  _dashCharts[id] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ data, backgroundColor:colors, borderColor:colors,
+      borderWidth:1, borderRadius:5 }] },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:true,
+      animation:{duration:700,easing:'easeOutQuart'},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1e293b', borderColor:'#334155', borderWidth:1,
+          callbacks:{ label: ctx => ` ${ctx.formattedValue} kayıt` }
+        }
+      },
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,.06)'}, ticks:{color:'#64748b'}, beginAtZero:true },
+        y:{ grid:{display:false}, ticks:{color:'#94a3b8', font:{size:10}} }
+      }
+    }
+  });
+}
+
+function openDashboard(){
+  if(!_filtered.length){ showToast('⚠️ Görüntülenecek veri yok.'); return; }
+  document.getElementById('dashModal').classList.add('open');
+  renderDashboard();
+}
+function closeDashboard(){
+  document.getElementById('dashModal').classList.remove('open');
+  destroyDash();
+}
+
+function renderDashboard(){
+  destroyDash();
+  const rows = _filtered;
+
+  // Scope label
+  const isFiltered = rows.length < _rawRows.length;
+  document.getElementById('dashScope').textContent =
+    isFiltered ? `Filtreli: ${rows.length} / ${_rawRows.length} kayıt` : `Toplam: ${rows.length} kayıt`;
+
+  // ── KPIs ──
+  const today = new Date(); today.setHours(0,0,0,0);
+  const open  = rows.filter(r=>r.dofS && !/kapan|kapat|tamam|closed/i.test(r.dofS)).length;
+  const late  = rows.filter(r=>{
+    const kap=parseDate(r.tahminiKap);
+    return kap && kap<today && r.dofS && !/kapan|kapat|tamam|closed/i.test(r.dofS);
+  }).length;
+  const catPct = rows.length ? Math.round(rows.filter(r=>r._aiKategori&&r._aiKategori!=='İşlenemedi').length/rows.length*100) : 0;
+  const uniqueCari = new Set(rows.map(r=>r.cariAdi).filter(Boolean)).size;
+  const uniqueSube = new Set(rows.map(r=>r.subeAdi).filter(Boolean)).size;
+
+  document.getElementById('dashKpis').innerHTML = `
+    <div class="dash-kpi"><div class="kp-label">Toplam DÖF</div><div class="kp-value">${rows.length}</div><div class="kp-sub">görüntülenen</div></div>
+    <div class="dash-kpi accent-amber"><div class="kp-label">Açık DÖF</div><div class="kp-value">${open}</div><div class="kp-sub">tamamlanmamış</div></div>
+    <div class="dash-kpi accent-red"><div class="kp-label">Geciken</div><div class="kp-value">${late}</div><div class="kp-sub">kapanış tarihi geçmiş</div></div>
+    <div class="dash-kpi accent-green"><div class="kp-label">Kapanan</div><div class="kp-value">${rows.length-open}</div><div class="kp-sub">${rows.length?Math.round((rows.length-open)/rows.length*100):0}% tamamlanma</div></div>
+    <div class="dash-kpi accent-purple"><div class="kp-label">AI Kategori</div><div class="kp-value">${catPct}%</div><div class="kp-sub">kategorize edildi</div></div>
+    <div class="dash-kpi accent-blue"><div class="kp-label">Unique Cari</div><div class="kp-value">${uniqueCari}</div><div class="kp-sub">farklı müşteri</div></div>
+    <div class="dash-kpi"><div class="kp-label">Şube</div><div class="kp-value">${uniqueSube}</div><div class="kp-sub">farklı şube</div></div>`;
+
+  // ── Tipi Donut ──
+  const tipiData = freq(rows,'tipi',12);
+  mkChart('dch_tipi','doughnut', tipiData.map(d=>d[0]), tipiData.map(d=>d[1]));
+
+  // ── Cinsi Pie ──
+  const cinsiData = freq(rows,'cinsi',10);
+  mkChart('dch_cinsi','pie', cinsiData.map(d=>d[0]), cinsiData.map(d=>d[1]));
+
+  // ── AI Kategori Doughnut ──
+  const aiData = freq(rows,'_aiKategori',14);
+  if(aiData.length){
+    mkChart('dch_aikat','doughnut', aiData.map(d=>d[0]), aiData.map(d=>d[1]));
+  } else {
+    const c=document.getElementById('dch_aikat');
+    if(c) c.parentElement.querySelector('h4').insertAdjacentHTML('afterend','<p style="color:#64748b;font-size:.75rem;text-align:center;padding:40px 0;">Henüz kategorize edilmemiş.</p>');
+  }
+
+  // ── Yıllara göre Bar ──
+  const yilMap = {};
+  rows.forEach(r=>{
+    const d = parseDate(r.acmaTarihi||r.sikayetTar);
+    if(d){ const y=d.getFullYear(); yilMap[y]=(yilMap[y]||0)+1; }
+  });
+  const yilLabels = Object.keys(yilMap).sort();
+  mkChart('dch_yil','bar', yilLabels, yilLabels.map(y=>yilMap[y]));
+
+  // ── Top Şubeler mini list ──
+  const subeData = freq(rows,'subeAdi',8);
+  const maxSube = subeData[0]?.[1]||1;
+  document.getElementById('dch_sube_top').innerHTML = subeData.map(([n,c])=>`
+    <li>
+      <span class="t5-label" title="${esc(n)}">${esc(n)}</span>
+      <span class="t5-bar-bg"><span class="t5-bar" style="width:${Math.round(c/maxSube*100)}%"></span></span>
+      <span class="t5-cnt">${c}</span>
+    </li>`).join('')||'<li style="color:#64748b;font-size:.72rem;">Şube verisi yok</li>';
+
+  // ── Aylık Trend Line ──
+  const trendMap = {};
+  rows.forEach(r=>{
+    const d = parseDate(r.sikayetTar||r.acmaTarihi);
+    if(d){
+      const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      trendMap[key]=(trendMap[key]||0)+1;
+    }
+  });
+  const trendLabels = Object.keys(trendMap).sort().slice(-36); // last 3 years
+  const trendVals   = trendLabels.map(k=>trendMap[k]);
+  mkChart('dch_trend','line', trendLabels, trendVals);
+
+  // ── Top Açan Kişiler Horizontal Bar ──
+  const acanData = freq(rows,'acanKisi',10);
+  mkBarH('dch_acan', acanData.map(d=>d[0]), acanData.map(d=>d[1]));
+
+  // ── Top Cari Horizontal Bar ──
+  const cariData = freq(rows,'cariAdi',10);
+  mkBarH('dch_cari', cariData.map(d=>d[0].length>28?d[0].slice(0,28)+'…':d[0]), cariData.map(d=>d[1]));
+}
+
+// Close dashboard on backdrop click
+document.getElementById('dashModal').addEventListener('click', function(e){ if(e.target===this) closeDashboard(); });
 </script>
 </body>
 </html>
