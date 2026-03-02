@@ -111,6 +111,88 @@ td.nowrap{white-space:nowrap;}
 .badge-progress{background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;}
 .badge-late{background:#fee2e2;color:#7f1d1d;border:1px solid #fca5a5;}
 
+/* ── AI KATEGORIZE MODAL ── */
+.ai-cat-modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9500;
+  align-items:center;justify-content:center;}
+.ai-cat-modal-bg.open{display:flex;}
+.ai-cat-box{background:#fff;border-radius:16px;padding:28px 30px 24px;width:min(660px,96vw);
+  max-height:92vh;overflow-y:auto;box-shadow:0 28px 70px rgba(0,0,0,.28);}
+.ai-cat-box h3{font-size:1rem;font-weight:800;color:#1e293b;margin-bottom:14px;}
+.ai-cat-close{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;}
+
+/* provider tabs */
+.ai-ptabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.ai-ptab{border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;
+  border-radius:7px;padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer;transition:.15s;}
+.ai-ptab.active{background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;border-color:transparent;}
+.ai-ptab.or.active{background:linear-gradient(135deg,#6d28d9,#4f46e5);}
+.ai-ptab.gem.active{background:linear-gradient(135deg,#0369a1,#0891b2);}
+.ai-ptab.oai.active{background:linear-gradient(135deg,#059669,#0d9488);}
+
+/* key row */
+.ai-key-row{display:flex;gap:8px;align-items:center;margin-bottom:4px;}
+.ai-key-inp{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 10px;
+  font-size:.78rem;outline:none;}
+.ai-key-inp:focus{border-color:#2563eb;}
+.ai-test-btn{background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:7px;
+  padding:6px 12px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;color:#475569;}
+.ai-test-btn:hover{background:#e2e8f0;}
+.ai-key-hint{font-size:.64rem;color:#94a3b8;margin-bottom:10px;}
+.ai-key-hint a{color:#2563eb;}
+.ai-model-sel{width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:5px 8px;
+  font-size:.74rem;margin-bottom:10px;outline:none;}
+
+/* category list */
+.cat-section{margin-top:14px;}
+.cat-section label{font-size:.7rem;font-weight:700;color:#475569;text-transform:uppercase;
+  letter-spacing:.05em;display:block;margin-bottom:8px;}
+.cat-tags{display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:#f8fafc;
+  border:1.5px solid #e2e8f0;border-radius:8px;min-height:60px;max-height:200px;overflow-y:auto;}
+.cat-tag{display:inline-flex;align-items:center;gap:5px;background:#eff6ff;
+  border:1px solid #bfdbfe;border-radius:20px;padding:3px 10px;font-size:.72rem;font-weight:600;
+  color:#1e40af;white-space:nowrap;}
+.cat-tag .xtag{cursor:pointer;font-size:.8rem;color:#93c5fd;font-weight:900;line-height:1;
+  padding:0 2px;transition:.1s;}
+.cat-tag .xtag:hover{color:#ef4444;}
+.cat-add-row{display:flex;gap:7px;margin-top:8px;}
+.cat-add-inp{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:5px 9px;
+  font-size:.78rem;outline:none;}
+.cat-add-inp:focus{border-color:#2563eb;}
+.cat-add-btn{background:#2563eb;color:#fff;border:none;border-radius:7px;
+  padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.cat-add-btn:hover{background:#1d4ed8;}
+.cat-suggest-btn{background:#7c3aed;color:#fff;border:none;border-radius:7px;
+  padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.cat-suggest-btn:hover{background:#6d28d9;}
+
+/* progress */
+.ai-progress-wrap{margin-top:14px;display:none;}
+.ai-progress-bar-bg{background:#e2e8f0;border-radius:20px;height:12px;overflow:hidden;}
+.ai-progress-bar{background:linear-gradient(90deg,#7c3aed,#2563eb);height:100%;
+  border-radius:20px;width:0%;transition:width .4s ease;}
+.ai-progress-txt{font-size:.7rem;color:#64748b;margin-top:4px;text-align:center;}
+.ai-status{font-size:.75rem;margin-top:8px;padding:8px 12px;border-radius:8px;
+  display:none;line-height:1.5;}
+.ai-status.ok{background:#dcfce7;color:#14532d;}
+.ai-status.err{background:#fee2e2;color:#7f1d1d;}
+.ai-status.info{background:#dbeafe;color:#1e40af;}
+
+/* action buttons */
+.ai-cat-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;}
+.ai-run-btn{flex:1;padding:10px;border-radius:8px;border:none;
+  background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;
+  font-weight:800;font-size:.85rem;cursor:pointer;transition:.15s;}
+.ai-run-btn:hover{opacity:.9;}
+.ai-run-btn:disabled{opacity:.5;cursor:not-allowed;}
+.ai-clear-btn{padding:10px 16px;border-radius:8px;border:none;
+  background:#f1f5f9;color:#475569;font-weight:700;font-size:.78rem;cursor:pointer;}
+.ai-clear-btn:hover{background:#e2e8f0;}
+
+/* AI kategori badge in table */
+.aibadge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:.62rem;
+  font-weight:700;white-space:nowrap;background:#ede9fe;color:#4c1d95;border:1px solid #c4b5fd;}
+.aibadge.empty{background:#f1f5f9;color:#94a3b8;border-color:#e2e8f0;font-weight:400;font-style:italic;}
+
 /* empty / loading */
 .empty{text-align:center;padding:60px 20px;color:#94a3b8;font-size:.9rem;}
 .empty .ei{font-size:3rem;display:block;margin-bottom:12px;}
@@ -152,6 +234,7 @@ td.nowrap{white-space:nowrap;}
   <button class="tbb" onclick="exportCSV()">⬇️ CSV İndir</button>
   <button class="tbb" onclick="exportExcel()">⬇️ Excel İndir</button>
   <button class="tbb danger" onclick="clearData()">🗑 Temizle</button>
+  <button class="tbb" id="aiCatBtn" style="display:none;background:linear-gradient(135deg,rgba(124,58,237,.85),rgba(37,99,235,.85));border-color:rgba(167,139,250,.5);" onclick="openAiCatModal()">🤖 AI Kategorize</button>
   <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" onchange="handleFile(this)">
 </div>
 
@@ -204,6 +287,97 @@ td.nowrap{white-space:nowrap;}
         <thead id="tableHead"></thead>
         <tbody id="tableBody"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ AI KATEGORIZE MODAL ═══ -->
+<div class="ai-cat-modal-bg" id="aiCatModal">
+  <div class="ai-cat-box">
+    <button class="ai-cat-close" onclick="closeAiCatModal()">✕</button>
+    <h3>🤖 AI ile Başlık Kategorilendirme</h3>
+
+    <!-- Provider tabs -->
+    <div class="ai-ptabs">
+      <button class="ai-ptab active" id="dofTabGroq"   onclick="setDofProvider('groq')">🟠 Groq</button>
+      <button class="ai-ptab or"    id="dofTabOR"     onclick="setDofProvider('openrouter')">🟣 OpenRouter</button>
+      <button class="ai-ptab gem"   id="dofTabGemini" onclick="setDofProvider('gemini')">🔵 Gemini</button>
+      <button class="ai-ptab oai"   id="dofTabOAI"    onclick="setDofProvider('openai')">🟢 OpenAI</button>
+    </div>
+
+    <!-- Groq -->
+    <div id="dofKeyGroq">
+      <div class="ai-key-row">
+        <input class="ai-key-inp" id="dofKeyGroqInp" type="password" placeholder="gsk_...">
+        <button class="ai-test-btn" onclick="testDofAPI('groq')">🔬 Test</button>
+      </div>
+      <div class="ai-key-hint">Ücretsiz · <a href="https://console.groq.com" target="_blank">console.groq.com → API Keys</a></div>
+    </div>
+    <!-- Gemini -->
+    <div id="dofKeyGemini" style="display:none">
+      <div class="ai-key-row">
+        <input class="ai-key-inp" id="dofKeyGeminiInp" type="password" placeholder="AIzaSy...">
+        <button class="ai-test-btn" onclick="testDofAPI('gemini')">🔬 Test</button>
+      </div>
+      <div class="ai-key-hint">Ücretsiz · <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com → Get API key</a></div>
+      <select class="ai-model-sel" id="dofGeminiModel">
+        <option value="gemini-2.0-flash">✅ Gemini 2.0 Flash</option>
+        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        <option value="gemini-2.5-flash-preview-04-17">Gemini 2.5 Flash Preview</option>
+      </select>
+    </div>
+    <!-- OpenAI -->
+    <div id="dofKeyOAI" style="display:none">
+      <div class="ai-key-row">
+        <input class="ai-key-inp" id="dofKeyOAIInp" type="password" placeholder="sk-proj-...">
+        <button class="ai-test-btn" onclick="testDofAPI('openai')">🔬 Test</button>
+      </div>
+      <div class="ai-key-hint"><a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com → API keys</a></div>
+      <select class="ai-model-sel" id="dofOaiModel">
+        <option value="gpt-4o-mini">✅ GPT-4o mini — Hızlı, ucuz</option>
+        <option value="gpt-4o">GPT-4o</option>
+        <option value="o4-mini">o4-mini</option>
+      </select>
+    </div>
+    <!-- OpenRouter -->
+    <div id="dofKeyOR" style="display:none">
+      <div class="ai-key-row">
+        <input class="ai-key-inp" id="dofKeyORInp" type="password" placeholder="sk-or-...">
+        <button class="ai-test-btn" onclick="testDofAPI('openrouter')">🔬 Test</button>
+      </div>
+      <div class="ai-key-hint">Ücretsiz modeller mevcut · <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai → Keys</a></div>
+      <select class="ai-model-sel" id="dofOrModel">
+        <option value="deepseek/deepseek-r1:free">✅ DeepSeek R1 (ücretsiz)</option>
+        <option value="deepseek/deepseek-chat:free">DeepSeek V3 Chat (ücretsiz)</option>
+        <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (ücretsiz)</option>
+        <option value="google/gemma-3-27b-it:free">Gemma 3 27B (ücretsiz)</option>
+        <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 72B (ücretsiz)</option>
+      </select>
+    </div>
+
+    <!-- Category section -->
+    <div class="cat-section">
+      <label>Kategori Listesi <span style="font-weight:400;font-size:.65rem;color:#94a3b8;">— kaldırmak için × butonuna tıklayın</span></label>
+      <div class="cat-tags" id="catTagsContainer"></div>
+      <div class="cat-add-row">
+        <input class="cat-add-inp" id="catNewInp" placeholder="Yeni kategori ekle..." onkeydown="if(event.key==='Enter')addCatTag()">
+        <button class="cat-add-btn" onclick="addCatTag()">+ Ekle</button>
+        <button class="cat-suggest-btn" id="suggestBtn" onclick="suggestCategories()">💡 AI Öneri</button>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="ai-progress-wrap" id="aiCatProgressWrap">
+      <div class="ai-progress-bar-bg"><div class="ai-progress-bar" id="aiCatBar"></div></div>
+      <div class="ai-progress-txt" id="aiCatProgressTxt"></div>
+    </div>
+    <div class="ai-status" id="aiCatStatus"></div>
+
+    <!-- Actions -->
+    <div class="ai-cat-actions">
+      <button class="ai-run-btn" id="aiRunBtn" onclick="startCategorization()">🤖 Tüm Satırları Kategorize Et (<span id="aiRunCount">0</span> kayıt)</button>
+      <button class="ai-clear-btn" onclick="clearAiCategories()">🗑 Kategorileri Temizle</button>
     </div>
   </div>
 </div>
@@ -365,6 +539,7 @@ const QUICK_KEYS = ['tipi','cinsi','sikayetTar','cariAdi','subeAdi'];
 function initUI(){
   document.getElementById('uploadZone').style.display='none';
   document.getElementById('mainArea').style.display='';
+  document.getElementById('aiCatBtn').style.display='';
   buildFilterGrid();
   applyFilters();
 }
@@ -487,8 +662,12 @@ function renderTable(){
   const tbody = document.getElementById('tableBody');
 
   const visibleFields = FIELDS.filter(f=>_rawRows.some(r=>r[f.key]));
+  const hasAiCat = _rawRows.some(r=>r._aiKategori);
+  const allFields = hasAiCat
+    ? [...visibleFields, {key:'_aiKategori', label:'🤖 AI Kategori', type:'select'}]
+    : visibleFields;
 
-  thead.innerHTML = '<tr>'+visibleFields.map(f=>{
+  thead.innerHTML = '<tr>'+allFields.map(f=>{
     const sc = _sortCol===f.key ? (_sortDir===1?'sort-asc':'sort-desc') : '';
     return `<th class="${sc}" onclick="toggleSort('${f.key}')">${f.label}<span class="sort-icon"></span></th>`;
   }).join('')+'</tr>';
@@ -501,9 +680,13 @@ function renderTable(){
     if(kap && kap < today && row.dofS && !/kapan|kapat|tamam|closed/i.test(row.dofS)){
       rowClass=' style="background:#fff5f5;"';
     }
-    const cells = visibleFields.map(f=>{
-      let v = esc(row[f.key]||'');
+    const cells = allFields.map(f=>{
       let cls='';
+      if(f.key==='_aiKategori'){
+        const v = row._aiKategori||'';
+        return `<td>${v ? `<span class="aibadge">${esc(v)}</span>` : '<span class="aibadge empty">—</span>'}</td>`;
+      }
+      let v = esc(row[f.key]||'');
       if(f.key==='dofSeri') cls=' class="td-seri"';
       else if(f.key==='uyeler') cls=' class="td-members"';
       else if(f.type==='date') cls=' class="td-date"';
@@ -513,7 +696,7 @@ function renderTable(){
   }).join('');
 
   if(!_filtered.length){
-    tbody.innerHTML='<tr><td colspan="'+visibleFields.length+'" class="empty"><span class="ei">🔍</span>Filtreyle eşleşen kayıt bulunamadı.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="'+allFields.length+'" class="empty"><span class="ei">🔍</span>Filtreyle eşleşen kayıt bulunamadı.</td></tr>';
   }
 }
 
@@ -575,6 +758,7 @@ function clearData(){
   _rawRows=[]; _filtered=[]; _rawHeaders=[]; _rawData=[]; _mapping={}; _filterVals={};
   document.getElementById('uploadZone').style.display='';
   document.getElementById('mainArea').style.display='none';
+  document.getElementById('aiCatBtn').style.display='none';
 }
 
 // ─────────────────────────────────────────────
@@ -600,6 +784,372 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(wb, ws, 'DÖF');
   XLSX.writeFile(wb, 'DOF_listesi_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
+
+// ─────────────────────────────────────────────
+//  AI CATEGORIZATION
+// ─────────────────────────────────────────────
+const DEFAULT_CATEGORIES = [
+  'Müşteri Şikayeti','İç Proses Uygunsuzluğu','Hammadde Hatası','Ölçüsel Hata',
+  'Kalınlık / Yoğunluk Problemi','Görsel Kusur','Kesim Hatası','Laminasyon / Yapışma Hatası',
+  'Makine Arızası','Makine Ayar Hatası','Kalıp / Ekipman Problemi','Bakım Kaynaklı Problem',
+  'Yedek Parça Problemi','Personel Hatası','Sevkiyat / Lojistik Hatası','Paketleme Hatası',
+  'KPI / Hedef Sapması','İş Kazası (İSG)','Çevresel Uygunsuzluk',
+  'Sistem / İç Denetim Uygunsuzluğu','Dokümantasyon Hatası','Revizyon / Değişiklik Kaynaklı Hata'
+];
+let _aiCategories = [...DEFAULT_CATEGORIES];
+let _aiRunning = false;
+
+function openAiCatModal(){
+  if(!_rawRows.length){ alert('Önce Excel yükleyin.'); return; }
+  // Restore saved keys from localStorage
+  const kMap = { groq:'groq_api_key', gemini:'gemini_api_key', openai:'oai_api_key', openrouter:'or_api_key' };
+  const elMap = { groq:'dofKeyGroqInp', gemini:'dofKeyGeminiInp', openai:'dofKeyOAIInp', openrouter:'dofKeyORInp' };
+  Object.entries(kMap).forEach(([p,lk])=>{
+    const v = localStorage.getItem(lk)||''; if(v) document.getElementById(elMap[p]).value=v;
+  });
+  const savedProv = localStorage.getItem('ai_provider')||'groq';
+  setDofProvider(savedProv);
+  renderCatTags();
+  document.getElementById('aiRunCount').textContent = _rawRows.length;
+  setAiCatStatus('');
+  document.getElementById('aiCatProgressWrap').style.display='none';
+  document.getElementById('aiCatModal').classList.add('open');
+}
+function closeAiCatModal(){ if(_aiRunning) return; document.getElementById('aiCatModal').classList.remove('open'); }
+
+function setDofProvider(p){
+  localStorage.setItem('ai_provider', p);
+  ['groq','gemini','openai','openrouter'].forEach(pr=>{
+    const tabId = pr==='openrouter'?'dofTabOR':pr==='openai'?'dofTabOAI':pr==='gemini'?'dofTabGemini':'dofTabGroq';
+    const blkId = pr==='openrouter'?'dofKeyOR':pr==='openai'?'dofKeyOAI':pr==='gemini'?'dofKeyGemini':'dofKeyGroq';
+    document.getElementById(tabId).classList.toggle('active', pr===p);
+    document.getElementById(blkId).style.display = pr===p?'':'none';
+  });
+  // Save key from input when switching
+  saveDofKey();
+}
+function saveDofKey(){
+  const prov = localStorage.getItem('ai_provider')||'groq';
+  const elMap = { groq:'dofKeyGroqInp', gemini:'dofKeyGeminiInp', openai:'dofKeyOAIInp', openrouter:'dofKeyORInp' };
+  const lsMap = { groq:'groq_api_key', gemini:'gemini_api_key', openai:'oai_api_key', openrouter:'or_api_key' };
+  const v = document.getElementById(elMap[prov])?.value?.trim();
+  if(v) localStorage.setItem(lsMap[prov], v);
+}
+
+function getDofKey(prov){
+  const lsMap = { groq:'groq_api_key', gemini:'gemini_api_key', openai:'oai_api_key', openrouter:'or_api_key' };
+  const elMap = { groq:'dofKeyGroqInp', gemini:'dofKeyGeminiInp', openai:'dofKeyOAIInp', openrouter:'dofKeyORInp' };
+  return localStorage.getItem(lsMap[prov]) || document.getElementById(elMap[prov])?.value?.trim() || '';
+}
+
+// ── Category tag UI ──
+function renderCatTags(){
+  const c = document.getElementById('catTagsContainer');
+  c.innerHTML = _aiCategories.map((cat,i)=>
+    `<span class="cat-tag">${esc(cat)}<span class="xtag" onclick="removeCatTag(${i})">×</span></span>`
+  ).join('');
+}
+function addCatTag(){
+  const inp = document.getElementById('catNewInp');
+  const v = inp.value.trim();
+  if(!v) return;
+  if(!_aiCategories.includes(v)) _aiCategories.push(v);
+  inp.value='';
+  renderCatTags();
+}
+function removeCatTag(i){ _aiCategories.splice(i,1); renderCatTags(); }
+
+function clearAiCategories(){
+  if(!confirm('AI kategori eşleştirmeleri silinsin mi?')) return;
+  _rawRows.forEach(r=>delete r._aiKategori);
+  _filtered.forEach(r=>delete r._aiKategori);
+  refreshAiCatFilter();
+  renderTable();
+  setAiCatStatus('');
+}
+
+function setAiCatStatus(msg, type=''){
+  const el = document.getElementById('aiCatStatus');
+  if(!msg){ el.style.display='none'; return; }
+  el.className = 'ai-status '+(type||'info');
+  el.style.display='';
+  el.innerHTML = msg;
+}
+
+function setAiCatProgress(done, total){
+  const wrap = document.getElementById('aiCatProgressWrap');
+  const bar  = document.getElementById('aiCatBar');
+  const txt  = document.getElementById('aiCatProgressTxt');
+  if(total<=0){ wrap.style.display='none'; return; }
+  wrap.style.display='';
+  const pct = Math.round(done/total*100);
+  bar.style.width = pct+'%';
+  txt.textContent = pct+'% ('+done+' / '+total+' kayıt işlendi)';
+}
+
+// ── callAI (DÖF version — shares localStorage keys with 5-neden page) ──
+async function callDofAI(messages, maxTokens){
+  saveDofKey();
+  const provider = localStorage.getItem('ai_provider') || 'groq';
+  const temp = 0.1;
+
+  if(provider === 'openrouter'){
+    const key = getDofKey('openrouter');
+    if(!key) throw new Error('OpenRouter API key girilmedi');
+    const chosenOR = document.getElementById('dofOrModel')?.value || 'meta-llama/llama-3.3-70b-instruct:free';
+    const OR_FALLBACKS = [
+      chosenOR,'deepseek/deepseek-r1:free','deepseek/deepseek-chat:free',
+      'meta-llama/llama-3.3-70b-instruct:free','google/gemma-3-27b-it:free','qwen/qwen-2.5-72b-instruct:free'
+    ].filter((v,i,a)=>a.indexOf(v)===i);
+    const orPost = (model)=>fetch('https://openrouter.ai/api/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key,
+        'HTTP-Referer':'https://github.com','X-Title':'DOF-Yonetimi'},
+      body:JSON.stringify({model,messages,temperature:temp,max_tokens:maxTokens})
+    });
+    let lastWas429=false, lastErr='';
+    for(const orModel of OR_FALLBACKS){
+      if(lastWas429) await new Promise(r=>setTimeout(r,12000));
+      lastWas429=false;
+      let resp=await orPost(orModel);
+      if(resp.status===429){ await new Promise(r=>setTimeout(r,15000)); resp=await orPost(orModel); }
+      if(resp.ok){ const d=await resp.json(); return d?.choices?.[0]?.message?.content||''; }
+      const oe=await resp.json().catch(()=>({}));
+      if(resp.status===401||resp.status===403) throw new Error('OpenRouter: API key geçersiz.');
+      if(resp.status===402) throw new Error('OpenRouter: Hesap bakiyesi yetersiz.');
+      if(resp.status===429||resp.status===404){ lastErr=resp.status+' '+orModel; lastWas429=resp.status===429; continue; }
+      throw new Error('OpenRouter ('+orModel+'): '+(oe?.error?.message||'HTTP '+resp.status));
+    }
+    throw new Error('OpenRouter: Hiçbir model çalışmadı. Son hata: '+lastErr);
+  } else if(provider === 'gemini'){
+    const key = getDofKey('gemini');
+    if(!key) throw new Error('Gemini API key girilmedi');
+    const chosenModel = document.getElementById('dofGeminiModel')?.value || 'gemini-2.0-flash';
+    const sysMsg = messages.find(m=>m.role==='system')?.content||'';
+    const userMsg = messages.find(m=>m.role==='user')?.content||'';
+    const combined = sysMsg ? sysMsg+'\n\n'+userMsg : userMsg;
+    const tryModels = ['gemini-2.0-flash','gemini-1.5-flash','gemini-1.5-flash-8b'].includes(chosenModel)
+      ? [chosenModel] : [chosenModel, 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    for(const model of tryModels){
+      for(const ver of ['v1beta','v1']){
+        let resp=await fetch(
+          `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${key}`,
+          {method:'POST',headers:{'Content-Type':'application/json'},
+           body:JSON.stringify({contents:[{role:'user',parts:[{text:combined}]}],
+             generationConfig:{temperature:temp,maxOutputTokens:maxTokens}})}
+        );
+        if(resp.status===429||resp.status===503){ await new Promise(r=>setTimeout(r,4000)); resp=await fetch(
+          `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${key}`,
+          {method:'POST',headers:{'Content-Type':'application/json'},
+           body:JSON.stringify({contents:[{role:'user',parts:[{text:combined}]}],
+             generationConfig:{temperature:temp,maxOutputTokens:maxTokens}})}); }
+        if(resp.ok){ const d=await resp.json(); return d?.candidates?.[0]?.content?.parts?.[0]?.text||''; }
+        const eb=await resp.json().catch(()=>({}));
+        if(resp.status===401||resp.status===403) throw new Error('Gemini: API key geçersiz.');
+        if(resp.status===404) continue;
+        throw new Error('Gemini ('+model+'): '+(eb?.error?.message||'HTTP '+resp.status));
+      }
+    }
+    throw new Error('Gemini: Modeller erişilemedi. Google Cloud Console\'da Generative Language API etkinleştirin.');
+  } else if(provider === 'openai'){
+    const key = getDofKey('openai');
+    if(!key) throw new Error('OpenAI API key girilmedi');
+    const oaiModel = document.getElementById('dofOaiModel')?.value || 'gpt-4o-mini';
+    const isOSeries = /^o\d/.test(oaiModel);
+    const body = {model:oaiModel, messages, max_tokens:maxTokens};
+    if(!isOSeries){ body.temperature=temp; body.response_format={type:'json_object'}; }
+    const resp = await fetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:JSON.stringify(body)
+    });
+    if(!resp.ok){ const e=await resp.json().catch(()=>({}));
+      if(resp.status===429) throw new Error('⏳ OpenAI rate limit — bekleyip tekrar deneyin.');
+      if(resp.status===401) throw new Error('OpenAI: API key geçersiz.');
+      throw new Error('OpenAI ('+oaiModel+'): '+(e?.error?.message||'HTTP '+resp.status)); }
+    const d=await resp.json(); return d?.choices?.[0]?.message?.content||'';
+  } else {
+    const key = getDofKey('groq');
+    if(!key) throw new Error('Groq API key girilmedi');
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,temperature:temp,
+        max_tokens:maxTokens,response_format:{type:'json_object'}})
+    });
+    if(!resp.ok){ const e=await resp.json().catch(()=>({}));
+      if(resp.status===429) throw new Error('⏳ Groq rate limit — bekleyip tekrar deneyin.');
+      throw new Error(e?.error?.message||'HTTP '+resp.status); }
+    const d=await resp.json(); return d?.choices?.[0]?.message?.content||'';
+  }
+}
+
+async function testDofAPI(prov){
+  const btnTarget = prov==='groq'?'dofTabGroq':prov==='gemini'?'dofTabGemini':prov==='openai'?'dofTabOAI':'dofTabOR';
+  const btn = document.getElementById(btnTarget);
+  const origText = btn.textContent;
+  btn.textContent = '⏳ Test...';
+  try{
+    await callDofAI([
+      {role:'user', content:'Reply with valid JSON: {"ok":true}'}
+    ], 20);
+    btn.textContent = '✅ OK!';
+    setAiCatStatus('API bağlantısı başarılı!', 'ok');
+  } catch(e){
+    btn.textContent = '❌ Hata';
+    setAiCatStatus('❌ '+e.message, 'err');
+  }
+  setTimeout(()=>btn.textContent=origText, 3000);
+}
+
+// ── Batch categorization ──
+async function categorizeBatch(titles){
+  const catList = _aiCategories.join('\n');
+  const titlesStr = titles.map((t,i)=>`${i+1}. ${t}`).join('\n');
+  const prompt = `Aşağıdaki DÖF başlıklarını verilen kategorilerden birine eşleştir.
+
+KATEGORİLER:
+${catList}
+Diğer
+
+BAŞLIKLAR:
+${titlesStr}
+
+Sadece JSON döndür, başka açıklama ekleme:
+{"results":["Kategori Adı","Kategori Adı",...]}
+
+Kural: Her başlık için EN UYGUN kategoriyi seç. Liste dışında bir şey yazma. Liste dışıysa "Diğer" yaz.`;
+
+  const raw = await callDofAI([
+    {role:'system', content:'Sen bir kalite yönetim uzmanısın. Sadece JSON formatında cevap ver.'},
+    {role:'user', content:prompt}
+  ], Math.max(200, titles.length*12));
+
+  // Parse JSON
+  let parsed;
+  try{
+    const cleaned = raw.replace(/```json|```/g,'').trim();
+    // find JSON object
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    parsed = JSON.parse(m ? m[0] : cleaned);
+  } catch(e){
+    // Fallback: try to extract array directly
+    try{ parsed = {results: JSON.parse(raw.match(/\[[\s\S]*\]/)[0])}; }
+    catch(){ throw new Error('AI yanıtı JSON olarak ayrıştırılamadı: '+raw.slice(0,120)); }
+  }
+
+  const results = Array.isArray(parsed?.results) ? parsed.results
+    : Array.isArray(parsed) ? parsed : [];
+  return results;
+}
+
+async function startCategorization(){
+  if(_aiRunning) return;
+  if(!_rawRows.length){ setAiCatStatus('Veri yok.', 'err'); return; }
+  if(!_aiCategories.length){ setAiCatStatus('En az bir kategori ekleyin.', 'err'); return; }
+  saveDofKey();
+  _aiRunning = true;
+  document.getElementById('aiRunBtn').disabled = true;
+  document.getElementById('suggestBtn').disabled = true;
+  setAiCatStatus('⏳ Kategorilendirme başlatıldı...', 'info');
+
+  const BATCH = 25;
+  const total = _rawRows.length;
+  let done = 0;
+  setAiCatProgress(0, total);
+
+  try{
+    for(let i=0; i<_rawRows.length; i+=BATCH){
+      const batch = _rawRows.slice(i, i+BATCH);
+      const titles = batch.map(r=>r.baslik||r.dofSeri||'(başlık yok)');
+      setAiCatStatus(`⏳ İşleniyor: ${i+1}–${Math.min(i+BATCH,total)} / ${total}`, 'info');
+      const results = await categorizeBatch(titles);
+      batch.forEach((r,idx)=>{
+        r._aiKategori = results[idx] ? String(results[idx]).trim() : 'Diğer';
+        // Validate against known list
+        if(!_aiCategories.includes(r._aiKategori) && r._aiKategori!=='Diğer') r._aiKategori='Diğer';
+      });
+      done += batch.length;
+      setAiCatProgress(done, total);
+      // Small delay between batches to avoid rate limits
+      if(i+BATCH < _rawRows.length) await new Promise(r=>setTimeout(r,800));
+    }
+    setAiCatStatus(`✅ Tamamlandı! ${total} kayıt kategorilere ayrıldı.`, 'ok');
+    refreshAiCatFilter();
+    applyFilters();
+  } catch(e){
+    setAiCatStatus('❌ Hata: '+e.message, 'err');
+  } finally{
+    _aiRunning = false;
+    document.getElementById('aiRunBtn').disabled = false;
+    document.getElementById('suggestBtn').disabled = false;
+  }
+}
+
+async function suggestCategories(){
+  if(_aiRunning) return;
+  saveDofKey();
+  _aiRunning = true;
+  document.getElementById('suggestBtn').disabled = true;
+  setAiCatStatus('⏳ AI kategori önerileri hazırlanıyor...', 'info');
+  try{
+    const sample = _rawRows.slice(0,40).map(r=>r.baslik||'').filter(Boolean);
+    const existing = _aiCategories.join(', ');
+    const prompt = `Aşağıdaki DÖF başlıklarını incele ve mevcut kategorilerin dışında ek kategori önerisi yap.
+
+Mevcut kategoriler: ${existing}
+
+Örnek başlıklar:
+${sample.map((t,i)=>i+1+'. '+t).join('\n')}
+
+Sadece JSON döndür:
+{"suggestions":["Yeni Kategori 1","Yeni Kategori 2"]}
+Mevcut kategorileri tekrar önerme. En fazla 8 yeni kategori öner.`;
+    const raw = await callDofAI([
+      {role:'system', content:'Sen bir kalite yönetim uzmanısın. Sadece JSON formatında cevap ver.'},
+      {role:'user', content:prompt}
+    ], 300);
+    const cleaned = raw.replace(/```json|```/g,'').trim();
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    const parsed = JSON.parse(m ? m[0] : cleaned);
+    const suggs = Array.isArray(parsed?.suggestions) ? parsed.suggestions : [];
+    if(!suggs.length){ setAiCatStatus('AI yeni kategori önerisi bulamadı.', 'info'); return; }
+    // Add new suggestions to list
+    let added = 0;
+    suggs.forEach(s=>{ const t=String(s).trim(); if(t&&!_aiCategories.includes(t)){_aiCategories.push(t); added++;} });
+    renderCatTags();
+    setAiCatStatus(`✅ ${added} yeni kategori önerildi ve listeye eklendi: ${suggs.map(s=>String(s).trim()).join(', ')}`, 'ok');
+  } catch(e){
+    setAiCatStatus('❌ Hata: '+e.message, 'err');
+  } finally{
+    _aiRunning = false;
+    document.getElementById('suggestBtn').disabled = false;
+  }
+}
+
+function refreshAiCatFilter(){
+  const hasAiCat = _rawRows.some(r=>r._aiKategori);
+  const qEl = document.getElementById('quickFilters');
+  const existing = document.getElementById('flt__aiKategori');
+  if(!hasAiCat){ if(existing) existing.closest('.qf').remove(); return; }
+  if(!existing){
+    const vals = [...new Set(_rawRows.map(r=>r._aiKategori).filter(Boolean))].sort();
+    const opts = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    const div = document.createElement('div');
+    div.className='qf';
+    div.innerHTML=`<label>🤖 AI Kategori</label>
+      <select id="flt__aiKategori" onchange="onFilterChange('_aiKategori',this.value)">
+        <option value="">— Tümü —</option>${opts}
+      </select>`;
+    qEl.insertBefore(div, qEl.firstChild);
+  } else {
+    const vals = [...new Set(_rawRows.map(r=>r._aiKategori).filter(Boolean))].sort();
+    const opts = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    existing.innerHTML=`<option value="">— Tümü —</option>${opts}`;
+  }
+}
+
+// Close AI cat modal on backdrop
+document.getElementById('aiCatModal').addEventListener('click', function(e){ if(e.target===this && !_aiRunning) closeAiCatModal(); });
 
 // Close modal on backdrop click
 document.getElementById('mapModal').addEventListener('click', function(e){ if(e.target===this) closeMapModal(); });
