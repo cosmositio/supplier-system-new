@@ -911,7 +911,7 @@ function renderTable(){
       let v = esc(row[f.key]||'');
       if(f.key==='dofSeri'){
         const sira = (row.dofS||'').toString().trim();
-        v = esc(row.dofSeri||'') + (sira ? ' - ' + esc(sira) : '');
+        v = esc(row.dofSeri||'') + (sira ? '-' + esc(sira) : '');
         cls=' class="td-seri"';
       }
       else if(f.key==='uyeler') cls=' class="td-members"';
