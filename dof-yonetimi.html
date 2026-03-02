@@ -645,18 +645,34 @@ function parseMusteriFile(file){
     const headers = (rows[headerRow]||[]).map(h=>String(h||'').trim());
     const dataRows = rows.slice(headerRow+1).filter(r=>(r||[]).some(c=>c!==null&&c!==undefined&&String(c).trim()));
 
+    // Normalize: lowercase + strip spaces/dashes/dots + Turkish→Latin
+    function normCol(s){
+      return String(s||'').toLowerCase()
+        .replace(/İ/g,'i').replace(/ı/g,'i').replace(/Ş/g,'s').replace(/ş/g,'s')
+        .replace(/Ğ/g,'g').replace(/ğ/g,'g').replace(/Ü/g,'u').replace(/ü/g,'u')
+        .replace(/Ö/g,'o').replace(/ö/g,'o').replace(/Ç/g,'c').replace(/ç/g,'c')
+        .replace(/[\s\-_\.\(\)\/\\:;,]+/g,'');
+    }
+
+    console.log('[MüşteriParser] Ham sütun başlıkları:', headers);
+    console.log('[MüşteriParser] Normalize edilmiş:', headers.map(normCol));
+
     // Map headers → MUSTERI_MAP keys
     const colMap = {}; // fieldKey → colIndex
     headers.forEach((h,i)=>{
-      const hn = h.toLowerCase().replace(/[\s\-_\.]/g,'');
+      const hn = normCol(h);
+      if(!hn) return;
       Object.entries(MUSTERI_MAP).forEach(([fk,aliases])=>{
         if(colMap[fk]!==undefined) return;
-        if(aliases.some(a=>a.replace(/[\s\-_\.]/g,'')===hn)) colMap[fk]=i;
+        if(aliases.some(a=>normCol(a)===hn)) colMap[fk]=i;
       });
     });
 
+    console.log('[MüşteriParser] Eşleşen sütunlar:', colMap);
+
     if(!Object.keys(colMap).length){
-      alert('Müşteri Şikayetleri dosyasında tanınan sütun bulunamadı.\nBeklenen: Şikayet Form No, Müşteri Adı, Parça Kodu, Şikayet Konusu...');
+      const headerList = headers.filter(h=>h).join('\n  ');
+      alert('Müşteri Şikayetleri dosyasında tanınan sütun bulunamadı.\n\nDosyadaki sütunlar:\n  ' + headerList + '\n\nBeklenen: Şikayet Form No, Müşteri Adı, Parça Kodu, Şikayet Konusu...\n\n(Konsol\'da detay için F12)');
       return;
     }
 
