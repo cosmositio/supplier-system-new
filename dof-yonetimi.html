@@ -58,6 +58,18 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;mi
   padding:5px 12px;font-size:.74rem;font-weight:600;cursor:pointer;}
 .filter-toggle:hover{background:#cbd5e1;}
 
+/* ── QUICK FILTERS ── */
+.quick-filters{display:flex;flex-wrap:wrap;gap:10px;padding:10px 18px 12px;
+  background:#f8faff;border-bottom:1px solid #e2e8f0;align-items:flex-end;}
+.qf{display:flex;flex-direction:column;gap:3px;}
+.qf label{font-size:.6rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.05em;}
+.qf select,.qf input[type=date]{
+  border:1.5px solid #cbd5e1;border-radius:7px;padding:5px 9px;
+  font-size:.78rem;outline:none;background:#fff;color:#1e293b;min-width:148px;}
+.qf select:focus,.qf input:focus{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.12);}
+.qf .date-pair{display:flex;gap:5px;align-items:center;}
+.qf .date-sep{font-size:.62rem;color:#94a3b8;white-space:nowrap;}
+
 .filter-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:6px;
   padding-top:4px;}
 .fg{display:flex;flex-direction:column;gap:2px;}
@@ -177,8 +189,11 @@ td.nowrap{white-space:nowrap;}
       <input type="text" class="filter-search" id="globalSearch"
         placeholder="Genel arama (tüm alanlarda)..." oninput="applyFilters()">
       <button class="filter-reset" onclick="resetFilters()">✕ Sıfırla</button>
-      <button class="filter-toggle" onclick="toggleFilters()">⚙ Kolon Filtreleri</button>
+      <button class="filter-toggle" onclick="toggleFilters()">⚙ Diğer Filtreler</button>
     </div>
+    <!-- Quick filters — always visible -->
+    <div class="quick-filters" id="quickFilters"></div>
+    <!-- Full column filter grid — toggled -->
     <div class="filter-grid" id="filterGrid" style="display:none;"></div>
   </div>
 
@@ -341,6 +356,9 @@ function applyMappingDirect(){
   initUI();
 }
 
+// Quick filter keys — always visible above the table
+const QUICK_KEYS = ['tipi','cinsi','sikayetTar','cariAdi','subeAdi'];
+
 // ─────────────────────────────────────────────
 //  UI INIT
 // ─────────────────────────────────────────────
@@ -352,27 +370,50 @@ function initUI(){
 }
 
 function buildFilterGrid(){
-  const g = document.getElementById('filterGrid');
-  g.innerHTML = FIELDS.map(f=>{
-    if(f.type==='select'||f.type==='date'){
-      // Build unique values for selects
-      if(f.type==='select'){
-        const vals = [...new Set(_rawRows.map(r=>r[f.key]).filter(Boolean))].sort();
-        const opts = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
-        return `<div class="fg">
-          <label>${f.label}</label>
-          <select id="flt_${f.key}" onchange="onFilterChange('${f.key}',this.value)">
-            <option value="">— Tümü —</option>${opts}
-          </select>
-        </div>`;
-      } else {
-        return `<div class="fg">
-          <label>${f.label} (başlangıç)</label>
-          <input type="date" id="flt_${f.key}_from" onchange="onFilterChange('${f.key}_from',this.value)">
-          <label style="margin-top:4px;">${f.label} (bitiş)</label>
-          <input type="date" id="flt_${f.key}_to" onchange="onFilterChange('${f.key}_to',this.value)">
-        </div>`;
-      }
+  // ── Quick filters (Tipi, Cinsi, Şikayet Tarihi, Cari Adı, Şube Adı) ──
+  const qEl = document.getElementById('quickFilters');
+  qEl.innerHTML = FIELDS.filter(f=>QUICK_KEYS.includes(f.key)).map(f=>{
+    if(f.type==='select'){
+      const vals = [...new Set(_rawRows.map(r=>r[f.key]).filter(Boolean))].sort();
+      const opts = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+      return `<div class="qf">
+        <label>${f.label}</label>
+        <select id="flt_${f.key}" onchange="onFilterChange('${f.key}',this.value)">
+          <option value="">— Tümü —</option>${opts}
+        </select>
+      </div>`;
+    } else if(f.type==='date'){
+      return `<div class="qf">
+        <label>${f.label}</label>
+        <div class="date-pair">
+          <input type="date" id="flt_${f.key}_from" onchange="onFilterChange('${f.key}_from',this.value)" title="Başlangıç tarihi">
+          <span class="date-sep">→</span>
+          <input type="date" id="flt_${f.key}_to"   onchange="onFilterChange('${f.key}_to',this.value)"   title="Bitiş tarihi">
+        </div>
+      </div>`;
+    }
+    return '';
+  }).join('');
+
+  // ── Full collapsible filter grid (remaining columns) ──
+  const gEl = document.getElementById('filterGrid');
+  gEl.innerHTML = FIELDS.filter(f=>!QUICK_KEYS.includes(f.key)).map(f=>{
+    if(f.type==='select'){
+      const vals = [...new Set(_rawRows.map(r=>r[f.key]).filter(Boolean))].sort();
+      const opts = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+      return `<div class="fg">
+        <label>${f.label}</label>
+        <select id="flt_${f.key}" onchange="onFilterChange('${f.key}',this.value)">
+          <option value="">— Tümü —</option>${opts}
+        </select>
+      </div>`;
+    } else if(f.type==='date'){
+      return `<div class="fg">
+        <label>${f.label} (başlangıç)</label>
+        <input type="date" id="flt_${f.key}_from" onchange="onFilterChange('${f.key}_from',this.value)">
+        <label style="margin-top:4px;">${f.label} (bitiş)</label>
+        <input type="date" id="flt_${f.key}_to" onchange="onFilterChange('${f.key}_to',this.value)">
+      </div>`;
     } else {
       return `<div class="fg">
         <label>${f.label}</label>
@@ -522,6 +563,8 @@ function toggleFilters(){
 function resetFilters(){
   _filterVals={};
   document.getElementById('globalSearch').value='';
+  document.querySelectorAll('#quickFilters select').forEach(s=>s.value='');
+  document.querySelectorAll('#quickFilters input').forEach(i=>i.value='');
   document.querySelectorAll('#filterGrid select').forEach(s=>s.value='');
   document.querySelectorAll('#filterGrid input').forEach(i=>i.value='');
   _sortCol=null; _sortDir=1;
