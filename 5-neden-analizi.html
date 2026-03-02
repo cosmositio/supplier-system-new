@@ -2506,20 +2506,26 @@ function restorePinnedSteps(chains, map){
 // Collect pinned actions by flat position index before AI rebuilds
 function collectPinnedActions(tab, tk){
   const map = {};
-  (_S[tab].actions?.[tk] || []).forEach((act, i)=>{
+  // actions[tk] is a keyed object { stepId: action }, NOT an array
+  const actMap = _S[tab].actions?.[tk];
+  if(!actMap || typeof actMap !== 'object' || Array.isArray(actMap)) return map;
+  const steps = getAllSteps(tab, tk);
+  steps.forEach((s, i)=>{
+    const act = actMap[s.id];
     if(act && act.pinned) map[i] = Object.assign({}, act);
   });
   return map;
 }
 // After AI rebuild: pinned actions survive at same position, others reset
 function syncActionsAfterAi(tab, tk, pinnedMap){
-  if(!_S[tab].actions) _S[tab].actions = { os:[], nd:[] };
-  const total = getAllSteps(tab, tk).length;
-  const newActions = [];
-  for(let i = 0; i < total; i++){
-    newActions.push(pinnedMap[i] ? pinnedMap[i] : mkAction());
-  }
-  _S[tab].actions[tk] = newActions;
+  if(!_S[tab].actions) _S[tab].actions = { os:{}, nd:{} };
+  // Build a fresh keyed object using new step IDs
+  const steps = getAllSteps(tab, tk);
+  const newActMap = {};
+  steps.forEach((s, i)=>{
+    newActMap[s.id] = pinnedMap[i] ? pinnedMap[i] : mkAction();
+  });
+  _S[tab].actions[tk] = newActMap;
 }
 
 function applyAiResult(parsed, originalProblem){
