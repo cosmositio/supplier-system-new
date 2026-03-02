@@ -421,7 +421,11 @@ td.nowrap{white-space:nowrap;}
         <span class="btn-fill" id="aiRunFill"></span>
         <span class="btn-label" id="aiRunLabel">🤖 Tüm Satırları Kategorize Et (<span id="aiRunCount">0</span> kayıt)</span>
       </button>
-      <button class="ai-clear-btn" onclick="clearAiCategories()">🗑 Kategorileri Temizle</button>
+      <button class="ai-run-btn" id="aiRetryBtn" onclick="retryCategorization()" style="background:linear-gradient(135deg,#0369a1,#0891b2);flex:0 0 auto;width:auto;padding:10px 16px;font-size:.78rem;">
+        <span class="btn-fill" id="aiRetryFill"></span>
+        <span class="btn-label" id="aiRetryLabel">🔄 Eksikleri Tamamla</span>
+      </button>
+      <button class="ai-clear-btn" onclick="clearAiCategories()">🗑 Temizle</button>
     </div>
   </div>
 </div>
@@ -1116,31 +1120,154 @@ async function startCategorization(){
   document.getElementById('suggestBtn').disabled = true;
   setAiCatStatus('⏳ Kategorilendirme başlatıldı...', 'info');
 
-  const BATCH = 25;
+  const BATCH = 15;           // smaller batches → fewer tokens per request
+  const INTER_DELAY = 1200;   // ms between batches
+  const MAX_RETRIES = 3;
   const total = _rawRows.length;
   let done = 0;
+  let failedBatches = 0;
   setAiCatProgress(0, total);
 
   try{
     for(let i=0; i<_rawRows.length; i+=BATCH){
-      const batch = _rawRows.slice(i, i+BATCH);
+      const batch  = _rawRows.slice(i, i+BATCH);
       const titles = batch.map(r=>r.baslik||r.dofSeri||'(başlık yok)');
-      setAiCatStatus(`⏳ İşleniyor: ${i+1}–${Math.min(i+BATCH,total)} / ${total}`, 'info');
-      const results = await categorizeBatch(titles);
+      const batchLabel = `${i+1}–${Math.min(i+BATCH,total)}`;
+
+      // ── Per-batch retry loop ──
+      let results = null;
+      for(let attempt=1; attempt<=MAX_RETRIES; attempt++){
+        try{
+          setAiCatStatus(`⏳ İşleniyor: ${batchLabel} / ${total}${attempt>1?' (deneme '+attempt+')':''}`, 'info');
+          results = await categorizeBatch(titles);
+          break; // success
+        } catch(batchErr){
+          const msg = batchErr.message||'';
+          const isRateLimit = /429|rate.?limit|too many/i.test(msg);
+          if(attempt < MAX_RETRIES){
+            const wait = isRateLimit ? 30000 : attempt * 5000;
+            setAiCatStatus(`⚠️ Batch ${batchLabel} hata (${attempt}/${MAX_RETRIES}): ${msg.slice(0,80)}. ${Math.round(wait/1000)}s bekleniyor…`, 'info');
+            await new Promise(r=>setTimeout(r, wait));
+          } else {
+            // All retries failed — mark these rows as 'İşlenemedi' and continue
+            failedBatches++;
+            setAiCatStatus(`⚠️ Batch ${batchLabel} atlandı: ${msg.slice(0,100)}`, 'info');
+            results = null;
+          }
+        }
+      }
+
       batch.forEach((r,idx)=>{
-        r._aiKategori = results[idx] ? String(results[idx]).trim() : 'Diğer';
-        // Validate against known list
-        if(r._aiKategori !== 'Diğer' && !_aiCategories.includes(r._aiKategori)) r._aiKategori = 'Diğer';
+        if(!results){
+          if(!r._aiKategori) r._aiKategori = 'İşlenemedi'; // keep existing if already set
+        } else {
+          const cat = results[idx] ? String(results[idx]).trim() : 'Diğer';
+          r._aiKategori = (cat !== 'Diğer' && !_aiCategories.includes(cat)) ? 'Diğer' : cat;
+        }
       });
+
       done += batch.length;
-      _aiCatDone = true; // flag set — column will now render
+      _aiCatDone = true;
       setAiCatProgress(done, total);
-      applyFilters(); // re-render table after every batch so column appears incrementally
-      // Small delay between batches to avoid rate limits
-      if(i+BATCH < _rawRows.length) await new Promise(r=>setTimeout(r,800));
+      applyFilters();
+
+      // Inter-batch delay
+      if(i+BATCH < _rawRows.length) await new Promise(r=>setTimeout(r, INTER_DELAY));
     }
-    setAiCatStatus(`✅ Tamamlandı! ${total} kayıt kategorilere ayrıldı.`, 'ok');
+
+    const summary = failedBatches > 0
+      ? `⚠️ Tamamlandı — ${total} kayıt işlendi, ${failedBatches} batch atlandı (AI hatası). Atlananlarda "İşlenemedi" yazıyor.`
+      : `✅ Tamamlandı! ${total} kayıt kategorilere ayrıldı.`;
+    setAiCatStatus(summary, failedBatches>0 ? 'info' : 'ok');
     _aiCatDone = true;
+    refreshAiCatFilter();
+    applyFilters();
+  } catch(e){
+    setAiCatStatus('❌ Beklenmedik hata: '+e.message, 'err');
+  } finally{
+    _aiRunning = false;
+    document.getElementById('aiRunBtn').disabled = false;
+    document.getElementById('suggestBtn').disabled = false;
+    setTimeout(()=>{
+      document.getElementById('aiRunFill').style.width='0%';
+      document.getElementById('aiRunLabel').innerHTML='🤖 Tüm Satırları Kategorize Et (<span id="aiRunCount">'+_rawRows.length+'</span> kayıt)';
+    }, 3000);
+  }
+}
+
+async function retryCategorization(){
+  // Re-process only rows that have no category or failed
+  if(_aiRunning) return;
+  const pending = _rawRows.filter(r => !r._aiKategori || r._aiKategori === 'İşlenemedi');
+  if(!pending.length){ setAiCatStatus('✅ Tüm satırlar zaten kategorize edilmiş.', 'ok'); return; }
+  if(!_aiCategories.length){ setAiCatStatus('En az bir kategori ekleyin.', 'err'); return; }
+  saveDofKey();
+  _aiRunning = true;
+  document.getElementById('aiRunBtn').disabled = true;
+  document.getElementById('aiRetryBtn').disabled = true;
+  document.getElementById('suggestBtn').disabled = true;
+
+  const BATCH = 15;
+  const INTER_DELAY = 1200;
+  const MAX_RETRIES = 3;
+  const total = pending.length;
+  let done = 0;
+  let failedBatches = 0;
+
+  const retryBar  = document.getElementById('aiRetryFill');
+  const retryLbl  = document.getElementById('aiRetryLabel');
+  const setRetryPct = (pct) => {
+    retryBar.style.width = pct+'%';
+    retryLbl.textContent = pct===100 ? '✅ Tamamlandı!' : `⏳ ${pct}% — ${done}/${total} eksik`;
+  };
+  setRetryPct(0);
+
+  try{
+    for(let i=0; i<pending.length; i+=BATCH){
+      const batch  = pending.slice(i, i+BATCH);
+      const titles = batch.map(r=>r.baslik||r.dofSeri||'(başlık yok)');
+      const batchLabel = `${i+1}–${Math.min(i+BATCH,total)}`;
+
+      let results = null;
+      for(let attempt=1; attempt<=MAX_RETRIES; attempt++){
+        try{
+          setAiCatStatus(`⏳ Eksik işleniyor: ${batchLabel} / ${total}${attempt>1?' (deneme '+attempt+')':''}`, 'info');
+          results = await categorizeBatch(titles);
+          break;
+        } catch(batchErr){
+          const msg = batchErr.message||'';
+          const isRateLimit = /429|rate.?limit|too many/i.test(msg);
+          if(attempt < MAX_RETRIES){
+            const wait = isRateLimit ? 30000 : attempt * 5000;
+            setAiCatStatus(`⚠️ ${batchLabel} hata (${attempt}/${MAX_RETRIES}). ${Math.round(wait/1000)}s bekleniyor…`, 'info');
+            await new Promise(r=>setTimeout(r, wait));
+          } else {
+            failedBatches++;
+            results = null;
+          }
+        }
+      }
+
+      batch.forEach((r,idx)=>{
+        if(results){
+          const cat = results[idx] ? String(results[idx]).trim() : 'Diğer';
+          r._aiKategori = (cat !== 'Diğer' && !_aiCategories.includes(cat)) ? 'Diğer' : cat;
+        }
+        // else leave as 'İşlenemedi'
+      });
+
+      done += batch.length;
+      _aiCatDone = true;
+      setRetryPct(Math.round(done/total*100));
+      applyFilters();
+      if(i+BATCH < pending.length) await new Promise(r=>setTimeout(r, INTER_DELAY));
+    }
+
+    const stillPending = _rawRows.filter(r=>!r._aiKategori||r._aiKategori==='İşlenemedi').length;
+    const summary = stillPending > 0
+      ? `⚠️ Tamamlandı — hâlâ ${stillPending} satır eksik. Tekrar deneyin.`
+      : '✅ Tüm eksikler tamamlandı!';
+    setAiCatStatus(summary, stillPending>0?'info':'ok');
     refreshAiCatFilter();
     applyFilters();
   } catch(e){
@@ -1148,12 +1275,9 @@ async function startCategorization(){
   } finally{
     _aiRunning = false;
     document.getElementById('aiRunBtn').disabled = false;
+    document.getElementById('aiRetryBtn').disabled = false;
     document.getElementById('suggestBtn').disabled = false;
-    // Reset button fill after short delay so user sees 100%
-    setTimeout(()=>{
-      document.getElementById('aiRunFill').style.width='0%';
-      document.getElementById('aiRunLabel').innerHTML='🤖 Tüm Satırları Kategorize Et (<span id="aiRunCount">'+_rawRows.length+'</span> kayıt)';
-    }, 2500);
+    setTimeout(()=>{ retryBar.style.width='0%'; retryLbl.textContent='🔄 Eksikleri Tamamla'; }, 3000);
   }
 }
 
