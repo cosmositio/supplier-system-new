@@ -225,6 +225,42 @@ td.nowrap{white-space:nowrap;}
 
 /* scroll table */
 .table-outer{max-height:calc(100vh - 280px);overflow:auto;}
+
+/* ── SNAPSHOTS MODAL ── */
+.snap-modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9200;
+  align-items:center;justify-content:center;}
+.snap-modal-bg.open{display:flex;}
+.snap-box{background:#fff;border-radius:14px;padding:26px 28px 22px;width:min(560px,96vw);
+  max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.25);}
+.snap-box h3{font-size:.95rem;font-weight:800;color:#1e293b;margin-bottom:4px;}
+.snap-box .snap-sub{font-size:.7rem;color:#94a3b8;margin-bottom:16px;}
+.snap-close{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;}
+.snap-name-row{display:flex;gap:8px;margin-bottom:16px;}
+.snap-name-inp{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:7px 10px;
+  font-size:.8rem;outline:none;}
+.snap-name-inp:focus{border-color:#2563eb;}
+.snap-save-btn{background:#2563eb;color:#fff;border:none;border-radius:7px;
+  padding:7px 18px;font-size:.79rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.snap-save-btn:hover{background:#1d4ed8;}
+.snap-list{display:flex;flex-direction:column;gap:8px;}
+.snap-item{border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;
+  display:flex;align-items:center;gap:10px;background:#f8fafc;transition:.15s;}
+.snap-item:hover{border-color:#bfdbfe;background:#eff6ff;}
+.snap-item-info{flex:1;min-width:0;}
+.snap-item-name{font-size:.82rem;font-weight:700;color:#1e293b;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.snap-item-meta{font-size:.66rem;color:#94a3b8;margin-top:2px;}
+.snap-load-btn{background:#16a34a;color:#fff;border:none;border-radius:7px;
+  padding:5px 13px;font-size:.73rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.snap-load-btn:hover{background:#15803d;}
+.snap-del-btn{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:7px;
+  padding:5px 10px;font-size:.73rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.snap-del-btn:hover{background:#fecaca;}
+.snap-empty{text-align:center;padding:30px;color:#94a3b8;font-size:.8rem;}
+.snap-toast{position:fixed;bottom:24px;right:24px;background:#1e293b;color:#fff;
+  border-radius:10px;padding:10px 20px;font-size:.8rem;font-weight:600;z-index:9999;
+  opacity:0;transform:translateY(12px);transition:.3s;pointer-events:none;}
+.snap-toast.show{opacity:1;transform:translateY(0);}
 </style>
 </head>
 <body>
@@ -239,6 +275,8 @@ td.nowrap{white-space:nowrap;}
   <button class="tbb" onclick="document.getElementById('excelInput').click()">📂 Excel Yükle</button>
   <button class="tbb" onclick="exportCSV()">⬇️ CSV İndir</button>
   <button class="tbb" onclick="exportExcel()">⬇️ Excel İndir</button>
+  <button class="tbb ok" id="snapSaveBtn" style="display:none" onclick="openSnapModal()">💾 Kaydet</button>
+  <button class="tbb" id="snapLoadBtn" onclick="openSnapModal()">🗂 Kayıtlar</button>
   <button class="tbb danger" onclick="clearData()">🗑 Temizle</button>
   <button class="tbb" id="aiCatBtn" style="display:none;background:linear-gradient(135deg,rgba(124,58,237,.85),rgba(37,99,235,.85));border-color:rgba(167,139,250,.5);" onclick="openAiCatModal()">🤖 AI Kategorize</button>
   <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" onchange="handleFile(this)" style="display:none">
@@ -387,6 +425,23 @@ td.nowrap{white-space:nowrap;}
     </div>
   </div>
 </div>
+
+<!-- ═══ SNAPSHOTS MODAL ═══ -->
+<div class="snap-modal-bg" id="snapModal">
+  <div class="snap-box">
+    <button class="snap-close" onclick="closeSnapModal()">✕</button>
+    <h3>🗂 Kayıtlı Durumlar</h3>
+    <p class="snap-sub">IndexedDB'de saklanır — tarayıcı çerezlerinden bağımsız, kalıcıdır.</p>
+    <!-- Save form -->
+    <div class="snap-name-row">
+      <input class="snap-name-inp" id="snapNameInp" placeholder="Kayıt adı (isteğe bağlı)..." onkeydown="if(event.key==='Enter')saveSnapshot()">
+      <button class="snap-save-btn" onclick="saveSnapshot()">💾 Mevcut Tabloyu Kaydet</button>
+    </div>
+    <!-- List -->
+    <div class="snap-list" id="snapList"></div>
+  </div>
+</div>
+<div class="snap-toast" id="snapToast"></div>
 
 <!-- ═══ COLUMN MAPPING MODAL ═══ -->
 <div class="modal-bg" id="mapModal">
@@ -546,6 +601,7 @@ function initUI(){
   document.getElementById('uploadZone').style.display='none';
   document.getElementById('mainArea').style.display='';
   document.getElementById('aiCatBtn').style.display='';
+  updateSnapBtn();
   buildFilterGrid();
   applyFilters();
 }
@@ -668,8 +724,8 @@ function renderTable(){
   const tbody = document.getElementById('tableBody');
 
   const visibleFields = FIELDS.filter(f=>_rawRows.some(r=>r[f.key]));
-  const hasAiCat = _rawRows.some(r=>r._aiKategori);
-  const allFields = hasAiCat
+  // Build a map from dofSeri (or index) to _aiKategori for safe lookup
+  const allFields = _aiCatDone
     ? [...visibleFields, {key:'_aiKategori', label:'🤖 AI Kategori', type:'select'}]
     : visibleFields;
 
@@ -765,6 +821,7 @@ function clearData(){
   document.getElementById('uploadZone').style.display='';
   document.getElementById('mainArea').style.display='none';
   document.getElementById('aiCatBtn').style.display='none';
+  updateSnapBtn();
 }
 
 // ─────────────────────────────────────────────
@@ -804,6 +861,7 @@ const DEFAULT_CATEGORIES = [
 ];
 let _aiCategories = [...DEFAULT_CATEGORIES];
 let _aiRunning = false;
+let _aiCatDone = false; // true after at least one batch categorized
 
 function openAiCatModal(){
   if(!_rawRows.length){ alert('Önce Excel yükleyin.'); return; }
@@ -870,6 +928,7 @@ function clearAiCategories(){
   if(!confirm('AI kategori eşleştirmeleri silinsin mi?')) return;
   _rawRows.forEach(r=>delete r._aiKategori);
   _filtered.forEach(r=>delete r._aiKategori);
+  _aiCatDone = false;
   refreshAiCatFilter();
   renderTable();
   setAiCatStatus('');
@@ -1071,14 +1130,17 @@ async function startCategorization(){
       batch.forEach((r,idx)=>{
         r._aiKategori = results[idx] ? String(results[idx]).trim() : 'Diğer';
         // Validate against known list
-        if(!_aiCategories.includes(r._aiKategori) && r._aiKategori!=='Diğer') r._aiKategori='Diğer';
+        if(r._aiKategori !== 'Diğer' && !_aiCategories.includes(r._aiKategori)) r._aiKategori = 'Diğer';
       });
       done += batch.length;
+      _aiCatDone = true; // flag set — column will now render
       setAiCatProgress(done, total);
+      applyFilters(); // re-render table after every batch so column appears incrementally
       // Small delay between batches to avoid rate limits
       if(i+BATCH < _rawRows.length) await new Promise(r=>setTimeout(r,800));
     }
     setAiCatStatus(`✅ Tamamlandı! ${total} kayıt kategorilere ayrıldı.`, 'ok');
+    _aiCatDone = true;
     refreshAiCatFilter();
     applyFilters();
   } catch(e){
@@ -1163,6 +1225,154 @@ document.getElementById('aiCatModal').addEventListener('click', function(e){ if(
 
 // Close modal on backdrop click
 document.getElementById('mapModal').addEventListener('click', function(e){ if(e.target===this) closeMapModal(); });
+document.getElementById('snapModal').addEventListener('click', function(e){ if(e.target===this) closeSnapModal(); });
+
+// ─────────────────────────────────────────────
+//  INDEXED DB  —  dof_yonetimi_db / snapshots
+// ─────────────────────────────────────────────
+const IDB_NAME    = 'dof_yonetimi_db';
+const IDB_VER     = 1;
+const IDB_STORE   = 'snapshots';
+
+function idbOpen(){
+  return new Promise((res, rej)=>{
+    const req = indexedDB.open(IDB_NAME, IDB_VER);
+    req.onupgradeneeded = e =>{
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains(IDB_STORE)){
+        const store = db.createObjectStore(IDB_STORE, {keyPath:'id', autoIncrement:true});
+        store.createIndex('savedAt','savedAt',{unique:false});
+      }
+    };
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function idbGetAll(){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx  = db.transaction(IDB_STORE,'readonly');
+    const req = tx.objectStore(IDB_STORE).getAll();
+    req.onsuccess = e => res(e.target.result.sort((a,b)=>b.savedAt-a.savedAt));
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function idbPut(record){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx  = db.transaction(IDB_STORE,'readwrite');
+    const req = tx.objectStore(IDB_STORE).add(record);
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function idbDelete(id){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx  = db.transaction(IDB_STORE,'readwrite');
+    const req = tx.objectStore(IDB_STORE).delete(id);
+    req.onsuccess = () => res();
+    req.onerror   = e  => rej(e.target.error);
+  });
+}
+
+// ── toast helper ──
+function showToast(msg){
+  const el = document.getElementById('snapToast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>el.classList.remove('show'), 2800);
+}
+
+// ── modal open/close ──
+async function openSnapModal(){
+  document.getElementById('snapModal').classList.add('open');
+  document.getElementById('snapNameInp').value = '';
+  await renderSnapList();
+}
+function closeSnapModal(){ document.getElementById('snapModal').classList.remove('open'); }
+
+async function renderSnapList(){
+  const list = document.getElementById('snapList');
+  list.innerHTML = '<div class="snap-empty">⏳ Yükleniyor...</div>';
+  let snaps = [];
+  try{ snaps = await idbGetAll(); } catch(e){ list.innerHTML='<div class="snap-empty">❌ IndexedDB hatası: '+e.message+'</div>'; return; }
+  if(!snaps.length){ list.innerHTML='<div class="snap-empty">📂 Henüz kayıtlı durum yok.</div>'; return; }
+  list.innerHTML = snaps.map(s=>{
+    const d   = new Date(s.savedAt);
+    const dt  = d.toLocaleDateString('tr-TR')+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+    const aiBadge = s.rows.some(r=>r._aiKategori) ? ' • 🤖 AI kat.' : '';
+    return `<div class="snap-item" id="snap_${s.id}">
+      <div class="snap-item-info">
+        <div class="snap-item-name">${esc(s.name||'Kayıt #'+s.id)}</div>
+        <div class="snap-item-meta">${dt} • ${s.rows.length} kayıt${aiBadge}</div>
+      </div>
+      <button class="snap-load-btn" onclick="loadSnapshot(${s.id})">⬆️ Yükle</button>
+      <button class="snap-del-btn"  onclick="deleteSnapshot(${s.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function saveSnapshot(){
+  if(!_rawRows.length){ showToast('⚠️ Yüklenmiş veri yok.'); return; }
+  const rawName = document.getElementById('snapNameInp').value.trim();
+  const d = new Date();
+  const autoName = d.toLocaleDateString('tr-TR')+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})
+    +' — '+(rawName || _rawRows.length+' kayıt');
+  const record = {
+    name     : rawName || autoName,
+    savedAt  : Date.now(),
+    rows     : JSON.parse(JSON.stringify(_rawRows)),   // deep copy incl. _aiKategori
+    mapping  : JSON.parse(JSON.stringify(_mapping)),
+    aiCategories: JSON.parse(JSON.stringify(_aiCategories)),
+  };
+  try{
+    await idbPut(record);
+    showToast('✅ Kayıt oluşturuldu: '+record.name);
+    await renderSnapList();
+    document.getElementById('snapNameInp').value='';
+  } catch(e){ showToast('❌ Kaydetme hatası: '+e.message); }
+}
+
+async function loadSnapshot(id){
+  const db = await idbOpen();
+  const rec = await new Promise((res,rej)=>{
+    const req = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(id);
+    req.onsuccess = e=>res(e.target.result);
+    req.onerror   = e=>rej(e.target.error);
+  });
+  if(!rec){ showToast('❌ Kayıt bulunamadı.'); return; }
+  _rawRows      = rec.rows;
+  _mapping      = rec.mapping;
+  _aiCategories = rec.aiCategories || [...DEFAULT_CATEGORIES];
+  _aiCatDone    = _rawRows.some(r=>r._aiKategori);
+  _filterVals   = {};
+  _sortCol      = null; _sortDir = 1;
+  closeSnapModal();
+  initUI();
+  showToast('✅ Yüklendi: '+rec.name);
+}
+
+async function deleteSnapshot(id){
+  if(!confirm('Bu kayıt silinsin mi?')) return;
+  try{
+    await idbDelete(id);
+    document.getElementById('snap_'+id)?.remove();
+    const remaining = document.querySelectorAll('#snapList .snap-item').length;
+    if(!remaining) document.getElementById('snapList').innerHTML='<div class="snap-empty">📂 Henüz kayıtlı durum yok.</div>';
+    showToast('🗑 Kayıt silindi.');
+  } catch(e){ showToast('❌ Silme hatası: '+e.message); }
+}
+
+// Update snap-save badge when data is available
+function updateSnapBtn(){
+  const has = _rawRows.length > 0;
+  document.getElementById('snapSaveBtn').style.display = has ? '' : 'none';
+}
 </script>
 </body>
 </html>
