@@ -711,6 +711,28 @@ function parseMusteriFile(file){
   reader.readAsArrayBuffer(file);
 }
 
+function editSubeAdi(e, ridx){
+  e.stopPropagation();
+  const row = _filtered[ridx];
+  if(!row) return;
+  const td = e.currentTarget;
+  const cur = row.subeAdi||'';
+  td.innerHTML = `<input id="subeInp_${ridx}" type="text" value="${esc(cur)}" style="width:100%;min-width:80px;background:#0f172a;color:#e2e8f0;border:1px solid #38bdf8;border-radius:5px;padding:3px 6px;font-size:.74rem;" onclick="event.stopPropagation()" onkeydown="applySubeAdi(event,${ridx})" onblur="applySubeAdi(event,${ridx})"> `;
+  setTimeout(()=>{ const i=document.getElementById('subeInp_'+ridx); if(i){i.focus();i.select();} },30);
+}
+function applySubeAdi(e, ridx){
+  if(e.type==='keydown' && e.key!=='Enter' && e.key!=='Escape') return;
+  const inp = document.getElementById('subeInp_'+ridx);
+  if(!inp) return;
+  const val = e.key==='Escape' ? (_filtered[ridx]?.subeAdi||'') : inp.value.trim();
+  if(_filtered[ridx]) _filtered[ridx].subeAdi = val;
+  buildFilterGrid();
+  refreshAiCatFilter();
+  syncFilterDOM();
+  applyFilters();
+  updateSnapBtn();
+}
+
 function handleFile(input){
   const file = input.files[0];
   if(file){ parseFile(file); input.value=''; }
@@ -904,8 +926,9 @@ function applyFilters(){
         if(k.endsWith('_to')   && cellDate > new Date(v)) return false;
         continue;
       }
-      // AI Kategori select — exact match
+      // AI Kategori select — exact match or empty
       if(k === '_aiKategori'){
+        if(v === '__EMPTY__'){ if(row._aiKategori) return false; continue; }
         if((row._aiKategori||'') !== v) return false;
         continue;
       }
@@ -1037,6 +1060,9 @@ function renderTable(){
         const sira = (row.dofS||'').toString().trim();
         v = esc(row.dofSeri||'') + (sira ? '-' + esc(sira) : '');
         cls=' class="td-seri"';
+      }
+      else if(f.key==='subeAdi'){
+        return `<td class="td-sube" title="Düzenle" onclick="editSubeAdi(event,${ridx})" style="cursor:pointer;min-width:90px;">${v||'<span style="opacity:.4;font-size:.7rem;">+ ekle</span>'}</td>`;
       }
       else if(f.key==='uyeler') cls=' class="td-members"';
       else if(f.type==='date') cls=' class="td-date"';
@@ -1690,20 +1716,20 @@ function refreshAiCatFilter(){
   const qEl = document.getElementById('quickFilters');
   const existing = document.getElementById('flt__aiKategori');
   if(!hasAiCat){ if(existing) existing.closest('.qf').remove(); return; }
+  const vals = [...new Set(_rawRows.map(r=>r._aiKategori).filter(Boolean))].sort();
+  const hasEmpty = _rawRows.some(r=>!r._aiKategori);
+  const emptyOpt = hasEmpty ? `<option value="__EMPTY__">(Boş)</option>` : '';
+  const opts = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
   if(!existing){
-    const vals = [...new Set(_rawRows.map(r=>r._aiKategori).filter(Boolean))].sort();
-    const opts = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
     const div = document.createElement('div');
     div.className='qf';
     div.innerHTML=`<label>🤖 AI Kategori</label>
       <select id="flt__aiKategori" onchange="onFilterChange('_aiKategori',this.value)">
-        <option value="">— Tümü —</option>${opts}
+        <option value="">— Tümü —</option>${emptyOpt}${opts}
       </select>`;
     qEl.insertBefore(div, qEl.firstChild);
   } else {
-    const vals = [...new Set(_rawRows.map(r=>r._aiKategori).filter(Boolean))].sort();
-    const opts = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
-    existing.innerHTML=`<option value="">— Tümü —</option>${opts}`;
+    existing.innerHTML=`<option value="">— Tümü —</option>${emptyOpt}${opts}`;
   }
 }
 
