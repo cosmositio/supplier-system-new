@@ -427,6 +427,10 @@ td.nowrap{white-space:nowrap;}
           <span class="btn-label" id="aiRetryLabel">🔄 Eksikleri Tamamla</span>
         </button>
         <label style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:#94a3b8;cursor:pointer;padding:0 4px;">
+          <input type="checkbox" id="retryIncludeIslenemedi" checked style="accent-color:#e11d48;cursor:pointer;">
+          <span>"İşlenemedi" olanları yeniden dene</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:#94a3b8;cursor:pointer;padding:0 4px;">
           <input type="checkbox" id="retryIncludeDiger" style="accent-color:#0891b2;cursor:pointer;">
           <span>"Diğer" olanları da yeniden değerlendir</span>
         </label>
@@ -1205,9 +1209,10 @@ async function retryCategorization(){
   // Re-process only rows that have no category or failed
   if(_aiRunning) return;
   const includeDiger = document.getElementById('retryIncludeDiger')?.checked;
+  const includeIslenemedi = document.getElementById('retryIncludeIslenemedi')?.checked;
   const pending = _rawRows.filter(r =>
     !r._aiKategori ||
-    r._aiKategori === 'İşlenemedi' ||
+    (includeIslenemedi && r._aiKategori === 'İşlenemedi') ||
     (includeDiger && r._aiKategori === 'Diğer')
   );
   if(!pending.length){ setAiCatStatus('✅ Tüm satırlar zaten kategorize edilmiş.', 'ok'); return; }
