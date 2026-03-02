@@ -2100,19 +2100,19 @@ async function callAI(messages, maxTokens, temperature){
       body: JSON.stringify({ model, messages, temperature:temp, max_tokens:maxTokens })
     });
 
-    // Single retry with backoff for 429 rate limits
-    const orRetry = async (model) => {
-      const resp = await orPost(model);
-      if(resp.status === 429){
-        await new Promise(r=>setTimeout(r,10000)); // 10s backoff
-        return orPost(model);
-      }
-      return resp;
-    };
-
     let orLastErr = '';
+    let lastWas429 = false;
     for(const orModel of OR_FALLBACKS){
-      const resp = await orRetry(orModel);
+      // If previous model was rate-limited, pause before hitting the next one
+      if(lastWas429) await new Promise(r=>setTimeout(r,12000));
+      lastWas429 = false;
+
+      let resp = await orPost(orModel);
+      // Single retry on 429 with a longer wait
+      if(resp.status === 429){
+        await new Promise(r=>setTimeout(r,15000));
+        resp = await orPost(orModel);
+      }
       if(resp.ok){
         const d = await resp.json();
         return d?.choices?.[0]?.message?.content || '';
@@ -2120,12 +2120,13 @@ async function callAI(messages, maxTokens, temperature){
       const oe = await resp.json().catch(()=>({}));
       const omsg = oe?.error?.message || ('HTTP '+resp.status);
       if(resp.status === 401 || resp.status === 403) throw new Error('OpenRouter: API key geçersiz — openrouter.ai/keys kontrol edin.');
-      if(resp.status === 402) throw new Error('OpenRouter: Hesap bakiyesi yetersiz — openrouter.ai/credits adresine giderek bakiye yükleyin (1-2 USD yeterli).');
-      if(resp.status === 429){ orLastErr = 'Rate limit — çok fazla istek'; continue; }
-      if(resp.status === 404){ orLastErr = 'Model bulunamadı: '+orModel; continue; } // model not found, try next
+      if(resp.status === 402) throw new Error('OpenRouter: Hesap bakiyesi yetersiz — openrouter.ai/credits adresine bakın.');
+      if(resp.status === 429){ orLastErr = 'Rate limit'; lastWas429 = true; continue; }
+      if(resp.status === 404){ orLastErr = 'Model bulunamadı: '+orModel; continue; }
       throw new Error('OpenRouter ('+orModel+'): '+omsg);
     }
-    throw new Error('OpenRouter: Hiçbir model çalışmadı. Son hata: '+orLastErr);
+    throw new Error('OpenRouter: Hiçbir model çalışmadı. Son hata: '+orLastErr+
+      '\n\nTavsiye: Ücretsız OpenRouter modelleri çok kısıtlı. GROQ provieder’ını deneyin (tamamen ücretsiz).');
   } else if(provider === 'gemini'){
     const key = localStorage.getItem('gemini_api_key') || document.getElementById('aiKeyGemini')?.value?.trim() || '';
     if(!key) throw new Error('Gemini API key girilmedi');
@@ -2139,17 +2140,21 @@ async function callAI(messages, maxTokens, temperature){
     const userMsg = messages.find(m=>m.role==='user')?.content   || '';
     const combined = sysMsg ? sysMsg + '\n\n' + userMsg : userMsg;
 
-    // Try multiple model name variants + both API versions for maximum compatibility
+    // Try models — simple alias first, then pinned version for max compatibility
     const MODEL_VARIANTS = {
-      'gemini-2.0-flash':               ['gemini-2.0-flash-001',            'gemini-2.0-flash'],
-      'gemini-2.0-flash-lite':          ['gemini-2.0-flash-lite-001',       'gemini-2.0-flash-lite'],
-      'gemini-1.5-flash':               ['gemini-1.5-flash-002',            'gemini-1.5-flash-latest', 'gemini-1.5-flash'],
-      'gemini-1.5-pro':                 ['gemini-1.5-pro-002',              'gemini-1.5-pro-latest',   'gemini-1.5-pro'],
+      'gemini-2.0-flash':               ['gemini-2.0-flash',      'gemini-2.0-flash-001'],
+      'gemini-2.0-flash-lite':          ['gemini-2.0-flash-lite', 'gemini-2.0-flash-lite-001'],
+      'gemini-1.5-flash':               ['gemini-1.5-flash',      'gemini-1.5-flash-latest', 'gemini-1.5-flash-002'],
+      'gemini-1.5-flash-8b':            ['gemini-1.5-flash-8b'],
+      'gemini-1.5-pro':                 ['gemini-1.5-pro',        'gemini-1.5-pro-latest',   'gemini-1.5-pro-002'],
       'gemini-2.5-flash-preview-04-17': ['gemini-2.5-flash-preview-04-17'],
       'gemini-2.5-pro-preview-03-25':   ['gemini-2.5-pro-preview-03-25'],
     };
     const tryModels = (MODEL_VARIANTS[chosenModel] || [chosenModel]).slice();
-    if(!tryModels.includes('gemini-1.5-flash')) tryModels.push('gemini-1.5-flash');
+    // Ultimate fallbacks in order of availability
+    for(const fb of ['gemini-1.5-flash','gemini-1.5-flash-8b','gemini-1.5-pro']){
+      if(!tryModels.includes(fb)) tryModels.push(fb);
+    }
 
     const doFetch = (model, ver) => fetch(
       `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${key}`,
@@ -2185,10 +2190,14 @@ async function callAI(messages, maxTokens, temperature){
     }
     if(all404)
       throw new Error(
-        'Gemini: Tüm modeller 404 — iki olası neden:\n\n' +
-        '1️⃣ GOOGLE KESINTİSİ: Kontrol edin → aistudio.google.com/status\n' +
-        '   (Bugünü statüsü kırmızıysa bekleyin, kodda sorun yok.)\n\n' +
-        '2️⃣ APİ ETKİN DEĞİL: aistudio.google.com/apikey → Yeni key oluşturun.'
+        'Gemini: Tüm modeller 404 döndürdü.\n\n' +
+        '🔴 EN MUHTEMEL NEDEN — Google Cloud\'da API devre dışı:\n' +
+        '  → console.cloud.google.com/apis/library/generativelanguage.googleapis.com\n' +
+        '     Sayfaya gidip "Enable" butonuna basın, 1 dakika bekleyin, tekrar deneyin.\n\n' +
+        'Diğer olası nedenler:\n' +
+        '• API key yeni oluşturuldu → 1-2 dk bekleyin\n' +
+        '• Key geçersiz → aistudio.google.com/apikey → yeni key alın\n' +
+        '• Türkiye\'den erişimde bölge kısıtı → VPN deneyin'
       );
     throw new Error('Gemini: Hiçbir model çalışmadı. Son hata: '+lastErr);
   } else if(provider === 'openai'){
