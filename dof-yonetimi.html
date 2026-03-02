@@ -742,7 +742,67 @@ function toggleSort(key){
 
 // ─────────────────────────────────────────────
 //  RENDER TABLE
-// ─────────────────────────────────────────────
+function editAiCat(e, ridx){
+  e.stopPropagation();
+  // Remove any existing popover
+  document.querySelectorAll('.aicat-pop').forEach(el=>el.remove());
+
+  const row = _filtered[ridx];
+  if(!row) return;
+
+  const pop = document.createElement('div');
+  pop.className = 'aicat-pop';
+  pop.style.cssText = 'position:fixed;z-index:9999;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px;min-width:240px;box-shadow:0 8px 32px #0008;';
+
+  // Position near click
+  pop.style.left = Math.min(e.clientX, window.innerWidth-260)+'px';
+  pop.style.top  = Math.min(e.clientY+8, window.innerHeight-260)+'px';
+
+  const allCats = [...new Set([..._aiCategories, ..._rawRows.map(r=>r._aiKategori).filter(Boolean)])].sort();
+  const opts = allCats.map(c=>`<option value="${esc(c)}" ${c===row._aiKategori?'selected':''}>${esc(c)}</option>`).join('');
+
+  pop.innerHTML = `
+    <div style="font-size:.7rem;color:#94a3b8;margin-bottom:6px;">🟡 AI Kategori Seç / Düzenle</div>
+    <select id="aicatPopSel" style="width:100%;background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:6px;padding:6px 8px;font-size:.82rem;margin-bottom:8px;">
+      <option value="">— Kategori seç —</option>
+      ${opts}
+    </select>
+    <div style="font-size:.68rem;color:#64748b;margin-bottom:4px;">ya da yeni kategori yaz:</div>
+    <div style="display:flex;gap:6px;">
+      <input id="aicatPopInp" type="text" placeholder="Yeni kategori..." value="${esc(row._aiKategori||'')}" style="flex:1;background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:6px;padding:5px 8px;font-size:.82rem;">
+      <button onclick="applyAiCat(${ridx})" style="background:#0891b2;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82rem;">Kaydet</button>
+    </div>`;
+
+  document.body.appendChild(pop);
+
+  // Sync select → input
+  pop.querySelector('#aicatPopSel').addEventListener('change', function(){
+    if(this.value) pop.querySelector('#aicatPopInp').value = this.value;
+  });
+  pop.querySelector('#aicatPopInp').addEventListener('keydown', function(ev){
+    if(ev.key==='Enter') applyAiCat(ridx);
+    if(ev.key==='Escape') pop.remove();
+  });
+
+  // Close on outside click
+  setTimeout(()=>document.addEventListener('click', function _c(ev){ if(!pop.contains(ev.target)){ pop.remove(); document.removeEventListener('click',_c); } }), 10);
+}
+
+function applyAiCat(ridx){
+  const row = _filtered[ridx];
+  if(!row) return;
+  const inp = document.querySelector('.aicat-pop #aicatPopInp');
+  const val = (inp?.value||'').trim();
+  if(!val) return;
+  row._aiKategori = val;
+  // Add to category list if new
+  if(!_aiCategories.includes(val)){ _aiCategories.push(val); }
+  _aiCatDone = true;
+  document.querySelectorAll('.aicat-pop').forEach(el=>el.remove());
+  refreshAiCatFilter();
+  applyFilters();
+}
+
 function renderTable(){
   const thead = document.getElementById('tableHead');
   const tbody = document.getElementById('tableBody');
@@ -760,7 +820,7 @@ function renderTable(){
 
   const today = new Date(); today.setHours(0,0,0,0);
 
-  tbody.innerHTML = _filtered.map(row=>{
+  tbody.innerHTML = _filtered.map((row, ridx)=>{
     let rowClass='';
     const kap = parseDate(row.tahminiKap);
     if(kap && kap < today && row.dofS && !/kapan|kapat|tamam|closed/i.test(row.dofS)){
@@ -770,7 +830,10 @@ function renderTable(){
       let cls='';
       if(f.key==='_aiKategori'){
         const v = row._aiKategori||'';
-        return `<td>${v ? `<span class="aibadge">${esc(v)}</span>` : '<span class="aibadge empty">—</span>'}</td>`;
+        const badge = v
+          ? `<span class="aibadge" title="Düzenle" onclick="editAiCat(event,${ridx})" style="cursor:pointer;">${esc(v)}</span>`
+          : `<span class="aibadge empty" title="Kategori seç" onclick="editAiCat(event,${ridx})" style="cursor:pointer;">+</span>`;
+        return `<td>${badge}</td>`;
       }
       let v = esc(row[f.key]||'');
       if(f.key==='dofSeri') cls=' class="td-seri"';
