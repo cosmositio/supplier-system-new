@@ -831,7 +831,7 @@ function renderTable(){
   const thead = document.getElementById('tableHead');
   const tbody = document.getElementById('tableBody');
 
-  const visibleFields = FIELDS.filter(f=>_rawRows.some(r=>r[f.key]));
+  const visibleFields = FIELDS.filter(f=>f.key!=='dofS' && _rawRows.some(r=>r[f.key]));
   // Build a map from dofSeri (or index) to _aiKategori for safe lookup
   const allFields = _aiCatDone
     ? [...visibleFields, {key:'_aiKategori', label:'🤖 AI Kategori', type:'select'}]
@@ -860,7 +860,11 @@ function renderTable(){
         return `<td>${badge}</td>`;
       }
       let v = esc(row[f.key]||'');
-      if(f.key==='dofSeri') cls=' class="td-seri"';
+      if(f.key==='dofSeri'){
+        const sira = (row.dofS||'').toString().trim();
+        v = esc(row.dofSeri||'') + (sira ? ' - ' + esc(sira) : '');
+        cls=' class="td-seri"';
+      }
       else if(f.key==='uyeler') cls=' class="td-members"';
       else if(f.type==='date') cls=' class="td-date"';
       return `<td${cls}>${v}</td>`;
