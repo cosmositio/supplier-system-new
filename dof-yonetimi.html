@@ -587,7 +587,7 @@ td.nowrap{white-space:nowrap;}
     <div class="dash-grid">
       <div class="dc dc-c4"><h4><span class="dci">🎯</span> Tipi Dağılımı</h4><canvas id="dch_tipi" height="220"></canvas></div>
       <div class="dc dc-c4"><h4><span class="dci">📦</span> Cinsi Dağılımı</h4><canvas id="dch_cinsi" height="220"></canvas></div>
-      <div class="dc dc-c4"><h4><span class="dci">🤖</span> AI Kategori Dağılımı</h4><canvas id="dch_aikat" height="220"></canvas></div>
+      <div class="dc dc-c4"><h4><span class="dci">🏷️</span> Kategori Dağılımı</h4><canvas id="dch_aikat" height="220"></canvas></div>
       <div class="dc dc-c8"><h4><span class="dci">📅</span> Yıllara Göre DÖF Sayısı</h4><canvas id="dch_yil" height="200"></canvas></div>
       <div class="dc dc-c4"><h4><span class="dci">🏢</span> Top Şubeler</h4><ul class="dash-top5" id="dch_sube_top"></ul></div>
       <div class="dc dc-c12"><h4><span class="dci">📈</span> Aylık DÖF Trendi (Şikayet Tarihine Göre)</h4><canvas id="dch_trend" height="110"></canvas></div>
@@ -1098,7 +1098,7 @@ function editAiCat(e, ridx){
   const opts = allCats.map(c=>`<option value="${esc(c)}" ${c===row._aiKategori?'selected':''}>${esc(c)}</option>`).join('');
 
   pop.innerHTML = `
-    <div style="font-size:.7rem;color:#94a3b8;margin-bottom:6px;">🟡 AI Kategori Seç / Düzenle</div>
+    <div style="font-size:.7rem;color:#94a3b8;margin-bottom:6px;">🟡 Kategori Seç / Düzenle</div>
     <select id="aicatPopSel" style="width:100%;background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:6px;padding:6px 8px;font-size:.82rem;margin-bottom:8px;">
       <option value="">— Kategori seç —</option>
       ${opts}
@@ -1147,7 +1147,7 @@ function renderTable(){
   // Build a map from dofSeri (or index) to _aiKategori for safe lookup
   const allFields = [
     ..._aiCatDone
-      ? [...visibleFields, {key:'_aiKategori', label:'🤖 AI Kategori', type:'select'}]
+      ? [...visibleFields, {key:'_aiKategori', label:'Kategori', type:'select'}]
       : visibleFields,
     {key:'_attach', label:'📎', type:'attach'},
     {key:'_del', label:'', type:'del'}
@@ -1856,7 +1856,7 @@ function refreshAiCatFilter(){
   if(!existing){
     const div = document.createElement('div');
     div.className='qf';
-    div.innerHTML=`<label>🤖 AI Kategori</label>
+    div.innerHTML=`<label>Kategori</label>
       <select id="flt__aiKategori" onchange="onFilterChange('_aiKategori',this.value)">
         <option value="">— Tümü —</option>${emptyOpt}${opts}
       </select>`;
@@ -2279,7 +2279,7 @@ function renderDashboard(){
     <div class="dash-kpi accent-amber"><div class="kp-label">Açık DÖF</div><div class="kp-value">${open}</div><div class="kp-sub">tamamlanmamış</div></div>
     <div class="dash-kpi accent-red"><div class="kp-label">Geciken</div><div class="kp-value">${late}</div><div class="kp-sub">kapanış tarihi geçmiş</div></div>
     <div class="dash-kpi accent-green"><div class="kp-label">Kapanan</div><div class="kp-value">${rows.length-open}</div><div class="kp-sub">${rows.length?Math.round((rows.length-open)/rows.length*100):0}% tamamlanma</div></div>
-    <div class="dash-kpi accent-purple"><div class="kp-label">AI Kategori</div><div class="kp-value">${catPct}%</div><div class="kp-sub">kategorize edildi</div></div>
+    <div class="dash-kpi accent-purple"><div class="kp-label">Kategorize Edildi</div><div class="kp-value">${catPct}%</div><div class="kp-sub">kategorize edildi</div></div>
     <div class="dash-kpi accent-blue"><div class="kp-label">Unique Cari</div><div class="kp-value">${uniqueCari}</div><div class="kp-sub">farklı müşteri</div></div>
     <div class="dash-kpi"><div class="kp-label">Şube</div><div class="kp-value">${uniqueSube}</div><div class="kp-sub">farklı şube</div></div>`;
 
