@@ -3869,8 +3869,21 @@ function _normalizeColName(s) {
 }
 function _findMkCol(headers, candidates) {
     const normH = headers.map(h => _normalizeColName(h));
+    // 1. geçiş: tam eşitlik
     for (const c of candidates) {
         const idx = normH.indexOf(_normalizeColName(c));
+        if (idx >= 0) return headers[idx];
+    }
+    // 2. geçiş: aday ile başlayan sütun (örn. "İrsaliye Miktarı" → "İrsaliye Miktar" ile başlıyor)
+    for (const c of candidates) {
+        const nc = _normalizeColName(c);
+        const idx = normH.findIndex(h => h.startsWith(nc));
+        if (idx >= 0) return headers[idx];
+    }
+    // 3. geçiş: aday, sütun içinde geçiyor
+    for (const c of candidates) {
+        const nc = _normalizeColName(c);
+        const idx = normH.findIndex(h => h.includes(nc));
         if (idx >= 0) return headers[idx];
     }
     return null;
@@ -3927,12 +3940,12 @@ function buildBirimFiyatMap(rows) {
     }
     function parseYM(v) {
         if (!v) return '';
-        if (v instanceof Date && !isNaN(v.getTime())) {
+        if (v instanceof Date && !isNaN(v.getTime()))
             return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}`;
-        }
-        const s = String(v).trim();
-        /* DD.MM.YYYY or DD/MM/YYYY */
-        const m = s.match(/^(\d{1,2})[./\-](\d{1,2})[./\-](\d{2,4})$/);
+        // Saatli string’i at: "28.12.2025 10:43" → "28.12.2025"
+        const s = String(v).trim().replace(/\s.*$/, '');
+        // DD.MM.YYYY veya DD/MM/YYYY (saat strip sonrası $ güvenli)
+        const m = s.match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})/);
         if (m) {
             let day=+m[1], mon=+m[2], yr=+m[3];
             if (yr < 100) yr += 2000;
@@ -4421,14 +4434,15 @@ function processSevklerFile(file) {
 function buildSevkBirimFiyatMap(rows) {
     if (!rows || !rows.length) return {};
     const headers = Object.keys(rows[0]);
-    const colStokKodu = _findMkCol(headers, ['Stok Kodu','StokKodu','Stok_Kodu','Kart Kodu','KartKodu']);
-    const colMiktar   = _findMkCol(headers, ['Irsaliye Miktar','İrsaliye Miktar','Irsaliye Mik.','İrsaliye Mik.','irsaliye miktar','IrsaliyeMiktar']);
-    const colTutar    = _findMkCol(headers, ['Tutar','tutar','Toplam Tutar','TL Tutar']);
-    const colTarih    = _findMkCol(headers, ['Irsaliye Tarihi','İrsaliye Tarihi','İrsaliye Tar.','Irsaliye Tar.','Tarih','Date']);
+    const colStokKodu = _findMkCol(headers, ['Stok Kodu','StokKodu','Stok_Kodu','Kart Kodu','KartKodu','stok kodu']);
+    const colMiktar   = _findMkCol(headers, ['İrsaliye Miktarı','İrsaliye Miktar','Irsaliye Miktari','Irsaliye Miktar','İrsaliye Mik.','Irsaliye Mik.','irsaliye miktar','IrsaliyeMiktar']);
+    const colTutar    = _findMkCol(headers, ['Tutar','tutar','Toplam Tutar','TL Tutar','İrsaliye Tutar']);
+    const colTarih    = _findMkCol(headers, ['İrsaliye Tarihi','Irsaliye Tarihi','İrsaliye Tar.','Irsaliye Tar.','Kayit Tarihi','Kayıt Tarihi','Tarih','Date']);
     const colStokAdi  = _findMkCol(headers, ['Stok Adı','Stok Adi','StokAdi','Malzeme Adı','Kart Adı']);
 
     if (!colStokKodu || !colMiktar || !colTutar) {
-        showToast(`⚠️ Stok Kodu / İrsaliye Miktar / Tutar sütunlarından biri bulunamadı. Başlık satırını kontrol edin.`, 'error');
+        const eksik = [!colStokKodu&&'Stok Kodu', !colMiktar&&'İrsaliye Miktar(ı)', !colTutar&&'Tutar'].filter(Boolean).join(', ');
+        showToast(`⚠️ Bulunamayan sütunlar: ${eksik}. Mevcut başlıklar: ${headers.slice(0,15).join(', ')}`, 'error');
         return {};
     }
 
@@ -4444,8 +4458,9 @@ function buildSevkBirimFiyatMap(rows) {
         if (!v) return '';
         if (v instanceof Date && !isNaN(v.getTime()))
             return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}`;
-        const s = String(v).trim();
-        const m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+        // Saatli string’i at: "28.12.2025 10:43" → "28.12.2025"
+        const s = String(v).trim().replace(/\s.*$/, '');
+        const m = s.match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})/);
         if (m) {
             let day=+m[1], mon=+m[2], yr=+m[3];
             if (yr < 100) yr += 2000;
