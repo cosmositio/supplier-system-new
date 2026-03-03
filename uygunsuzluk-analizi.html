@@ -3838,6 +3838,18 @@ let svParetoChartInst = null;
 let _svBfSortCol = 'ay'; let _svBfSortAsc = true;
 let _svBfFiltered = [];
 
+/* Performans: lookup sonuçları önbelleği.
+   Birim fiyat haritaları değişince _invalidateKmCache() çağrılmalı. */
+const _kmLookupCache = new Map();
+function _invalidateKmCache() { _kmLookupCache.clear(); }
+/* Months objesi üzerinde sıralı key listesini lazy olarak sakla */
+function _sortedMonthKeys(months) {
+    if (!months.__sk) {
+        months.__sk = Object.keys(months).filter(k => k).sort();
+    }
+    return months.__sk;
+}
+
 /* Drag-and-drop wiring for km drop zone (called after DOM ready) */
 function _initKmDropZone() {
     const dz = document.getElementById('kmDropZone');
@@ -3908,6 +3920,7 @@ function processMalKabulFile(file) {
             const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
             malKabulRows  = raw;
             birimFiyatMap = buildBirimFiyatMap(raw);
+            _invalidateKmCache();
             const _mkCount = Object.keys(birimFiyatMap).length;
             console.log('[KM MalKabul] stok kod sayısı:', _mkCount, '| örnek:', Object.keys(birimFiyatMap).slice(0,5));
             document.getElementById('kmParetoContent').style.display = 'block';
@@ -4002,18 +4015,29 @@ function buildBirimFiyatMap(rows) {
     return map;
 }
 
-/* Returns unit price for a given stok kodu + year-month.
-   Falls back to nearest available month if exact month not found. */
+/* Returns {price, usedMonth} for a given stok kodu + year-month, or null.
+   1) Tam ay eşleşmesi  2) En yakın önceki ay  3) En yakın sonraki ay  4) Tarihsiz kayıt
+   Sonuç _kmLookupCache ile önlüklenir (memo). */
 function getMatchedBirimFiyat(stokKodu, yearMonth) {
-    const kod = _normKod(stokKodu);   // büyük harf normalize
+    const kod = _normKod(stokKodu);
     if (!kod || !birimFiyatMap[kod]) return null;
+    const cacheKey = 'mk|' + kod + '|' + yearMonth;
+    if (_kmLookupCache.has(cacheKey)) return _kmLookupCache.get(cacheKey);
     const months = birimFiyatMap[kod];
-    // 1) Birebir ay eşleşmesi
-    if (yearMonth && months[yearMonth] !== undefined) return months[yearMonth];
-    // 2) Tarihi olmayan kayıtlar (İrsaliye Tarihi boş)
-    if (months[''] !== undefined) return months[''];
-    // Eşleşme yok → maliyet hesaplanmaz
-    return null;
+    let result = null;
+    if (yearMonth && months[yearMonth] !== undefined) {
+        result = { price: months[yearMonth], usedMonth: yearMonth };
+    } else if (yearMonth) {
+        const sk = _sortedMonthKeys(months);
+        // En yakın önceki: binary-search ile
+        let lo = 0, hi = sk.length - 1, found = -1;
+        while (lo <= hi) { const mid = (lo+hi)>>1; if (sk[mid] <= yearMonth) { found=mid; lo=mid+1; } else hi=mid-1; }
+        if (found >= 0) result = { price: months[sk[found]], usedMonth: sk[found] };
+        else if (sk.length) result = { price: months[sk[0]], usedMonth: sk[0] };
+    }
+    if (!result && months[''] !== undefined) result = { price: months[''], usedMonth: '' };
+    _kmLookupCache.set(cacheKey, result);
+    return result;
 }
 
 function _parseUygTarih(v) {
@@ -4032,7 +4056,12 @@ function _parseUygTarih(v) {
     return '';
 }
 
+let _kmParetoDebounceTimer = null;
 function renderKaliteMaliyetiPareto() {
+    clearTimeout(_kmParetoDebounceTimer);
+    _kmParetoDebounceTimer = setTimeout(_renderKaliteMaliyetiParetoNow, 120);
+}
+function _renderKaliteMaliyetiParetoNow() {
     const hasMk = Object.keys(birimFiyatMap).length > 0;
     const hasSv = Object.keys(sevkBirimFiyatMap).length > 0;
     if (!hasMk && !hasSv) return;
@@ -4057,12 +4086,14 @@ function renderKaliteMaliyetiPareto() {
         const yearMonth    = _parseUygTarih(r.uygunsuzlukTarih);
 
         // Hammadde (Mal Kabul) önce dene, yoksa Mamul (Sevkler)
-        let birimFiyat = getMatchedBirimFiyat(stokKodu, yearMonth);
-        if (birimFiyat != null && stokKodu) {
+        let res = getMatchedBirimFiyat(stokKodu, yearMonth);
+        let birimFiyat = null;
+        if (res != null && stokKodu) {
+            birimFiyat = res.price;
             mkMatchCount++;
         } else {
-            birimFiyat = _getSevkBirimFiyat(stokKodu, yearMonth);
-            if (birimFiyat != null && stokKodu) svMatchCount++;
+            res = _getSevkBirimFiyat(stokKodu, yearMonth);
+            if (res != null && stokKodu) { birimFiyat = res.price; svMatchCount++; }
             else if (stokKodu) unmatchedKodlar.add(stokKodu);
         }
         const maliyet = birimFiyat != null ? birimFiyat * hataliMiktar : 0;
@@ -4341,18 +4372,31 @@ function _drawKmBfTableBody() {
     if (!tbody) return;
 
     // Build uygunsuzluk stok kodu lookup map (normalize ile)
-    const uygMap = {}; // {NORM_KOD: {count, hataliMiktar}}
+    // uygMap: {NORM_KOD: {count, hataliMiktar}}
+    // uygMonthMap: {"NORM_KOD|usedMonth": Set<uygAy>}  → bu birim fiyat ayını kullanan uyg. ayları
+    const uygMap = {};
+    const uygMonthMap = {};
     (typeof allData !== 'undefined' ? allData : []).forEach(r => {
         const k = _normKod(r.stokKodu);
         if (!k) return;
         if (!uygMap[k]) uygMap[k] = { count: 0, hataliMiktar: 0 };
         uygMap[k].count++;
         uygMap[k].hataliMiktar += Number(r.hataliMiktar) || 0;
+
+        // Hangi birim fiyat ayını kullandı?
+        const uygAy = _parseUygTarih(r.uygunsuzlukTarih);
+        let res = getMatchedBirimFiyat(k, uygAy);
+        if (!res) res = _getSevkBirimFiyat(k, uygAy);
+        if (res) {
+            const mapKey = k + '|' + res.usedMonth;
+            if (!uygMonthMap[mapKey]) uygMonthMap[mapKey] = new Set();
+            uygMonthMap[mapKey].add(uygAy || '(tarihsiz)');
+        }
     });
 
     // Attach uygKayitSayisi to each filtered row (for sorting)
     _kmBfFiltered.forEach(r => {
-        const m = uygMap[_normKod(r.stokKodu)];   // normalize ile bak
+        const m = uygMap[_normKod(r.stokKodu)];
         r.uygKayitSayisi = m ? m.count : 0;
     });
 
@@ -4360,15 +4404,26 @@ function _drawKmBfTableBody() {
     const fmtN = n => Number(n).toLocaleString('tr', { maximumFractionDigits: 4 });
 
     tbody.innerHTML = _kmBfFiltered.map(r => {
-        const m = uygMap[_normKod(r.stokKodu)];
+        const normK = _normKod(r.stokKodu);
+        const rowAy  = r.ay === '(Tarihsiz)' ? '' : r.ay;   // haritadaki key boş string
+        const m = uygMap[normK];
+        const uygAylar = uygMonthMap[normK + '|' + rowAy];
+
         let matchBadge;
         if (!m) {
             matchBadge = `<span class="km-bf-match-no">❌ Eşleşme Yok</span>`;
+        } else if (uygAylar && uygAylar.size) {
+            // Bu satırın ayı gerçekten kullanıldı
+            const ayList = [...uygAylar].sort().join(', ');
+            const exact  = uygAylar.has(rowAy);  // tam ay eşleşmesi mi?
+            const badge  = exact
+                ? `<span class="km-bf-match-yes" title="Uyg. ayları: ${ayList}">✅ ${m.count.toLocaleString('tr')} kayıt &nbsp;· tam eşleşme</span>`
+                : `<span class="km-bf-match-yes" style="background:#fef3c7;color:#92400e;border:1px solid #f59e0b;" title="Uyg. ayları: ${ayList}">✅ ${m.count.toLocaleString('tr')} kayıt &nbsp;·&nbsp; <em>yakın ay kullanıldı</em></span>`;
+            const uygAyBadge = `<div style="margin-top:3px;font-size:.72em;color:#6b7280;">Uyg. ayları: <strong>${ayList}</strong></div>`;
+            matchBadge = badge + uygAyBadge;
         } else {
-            const hm = m.hataliMiktar > 0
-                ? `&nbsp;&middot;&nbsp;<span style="font-size:0.82em;opacity:.8;">${fmtN(m.hataliMiktar)} hatalı</span>`
-                : '';
-            matchBadge = `<span class="km-bf-match-yes">✅ ${m.count.toLocaleString('tr')} kayıt${hm}</span>`;
+            // Stok kodu eşleşti ama bu özel ay kullanılmadı
+            matchBadge = `<span class="km-bf-match-yes" style="opacity:.45;" title="${normK} için farklı bir ay seçildi.">✅ ${m.count.toLocaleString('tr')} kayıt &nbsp;·&nbsp; <em>bu ay seçilmedi</em></span>`;
         }
         const srcBadge = r._src
             ? `<span style="font-size:.72em;padding:1px 7px;border-radius:9px;white-space:nowrap;
@@ -4444,6 +4499,7 @@ function processSevklerFile(file) {
             const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
             sevkRows             = raw;
             sevkBirimFiyatMap    = buildSevkBirimFiyatMap(raw);
+            _invalidateKmCache();
             sevkBirimFiyatDetail = sevkBirimFiyatDetail; // rebuilt inside buildSevkBirimFiyatMap
             const _svCount = Object.keys(sevkBirimFiyatMap).length;
             console.log('[KM Sevkler] stok kod sayısı:', _svCount, '| örnek:', Object.keys(sevkBirimFiyatMap).slice(0,5));
@@ -4539,14 +4595,20 @@ function buildSevkBirimFiyatMap(rows) {
 }
 
 function _getSevkBirimFiyat(stokKodu, yearMonth) {
-    const kod = _normKod(stokKodu);   // büyük harf normalize
+    const kod = _normKod(stokKodu);
     if (!kod || !sevkBirimFiyatMap[kod]) return null;
     const months = sevkBirimFiyatMap[kod];
     // 1) Birebir ay eşleşmesi
     if (yearMonth && months[yearMonth] !== undefined) return months[yearMonth];
-    // 2) Tarihi olmayan kayıtlar (İrsaliye Tarihi boş)
+    // 2) En yakın önceki ay
+    if (yearMonth) {
+        const keys = Object.keys(months).filter(k => k && k <= yearMonth).sort();
+        if (keys.length) return months[keys[keys.length - 1]];
+        const futureKeys = Object.keys(months).filter(k => k && k > yearMonth).sort();
+        if (futureKeys.length) return months[futureKeys[0]];
+    }
+    // 3) Tarihsiz kayıt
     if (months[''] !== undefined) return months[''];
-    // Eşleşme yok → maliyet hesaplanmaz
     return null;
 }
 
@@ -9242,6 +9304,7 @@ function _restoreKmData() {
         if (mk && mk.rows && mk.rows.length) {
             malKabulRows  = mk.rows;
             birimFiyatMap = buildBirimFiyatMap(mk.rows);
+            _invalidateKmCache();
             const savedAt = new Date(mk.savedAt).toLocaleString('tr-TR');
             const dz = document.getElementById('kmDropZone');
             if (dz) dz.innerHTML =
@@ -9253,6 +9316,7 @@ function _restoreKmData() {
         if (sv && sv.rows && sv.rows.length) {
             sevkRows          = sv.rows;
             sevkBirimFiyatMap = buildSevkBirimFiyatMap(sv.rows);
+            _invalidateKmCache();
             const savedAt = new Date(sv.savedAt).toLocaleString('tr-TR');
             const dz2 = document.getElementById('svDropZone');
             if (dz2) dz2.innerHTML =
