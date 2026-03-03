@@ -116,6 +116,7 @@ tbody tr:last-child{border-bottom:none;}
 td{padding:6px 10px;vertical-align:top;max-width:220px;word-break:break-word;}
 td.nowrap{white-space:nowrap;}
 .td-seri{font-weight:700;color:#1e3a5f;white-space:nowrap;}
+.td-baslik{min-width:220px;max-width:320px;}
 .td-members{font-size:.68rem;color:#475569;max-width:200px;}
 .td-date{white-space:nowrap;font-size:.72rem;}
 
@@ -1271,6 +1272,7 @@ function renderTable(){
       else if(f.key==='subeAdi'){
         return `<td class="td-sube" title="Düzenle" onclick="editSubeAdi(event,${ridx})" style="cursor:pointer;min-width:90px;">${v||'<span style="opacity:.4;font-size:.7rem;">+ ekle</span>'}</td>`;
       }
+      else if(f.key==='baslik') cls=' class="td-baslik"';
       else if(f.key==='uyeler') cls=' class="td-members"';
       else if(f.type==='date') cls=' class="td-date"';
       return `<td${cls}>${v}</td>`;
