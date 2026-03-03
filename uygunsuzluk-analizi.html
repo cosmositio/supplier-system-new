@@ -1458,7 +1458,7 @@
                     <div style="margin-top:18px;">
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
                             <button onclick="toggleKmBfTable()" style="display:flex;align-items:center;gap:6px;background:#f0fdf4;border:1.5px solid #6ee7b7;border-radius:8px;padding:6px 14px;font-size:0.85em;font-weight:700;color:#065f46;cursor:pointer;">
-                                <span id="kmBfToggleIcon">▶</span> 📋 Hammadde Birim Fiyat Hesaplama Detayı
+                                <span id="kmBfToggleIcon">▶</span> 📋 Birleşik Birim Fiyat Hesaplama Detayı (Mal Kabul + Sevkler)
                             </button>
                             <div style="display:none;align-items:center;gap:8px;" id="kmBfTableControls">
                                 <input type="text" id="kmBfSearch" class="km-bf-search" placeholder="🔍 Stok kodu veya adı ara..." oninput="filterKmBfTable()">
@@ -1471,6 +1471,7 @@
                                     <thead><tr>
                                         <th onclick="sortKmBfTable('stokKodu')">Stok Kodu <span class="sort-icon"></span></th>
                                         <th onclick="sortKmBfTable('stokAdi')">Stok Adı <span class="sort-icon"></span></th>
+                                        <th onclick="sortKmBfTable('_src')">Kaynak <span class="sort-icon"></span></th>
                                         <th onclick="sortKmBfTable('ay')">Ay <span class="sort-icon"></span></th>
                                         <th onclick="sortKmBfTable('kayitSayisi')">Kayıt Sayısı <span class="sort-icon"></span></th>
                                         <th onclick="sortKmBfTable('sumMiktar')">Toplam Miktar <span class="sort-icon"></span></th>
@@ -3889,6 +3890,12 @@ function _findMkCol(headers, candidates) {
     return null;
 }
 
+/* Stok kodu normalize: trim + büyük harf + tek boşluk.
+   Böylece "700.0.444-2X" ile "700.0.444-2x" veya " 700.0.444-2x " eşleşir. */
+function _normKod(s) {
+    return String(s || '').trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
 function processMalKabulFile(file) {
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
         showToast('Lütfen .xlsx veya .xls dosyası seçin!', 'error'); return;
@@ -3901,16 +3908,18 @@ function processMalKabulFile(file) {
             const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
             malKabulRows  = raw;
             birimFiyatMap = buildBirimFiyatMap(raw);
+            const _mkCount = Object.keys(birimFiyatMap).length;
+            console.log('[KM MalKabul] stok kod sayısı:', _mkCount, '| örnek:', Object.keys(birimFiyatMap).slice(0,5));
             document.getElementById('kmParetoContent').style.display = 'block';
             document.getElementById('kmDropZone').innerHTML =
                 `<div class="icon" style="font-size:1.8em;">✅</div>
                  <p style="color:#065f46;font-size:0.92em;font-weight:600;">${file.name} yüklendi — ${raw.length.toLocaleString('tr')} satır</p>
-                 <p class="hint">Değiştirmek için tekrar tıklayın &nbsp;|&nbsp; <span style="color:#b91c1c;cursor:pointer;text-decoration:underline" onclick="_clearKmMalKabul()">Temizle</span></p>`;
+                 <p class="hint">${_mkCount.toLocaleString('tr')} farklı stok kodu &nbsp;|&nbsp; <span style="color:#b91c1c;cursor:pointer;text-decoration:underline" onclick="_clearKmMalKabul()">Temizle</span></p>`;
             renderKaliteMaliyetiPareto();
             renderKmBirimFiyatTable();
             // IndexedDB'ye kaydet (sayfa yenilenince geri yüklensin)
             dbSet('kmMalKabul', { rows: raw, fileName: file.name, savedAt: new Date().toISOString() }).catch(() => {});
-            showToast(`✅ Mal Kabul dosyası yüklendi: ${raw.length.toLocaleString('tr')} satır`);
+            showToast(`✅ Mal Kabul: ${raw.length.toLocaleString('tr')} satır, ${_mkCount.toLocaleString('tr')} stok kodu`);
         } catch(err) {
             showToast('❌ Dosya okunamadı: ' + err.message, 'error');
         }
@@ -3931,6 +3940,7 @@ function buildBirimFiyatMap(rows) {
         showToast(`⚠️ Stok Kodu / Miktar / İrsaliye Tutar TL sütunlarından biri bulunamadı. Başlık satırını kontrol edin.`, 'error');
         return {};
     }
+    console.log('[buildBirimFiyatMap] Sütunlar → StokKodu:', colStokKodu, '| Miktar:', colMiktar, '| Tutar:', colTutar, '| Tarih:', colTarih);
 
     function parseNum(v) {
         if (v === '' || v == null) return 0;
@@ -3964,7 +3974,7 @@ function buildBirimFiyatMap(rows) {
 
     const acc = {}; // {stokKodu: {YYYY-MM: {sumTutar, sumMiktar, count, stokAdi}}}
     rows.forEach(row => {
-        const kod    = String(row[colStokKodu] || '').trim();
+        const kod    = _normKod(row[colStokKodu]);   // büyük harf + trim normalize
         if (!kod) return;
         const tutar  = parseNum(row[colTutar]);
         const miktar = parseNum(row[colMiktar]);
@@ -3995,7 +4005,7 @@ function buildBirimFiyatMap(rows) {
 /* Returns unit price for a given stok kodu + year-month.
    Falls back to nearest available month if exact month not found. */
 function getMatchedBirimFiyat(stokKodu, yearMonth) {
-    const kod = String(stokKodu || '').trim();
+    const kod = _normKod(stokKodu);   // büyük harf normalize
     if (!kod || !birimFiyatMap[kod]) return null;
     const months = birimFiyatMap[kod];
     // 1) Birebir ay eşleşmesi
@@ -4042,7 +4052,7 @@ function renderKaliteMaliyetiPareto() {
     const unmatchedKodlar = new Set();
 
     src.forEach(r => {
-        const stokKodu     = String(r.stokKodu || '').trim();
+        const stokKodu     = _normKod(r.stokKodu);   // normalize
         const hataliMiktar = Number(r.hataliMiktar) || 0;
         const yearMonth    = _parseUygTarih(r.uygunsuzlukTarih);
 
@@ -4272,20 +4282,30 @@ function toggleKmBfTable() {
     if (open) renderKmBirimFiyatTable();
 }
 
+/* Mal Kabul + Sevkler birleşik detay satırları */
+function _kmAllDetail() {
+    return [
+        ...birimFiyatDetail.map(r => ({...r, _src: '📦 Mal Kabul'})),
+        ...sevkBirimFiyatDetail.map(r => ({...r, _src: '🚚 Sevkler'}))
+    ];
+}
+
 function renderKmBirimFiyatTable() {
-    if (!birimFiyatDetail.length) return;
-    _kmBfFiltered = [...birimFiyatDetail];
+    const all = _kmAllDetail();
+    if (!all.length) return;
+    _kmBfFiltered = all;
     _applyKmBfSort();
     _drawKmBfTableBody();
 }
 
 function filterKmBfTable() {
     const q = (document.getElementById('kmBfSearch').value || '').trim().toLowerCase();
-    _kmBfFiltered = birimFiyatDetail.filter(r =>
+    _kmBfFiltered = _kmAllDetail().filter(r =>
         !q ||
         r.stokKodu.toLowerCase().includes(q) ||
         r.stokAdi.toLowerCase().includes(q) ||
-        r.ay.toLowerCase().includes(q)
+        r.ay.toLowerCase().includes(q) ||
+        (r._src || '').toLowerCase().includes(q)
     );
     _applyKmBfSort();
     _drawKmBfTableBody();
@@ -4320,10 +4340,10 @@ function _drawKmBfTableBody() {
     const infoEl = document.getElementById('kmBfTableInfo');
     if (!tbody) return;
 
-    // Build uygunsuzluk stok kodu lookup map
-    const uygMap = {}; // {stokKodu: {count, hataliMiktar}}
+    // Build uygunsuzluk stok kodu lookup map (normalize ile)
+    const uygMap = {}; // {NORM_KOD: {count, hataliMiktar}}
     (typeof allData !== 'undefined' ? allData : []).forEach(r => {
-        const k = String(r.stokKodu || '').trim();
+        const k = _normKod(r.stokKodu);
         if (!k) return;
         if (!uygMap[k]) uygMap[k] = { count: 0, hataliMiktar: 0 };
         uygMap[k].count++;
@@ -4332,7 +4352,7 @@ function _drawKmBfTableBody() {
 
     // Attach uygKayitSayisi to each filtered row (for sorting)
     _kmBfFiltered.forEach(r => {
-        const m = uygMap[r.stokKodu];
+        const m = uygMap[_normKod(r.stokKodu)];   // normalize ile bak
         r.uygKayitSayisi = m ? m.count : 0;
     });
 
@@ -4340,7 +4360,7 @@ function _drawKmBfTableBody() {
     const fmtN = n => Number(n).toLocaleString('tr', { maximumFractionDigits: 4 });
 
     tbody.innerHTML = _kmBfFiltered.map(r => {
-        const m = uygMap[r.stokKodu];
+        const m = uygMap[_normKod(r.stokKodu)];
         let matchBadge;
         if (!m) {
             matchBadge = `<span class="km-bf-match-no">❌ Eşleşme Yok</span>`;
@@ -4350,10 +4370,16 @@ function _drawKmBfTableBody() {
                 : '';
             matchBadge = `<span class="km-bf-match-yes">✅ ${m.count.toLocaleString('tr')} kayıt${hm}</span>`;
         }
+        const srcBadge = r._src
+            ? `<span style="font-size:.72em;padding:1px 7px;border-radius:9px;white-space:nowrap;
+               background:${r._src.includes('Mal') ? '#dcfce7' : '#dbeafe'};
+               color:${r._src.includes('Mal') ? '#166534' : '#1e40af'};">${r._src}</span>`
+            : '';
         return `
         <tr>
             <td style="font-weight:600;color:#065f46;">${r.stokKodu}</td>
             <td>${r.stokAdi || '<span style="opacity:.4;font-size:.85em;">—</span>'}</td>
+            <td style="text-align:center;">${srcBadge}</td>
             <td>${r.ay}</td>
             <td style="text-align:center;">${r.kayitSayisi.toLocaleString('tr')}</td>
             <td style="text-align:right;">${fmtN(r.sumMiktar)}</td>
@@ -4365,17 +4391,18 @@ function _drawKmBfTableBody() {
     }).join('');
 
     // Legend + info
-    const matchedKods   = _kmBfFiltered.filter(r => uygMap[r.stokKodu]).length;
+    const matchedKods   = _kmBfFiltered.filter(r => uygMap[_normKod(r.stokKodu)]).length;
     const unmatchedKods = _kmBfFiltered.length - matchedKods;
     const uniqueKods    = new Set(_kmBfFiltered.map(r => r.stokKodu)).size;
     infoEl.innerHTML = `${_kmBfFiltered.length.toLocaleString('tr')} satır gösteriliyor (${uniqueKods.toLocaleString('tr')} farklı stok kodu) &nbsp;—&nbsp; <span class="km-bf-match-yes" style="font-size:.78em;">✅ ${matchedKods.toLocaleString('tr')} uyg. eşleşen</span>&nbsp;<span class="km-bf-match-no" style="font-size:.78em;">❌ ${unmatchedKods.toLocaleString('tr')} eşleşmeyen</span>`;
 }
 
 function exportKmBfTableExcel() {
-    if (!birimFiyatDetail.length) { showToast('⚠️ Önce Mal Kabul dosyası yükleyin.', 'error'); return; }
+    if (!_kmAllDetail().length) { showToast('⚠️ Önce Mal Kabul veya Sevkler dosyası yükleyin.', 'error'); return; }
     const rows = _kmBfFiltered.map(r => ({
         'Stok Kodu'             : r.stokKodu,
         'Stok Adı'              : r.stokAdi,
+        'Kaynak'                : r._src || '',
         'Ay'                    : r.ay,
         'Kayıt Sayısı'          : r.kayitSayisi,
         'Toplam Miktar'         : r.sumMiktar,
@@ -4418,16 +4445,19 @@ function processSevklerFile(file) {
             sevkRows             = raw;
             sevkBirimFiyatMap    = buildSevkBirimFiyatMap(raw);
             sevkBirimFiyatDetail = sevkBirimFiyatDetail; // rebuilt inside buildSevkBirimFiyatMap
+            const _svCount = Object.keys(sevkBirimFiyatMap).length;
+            console.log('[KM Sevkler] stok kod sayısı:', _svCount, '| örnek:', Object.keys(sevkBirimFiyatMap).slice(0,5));
             document.getElementById('svDropZone').innerHTML =
                 `<div class="icon" style="font-size:1.8em;">✅</div>
                  <p style="color:#1e3a8a;font-size:0.92em;font-weight:600;">${file.name} yüklendi — ${raw.length.toLocaleString('tr')} satır</p>
-                 <p class="hint">Değiştirmek için tekrar tıklayın &nbsp;|&nbsp; <span style="color:#b91c1c;cursor:pointer;text-decoration:underline" onclick="_clearKmSevkler()">Temizle</span></p>`;
+                 <p class="hint">${_svCount.toLocaleString('tr')} farklı stok kodu &nbsp;|&nbsp; <span style="color:#b91c1c;cursor:pointer;text-decoration:underline" onclick="_clearKmSevkler()">Temizle</span></p>`;
             // Tek pareto üzerinde her iki kaynak birlikte gösterilir
             document.getElementById('kmParetoContent').style.display = 'block';
             renderKaliteMaliyetiPareto();
+            renderKmBirimFiyatTable();
             // IndexedDB'ye kaydet
             dbSet('kmSevkler', { rows: raw, fileName: file.name, savedAt: new Date().toISOString() }).catch(() => {});
-            showToast(`✅ Sevkler dosyası yüklendi: ${raw.length.toLocaleString('tr')} satır`);
+            showToast(`✅ Sevkler: ${raw.length.toLocaleString('tr')} satır, ${_svCount.toLocaleString('tr')} stok kodu`);
         } catch(err) {
             showToast('❌ Dosya okunamadı: ' + err.message, 'error');
         }
@@ -4449,6 +4479,7 @@ function buildSevkBirimFiyatMap(rows) {
         showToast(`⚠️ Bulunamayan sütunlar: ${eksik}. Mevcut başlıklar: ${headers.slice(0,15).join(', ')}`, 'error');
         return {};
     }
+    console.log('[buildSevkBirimFiyatMap] Sütunlar → StokKodu:', colStokKodu, '| Miktar:', colMiktar, '| Tutar:', colTutar, '| Tarih:', colTarih);
 
     function parseNum(v) {
         if (v === '' || v == null) return 0;
@@ -4479,7 +4510,7 @@ function buildSevkBirimFiyatMap(rows) {
 
     const acc = {};
     rows.forEach(row => {
-        const kod    = String(row[colStokKodu] || '').trim();
+        const kod    = _normKod(row[colStokKodu]);   // büyük harf + trim normalize
         if (!kod) return;
         const tutar  = parseNum(row[colTutar]);
         const miktar = parseNum(row[colMiktar]);
@@ -4508,7 +4539,7 @@ function buildSevkBirimFiyatMap(rows) {
 }
 
 function _getSevkBirimFiyat(stokKodu, yearMonth) {
-    const kod = String(stokKodu || '').trim();
+    const kod = _normKod(stokKodu);   // büyük harf normalize
     if (!kod || !sevkBirimFiyatMap[kod]) return null;
     const months = sevkBirimFiyatMap[kod];
     // 1) Birebir ay eşleşmesi
