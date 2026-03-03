@@ -4538,6 +4538,12 @@ function buildSevkBirimFiyatMap(rows) {
         return {};
     }
     console.log('[buildSevkBirimFiyatMap] Sütunlar → StokKodu:', colStokKodu, '| Miktar:', colMiktar, '| Tutar:', colTutar, '| Tarih:', colTarih);
+    // TANI: ilk 3 satırın ham değerlerini göster
+    rows.slice(0, 3).forEach((r, i) => {
+        const mRaw = r[colMiktar], tRaw = r[colTutar];
+        console.log(`[TANI][${i}] Miktar ham:`, JSON.stringify(mRaw), 'type:', typeof mRaw,
+                    '| Tutar ham:', JSON.stringify(tRaw), 'type:', typeof tRaw);
+    });
 
     function parseNum(v) {
         if (v === '' || v == null) return 0;
