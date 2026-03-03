@@ -3983,7 +3983,10 @@ function buildBirimFiyatMap(rows) {
         if (typeof v === 'number') return isFinite(v) ? v : 0;
         const s = String(v).trim().replace(/\s/g, '');
         if (!s) return 0;
+        // TR format: virgüllü ondalık (ör. 7.200,00 veya 295.590,73)
         if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+        // TR binlik nokta, ondalıksız (ör. 7.200 → 7200, 295.590 → 295590)
+        if (/^\d{1,3}(\.\d{3})+$/.test(s)) return parseFloat(s.replace(/\./g, '')) || 0;
         return parseFloat(s) || 0;
     }
     function parseYM(v) {
@@ -4533,7 +4536,10 @@ function buildSevkBirimFiyatMap(rows) {
         if (typeof v === 'number') return isFinite(v) ? v : 0;
         const s = String(v).trim().replace(/\s/g, '');
         if (!s) return 0;
+        // TR format: virgüllü ondalık (ör. 7.200,00 veya 142.989,19)
         if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+        // TR binlik nokta, ondalıksız (ör. 7.200 → 7200, 14.400 → 14400)
+        if (/^\d{1,3}(\.\d{3})+$/.test(s)) return parseFloat(s.replace(/\./g, '')) || 0;
         return parseFloat(s) || 0;
     }
     function parseYM(v) {
