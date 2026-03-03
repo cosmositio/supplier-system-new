@@ -3918,7 +3918,12 @@ function buildBirimFiyatMap(rows) {
     }
 
     function parseNum(v) {
-        return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+        if (v === '' || v == null) return 0;
+        if (typeof v === 'number') return isFinite(v) ? v : 0;
+        const s = String(v).trim().replace(/\s/g, '');
+        if (!s) return 0;
+        if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+        return parseFloat(s) || 0;
     }
     function parseYM(v) {
         if (!v) return '';
@@ -4434,7 +4439,12 @@ function buildSevkBirimFiyatMap(rows) {
     }
 
     function parseNum(v) {
-        return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+        if (v === '' || v == null) return 0;
+        if (typeof v === 'number') return isFinite(v) ? v : 0;
+        const s = String(v).trim().replace(/\s/g, '');
+        if (!s) return 0;
+        if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+        return parseFloat(s) || 0;
     }
     function parseYM(v) {
         if (!v) return '';
