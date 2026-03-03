@@ -2930,10 +2930,8 @@ function _applyFiltersNow() {
     if (document.getElementById('tab-sankey').classList.contains('active'))  renderSankey();
     if (document.getElementById('tab-boxplot').classList.contains('active')) renderBoxPlot();
     if (document.getElementById('tab-scatter').classList.contains('active')) renderScatter();
+    _invalidateUygMap();
     renderKaliteMaliyetiPareto();
-    // Birim fiyat tablosu açıksa filtreli veriye göre yenile
-    const _kmBfWrap = document.getElementById('kmBfTableWrap');
-    if (_kmBfWrap && _kmBfWrap.style.display !== 'none') renderKmBirimFiyatTable();
     showToast(`${filteredData.length} kayıt filtrelendi`, 'success');
 }
 
@@ -2970,9 +2968,8 @@ function resetFilters() {
     if (document.getElementById('tab-sankey').classList.contains('active'))  renderSankey();
     if (document.getElementById('tab-boxplot').classList.contains('active')) renderBoxPlot();
     if (document.getElementById('tab-scatter').classList.contains('active')) renderScatter();
+    _invalidateUygMap();
     renderKaliteMaliyetiPareto();
-    const _kmBfWrapR = document.getElementById('kmBfTableWrap');
-    if (_kmBfWrapR && _kmBfWrapR.style.display !== 'none') renderKmBirimFiyatTable();
     showToast('Filtreler sıfırlandı');
 }
 
@@ -3847,12 +3844,34 @@ let birimFiyatDetail = [];     // [{stokKodu, stokAdi, ay, sumMiktar, sumTutar, 
 let kmParetoChartInst = null;
 let _kmBfSortCol = 'ay'; let _kmBfSortAsc = true;
 let _kmBfFiltered = [];
+let _kmBfPage = 0; // current page index (0-based), 150 rows per page
 
 let sevkRows         = null;   // raw rows from sevkler excel
 let sevkBirimFiyatMap    = {};     // {stokKodu: {YYYY-MM: weightedAvgPrice}}
 let sevkBirimFiyatDetail = [];     // [{stokKodu, stokAdi, ay, sumMiktar, sumTutar, birimFiyat, kayitSayisi}]
 let svParetoChartInst = null;
 let _svBfSortCol = 'ay'; let _svBfSortAsc = true;
+let _svBfPage = 0;
+
+// uygMap önbelleği — filteredData değişince otomatik geçersizleşir
+let _uygMapCache = null;
+let _uygMapDataRef = null;
+function _getUygMap() {
+    const src = typeof filteredData !== 'undefined' ? filteredData : allData;
+    if (src === _uygMapDataRef && _uygMapCache) return _uygMapCache;
+    const m = {};
+    src.forEach(r => {
+        const k = _normKod(r.stokKodu);
+        if (!k) return;
+        if (!m[k]) m[k] = { count: 0, hataliMiktar: 0 };
+        m[k].count++;
+        m[k].hataliMiktar += Number(r.hataliMiktar) || 0;
+    });
+    _uygMapCache = m;
+    _uygMapDataRef = src;
+    return m;
+}
+function _invalidateUygMap() { _uygMapCache = null; _uygMapDataRef = null; }
 let _svBfFiltered = [];
 
 /* Drag-and-drop wiring for km drop zone (called after DOM ready) */
@@ -4033,20 +4052,25 @@ function getMatchedBirimFiyat(stokKodu, yearMonth) {
     return null;
 }
 
+const _parseUygTarihCache = new Map();
 function _parseUygTarih(v) {
     if (!v) return '';
+    if (_parseUygTarihCache.has(v)) return _parseUygTarihCache.get(v);
+    let result = '';
     const d = new Date(v);
-    if (!isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const m = String(v).match(/(\d{1,2})[./\-](\d{1,2})[./\-](\d{2,4})/);
-    if (m) {
-        let day=+m[1], mon=+m[2], yr=+m[3];
-        if (yr < 100) yr += 2000;
-        const d2 = day > 12
-            ? new Date(yr, mon-1, day)
-            : new Date(yr, mon-1, day);
-        if (!isNaN(d2.getTime())) return `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}`;
+    if (!isNaN(d.getTime())) {
+        result = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    } else {
+        const m = String(v).match(/(\d{1,2})[./\-](\d{1,2})[./\-](\d{2,4})/);
+        if (m) {
+            let day=+m[1], mon=+m[2], yr=+m[3];
+            if (yr < 100) yr += 2000;
+            const d2 = new Date(yr, mon-1, day);
+            if (!isNaN(d2.getTime())) result = `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}`;
+        }
     }
-    return '';
+    _parseUygTarihCache.set(v, result);
+    return result;
 }
 
 function renderKaliteMaliyetiPareto() {
@@ -4310,19 +4334,18 @@ function _kmAllDetail() {
 function renderKmBirimFiyatTable() {
     const all = _kmAllDetail();
     if (!all.length) return;
-    const activeKods = new Set(
-        (typeof filteredData !== 'undefined' ? filteredData : allData).map(r => _normKod(r.stokKodu))
-    );
+    const uygMap = _getUygMap();
+    const activeKods = new Set(Object.keys(uygMap));
     _kmBfFiltered = activeKods.size > 0 ? all.filter(r => activeKods.has(_normKod(r.stokKodu))) : all;
+    _kmBfPage = 0;
     _applyKmBfSort();
     _drawKmBfTableBody();
 }
 
 function filterKmBfTable() {
     const q = (document.getElementById('kmBfSearch').value || '').trim().toLowerCase();
-    const activeKods = new Set(
-        (typeof filteredData !== 'undefined' ? filteredData : allData).map(r => _normKod(r.stokKodu))
-    );
+    const uygMap = _getUygMap();
+    const activeKods = new Set(Object.keys(uygMap));
     _kmBfFiltered = _kmAllDetail().filter(r => {
         if (activeKods.size > 0 && !activeKods.has(_normKod(r.stokKodu))) return false;
         return !q ||
@@ -4331,6 +4354,7 @@ function filterKmBfTable() {
             r.ay.toLowerCase().includes(q) ||
             (r._src || '').toLowerCase().includes(q);
     });
+    _kmBfPage = 0;
     _applyKmBfSort();
     _drawKmBfTableBody();
 }
@@ -4338,6 +4362,7 @@ function filterKmBfTable() {
 function sortKmBfTable(col) {
     if (_kmBfSortCol === col) _kmBfSortAsc = !_kmBfSortAsc;
     else { _kmBfSortCol = col; _kmBfSortAsc = true; }
+    _kmBfPage = 0;
     _applyKmBfSort();
     _drawKmBfTableBody();
     // Update sort icons
@@ -4359,31 +4384,22 @@ function _applyKmBfSort() {
     });
 }
 
+const _KM_BF_PAGE_SIZE = 150;
 function _drawKmBfTableBody() {
     const tbody = document.getElementById('kmBfTableBody');
     const infoEl = document.getElementById('kmBfTableInfo');
     if (!tbody) return;
 
-    // Build uygunsuzluk stok kodu lookup map (normalize ile)
-    const uygMap = {}; // {NORM_KOD: {count, hataliMiktar}}
-    (typeof filteredData !== 'undefined' ? filteredData : allData).forEach(r => {
-        const k = _normKod(r.stokKodu);
-        if (!k) return;
-        if (!uygMap[k]) uygMap[k] = { count: 0, hataliMiktar: 0 };
-        uygMap[k].count++;
-        uygMap[k].hataliMiktar += Number(r.hataliMiktar) || 0;
-    });
+    const uygMap = _getUygMap();
 
-    // Attach uygKayitSayisi to each filtered row (for sorting)
-    _kmBfFiltered.forEach(r => {
-        const m = uygMap[_normKod(r.stokKodu)];   // normalize ile bak
-        r.uygKayitSayisi = m ? m.count : 0;
-    });
+    const total = _kmBfFiltered.length;
+    const start = _kmBfPage * _KM_BF_PAGE_SIZE;
+    const pageRows = _kmBfFiltered.slice(start, start + _KM_BF_PAGE_SIZE);
 
     const fmt  = (n, dec = 2) => Number(n).toLocaleString('tr', { minimumFractionDigits: dec, maximumFractionDigits: dec });
     const fmtN = n => Number(n).toLocaleString('tr', { maximumFractionDigits: 4 });
 
-    tbody.innerHTML = _kmBfFiltered.map(r => {
+    tbody.innerHTML = pageRows.map(r => {
         const m = uygMap[_normKod(r.stokKodu)];
         let matchBadge;
         if (!m) {
@@ -4414,12 +4430,19 @@ function _drawKmBfTableBody() {
         </tr>`;
     }).join('');
 
-    // Legend + info
-    const matchedKods   = _kmBfFiltered.filter(r => uygMap[_normKod(r.stokKodu)]).length;
-    const unmatchedKods = _kmBfFiltered.length - matchedKods;
-    const uniqueKods    = new Set(_kmBfFiltered.map(r => r.stokKodu)).size;
-    infoEl.innerHTML = `${_kmBfFiltered.length.toLocaleString('tr')} satır gösteriliyor (${uniqueKods.toLocaleString('tr')} farklı stok kodu) &nbsp;—&nbsp; <span class="km-bf-match-yes" style="font-size:.78em;">✅ ${matchedKods.toLocaleString('tr')} uyg. eşleşen</span>&nbsp;<span class="km-bf-match-no" style="font-size:.78em;">❌ ${unmatchedKods.toLocaleString('tr')} eşleşmeyen</span>`;
+    const uniqueKods = new Set(_kmBfFiltered.map(r => r.stokKodu)).size;
+    const showing = Math.min(start + _KM_BF_PAGE_SIZE, total);
+    const hasPrev = _kmBfPage > 0;
+    const hasNext = showing < total;
+    const pageNav = `
+        <span style="display:inline-flex;gap:6px;align-items:center;margin-left:12px;">
+            ${hasPrev ? `<button onclick="_kmBfGotoPage(${_kmBfPage-1})" style="font-size:.8em;padding:2px 8px;◄ Önceki</button>` : ''}
+            <span style="font-size:.82em;">${(start+1).toLocaleString('tr')}–${showing.toLocaleString('tr')} / ${total.toLocaleString('tr')}</span>
+            ${hasNext ? `<button onclick="_kmBfGotoPage(${_kmBfPage+1})" style="font-size:.8em;padding:2px 8px;">Sonraki ►</button>` : ''}
+        </span>`;
+    infoEl.innerHTML = `${total.toLocaleString('tr')} satır (${uniqueKods.toLocaleString('tr')} farklı stok kodu) ${pageNav}`;
 }
+function _kmBfGotoPage(p) { _kmBfPage = p; _drawKmBfTableBody(); }
 
 function exportKmBfTableExcel() {
     if (!_kmAllDetail().length) { showToast('⚠️ Önce Mal Kabul veya Sevkler dosyası yükleyin.', 'error'); return; }
@@ -4779,16 +4802,25 @@ function toggleSvBfTable() {
 
 function renderSvBirimFiyatTable() {
     if (!sevkBirimFiyatDetail.length) return;
-    _svBfFiltered = [...sevkBirimFiyatDetail];
+    const uygMap = _getUygMap();
+    const activeKods = new Set(Object.keys(uygMap));
+    _svBfFiltered = activeKods.size > 0
+        ? sevkBirimFiyatDetail.filter(r => activeKods.has(_normKod(r.stokKodu)))
+        : [...sevkBirimFiyatDetail];
+    _svBfPage = 0;
     _applysvBfSort();
     _drawSvBfTableBody();
 }
 
 function filterSvBfTable() {
     const q = (document.getElementById('svBfSearch').value || '').trim().toLowerCase();
-    _svBfFiltered = sevkBirimFiyatDetail.filter(r =>
-        !q || r.stokKodu.toLowerCase().includes(q) || r.stokAdi.toLowerCase().includes(q) || r.ay.toLowerCase().includes(q)
-    );
+    const uygMap = _getUygMap();
+    const activeKods = new Set(Object.keys(uygMap));
+    _svBfFiltered = sevkBirimFiyatDetail.filter(r => {
+        if (activeKods.size > 0 && !activeKods.has(_normKod(r.stokKodu))) return false;
+        return !q || r.stokKodu.toLowerCase().includes(q) || r.stokAdi.toLowerCase().includes(q) || r.ay.toLowerCase().includes(q);
+    });
+    _svBfPage = 0;
     _applysvBfSort();
     _drawSvBfTableBody();
 }
@@ -4796,6 +4828,7 @@ function filterSvBfTable() {
 function sortSvBfTable(col) {
     if (_svBfSortCol === col) _svBfSortAsc = !_svBfSortAsc;
     else { _svBfSortCol = col; _svBfSortAsc = true; }
+    _svBfPage = 0;
     _applysvBfSort();
     _drawSvBfTableBody();
     document.querySelectorAll('#svBfTable thead th').forEach(th => {
@@ -4820,22 +4853,18 @@ function _drawSvBfTableBody() {
     const infoEl = document.getElementById('svBfTableInfo');
     if (!tbody) return;
 
-    const uygMap = {};
-    (typeof filteredData !== 'undefined' ? filteredData : allData).forEach(r => {
-        const k = String(r.stokKodu || '').trim();
-        if (!k) return;
-        if (!uygMap[k]) uygMap[k] = { count: 0, hataliMiktar: 0 };
-        uygMap[k].count++;
-        uygMap[k].hataliMiktar += Number(r.hataliMiktar) || 0;
-    });
+    const uygMap = _getUygMap();
 
-    _svBfFiltered.forEach(r => { r.uygKayitSayisi = (uygMap[r.stokKodu] || {}).count || 0; });
+    const total = _svBfFiltered.length;
+    const start = _svBfPage * _KM_BF_PAGE_SIZE;
+    const pageRows = _svBfFiltered.slice(start, start + _KM_BF_PAGE_SIZE);
 
     const fmt  = (n, dec=2) => Number(n).toLocaleString('tr', { minimumFractionDigits:dec, maximumFractionDigits:dec });
     const fmtN = n => Number(n).toLocaleString('tr', { maximumFractionDigits:4 });
 
-    tbody.innerHTML = _svBfFiltered.map(r => {
-        const m = uygMap[r.stokKodu];
+    tbody.innerHTML = pageRows.map(r => {
+        const normK = _normKod(r.stokKodu);
+        const m = uygMap[normK];
         let matchBadge;
         if (!m) {
             matchBadge = `<span class="km-bf-match-no">❌ Eşleşme Yok</span>`;
@@ -4857,11 +4886,19 @@ function _drawSvBfTableBody() {
         </tr>`;
     }).join('');
 
-    const matchedKods   = _svBfFiltered.filter(r => uygMap[r.stokKodu]).length;
-    const unmatchedKods = _svBfFiltered.length - matchedKods;
-    const uniqueKods    = new Set(_svBfFiltered.map(r => r.stokKodu)).size;
-    infoEl.innerHTML = `${_svBfFiltered.length.toLocaleString('tr')} satır gösteriliyor (${uniqueKods.toLocaleString('tr')} farklı stok kodu) &nbsp;—&nbsp; <span class="km-bf-match-yes" style="font-size:.78em;">✅ ${matchedKods.toLocaleString('tr')} uyg. eşleşen</span>&nbsp;<span class="km-bf-match-no" style="font-size:.78em;">❌ ${unmatchedKods.toLocaleString('tr')} eşleşmeyen</span>`;
+    const uniqueKods = new Set(_svBfFiltered.map(r => r.stokKodu)).size;
+    const showing = Math.min(start + _KM_BF_PAGE_SIZE, total);
+    const hasPrev = _svBfPage > 0;
+    const hasNext = showing < total;
+    const pageNav = `
+        <span style="display:inline-flex;gap:6px;align-items:center;margin-left:12px;">
+            ${hasPrev ? `<button onclick="_svBfGotoPage(${_svBfPage-1})" style="font-size:.8em;padding:2px 8px;">◄ Önceki</button>` : ''}
+            <span style="font-size:.82em;">${(start+1).toLocaleString('tr')}–${showing.toLocaleString('tr')} / ${total.toLocaleString('tr')}</span>
+            ${hasNext ? `<button onclick="_svBfGotoPage(${_svBfPage+1})" style="font-size:.8em;padding:2px 8px;">Sonraki ►</button>` : ''}
+        </span>`;
+    infoEl.innerHTML = `${total.toLocaleString('tr')} satır (${uniqueKods.toLocaleString('tr')} farklı stok kodu) ${pageNav}`;
 }
+function _svBfGotoPage(p) { _svBfPage = p; _drawSvBfTableBody(); }
 
 function exportSvBfTableExcel() {
     if (!sevkBirimFiyatDetail.length) { showToast('⚠️ Önce Sevkler dosyası yükleyin.', 'error'); return; }
