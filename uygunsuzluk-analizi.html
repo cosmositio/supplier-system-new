@@ -2821,7 +2821,15 @@ function mapColumns(raw) {
             if (val === null || val === undefined) val = '';
             // Parse numeric fields
             if (intKey === 'hataliMiktar' || intKey === 'kontrolMiktar' || intKey === 'partiHacmi') {
-                const n = parseFloat(String(val).replace(',', '.'));
+                const _s = String(val).trim().replace(/\s/g, '');
+                let n;
+                if (_s.includes(',')) {
+                    n = parseFloat(_s.replace(/\./g, '').replace(',', '.'));
+                } else if (/^\d{1,3}(\.\d{3})+$/.test(_s)) {
+                    n = parseFloat(_s.replace(/\./g, '')); // TR binlik nokta: "7.200" → 7200
+                } else {
+                    n = parseFloat(_s);
+                }
                 val = isNaN(n) ? 0 : n;
             }
             obj[intKey] = val;
