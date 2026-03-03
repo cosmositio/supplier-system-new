@@ -3983,18 +3983,12 @@ function getMatchedBirimFiyat(stokKodu, yearMonth) {
     const kod = String(stokKodu || '').trim();
     if (!kod || !birimFiyatMap[kod]) return null;
     const months = birimFiyatMap[kod];
-    if (months[yearMonth] !== undefined) return months[yearMonth];
-    if (months[''] !== undefined) return months[''];       // no-date records
-    const allM = Object.keys(months).filter(k => k.length === 7).sort();
-    if (!allM.length) return null;
-    // nearest month
-    let nearest = allM[0], minDiff = Infinity;
-    const targetTs = yearMonth ? new Date(yearMonth + '-01').getTime() : 0;
-    allM.forEach(m => {
-        const diff = Math.abs(new Date(m + '-01').getTime() - targetTs);
-        if (diff < minDiff) { minDiff = diff; nearest = m; }
-    });
-    return months[nearest];
+    // 1) Birebir ay eşleşmesi
+    if (yearMonth && months[yearMonth] !== undefined) return months[yearMonth];
+    // 2) Tarihi olmayan kayıtlar (İrsaliye Tarihi boş)
+    if (months[''] !== undefined) return months[''];
+    // Eşleşme yok → maliyet hesaplanmaz
+    return null;
 }
 
 function _parseUygTarih(v) {
@@ -4498,17 +4492,12 @@ function _getSevkBirimFiyat(stokKodu, yearMonth) {
     const kod = String(stokKodu || '').trim();
     if (!kod || !sevkBirimFiyatMap[kod]) return null;
     const months = sevkBirimFiyatMap[kod];
-    if (months[yearMonth] !== undefined) return months[yearMonth];
+    // 1) Birebir ay eşleşmesi
+    if (yearMonth && months[yearMonth] !== undefined) return months[yearMonth];
+    // 2) Tarihi olmayan kayıtlar (İrsaliye Tarihi boş)
     if (months[''] !== undefined) return months[''];
-    const allM = Object.keys(months).filter(k => k.length === 7).sort();
-    if (!allM.length) return null;
-    let nearest = allM[0], minDiff = Infinity;
-    const targetTs = yearMonth ? new Date(yearMonth + '-01').getTime() : 0;
-    allM.forEach(m => {
-        const diff = Math.abs(new Date(m + '-01').getTime() - targetTs);
-        if (diff < minDiff) { minDiff = diff; nearest = m; }
-    });
-    return months[nearest];
+    // Eşleşme yok → maliyet hesaplanmaz
+    return null;
 }
 
 function renderSevkKaliteMaliyetiPareto() {
