@@ -3905,9 +3905,11 @@ function processMalKabulFile(file) {
             document.getElementById('kmDropZone').innerHTML =
                 `<div class="icon" style="font-size:1.8em;">✅</div>
                  <p style="color:#065f46;font-size:0.92em;font-weight:600;">${file.name} yüklendi — ${raw.length.toLocaleString('tr')} satır</p>
-                 <p class="hint">Değiştirmek için tekrar tıklayın</p>`;
+                 <p class="hint">Değiştirmek için tekrar tıklayın &nbsp;|&nbsp; <span style="color:#b91c1c;cursor:pointer;text-decoration:underline" onclick="_clearKmMalKabul()">Temizle</span></p>`;
             renderKaliteMaliyetiPareto();
             renderKmBirimFiyatTable();
+            // IndexedDB'ye kaydet (sayfa yenilenince geri yüklensin)
+            dbSet('kmMalKabul', { rows: raw, fileName: file.name, savedAt: new Date().toISOString() }).catch(() => {});
             showToast(`✅ Mal Kabul dosyası yüklendi: ${raw.length.toLocaleString('tr')} satır`);
         } catch(err) {
             showToast('❌ Dosya okunamadı: ' + err.message, 'error');
@@ -4419,10 +4421,12 @@ function processSevklerFile(file) {
             document.getElementById('svDropZone').innerHTML =
                 `<div class="icon" style="font-size:1.8em;">✅</div>
                  <p style="color:#1e3a8a;font-size:0.92em;font-weight:600;">${file.name} yüklendi — ${raw.length.toLocaleString('tr')} satır</p>
-                 <p class="hint">Değiştirmek için tekrar tıklayın</p>`;
+                 <p class="hint">Değiştirmek için tekrar tıklayın &nbsp;|&nbsp; <span style="color:#b91c1c;cursor:pointer;text-decoration:underline" onclick="_clearKmSevkler()">Temizle</span></p>`;
             // Tek pareto üzerinde her iki kaynak birlikte gösterilir
             document.getElementById('kmParetoContent').style.display = 'block';
             renderKaliteMaliyetiPareto();
+            // IndexedDB'ye kaydet
+            dbSet('kmSevkler', { rows: raw, fileName: file.name, savedAt: new Date().toISOString() }).catch(() => {});
             showToast(`✅ Sevkler dosyası yüklendi: ${raw.length.toLocaleString('tr')} satır`);
         } catch(err) {
             showToast('❌ Dosya okunamadı: ' + err.message, 'error');
@@ -9162,18 +9166,24 @@ function loadFromStorage() {
         });
         saveCariTagsMap();
         _refreshCariTipDropdown();
-        if (!meta || !data || !data.length) return;
+        if (!meta || !data || !data.length) {
+            // Ana veri yoksa bile KM verilerini geri yükle
+            _restoreKmData();
+            return;
+        }
         allData      = data;
         filteredData = [...allData];
         const savedAt = new Date(meta.savedAt).toLocaleString('tr-TR');
         showFileInfo(meta.fileName, meta.sheetName, allData.length, savedAt);
         initUI();
         showToast(`Hafızadan yüklendi: ${allData.length} kayıt`, 'success');
-    }).catch(() => { /* hiç kayıt yok */ });
+        // Ana veri yüklendikten sonra KM verilerini geri yükle
+        _restoreKmData();
+    }).catch(() => { _restoreKmData(); /* hiç kayıt yok ama km olabilir */ });
 }
 
 function clearStorage() {
-    Promise.all([dbDelete('data'), dbDelete('meta')]).then(() => {
+    Promise.all([dbDelete('data'), dbDelete('meta'), dbDelete('kmMalKabul'), dbDelete('kmSevkler')]).then(() => {
         allData = []; filteredData = []; tableSearchData = [];
         document.getElementById('fileInfo').style.display = 'none';
         document.getElementById('statsRow').style.display = 'none';
@@ -9181,8 +9191,73 @@ function clearStorage() {
         document.getElementById('mainContent').style.display = 'none';
         document.getElementById('emptyState').style.display = 'block';
         if (paretoChartInst) { paretoChartInst.destroy(); paretoChartInst = null; }
+        // KM verilerini de sıfırla
+        malKabulRows = null; birimFiyatMap = {};
+        sevkRows = null; sevkBirimFiyatMap = {}; sevkBirimFiyatDetail = [];
+        const kmDz = document.getElementById('kmDropZone');
+        if (kmDz) kmDz.innerHTML = `<div class="icon" style="font-size:1.8em;">📂</div><p style="color:#065f46;font-size:0.88em;">Mal Kabul Excel'ini sürükleyin veya tıklayın</p><p class="hint">Sütunlar: <strong>Stok Kodu · Miktar · İrsaliye Tutar TL · İrsaliye Tarihi</strong></p>`;
+        const svDz = document.getElementById('svDropZone');
+        if (svDz) svDz.innerHTML = `<div class="icon" style="font-size:1.8em;">🚚</div><p style="color:#1e3a8a;font-size:0.88em;">Sevkler Excel'ini sürükleyin veya tıklayın</p><p class="hint">Sütunlar: <strong>Stok Kodu · İrsaliye Miktar · Tutar · İrsaliye Tarihi</strong></p>`;
+        const kmPc = document.getElementById('kmParetoContent');
+        if (kmPc) kmPc.style.display = 'none';
         showToast('Hafıza temizlendi. Yeni dosya yükleyebilirsiniz.');
     });
+}
+
+/* ── Mal Kabul / Sevkler kalıcı depolama yardımcıları ── */
+function _restoreKmData() {
+    Promise.all([dbGet('kmMalKabul'), dbGet('kmSevkler')]).then(([mk, sv]) => {
+        let anyLoaded = false;
+        if (mk && mk.rows && mk.rows.length) {
+            malKabulRows  = mk.rows;
+            birimFiyatMap = buildBirimFiyatMap(mk.rows);
+            const savedAt = new Date(mk.savedAt).toLocaleString('tr-TR');
+            const dz = document.getElementById('kmDropZone');
+            if (dz) dz.innerHTML =
+                `<div class="icon" style="font-size:1.8em;">✅</div>
+                 <p style="color:#065f46;font-size:0.92em;font-weight:600;">${mk.fileName} — ${mk.rows.length.toLocaleString('tr')} satır</p>
+                 <p class="hint">💾 ${savedAt} tarihinde kaydedildi &nbsp;|&nbsp; <span style="color:#b91c1c;cursor:pointer;text-decoration:underline" onclick="_clearKmMalKabul()">Temizle</span></p>`;
+            anyLoaded = true;
+        }
+        if (sv && sv.rows && sv.rows.length) {
+            sevkRows          = sv.rows;
+            sevkBirimFiyatMap = buildSevkBirimFiyatMap(sv.rows);
+            const savedAt = new Date(sv.savedAt).toLocaleString('tr-TR');
+            const dz2 = document.getElementById('svDropZone');
+            if (dz2) dz2.innerHTML =
+                `<div class="icon" style="font-size:1.8em;">✅</div>
+                 <p style="color:#1e3a8a;font-size:0.92em;font-weight:600;">${sv.fileName} — ${sv.rows.length.toLocaleString('tr')} satır</p>
+                 <p class="hint">💾 ${savedAt} tarihinde kaydedildi &nbsp;|&nbsp; <span style="color:#b91c1c;cursor:pointer;text-decoration:underline" onclick="_clearKmSevkler()">Temizle</span></p>`;
+            anyLoaded = true;
+        }
+        if (anyLoaded) {
+            document.getElementById('kmParetoContent').style.display = 'block';
+            renderKaliteMaliyetiPareto();
+            if (malKabulRows) renderKmBirimFiyatTable();
+        }
+    }).catch(() => {});
+}
+
+function _clearKmMalKabul() {
+    dbDelete('kmMalKabul').then(() => {
+        malKabulRows = null; birimFiyatMap = {};
+        const dz = document.getElementById('kmDropZone');
+        if (dz) dz.innerHTML = `<div class="icon" style="font-size:1.8em;">📂</div><p style="color:#065f46;font-size:0.88em;">Mal Kabul Excel'ini sürükleyin veya tıklayın</p><p class="hint">Sütunlar: <strong>Stok Kodu · Miktar · İrsaliye Tutar TL · İrsaliye Tarihi</strong></p>`;
+        if (!sevkRows) document.getElementById('kmParetoContent').style.display = 'none';
+        renderKaliteMaliyetiPareto();
+        showToast('Mal Kabul verisi temizlendi.');
+    }).catch(() => {});
+}
+
+function _clearKmSevkler() {
+    dbDelete('kmSevkler').then(() => {
+        sevkRows = null; sevkBirimFiyatMap = {}; sevkBirimFiyatDetail = [];
+        const dz2 = document.getElementById('svDropZone');
+        if (dz2) dz2.innerHTML = `<div class="icon" style="font-size:1.8em;">🚚</div><p style="color:#1e3a8a;font-size:0.88em;">Sevkler Excel'ini sürükleyin veya tıklayın</p><p class="hint">Sütunlar: <strong>Stok Kodu · İrsaliye Miktar · Tutar · İrsaliye Tarihi</strong></p>`;
+        if (!malKabulRows) document.getElementById('kmParetoContent').style.display = 'none';
+        renderKaliteMaliyetiPareto();
+        showToast('Sevkler verisi temizlendi.');
+    }).catch(() => {});
 }
 
 function showFileInfo(fileName, sheetName, count, fromCache) {
