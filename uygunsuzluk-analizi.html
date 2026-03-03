@@ -1076,6 +1076,9 @@
         .km-bf-table tbody td { padding:7px 12px; border-bottom:1px solid #e8f5e9; white-space:nowrap; vertical-align:middle; }
         .km-bf-formula { font-family:monospace; color:#065f46; font-size:0.9em; background:#ecfdf5; padding:2px 7px; border-radius:6px; border:1px solid #a7f3d0; display:inline-block; }
         .km-bf-result { font-weight:700; color:#059669; }
+        .km-bf-match-yes { display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:12px;padding:2px 9px;font-size:0.8em;font-weight:700;white-space:nowrap; }
+        .km-bf-match-no  { display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:12px;padding:2px 9px;font-size:0.8em;font-weight:600;white-space:nowrap; }
+        .km-bf-match-partial { display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#854d0e;border:1px solid #fde047;border-radius:12px;padding:2px 9px;font-size:0.8em;font-weight:600;white-space:nowrap; }
         .km-bf-search { border:1.5px solid #6ee7b7; border-radius:8px; padding:6px 12px; font-size:0.85em; color:#065f46; outline:none; width:220px; }
         .km-bf-search:focus { border-color:#059669; }
         .cpm-btn-ok { background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; }
@@ -1456,6 +1459,7 @@
                                             <th onclick="sortKmBfTable('sumMiktar')">Toplam Miktar <span class="sort-icon"></span></th>
                                             <th onclick="sortKmBfTable('sumTutar')">Toplam Tutar (₺) <span class="sort-icon"></span></th>
                                             <th onclick="sortKmBfTable('birimFiyat')">Birim Fiyat (₺) <span class="sort-icon"></span></th>
+                                            <th onclick="sortKmBfTable('uygKayitSayisi')">Uyg. Eşleşmesi <span class="sort-icon"></span></th>
                                             <th>Hesaplama</th>
                                         </tr>
                                     </thead>
@@ -4193,10 +4197,37 @@ function _drawKmBfTableBody() {
     const infoEl = document.getElementById('kmBfTableInfo');
     if (!tbody) return;
 
-    const fmt = (n, dec = 2) => Number(n).toLocaleString('tr', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    // Build uygunsuzluk stok kodu lookup map
+    const uygMap = {}; // {stokKodu: {count, hataliMiktar}}
+    (typeof allData !== 'undefined' ? allData : []).forEach(r => {
+        const k = String(r.stokKodu || '').trim();
+        if (!k) return;
+        if (!uygMap[k]) uygMap[k] = { count: 0, hataliMiktar: 0 };
+        uygMap[k].count++;
+        uygMap[k].hataliMiktar += Number(r.hataliMiktar) || 0;
+    });
+
+    // Attach uygKayitSayisi to each filtered row (for sorting)
+    _kmBfFiltered.forEach(r => {
+        const m = uygMap[r.stokKodu];
+        r.uygKayitSayisi = m ? m.count : 0;
+    });
+
+    const fmt  = (n, dec = 2) => Number(n).toLocaleString('tr', { minimumFractionDigits: dec, maximumFractionDigits: dec });
     const fmtN = n => Number(n).toLocaleString('tr', { maximumFractionDigits: 4 });
 
-    tbody.innerHTML = _kmBfFiltered.map(r => `
+    tbody.innerHTML = _kmBfFiltered.map(r => {
+        const m = uygMap[r.stokKodu];
+        let matchBadge;
+        if (!m) {
+            matchBadge = `<span class="km-bf-match-no">❌ Eşleşme Yok</span>`;
+        } else {
+            const hm = m.hataliMiktar > 0
+                ? `&nbsp;&middot;&nbsp;<span style="font-size:0.82em;opacity:.8;">${fmtN(m.hataliMiktar)} hatalı</span>`
+                : '';
+            matchBadge = `<span class="km-bf-match-yes">✅ ${m.count.toLocaleString('tr')} kayıt${hm}</span>`;
+        }
+        return `
         <tr>
             <td style="font-weight:600;color:#065f46;">${r.stokKodu}</td>
             <td>${r.stokAdi || '<span style="opacity:.4;font-size:.85em;">—</span>'}</td>
@@ -4205,26 +4236,30 @@ function _drawKmBfTableBody() {
             <td style="text-align:right;">${fmtN(r.sumMiktar)}</td>
             <td style="text-align:right;">${fmt(r.sumTutar)} ₺</td>
             <td style="text-align:right;" class="km-bf-result">${fmt(r.birimFiyat)} ₺</td>
+            <td style="text-align:center;">${matchBadge}</td>
             <td><span class="km-bf-formula">${fmt(r.sumTutar)} ÷ ${fmtN(r.sumMiktar)} = <strong>${fmt(r.birimFiyat)}</strong> ₺</span></td>
-        </tr>
-    `).join('');
+        </tr>`;
+    }).join('');
 
-    const totalBf  = _kmBfFiltered.length;
-    const uniqueKods = new Set(_kmBfFiltered.map(r => r.stokKodu)).size;
-    infoEl.textContent = `${totalBf.toLocaleString('tr')} satır gösteriliyor (${uniqueKods.toLocaleString('tr')} farklı stok kodu)`;
+    // Legend + info
+    const matchedKods   = _kmBfFiltered.filter(r => uygMap[r.stokKodu]).length;
+    const unmatchedKods = _kmBfFiltered.length - matchedKods;
+    const uniqueKods    = new Set(_kmBfFiltered.map(r => r.stokKodu)).size;
+    infoEl.innerHTML = `${_kmBfFiltered.length.toLocaleString('tr')} satır gösteriliyor (${uniqueKods.toLocaleString('tr')} farklı stok kodu) &nbsp;—&nbsp; <span class="km-bf-match-yes" style="font-size:.78em;">✅ ${matchedKods.toLocaleString('tr')} uyg. eşleşen</span>&nbsp;<span class="km-bf-match-no" style="font-size:.78em;">❌ ${unmatchedKods.toLocaleString('tr')} eşleşmeyen</span>`;
 }
 
 function exportKmBfTableExcel() {
     if (!birimFiyatDetail.length) { showToast('⚠️ Önce Mal Kabul dosyası yükleyin.', 'error'); return; }
     const rows = _kmBfFiltered.map(r => ({
-        'Stok Kodu'          : r.stokKodu,
-        'Stok Adı'           : r.stokAdi,
-        'Ay'                 : r.ay,
-        'Kayıt Sayısı'       : r.kayitSayisi,
-        'Toplam Miktar'      : r.sumMiktar,
-        'Toplam Tutar (\u20ba)'   : r.sumTutar,
-        'Birim Fiyat (\u20ba)'    : r.birimFiyat,
-        'Hesaplama'          : `${Number(r.sumTutar).toFixed(2)} \u00f7 ${Number(r.sumMiktar).toFixed(4)} = ${Number(r.birimFiyat).toFixed(4)} \u20ba`,
+        'Stok Kodu'             : r.stokKodu,
+        'Stok Adı'              : r.stokAdi,
+        'Ay'                    : r.ay,
+        'Kayıt Sayısı'          : r.kayitSayisi,
+        'Toplam Miktar'         : r.sumMiktar,
+        'Toplam Tutar (\u20ba)'      : r.sumTutar,
+        'Birim Fiyat (\u20ba)'       : r.birimFiyat,
+        'Uyg. Eşleşmesi (Kayıt)': r.uygKayitSayisi ?? 0,
+        'Hesaplama'             : `${Number(r.sumTutar).toFixed(2)} \u00f7 ${Number(r.sumMiktar).toFixed(4)} = ${Number(r.birimFiyat).toFixed(4)} \u20ba`,
     }));
     const ws  = XLSX.utils.json_to_sheet(rows);
     const wb  = XLSX.utils.book_new();
