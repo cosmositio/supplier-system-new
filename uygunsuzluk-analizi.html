@@ -2931,6 +2931,9 @@ function _applyFiltersNow() {
     if (document.getElementById('tab-boxplot').classList.contains('active')) renderBoxPlot();
     if (document.getElementById('tab-scatter').classList.contains('active')) renderScatter();
     renderKaliteMaliyetiPareto();
+    // Birim fiyat tablosu açıksa filtreli veriye göre yenile
+    const _kmBfWrap = document.getElementById('kmBfTableWrap');
+    if (_kmBfWrap && _kmBfWrap.style.display !== 'none') renderKmBirimFiyatTable();
     showToast(`${filteredData.length} kayıt filtrelendi`, 'success');
 }
 
@@ -2968,6 +2971,8 @@ function resetFilters() {
     if (document.getElementById('tab-boxplot').classList.contains('active')) renderBoxPlot();
     if (document.getElementById('tab-scatter').classList.contains('active')) renderScatter();
     renderKaliteMaliyetiPareto();
+    const _kmBfWrapR = document.getElementById('kmBfTableWrap');
+    if (_kmBfWrapR && _kmBfWrapR.style.display !== 'none') renderKmBirimFiyatTable();
     showToast('Filtreler sıfırlandı');
 }
 
@@ -4305,20 +4310,27 @@ function _kmAllDetail() {
 function renderKmBirimFiyatTable() {
     const all = _kmAllDetail();
     if (!all.length) return;
-    _kmBfFiltered = all;
+    const activeKods = new Set(
+        (typeof filteredData !== 'undefined' ? filteredData : allData).map(r => _normKod(r.stokKodu))
+    );
+    _kmBfFiltered = activeKods.size > 0 ? all.filter(r => activeKods.has(_normKod(r.stokKodu))) : all;
     _applyKmBfSort();
     _drawKmBfTableBody();
 }
 
 function filterKmBfTable() {
     const q = (document.getElementById('kmBfSearch').value || '').trim().toLowerCase();
-    _kmBfFiltered = _kmAllDetail().filter(r =>
-        !q ||
-        r.stokKodu.toLowerCase().includes(q) ||
-        r.stokAdi.toLowerCase().includes(q) ||
-        r.ay.toLowerCase().includes(q) ||
-        (r._src || '').toLowerCase().includes(q)
+    const activeKods = new Set(
+        (typeof filteredData !== 'undefined' ? filteredData : allData).map(r => _normKod(r.stokKodu))
     );
+    _kmBfFiltered = _kmAllDetail().filter(r => {
+        if (activeKods.size > 0 && !activeKods.has(_normKod(r.stokKodu))) return false;
+        return !q ||
+            r.stokKodu.toLowerCase().includes(q) ||
+            r.stokAdi.toLowerCase().includes(q) ||
+            r.ay.toLowerCase().includes(q) ||
+            (r._src || '').toLowerCase().includes(q);
+    });
     _applyKmBfSort();
     _drawKmBfTableBody();
 }
@@ -4354,7 +4366,7 @@ function _drawKmBfTableBody() {
 
     // Build uygunsuzluk stok kodu lookup map (normalize ile)
     const uygMap = {}; // {NORM_KOD: {count, hataliMiktar}}
-    (typeof allData !== 'undefined' ? allData : []).forEach(r => {
+    (typeof filteredData !== 'undefined' ? filteredData : allData).forEach(r => {
         const k = _normKod(r.stokKodu);
         if (!k) return;
         if (!uygMap[k]) uygMap[k] = { count: 0, hataliMiktar: 0 };
@@ -4809,7 +4821,7 @@ function _drawSvBfTableBody() {
     if (!tbody) return;
 
     const uygMap = {};
-    (typeof allData !== 'undefined' ? allData : []).forEach(r => {
+    (typeof filteredData !== 'undefined' ? filteredData : allData).forEach(r => {
         const k = String(r.stokKodu || '').trim();
         if (!k) return;
         if (!uygMap[k]) uygMap[k] = { count: 0, hataliMiktar: 0 };
