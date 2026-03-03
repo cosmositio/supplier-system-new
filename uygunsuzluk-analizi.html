@@ -4049,6 +4049,25 @@ function buildBirimFiyatMap(rows) {
     return map;
 }
 
+/* Verilen YYYY-MM string'ini sayısal değere (yıl*12+ay) çevirir. */
+function _ymToNum(ym) {
+    if (!ym) return null;
+    const p = ym.split('-');
+    return parseInt(p[0]) * 12 + (parseInt(p[1]) - 1);
+}
+/* Months objesi için en yakın ayı bulan yardımcı (boş key hariç). */
+function _nearestMonth(months, yearMonth) {
+    const realKeys = Object.keys(months).filter(k => k && months[k] !== undefined);
+    if (!realKeys.length) return null;
+    if (!yearMonth) return months[realKeys[realKeys.length - 1]]; // tarih yok → son ay
+    const target = _ymToNum(yearMonth);
+    let best = null, bestDist = Infinity;
+    for (const k of realKeys) {
+        const d = Math.abs(_ymToNum(k) - target);
+        if (d < bestDist) { bestDist = d; best = k; }
+    }
+    return best !== null ? months[best] : null;
+}
 /* Returns unit price for a given stok kodu + year-month.
    Falls back to nearest available month if exact month not found. */
 function getMatchedBirimFiyat(stokKodu, yearMonth) {
@@ -4057,9 +4076,11 @@ function getMatchedBirimFiyat(stokKodu, yearMonth) {
     const months = birimFiyatMap[kod];
     // 1) Birebir ay eşleşmesi
     if (yearMonth && months[yearMonth] !== undefined) return months[yearMonth];
-    // 2) Tarihi olmayan kayıtlar (İrsaliye Tarihi boş)
+    // 2) En yakın ay (takvim mesafesi en küçük)
+    const nearest = _nearestMonth(months, yearMonth);
+    if (nearest !== null) return nearest;
+    // 3) Tarihi olmayan kayıtlar (İrsaliye Tarihi boş)
     if (months[''] !== undefined) return months[''];
-    // Eşleşme yok → maliyet hesaplanmaz
     return null;
 }
 
@@ -4538,12 +4559,6 @@ function buildSevkBirimFiyatMap(rows) {
         return {};
     }
     console.log('[buildSevkBirimFiyatMap] Sütunlar → StokKodu:', colStokKodu, '| Miktar:', colMiktar, '| Tutar:', colTutar, '| Tarih:', colTarih);
-    // TANI: ilk 3 satırın ham değerlerini göster
-    rows.slice(0, 3).forEach((r, i) => {
-        const mRaw = r[colMiktar], tRaw = r[colTutar];
-        console.log(`[TANI][${i}] Miktar ham:`, JSON.stringify(mRaw), 'type:', typeof mRaw,
-                    '| Tutar ham:', JSON.stringify(tRaw), 'type:', typeof tRaw);
-    });
 
     function parseNum(v) {
         if (v === '' || v == null) return 0;
@@ -4611,9 +4626,11 @@ function _getSevkBirimFiyat(stokKodu, yearMonth) {
     const months = sevkBirimFiyatMap[kod];
     // 1) Birebir ay eşleşmesi
     if (yearMonth && months[yearMonth] !== undefined) return months[yearMonth];
-    // 2) Tarihi olmayan kayıtlar (İrsaliye Tarihi boş)
+    // 2) En yakın ay (takvim mesafesi en küçük)
+    const nearest = _nearestMonth(months, yearMonth);
+    if (nearest !== null) return nearest;
+    // 3) Tarihi olmayan kayıtlar (İrsaliye Tarihi boş)
     if (months[''] !== undefined) return months[''];
-    // Eşleşme yok → maliyet hesaplanmaz
     return null;
 }
 
