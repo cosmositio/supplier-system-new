@@ -1066,6 +1066,18 @@
         .psc-clear { background:#f1e8f7; color:#7b2d8b; border:1px solid #d0a0e0; border-radius:20px; padding:3px 12px; font-size:0.82em; font-weight:600; cursor:pointer; margin-left:auto; }
         .psc-clear:hover { background:#e8d0f5; }
         .psc-label { font-size:0.8em; color:#7b2d8b; font-weight:700; white-space:nowrap; }
+        /* ── KM Birim Fiyat Table ── */
+        .km-bf-wrap { overflow-x:auto; border-radius:10px; border:1px solid #d1fae5; max-height:420px; overflow-y:auto; margin-top:12px; }
+        .km-bf-table { width:100%; border-collapse:collapse; font-size:0.8em; min-width:780px; }
+        .km-bf-table thead th { background:linear-gradient(135deg,#065f46,#059669); color:#fff; padding:9px 12px; text-align:left; white-space:nowrap; position:sticky; top:0; z-index:2; cursor:pointer; user-select:none; }
+        .km-bf-table thead th:hover { filter:brightness(1.12); }
+        .km-bf-table tbody tr:nth-child(even) { background:#f0fdf4; }
+        .km-bf-table tbody tr:hover { background:#d1fae5; }
+        .km-bf-table tbody td { padding:7px 12px; border-bottom:1px solid #e8f5e9; white-space:nowrap; vertical-align:middle; }
+        .km-bf-formula { font-family:monospace; color:#065f46; font-size:0.9em; background:#ecfdf5; padding:2px 7px; border-radius:6px; border:1px solid #a7f3d0; display:inline-block; }
+        .km-bf-result { font-weight:700; color:#059669; }
+        .km-bf-search { border:1.5px solid #6ee7b7; border-radius:8px; padding:6px 12px; font-size:0.85em; color:#065f46; outline:none; width:220px; }
+        .km-bf-search:focus { border-color:#059669; }
         .cpm-btn-ok { background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; }
         .cpm-btn-ok:hover { filter:brightness(1.1); }
         .cpm-btn-ok:disabled { opacity:.45; cursor:not-allowed; }
@@ -1420,6 +1432,39 @@
                     </div>
                     <div id="kmParetoInsight" style="margin-top:14px;padding:12px 16px;background:#f0fdf4;border-radius:10px;font-size:0.85em;color:#065f46;border-left:4px solid #059669;"></div>
                     <div id="kmUnmatchedInfo" style="margin-top:8px;padding:8px 14px;background:#fffbeb;border-radius:8px;font-size:0.8em;color:#92400e;border-left:3px solid #f59e0b;display:none;"></div>
+
+                    <!-- Birim Fiyat Hesaplama Tablosu -->
+                    <div style="margin-top:18px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+                            <button onclick="toggleKmBfTable()" style="display:flex;align-items:center;gap:6px;background:#f0fdf4;border:1.5px solid #6ee7b7;border-radius:8px;padding:6px 14px;font-size:0.85em;font-weight:700;color:#065f46;cursor:pointer;">
+                                <span id="kmBfToggleIcon">▶</span> 📋 Birim Fiyat Hesaplama Detayı
+                            </button>
+                            <div style="display:none;align-items:center;gap:8px;" id="kmBfTableControls">
+                                <input type="text" id="kmBfSearch" class="km-bf-search" placeholder="🔍 Stok kodu veya adı ara..." oninput="filterKmBfTable()">
+                                <button onclick="exportKmBfTableExcel()" class="export-btn" style="background:#059669;font-size:0.8em;padding:6px 12px;">⬇ Excel</button>
+                            </div>
+                        </div>
+                        <div id="kmBfTableWrap" style="display:none;">
+                            <div class="km-bf-wrap">
+                                <table class="km-bf-table" id="kmBfTable">
+                                    <thead>
+                                        <tr>
+                                            <th onclick="sortKmBfTable('stokKodu')">Stok Kodu <span class="sort-icon"></span></th>
+                                            <th onclick="sortKmBfTable('stokAdi')">Stok Adı <span class="sort-icon"></span></th>
+                                            <th onclick="sortKmBfTable('ay')">Ay <span class="sort-icon"></span></th>
+                                            <th onclick="sortKmBfTable('kayitSayisi')">Kayıt Sayısı <span class="sort-icon"></span></th>
+                                            <th onclick="sortKmBfTable('sumMiktar')">Toplam Miktar <span class="sort-icon"></span></th>
+                                            <th onclick="sortKmBfTable('sumTutar')">Toplam Tutar (₺) <span class="sort-icon"></span></th>
+                                            <th onclick="sortKmBfTable('birimFiyat')">Birim Fiyat (₺) <span class="sort-icon"></span></th>
+                                            <th>Hesaplama</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="kmBfTableBody"></tbody>
+                                </table>
+                            </div>
+                            <div id="kmBfTableInfo" style="margin-top:6px;font-size:0.78em;color:#6b7280;"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3690,9 +3735,12 @@ function downloadChartPNG() {
 }
 
 // ─── KALİTE MALİYETİ (MAL KABUL) ────────────────────────────────────────────
-let malKabulRows  = null;   // raw rows from mal kabul excel
-let birimFiyatMap = {};     // {stokKodu: {YYYY-MM: weightedAvgPrice}}
+let malKabulRows     = null;   // raw rows from mal kabul excel
+let birimFiyatMap    = {};     // {stokKodu: {YYYY-MM: weightedAvgPrice}}
+let birimFiyatDetail = [];     // [{stokKodu, stokAdi, ay, sumMiktar, sumTutar, birimFiyat, kayitSayisi}]
 let kmParetoChartInst = null;
+let _kmBfSortCol = 'ay'; let _kmBfSortAsc = true;
+let _kmBfFiltered = [];
 
 /* Drag-and-drop wiring for km drop zone (called after DOM ready) */
 function _initKmDropZone() {
@@ -3740,6 +3788,7 @@ function processMalKabulFile(file) {
                  <p style="color:#065f46;font-size:0.92em;font-weight:600;">${file.name} yüklendi — ${raw.length.toLocaleString('tr')} satır</p>
                  <p class="hint">Değiştirmek için tekrar tıklayın</p>`;
             renderKaliteMaliyetiPareto();
+            renderKmBirimFiyatTable();
             showToast(`✅ Mal Kabul dosyası yüklendi: ${raw.length.toLocaleString('tr')} satır`);
         } catch(err) {
             showToast('❌ Dosya okunamadı: ' + err.message, 'error');
@@ -3785,7 +3834,9 @@ function buildBirimFiyatMap(rows) {
         return '';
     }
 
-    const acc = {}; // {stokKodu: {YYYY-MM: {sumTutar, sumMiktar}}}
+    const colStokAdi = _findMkCol(headers, ['Stok Adı','Stok Adi','StokAdi','stok adi','Malzeme Adı','Kart Adı']);
+
+    const acc = {}; // {stokKodu: {YYYY-MM: {sumTutar, sumMiktar, count, stokAdi}}}
     rows.forEach(row => {
         const kod    = String(row[colStokKodu] || '').trim();
         if (!kod) return;
@@ -3793,17 +3844,23 @@ function buildBirimFiyatMap(rows) {
         const miktar = parseNum(row[colMiktar]);
         if (miktar <= 0 || tutar <= 0) return;
         const ym = parseYM(row[colTarih]);
+        const adi = colStokAdi ? String(row[colStokAdi] || '').trim() : '';
         if (!acc[kod]) acc[kod] = {};
-        if (!acc[kod][ym]) acc[kod][ym] = { sumTutar: 0, sumMiktar: 0 };
+        if (!acc[kod][ym]) acc[kod][ym] = { sumTutar: 0, sumMiktar: 0, count: 0, stokAdi: '' };
         acc[kod][ym].sumTutar  += tutar;
         acc[kod][ym].sumMiktar += miktar;
+        acc[kod][ym].count++;
+        if (!acc[kod][ym].stokAdi && adi) acc[kod][ym].stokAdi = adi;
     });
 
     const map = {};
+    birimFiyatDetail = []; // global detail array sıfırla
     Object.entries(acc).forEach(([kod, months]) => {
         map[kod] = {};
-        Object.entries(months).forEach(([ym, {sumTutar, sumMiktar}]) => {
-            map[kod][ym] = sumMiktar > 0 ? sumTutar / sumMiktar : 0;
+        Object.entries(months).forEach(([ym, {sumTutar, sumMiktar, count, stokAdi}]) => {
+            const bf = sumMiktar > 0 ? sumTutar / sumMiktar : 0;
+            map[kod][ym] = bf;
+            birimFiyatDetail.push({ stokKodu: kod, stokAdi, ay: ym || '(Tarihsiz)', sumMiktar, sumTutar, birimFiyat: bf, kayitSayisi: count });
         });
     });
     return map;
@@ -4074,6 +4131,105 @@ function renderKaliteMaliyetiPareto() {
             },
         },
     });
+}
+
+// ─── KM Birim Fiyat Hesaplama Tablosu ─────────────────────────────────────────
+function toggleKmBfTable() {
+    const wrap = document.getElementById('kmBfTableWrap');
+    const ctrl = document.getElementById('kmBfTableControls');
+    const icon = document.getElementById('kmBfToggleIcon');
+    const open = wrap.style.display === 'none';
+    wrap.style.display = open ? '' : 'none';
+    ctrl.style.display = open ? 'flex' : 'none';
+    icon.textContent   = open ? '▼' : '▶';
+    if (open) renderKmBirimFiyatTable();
+}
+
+function renderKmBirimFiyatTable() {
+    if (!birimFiyatDetail.length) return;
+    _kmBfFiltered = [...birimFiyatDetail];
+    _applyKmBfSort();
+    _drawKmBfTableBody();
+}
+
+function filterKmBfTable() {
+    const q = (document.getElementById('kmBfSearch').value || '').trim().toLowerCase();
+    _kmBfFiltered = birimFiyatDetail.filter(r =>
+        !q ||
+        r.stokKodu.toLowerCase().includes(q) ||
+        r.stokAdi.toLowerCase().includes(q) ||
+        r.ay.toLowerCase().includes(q)
+    );
+    _applyKmBfSort();
+    _drawKmBfTableBody();
+}
+
+function sortKmBfTable(col) {
+    if (_kmBfSortCol === col) _kmBfSortAsc = !_kmBfSortAsc;
+    else { _kmBfSortCol = col; _kmBfSortAsc = true; }
+    _applyKmBfSort();
+    _drawKmBfTableBody();
+    // Update sort icons
+    document.querySelectorAll('#kmBfTable thead th').forEach(th => {
+        const sp = th.querySelector('.sort-icon');
+        if (!sp) return;
+        const c = th.getAttribute('onclick')?.match(/'(\w+)'/)?.[ 1];
+        sp.textContent = c === _kmBfSortCol ? (_kmBfSortAsc ? ' ▲' : ' ▼') : ' ⇅';
+    });
+}
+
+function _applyKmBfSort() {
+    const col = _kmBfSortCol;
+    const asc = _kmBfSortAsc ? 1 : -1;
+    _kmBfFiltered.sort((a, b) => {
+        const av = a[col] ?? '', bv = b[col] ?? '';
+        if (typeof av === 'number') return (av - bv) * asc;
+        return String(av).localeCompare(String(bv), 'tr') * asc;
+    });
+}
+
+function _drawKmBfTableBody() {
+    const tbody = document.getElementById('kmBfTableBody');
+    const infoEl = document.getElementById('kmBfTableInfo');
+    if (!tbody) return;
+
+    const fmt = (n, dec = 2) => Number(n).toLocaleString('tr', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    const fmtN = n => Number(n).toLocaleString('tr', { maximumFractionDigits: 4 });
+
+    tbody.innerHTML = _kmBfFiltered.map(r => `
+        <tr>
+            <td style="font-weight:600;color:#065f46;">${r.stokKodu}</td>
+            <td>${r.stokAdi || '<span style="opacity:.4;font-size:.85em;">—</span>'}</td>
+            <td>${r.ay}</td>
+            <td style="text-align:center;">${r.kayitSayisi.toLocaleString('tr')}</td>
+            <td style="text-align:right;">${fmtN(r.sumMiktar)}</td>
+            <td style="text-align:right;">${fmt(r.sumTutar)} ₺</td>
+            <td style="text-align:right;" class="km-bf-result">${fmt(r.birimFiyat)} ₺</td>
+            <td><span class="km-bf-formula">${fmt(r.sumTutar)} ÷ ${fmtN(r.sumMiktar)} = <strong>${fmt(r.birimFiyat)}</strong> ₺</span></td>
+        </tr>
+    `).join('');
+
+    const totalBf  = _kmBfFiltered.length;
+    const uniqueKods = new Set(_kmBfFiltered.map(r => r.stokKodu)).size;
+    infoEl.textContent = `${totalBf.toLocaleString('tr')} satır gösteriliyor (${uniqueKods.toLocaleString('tr')} farklı stok kodu)`;
+}
+
+function exportKmBfTableExcel() {
+    if (!birimFiyatDetail.length) { showToast('⚠️ Önce Mal Kabul dosyası yükleyin.', 'error'); return; }
+    const rows = _kmBfFiltered.map(r => ({
+        'Stok Kodu'          : r.stokKodu,
+        'Stok Adı'           : r.stokAdi,
+        'Ay'                 : r.ay,
+        'Kayıt Sayısı'       : r.kayitSayisi,
+        'Toplam Miktar'      : r.sumMiktar,
+        'Toplam Tutar (\u20ba)'   : r.sumTutar,
+        'Birim Fiyat (\u20ba)'    : r.birimFiyat,
+        'Hesaplama'          : `${Number(r.sumTutar).toFixed(2)} \u00f7 ${Number(r.sumMiktar).toFixed(4)} = ${Number(r.birimFiyat).toFixed(4)} \u20ba`,
+    }));
+    const ws  = XLSX.utils.json_to_sheet(rows);
+    const wb  = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Birim Fiyat');
+    XLSX.writeFile(wb, 'birim-fiyat-hesaplama.xlsx');
 }
 
 function downloadKmChartPNG() {
