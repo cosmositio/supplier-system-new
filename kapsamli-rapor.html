@@ -143,6 +143,7 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .idb-tab-maliyet:hover { border-color:#059669 !important; color:#059669 !important; background:#f0fdf4 !important; }
 .idb-tab-maliyet.active { background:#059669 !important; border-color:#059669 !important; color:#fff !important; }
 .id-pareto-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:4px; }
+.id-pareto-grid.cols3 { grid-template-columns:1fr 1fr 1fr; }
 @media(max-width:700px){ .id-pareto-grid { grid-template-columns:1fr; } }
 .id-pareto-panel { border:1.5px solid #e2e8f0; border-radius:10px; padding:14px 14px 10px; background:#fafbff; }
 .id-panel-title { font-size:.82rem; font-weight:800; margin-bottom:10px; }
@@ -603,7 +604,7 @@ html, body { scroll-behavior:smooth; }
             <div class="idb-bar" style="display:none" id="idbBarPrint">
                 <span style="font-size:.8rem;font-weight:700;">Kırılım: <span id="idbPrintLabel">Hata Tipi</span></span>
             </div>
-            <div class="id-pareto-grid">
+            <div class="id-pareto-grid" id="idParetoGrid">
                 <div class="id-pareto-panel">
                     <div class="id-panel-title" style="color:#1d4ed8;display:flex;justify-content:space-between;align-items:center;">
                         <span>🏢 İç Başarısızlık Pareto</span>
@@ -619,6 +620,14 @@ html, body { scroll-behavior:smooth; }
                     </div>
                     <div style="min-height:200px;"><canvas id="cDisBreak" height="200"></canvas></div>
                     <div id="disBreakTable" style="margin-top:10px;"></div>
+                </div>
+                <div class="id-pareto-panel" id="tedBreakPanel" style="display:none;">
+                    <div class="id-panel-title" style="color:#15803d;display:flex;justify-content:space-between;align-items:center;">
+                        <span>🏭 Tedarikçi Başarısızlık Pareto</span>
+                        <span id="tedBreakHint" style="font-size:.72rem;font-weight:400;color:#64748b;letter-spacing:.01em;"></span>
+                    </div>
+                    <div style="min-height:200px;"><canvas id="cTedBreak" height="200"></canvas></div>
+                    <div id="tedBreakTable" style="margin-top:10px;"></div>
                 </div>
             </div>
         </div>
@@ -1665,19 +1674,27 @@ function _showMaliyetBreakdown() {
     if (!idRows) return;
     const IC_COLOR  = '#2563eb';
     const DIS_COLOR = '#ea580c';
+    const TED_COLOR = '#15803d';
     const N = 12;
     const field = 'hataTipi';
-    const hintText = `İç/Dış — Kalite Maliyeti (₺) — Hata Tipi Bazında — Top ${N}`;
-    const icHintEl  = document.getElementById('icBreakHint');
-    const disHintEl = document.getElementById('disBreakHint');
-    if (icHintEl)  icHintEl.textContent  = hintText;
-    if (disHintEl) disHintEl.textContent = hintText;
-    ['_idIcChart','_idDisChart'].forEach(k => {
+    const hintText = `Kalite Maliyeti (₺) — Hata Tipi Bazında — Top ${N}`;
+    ['icBreakHint','disBreakHint','tedBreakHint'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.textContent = hintText;
+    });
+    ['_idIcChart','_idDisChart','_idTedChart'].forEach(k => {
         if (window[k]) { try { window[k].destroy(); } catch(e){} window[k]=null; }
     });
-    const hasMaliyet = idRows.ic.some(r=>r.maliyet>0) || idRows.dis.some(r=>r.maliyet>0);
+    // 3 kolonlu grid + tedarikçi panel göster
+    const grid = document.getElementById('idParetoGrid');
+    const tedPanel = document.getElementById('tedBreakPanel');
+    if (grid) grid.classList.add('cols3');
+    if (tedPanel) tedPanel.style.display = '';
+
+    const hasMaliyet = idRows.ic.some(r=>r.maliyet>0) || idRows.dis.some(r=>r.maliyet>0) || (idRows.tedarikci||[]).some(r=>r.maliyet>0);
     const noDataMsg  = `<p style="color:#d97706;font-size:.82rem;text-align:center;padding:16px 12px;background:#fef9c3;border-radius:8px;border:1px solid #fde68a;">⚠️ Kalite maliyeti verisi bulunamadı.<br><small>Analiz sayfasında Mal Kabul veya Sevkler dosyasını yükleyip raporu tekrar açın.</small></p>`;
-    const opts = { tickFontSize: 11, metricLabel: 'Maliyet (₺)', metricFormatter: v => ` ${fmtTL(v)}` };
+    const emptyMsg = cat => `<p style="color:var(--c-sub);font-size:.8rem;text-align:center;">${cat} maliyet kaydı yok</p>`;
+    const opts = { tickFontSize: 10, metricLabel: 'Maliyet (₺)', metricFormatter: v => ` ${fmtTL(v)}` };
+
     // İç
     const icEl   = document.getElementById('cIcBreak');
     const icData = hasMaliyet ? _idBuildMaliyetPareto(idRows.ic, field, N) : [];
@@ -1687,9 +1704,7 @@ function _showMaliyetBreakdown() {
         document.getElementById('icBreakTable').innerHTML = _idMaliyetTable(icData, IC_COLOR);
     } else {
         icEl.style.display = 'none';
-        document.getElementById('icBreakTable').innerHTML = hasMaliyet
-            ? '<p style="color:var(--c-sub);font-size:.8rem;text-align:center;">İç başarısızlık maliyet kaydı yok</p>'
-            : noDataMsg;
+        document.getElementById('icBreakTable').innerHTML = hasMaliyet ? emptyMsg('İç başarısızlık') : noDataMsg;
     }
     // Dış
     const disEl   = document.getElementById('cDisBreak');
@@ -1700,9 +1715,19 @@ function _showMaliyetBreakdown() {
         document.getElementById('disBreakTable').innerHTML = _idMaliyetTable(disData, DIS_COLOR);
     } else {
         disEl.style.display = 'none';
-        document.getElementById('disBreakTable').innerHTML = hasMaliyet
-            ? '<p style="color:var(--c-sub);font-size:.8rem;text-align:center;">Dış başarısızlık maliyet kaydı yok</p>'
-            : noDataMsg;
+        document.getElementById('disBreakTable').innerHTML = hasMaliyet ? emptyMsg('Dış başarısızlık') : noDataMsg;
+    }
+    // Tedarikçi
+    const tedEl   = document.getElementById('cTedBreak');
+    const tedRows = idRows.tedarikci || [];
+    const tedData = hasMaliyet ? _idBuildMaliyetPareto(tedRows, field, N) : [];
+    if (tedData.length) {
+        tedEl.style.display = '';
+        window._idTedChart = paretoChart(tedEl, tedData, TED_COLOR, opts);
+        document.getElementById('tedBreakTable').innerHTML = _idMaliyetTable(tedData, TED_COLOR);
+    } else {
+        tedEl.style.display = 'none';
+        document.getElementById('tedBreakTable').innerHTML = hasMaliyet ? emptyMsg('Tedarikçi') : '';
     }
 }
 
@@ -1734,6 +1759,13 @@ function switchIdBreak(field, btn) {
 
     // ── Kalite Maliyeti modu ──
     if (field === 'kaliteMaliyeti') { _showMaliyetBreakdown(); return; }
+
+    // Normal mod: 2 kolon, tedarikçi maliyet panelını gizle
+    const grid = document.getElementById('idParetoGrid');
+    const tedPanel = document.getElementById('tedBreakPanel');
+    if (grid) grid.classList.remove('cols3');
+    if (tedPanel) tedPanel.style.display = 'none';
+    if (window._idTedChart) { try { window._idTedChart.destroy(); } catch(e){} window._idTedChart = null; }
 
     const idRows = window._idRows;
     if (!idRows) return;
@@ -3303,13 +3335,23 @@ function runReport(payload, opts) {
            </div>`
         : '';
     const totalKM = rows.reduce((s,r) => s + (Number(r.maliyet)||0), 0);
+    const icKM     = icDis.ic.reduce((s,r) => s + (Number(r.maliyet)||0), 0);
+    const disKM    = icDis.dis.reduce((s,r) => s + (Number(r.maliyet)||0), 0);
+    const tedKM    = (icDis.tedarikci||[]).reduce((s,r) => s + (Number(r.maliyet)||0), 0);
     const hasKM    = totalKM > 0;
+    const _kmRow = (ico, lbl, color, val) => val > 0
+        ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:5px;padding:4px 8px;background:rgba(255,255,255,.6);border-radius:6px;">
+              <span style="font-size:.73rem;color:${color};font-weight:700;">${ico} ${lbl}</span>
+              <span style="font-size:.73rem;color:${color};font-weight:800;">${fmtTL(val)}</span>
+           </div>` : '';
     const kmCard   = hasKM
         ? `<div class="ic-card km">
             <h3>💰 Kalite Maliyeti</h3>
             <div class="ic-val">${fmtTL(totalKM)}</div>
-            <div style="color:#7c3aed;font-weight:700;font-size:.95rem;margin-top:2px;">Toplam</div>
-            <div style="color:#5a6478;font-size:.78rem;margin-top:6px;">Birim Fiyat × Hatalı Miktar</div>
+            <div style="color:#5a6478;font-size:.72rem;margin-top:2px;">Birim Fiyat × Hatalı Miktar</div>
+            ${_kmRow('🏢','İç','#1d4ed8',icKM)}
+            ${_kmRow('🚚','Dış','#c2410c',disKM)}
+            ${_kmRow('🏭','Tedarikçi','#15803d',tedKM)}
            </div>`
         : `<div class="ic-card km" style="opacity:.55;">
             <h3>💰 Kalite Maliyeti</h3>
