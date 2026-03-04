@@ -5078,8 +5078,9 @@ function toggleHataTipi(key, checked) {
     const safeId = 'bdi-' + btoa(encodeURIComponent(key)).replace(/=/g,'');
     const card = document.getElementById(safeId);
     if (card) card.classList.toggle('excluded', !checked);
-    // Sadece Pareto grafiğini güncelle
+    // Pareto grafiklerini güncelle
     renderPareto();
+    renderKaliteMaliyetiPareto();
 }
 
 // ─── Yardımcı: bir alan için en sık N değeri döndür ───────────────────────────
