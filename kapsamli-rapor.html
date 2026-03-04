@@ -588,8 +588,15 @@ html, body { scroll-behavior:smooth; }
         </div>
         <div class="section-body">
             <div class="ic-dis-grid" style="margin-bottom:24px;" id="icDisCards"></div>
-            <div class="two-col">
-                <div class="chart-wrap"><canvas id="cIcDis"></canvas></div>
+            <div class="two-col" id="icDisChartRow">
+                <div class="chart-wrap">
+                    <div style="font-size:.75rem;font-weight:700;color:#64748b;text-align:center;margin-bottom:4px;">Hatalı Miktar (adet)</div>
+                    <canvas id="cIcDis"></canvas>
+                </div>
+                <div class="chart-wrap" id="cKMDisWrap" style="display:none;">
+                    <div style="font-size:.75rem;font-weight:700;color:#7c3aed;text-align:center;margin-bottom:4px;">Kalite Maliyeti (₺)</div>
+                    <canvas id="cKMDis"></canvas>
+                </div>
                 <div id="icDisTable"></div>
             </div>
             <!-- per-group pareto breakdown -->
@@ -3347,8 +3354,7 @@ function runReport(payload, opts) {
     const kmCard   = hasKM
         ? `<div class="ic-card km">
             <h3>💰 Kalite Maliyeti</h3>
-            <div class="ic-val">${fmtTL(totalKM)}</div>
-            <div style="color:#5a6478;font-size:.72rem;margin-top:2px;">Birim Fiyat × Hatalı Miktar</div>
+            <div style="color:#5a6478;font-size:.72rem;margin-top:2px;margin-bottom:4px;">Birim Fiyat × Hatalı Miktar</div>
             ${_kmRow('🏢','İç','#1d4ed8',icKM)}
             ${_kmRow('🚚','Dış','#c2410c',disKM)}
             ${_kmRow('🏭','Tedarikçi','#15803d',tedKM)}
@@ -3380,7 +3386,7 @@ function runReport(payload, opts) {
         </div>
         ${kmCard}`;
 
-    // ── İÇ/DIŞ CHART ──
+    // ── İÇ/DIŞ CHART (adet) ──
     new Chart(document.getElementById('cIcDis'), {
         type:'doughnut',
         data:{
@@ -3393,6 +3399,32 @@ function runReport(payload, opts) {
             plugins:{ legend:{ position:'bottom' }, tooltip:{ callbacks:{ label: c=>`${c.label}: ${fmtN(c.raw)} adet` }}}
         }
     });
+
+    // ── KALİTE MALİYETİ DONUT ──
+    const _kmWrap = document.getElementById('cKMDisWrap');
+    const _kmCanvas = document.getElementById('cKMDis');
+    if (hasKM && (icKM > 0 || disKM > 0 || tedKM > 0)) {
+        _kmWrap.style.display = '';
+        const _row = document.getElementById('icDisChartRow');
+        if (_row) _row.style.gridTemplateColumns = '1fr 1fr 1fr';
+        if (window._kmDisChart) { try { window._kmDisChart.destroy(); } catch(e){} }
+        window._kmDisChart = new Chart(_kmCanvas, {
+            type:'doughnut',
+            data:{
+                labels:['İç Maliyet','Dış Maliyet','Tedarikçi Maliyet'],
+                datasets:[{ data:[icKM,disKM,tedKM], backgroundColor:['#2563eb','#ea580c','#16a34a'], borderWidth:0, hoverOffset:8 }]
+            },
+            options:{
+                responsive:true, maintainAspectRatio:true,
+                cutout:'60%',
+                plugins:{ legend:{ position:'bottom' }, tooltip:{ callbacks:{ label: c=>`${c.label}: ${fmtTL(c.raw)}` }}}
+            }
+        });
+    } else {
+        _kmWrap.style.display = 'none';
+        const _row = document.getElementById('icDisChartRow');
+        if (_row) _row.style.gridTemplateColumns = '';
+    }
 
     // ── İÇ/DIŞ TABLE (by tespitYeri) ──
     const icDisByYer = paretoData(rows,'tespitYeri',12);
