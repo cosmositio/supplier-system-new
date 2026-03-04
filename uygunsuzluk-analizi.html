@@ -5491,6 +5491,21 @@ async function openKapsamliRapor() {
         return o;
     });
 
+    // ── Kalite Maliyeti: birim fiyat × hatalı miktar (varsa) ──
+    const _hasMk = Object.keys(birimFiyatMap).length > 0;
+    const _hasSv = Object.keys(sevkBirimFiyatMap).length > 0;
+    const hasMaliyetData = _hasMk || _hasSv;
+    if (hasMaliyetData) {
+        reportData.forEach((r, i) => {
+            const stokKodu  = _normKod(r.stokKodu || '');
+            const yearMonth = _parseUygTarih(r.uygunsuzlukTarih);
+            const hataliMiktar = Number(r.hataliMiktar) || 0;
+            let birimFiyat = _hasMk ? getMatchedBirimFiyat(stokKodu, yearMonth) : null;
+            if (birimFiyat == null && _hasSv) birimFiyat = _getSevkBirimFiyat(stokKodu, yearMonth);
+            newSlim[i].maliyet = birimFiyat != null ? birimFiyat * hataliMiktar : 0;
+        });
+    }
+
     const batchMeta = {
         id: batchId, label: batchLabel, rowCount: newSlim.length,
         addedAt: new Date().toLocaleString('tr-TR'), filters: batchFilters
@@ -5539,7 +5554,8 @@ async function openKapsamliRapor() {
         paretoGroupKey:  pgKey,
         paretoThreshold: _pgThresh,
         filters: batchFilters,
-        chartSnapshots: allSnaps
+        chartSnapshots: allSnaps,
+        hasMaliyetData
     };
 
     try {
