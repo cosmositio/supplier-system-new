@@ -4100,6 +4100,7 @@ function renderKaliteMaliyetiPareto() {
         : filteredData;
 
     const agg = {};
+    const aggDetail = {};
     let mkMatchCount = 0, svMatchCount = 0;
     const unmatchedKodlar = new Set();
 
@@ -4110,19 +4111,32 @@ function renderKaliteMaliyetiPareto() {
 
         // Hammadde (Mal Kabul) önce dene, yoksa Mamul (Sevkler)
         let birimFiyat = getMatchedBirimFiyat(stokKodu, yearMonth);
+        let kaynak = 'Hammadde';
         if (birimFiyat != null && stokKodu) {
             mkMatchCount++;
         } else {
             birimFiyat = _getSevkBirimFiyat(stokKodu, yearMonth);
+            kaynak = 'Sevkler';
             if (birimFiyat != null && stokKodu) svMatchCount++;
-            else if (stokKodu) unmatchedKodlar.add(stokKodu);
+            else if (stokKodu) { unmatchedKodlar.add(stokKodu); kaynak = '—'; }
         }
         const maliyet = birimFiyat != null ? birimFiyat * hataliMiktar : 0;
 
         const key = r[groupKey] || '(Belirtilmemiş)';
-        if (!agg[key]) agg[key] = { maliyet: 0, count: 0 };
+        if (!agg[key]) { agg[key] = { maliyet: 0, count: 0 }; aggDetail[key] = []; }
         agg[key].maliyet += maliyet;
         agg[key].count++;
+        aggDetail[key].push({
+            seri: r.uygunsuzlukSeri || '',
+            tarih: r.uygunsuzlukTarih || '',
+            stokKodu: r.stokKodu || '',
+            stokAdi: r.stokAdi || '',
+            yearMonth,
+            hataliMiktar,
+            birimFiyat,
+            kaynak,
+            maliyet
+        });
     });
 
     /* Match info badges */
@@ -4285,13 +4299,20 @@ function renderKaliteMaliyetiPareto() {
             responsive: true,
             maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
+            onClick: (evt, elements) => {
+                if (!elements || !elements.length) return;
+                const idx = elements[0].index;
+                const entry = entries[idx];
+                if (!entry || entry.isOther) return;
+                _showKmDrillDown(entry.label, aggDetail[entry.label] || []);
+            },
             plugins: {
                 legend: { position: 'top', labels: { font: { size: 12 }, color: '#333' } },
                 tooltip: {
                     callbacks: {
                         label: ctx3 => {
                             if (ctx3.datasetIndex === 1) return `Kümülatif: %${ctx3.parsed.y}`;
-                            return `Kalite Maliyeti: ${Number(ctx3.parsed.y).toLocaleString('tr', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
+                            return `Kalite Maliyeti: ${Number(ctx3.parsed.y).toLocaleString('tr', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺  — detay için tıkla`;
                         }
                     }
                 },
@@ -4320,6 +4341,74 @@ function renderKaliteMaliyetiPareto() {
             },
         },
     });
+}
+
+// ─── KM Drill-Down Modal ─────────────────────────────────────────────────────
+function _showKmDrillDown(label, rows) {
+    let modal = document.getElementById('_kmDrillModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = '_kmDrillModal';
+        modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;';
+        modal.innerHTML = `
+        <div style="background:#fff;border-radius:14px;width:min(96vw,1100px);max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.22);">
+          <div style="padding:18px 22px 12px;border-bottom:1.5px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="font-weight:700;font-size:1.1em;color:#065f46;" id="_kmDrillTitle"></div>
+              <div style="font-size:0.82em;color:#64748b;margin-top:2px;">Kalite Maliyeti = Birim Fiyat × Hatalı Miktar (her uygunsuzluk kaydı için)</div>
+            </div>
+            <button onclick="document.getElementById('_kmDrillModal').style.display='none'" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 14px;font-size:1em;cursor:pointer;color:#334155;">✕ Kapat</button>
+          </div>
+          <div style="overflow:auto;flex:1;padding:16px 22px;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.83em;" id="_kmDrillTable"></table>
+          </div>
+          <div style="padding:12px 22px;border-top:1.5px solid #e2e8f0;background:#f8fafc;border-radius:0 0 14px 14px;display:flex;justify-content:space-between;align-items:center;">
+            <div id="_kmDrillSummary" style="font-size:0.9em;font-weight:600;color:#065f46;"></div>
+          </div>
+        </div>`;
+        modal.addEventListener('click', e => { if (e.target === modal) modal.style.display='none'; });
+        document.body.appendChild(modal);
+    }
+
+    document.getElementById('_kmDrillTitle').textContent = `📊 ${label} — Hesaplama Detayı (${rows.length} kayıt)`;
+
+    const fmt  = (n, d=2) => (n == null ? '—' : Number(n).toLocaleString('tr', {minimumFractionDigits:d, maximumFractionDigits:d}));
+    const total = rows.reduce((s,r) => s + (r.maliyet||0), 0);
+
+    const hdrs = ['Seri No','Tarih','Stok Kodu','Hatalı Miktar','Eşleşen Ay','Kaynak','Birim Fiyat (₺)','Hesaplama','Maliyet (₺)'];
+    let html = `<thead><tr>${hdrs.map(h=>`<th style="background:#f0fdf4;color:#065f46;padding:7px 10px;border-bottom:2px solid #6ee7b7;text-align:left;white-space:nowrap;">${h}</th>`).join('')}</tr></thead><tbody>`;
+
+    rows.forEach((r, i) => {
+        const bg = i%2===0 ? '#fff' : '#f8fafc';
+        const bfStr  = r.birimFiyat != null ? fmt(r.birimFiyat) + ' ₺' : '<span style="color:#dc2626">Eşleşme yok</span>';
+        const calcStr = r.birimFiyat != null
+            ? `${fmt(r.birimFiyat)} × ${fmt(r.hataliMiktar,0)} = <strong>${fmt(r.maliyet)}</strong>`
+            : '<span style="color:#94a3b8;">—</span>';
+        const kaynakBadge = r.kaynak === 'Hammadde'
+            ? `<span style="background:#dcfce7;color:#166534;padding:1px 7px;border-radius:10px;font-size:0.85em;">📦 Hammadde</span>`
+            : r.kaynak === 'Sevkler'
+            ? `<span style="background:#dbeafe;color:#1e40af;padding:1px 7px;border-radius:10px;font-size:0.85em;">🚚 Sevkler</span>`
+            : `<span style="color:#94a3b8;">—</span>`;
+        html += `<tr style="background:${bg};">
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${r.seri||'—'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${r.tarih||'—'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-family:monospace;">${r.stokKodu||'—'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;">${fmt(r.hataliMiktar,0)}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-family:monospace;">${r.yearMonth||'<span style="color:#94a3b8;">?</span>'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${kaynakBadge}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">${bfStr}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${calcStr}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;color:${r.maliyet>0?'#065f46':'#94a3b8'};">${r.maliyet>0?fmt(r.maliyet)+' ₺':'—'}</td>
+        </tr>`;
+    });
+    html += `</tbody>`;
+
+    document.getElementById('_kmDrillTable').innerHTML = html;
+    document.getElementById('_kmDrillSummary').innerHTML =
+        `Toplam Kalite Maliyeti: <span style="font-size:1.1em;color:#059669;">${fmt(total)} ₺</span>`
+        + ` &nbsp;|&nbsp; ${rows.filter(r=>r.birimFiyat==null).length} kayıtta birim fiyat eşleşmedi`;
+
+    modal.style.display = 'flex';
 }
 
 // ─── KM Birim Fiyat Hesaplama Tablosu ─────────────────────────────────────────
