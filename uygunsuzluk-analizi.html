@@ -5580,6 +5580,8 @@ const _CPM_CHARTS = [
     { id:'polar',    label:'⭐ Polar Alan',             canvas:'#polarChart'   },
     { id:'chord',    label:'🔗 Chord Diyagramı',       svg:'#chordSvgWrap'    },
     { id:'beeswarm', label:'🟣 Beeswarm / Dot Plot',   svg:'#bswSvgWrap'      },
+    { id:'kmpareto', label:'💰 Kalite Maliyeti Paretosу', canvas:'#kmParetoChart', noTabSwitch:true },
+    { id:'kmtable',  label:'📋 Kalite Maliyeti Tablosu',  customCapture:'_captureKmTable', noTabSwitch:true },
 ];
 let _pendingSnapshots = [];
 
@@ -5673,8 +5675,104 @@ function _svgToPng(svgDataUrl, w, h) {
     });
 }
 
+// Kalite Maliyeti birim fiyat tablosunu canvas'a çizer ve PNG döndürür
+async function _captureKmTable() {
+    const rows = [
+        ...(birimFiyatDetail  || []).map(r => ({...r, _src:'📦 Hammadde'})),
+        ...(sevkBirimFiyatDetail || []).map(r => ({...r, _src:'🚚 Sevkler'}))
+    ];
+    if (!rows.length) return null;
+
+    rows.sort((a, b) => (a.stokKodu||'').localeCompare(b.stokKodu||'tr') || (a.ay||'').localeCompare(b.ay||''));
+
+    const COLS = [
+        { key:'_src',        head:'Kaynak',         w:110 },
+        { key:'stokKodu',    head:'Stok Kodu',       w:130 },
+        { key:'stokAdi',     head:'Stok Adı',        w:260 },
+        { key:'ay',          head:'Ay',              w:80  },
+        { key:'kayitSayisi', head:'Kayıt',           w:55  },
+        { key:'sumMiktar',   head:'Toplam Miktar',   w:115 },
+        { key:'sumTutar',    head:'Toplam Tutar (₺)',w:135 },
+        { key:'birimFiyat',  head:'Birim Fiyat (₺)', w:125 },
+    ];
+
+    const PAD = 8, ROW_H = 26, HEAD_H = 34, FONT = 12;
+    const totalW = COLS.reduce((s,c) => s + c.w, 0) + PAD * 2;
+    const visRows = Math.min(rows.length, 500); // cap at 500 rows
+    const totalH  = HEAD_H + visRows * ROW_H + PAD * 2 + 28; // +28 footer
+
+    const cvs = document.createElement('canvas');
+    cvs.width  = totalW * 2;  // hi-dpi
+    cvs.height = totalH * 2;
+    const ctx  = cvs.getContext('2d');
+    ctx.scale(2, 2);
+
+    // background
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, totalW, totalH);
+
+    // header row
+    ctx.fillStyle = '#065f46';
+    ctx.fillRect(PAD, PAD, totalW - PAD * 2, HEAD_H);
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${FONT}px sans-serif`;
+    let x = PAD;
+    COLS.forEach(c => {
+        ctx.fillText(c.head, x + 4, PAD + HEAD_H / 2 + 5, c.w - 8);
+        x += c.w;
+    });
+
+    const fmt = (v, key) => {
+        if (v == null || v === '') return '—';
+        if (key === 'sumMiktar')  return Number(v).toLocaleString('tr', {maximumFractionDigits:2});
+        if (key === 'sumTutar')   return Number(v).toLocaleString('tr', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ₺';
+        if (key === 'birimFiyat') return Number(v).toLocaleString('tr', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ₺';
+        return String(v);
+    };
+
+    for (let i = 0; i < visRows; i++) {
+        const r   = rows[i];
+        const y   = PAD + HEAD_H + i * ROW_H;
+        const bg  = i % 2 === 0 ? '#f0fdf4' : '#fff';
+        ctx.fillStyle = bg;
+        ctx.fillRect(PAD, y, totalW - PAD * 2, ROW_H);
+
+        // row border
+        ctx.strokeStyle = '#d1fae5';
+        ctx.lineWidth   = 0.5;
+        ctx.strokeRect(PAD, y, totalW - PAD * 2, ROW_H);
+
+        ctx.fillStyle = '#1e293b';
+        ctx.font = `${FONT}px sans-serif`;
+        let rx = PAD;
+        COLS.forEach(c => {
+            const txt = fmt(r[c.key], c.key);
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(rx + 3, y, c.w - 6, ROW_H);
+            ctx.clip();
+            ctx.fillText(txt, rx + 4, y + ROW_H / 2 + 5);
+            ctx.restore();
+            rx += c.w;
+        });
+    }
+
+    // footer
+    const fy = PAD + HEAD_H + visRows * ROW_H + 6;
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = `11px sans-serif`;
+    ctx.fillText(`Toplam ${rows.length} satır (Hammadde + Sevkler birim fiyat verisi)`, PAD + 4, fy + 16);
+
+    return { id: 'kmtable', label: '📋 Kalite Maliyeti Tablosu', dataUrl: cvs.toDataURL('image/png'), type: 'png' };
+}
+
 async function _cpmCaptureOne(def) {
     try {
+        if (def.customCapture) {
+            const fn = window[def.customCapture];
+            if (typeof fn === 'function') return await fn();
+            return null;
+        }
         if (def.canvas) {
             const canvas = document.querySelector(def.canvas);
             if (!canvas || canvas.width < 10) return null;
@@ -5733,12 +5831,16 @@ async function _cpmConfirm() {
     for (let i = 0; i < selected.length; i++) {
         const def = selected[i];
         toastMsg(i + 1, selected.length);
-        // Switch to this tab — triggers render inside switchTab()
-        switchTab(def.id);
-        // Wait two animation frames so Chart.js / SVG starts painting
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        // Heavier charts need more time
-        await new Promise(r => setTimeout(r, _CPM_SLOW.has(def.id) ? 600 : 350));
+        // Switch to this tab — unless this chart doesn't live in a tab
+        if (!def.noTabSwitch) {
+            switchTab(def.id);
+            // Wait two animation frames so Chart.js / SVG starts painting
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            // Heavier charts need more time
+            await new Promise(r => setTimeout(r, _CPM_SLOW.has(def.id) ? 600 : 350));
+        } else {
+            await new Promise(r => setTimeout(r, 120));
+        }
         const snap = await _cpmCaptureOne(def);
         if (snap) snaps.push(snap);
     }
