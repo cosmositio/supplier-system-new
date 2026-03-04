@@ -132,7 +132,7 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .prog-fill { height:100%; border-radius:100px; transition:width .6s; }
 
 /* ── IC DIS CARDS ── */
-.ic-dis-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
+.ic-dis-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
 /* İç/Dış breakdown */
 .idb-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:18px 0 14px; padding-top:18px; border-top:1.5px solid #e2e8f0; }
 .idb-bar span { font-size:.8rem; font-weight:700; color:#475569; margin-right:4px; }
@@ -150,11 +150,13 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--c-bg); colo
 .ic-card.ic { background:linear-gradient(135deg,#eff6ff,#dbeafe); border:1.5px solid #93c5fd; }
 .ic-card.dis { background:linear-gradient(135deg,#fff7ed,#fed7aa); border:1.5px solid #fdba74; }
 .ic-card.ted { background:linear-gradient(135deg,#f0fdf4,#bbf7d0); border:1.5px solid #86efac; }
+.ic-card.km  { background:linear-gradient(135deg,#fdf4ff,#ede9fe); border:1.5px solid #c4b5fd; }
 .ic-card h3 { font-size:.85rem; font-weight:700; margin-bottom:6px; }
 .ic-card .ic-val { font-size:2rem; font-weight:800; margin-bottom:2px; }
 .ic-card.ic .ic-val { color:#1d4ed8; }
 .ic-card.dis .ic-val { color:#c2410c; }
 .ic-card.ted .ic-val { color:#15803d; }
+.ic-card.km  .ic-val { color:#7c3aed; font-size:1.6rem; }
 
 /* ── AKSIYON PLAN TABLE ── */
 .ap-faaliyet-tag { display:inline-block; background:#dbeafe; color:#1e40af; font-size:.7rem; font-weight:600; border-radius:4px; padding:2px 7px; white-space:nowrap; }
@@ -3300,6 +3302,20 @@ function runReport(payload, opts) {
             <em>uygunsuzlukTuru</em>: ${Object.entries(diag.turCount).slice(0,5).map(([k,v])=>`<strong>${k}</strong>(${v})`).join(', ')}
            </div>`
         : '';
+    const totalKM = rows.reduce((s,r) => s + (Number(r.maliyet)||0), 0);
+    const hasKM    = totalKM > 0;
+    const kmCard   = hasKM
+        ? `<div class="ic-card km">
+            <h3>💰 Kalite Maliyeti</h3>
+            <div class="ic-val">${fmtTL(totalKM)}</div>
+            <div style="color:#7c3aed;font-weight:700;font-size:.95rem;margin-top:2px;">Toplam</div>
+            <div style="color:#5a6478;font-size:.78rem;margin-top:6px;">Birim Fiyat × Hatalı Miktar</div>
+           </div>`
+        : `<div class="ic-card km" style="opacity:.55;">
+            <h3>💰 Kalite Maliyeti</h3>
+            <div class="ic-val" style="font-size:1rem;color:#7c3aed;">—</div>
+            <div style="color:#5a6478;font-size:.78rem;margin-top:6px;">Analiz sayfasında Mal Kabul<br>veya Sevkler dosyası yükleyin</div>
+           </div>`;
     document.getElementById('icDisCards').innerHTML = `
         <div class="ic-card ic">
             <h3>🏢 İç Başarısızlık</h3>
@@ -3319,7 +3335,8 @@ function runReport(payload, opts) {
             <div class="ic-val">${fmtN(tedH)}</div>
             <div style="color:#15803d;font-weight:700;font-size:1.1rem;">%${tedPct}</div>
             <div style="color:#5a6478;font-size:.78rem;margin-top:6px;">${(icDis.tedarikci||[]).length} kayıt — Tedarikçi kaynaklı</div>
-        </div>`;
+        </div>
+        ${kmCard}`;
 
     // ── İÇ/DIŞ CHART ──
     new Chart(document.getElementById('cIcDis'), {
