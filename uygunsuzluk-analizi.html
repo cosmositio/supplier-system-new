@@ -1394,13 +1394,15 @@
                             <div id="kmMatchInfo" style="font-size:0.9em;display:none;gap:5px;align-items:center;flex-wrap:wrap;"></div>
                         </div>
                         <div class="drop-zone" id="kmDropZone" onclick="document.getElementById('kmFileInput').click()"
-                             style="padding:18px 24px;background:#f0fdf4;border-color:#6ee7b7;cursor:pointer;min-height:90px;">
-                            <div class="icon" style="font-size:1.8em;">📂</div>
-                            <p style="color:#065f46;font-size:0.88em;">Mal Kabul Excel'ini sürükleyin veya tıklayın</p>
+                             style="padding:14px 24px;background:#f0fdf4;border-color:#6ee7b7;cursor:pointer;min-height:70px;">
+                            <div class="icon" style="font-size:1.5em;">📂</div>
+                            <p style="color:#065f46;font-size:0.85em;margin:2px 0;">Mal Kabul Excel'ini sürükleyin veya tıklayın</p>
                             <p class="hint">Sütunlar: <strong>Stok Kodu · Miktar · İrsaliye Tutar TL · İrsaliye Tarihi</strong></p>
                         </div>
                         <input type="file" id="kmFileInput" accept=".xlsx,.xls" style="display:none"
-                               onchange="if(this.files[0]) processMalKabulFile(this.files[0])">
+                               onchange="if(this.files[0]) processMalKabulFile(this.files[0]); this.value='';">
+                        <!-- yıl bazlı dosya listesi -->
+                        <div id="kmFileList" style="display:none;margin-top:6px;"></div>
                     </div>
 
                     <!-- Sevkler Upload -->
@@ -1410,13 +1412,15 @@
                             <div id="svMatchInfo" style="font-size:0.9em;display:none;gap:5px;align-items:center;flex-wrap:wrap;"></div>
                         </div>
                         <div class="drop-zone" id="svDropZone" onclick="document.getElementById('svFileInput').click()"
-                             style="padding:18px 24px;background:#eff6ff;border-color:#93c5fd;cursor:pointer;min-height:90px;">
-                            <div class="icon" style="font-size:1.8em;">🚚</div>
-                            <p style="color:#1e3a8a;font-size:0.88em;">Sevkler Excel'ini sürükleyin veya tıklayın</p>
+                             style="padding:14px 24px;background:#eff6ff;border-color:#93c5fd;cursor:pointer;min-height:70px;">
+                            <div class="icon" style="font-size:1.5em;">🚚</div>
+                            <p style="color:#1e3a8a;font-size:0.85em;margin:2px 0;">Sevkler Excel'ini sürükleyin veya tıklayın</p>
                             <p class="hint">Sütunlar: <strong>Stok Kodu · İrsaliye Miktar · Tutar · İrsaliye Tarihi</strong></p>
                         </div>
                         <input type="file" id="svFileInput" accept=".xlsx,.xls" style="display:none"
-                               onchange="if(this.files[0]) processSevklerFile(this.files[0])">
+                               onchange="if(this.files[0]) processSevklerFile(this.files[0]); this.value='';">
+                        <!-- yıl bazlı dosya listesi -->
+                        <div id="svFileList" style="display:none;margin-top:6px;"></div>
                     </div>
                 </div>
 
@@ -3940,30 +3944,139 @@ function _normKod(s) {
     return String(s || '').trim().toUpperCase().replace(/\s+/g, ' ');
 }
 
-function processMalKabulFile(file) {
+/* ── Çok-yıl yardımcıları ─────────────────────────────────────────────────── */
+
+/** birimFiyatDetail dizisinden baskın yılı tespit eder. */
+function _detectFileYear(detail) {
+    const cnt = {};
+    detail.forEach(d => {
+        const yr = (d.ay || '').split('-')[0];
+        if (yr && yr.length === 4) cnt[yr] = (cnt[yr] || 0) + d.kayitSayisi;
+    });
+    let best = '', bestN = 0;
+    Object.entries(cnt).forEach(([y, n]) => { if (n > bestN) { bestN = n; best = y; } });
+    return best || String(new Date().getFullYear());
+}
+
+/** yearMap'i global birimFiyatMap'e birleştirir (üzerine yazmaz, ekler). */
+function _mergeBirimFiyatMap(yearMap) {
+    Object.entries(yearMap).forEach(([kod, months]) => {
+        if (!birimFiyatMap[kod]) birimFiyatMap[kod] = {};
+        Object.assign(birimFiyatMap[kod], months);
+    });
+}
+
+/** yearMap'i global sevkBirimFiyatMap'e birleştirir. */
+function _mergeSevkBirimFiyatMap(yearMap) {
+    Object.entries(yearMap).forEach(([kod, months]) => {
+        if (!sevkBirimFiyatMap[kod]) sevkBirimFiyatMap[kod] = {};
+        Object.assign(sevkBirimFiyatMap[kod], months);
+    });
+}
+
+/** Stored km files listesini DOM'da gösterir. */
+function _renderKmFileList(index) {
+    const el = document.getElementById('kmFileList');
+    if (!el) return;
+    if (!index || !index.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'block';
+    const rows = [...index].sort((a, b) => a.year.localeCompare(b.year));
+    el.innerHTML = rows.map(e =>
+        `<div style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:#f0fdf4;border:1px solid #a7f3d0;border-radius:8px;margin-bottom:4px;font-size:0.8em;">
+            <span style="background:#059669;color:#fff;padding:1px 8px;border-radius:10px;font-weight:700;white-space:nowrap;">${e.year}</span>
+            <span style="flex:1;color:#065f46;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${e.fileName}">${e.fileName}</span>
+            <span style="color:#6b7280;white-space:nowrap;">${(e.rowCount||0).toLocaleString('tr')} satır</span>
+            <span style="color:#9ca3af;white-space:nowrap;">${new Date(e.savedAt).toLocaleDateString('tr-TR')}</span>
+            <span style="color:#b91c1c;cursor:pointer;text-decoration:underline;white-space:nowrap;" onclick="_clearKmMalKabul('${e.year}')">Sil</span>
+        </div>`
+    ).join('');
+}
+
+/** Stored sv files listesini DOM'da gösterir. */
+function _renderSvFileList(index) {
+    const el = document.getElementById('svFileList');
+    if (!el) return;
+    if (!index || !index.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'block';
+    const rows = [...index].sort((a, b) => a.year.localeCompare(b.year));
+    el.innerHTML = rows.map(e =>
+        `<div style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;margin-bottom:4px;font-size:0.8em;">
+            <span style="background:#1d4ed8;color:#fff;padding:1px 8px;border-radius:10px;font-weight:700;white-space:nowrap;">${e.year}</span>
+            <span style="flex:1;color:#1e3a8a;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${e.fileName}">${e.fileName}</span>
+            <span style="color:#6b7280;white-space:nowrap;">${(e.rowCount||0).toLocaleString('tr')} satır</span>
+            <span style="color:#9ca3af;white-space:nowrap;">${new Date(e.savedAt).toLocaleDateString('tr-TR')}</span>
+            <span style="color:#b91c1c;cursor:pointer;text-decoration:underline;white-space:nowrap;" onclick="_clearKmSevkler('${e.year}')">Sil</span>
+        </div>`
+    ).join('');
+}
+
+/* Tüm kayıtlı km yıllarını yeniden yükleyip birleştirir (silinme sonrası rebuild). */
+async function _rebuildBirimFiyatMapFromDB() {
+    birimFiyatMap = {};
+    const index = (await dbGet('kmMK_index')) || [];
+    const accDetail = [];
+    for (const e of index) {
+        const stored = await dbGet(e.key);
+        if (stored && stored.rows) {
+            birimFiyatDetail = [];
+            const m = buildBirimFiyatMap(stored.rows);
+            accDetail.push(...birimFiyatDetail);
+            _mergeBirimFiyatMap(m);
+        }
+    }
+    birimFiyatDetail = accDetail;
+}
+
+async function _rebuildSevkBirimFiyatMapFromDB() {
+    sevkBirimFiyatMap = {};
+    const index = (await dbGet('kmSV_index')) || [];
+    const accDetail = [];
+    for (const e of index) {
+        const stored = await dbGet(e.key);
+        if (stored && stored.rows) {
+            sevkBirimFiyatDetail = [];
+            const m = buildSevkBirimFiyatMap(stored.rows);
+            accDetail.push(...sevkBirimFiyatDetail);
+            _mergeSevkBirimFiyatMap(m);
+        }
+    }
+    sevkBirimFiyatDetail = accDetail;
+}
+
+async function processMalKabulFile(file) {
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
         showToast('Lütfen .xlsx veya .xls dosyası seçin!', 'error'); return;
     }
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const wb  = XLSX.read(e.target.result, { type: 'array', cellDates: true });
             const ws  = wb.Sheets[wb.SheetNames[0]];
             const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
-            malKabulRows  = raw;
-            birimFiyatMap = buildBirimFiyatMap(raw);
+            // Build year map (also populates birimFiyatDetail temporarily)
+            birimFiyatDetail = [];
+            const yearMap = buildBirimFiyatMap(raw);
+            const detailSnap = [...birimFiyatDetail];
+            const year = _detectFileYear(detailSnap);
+            // Merge into global map
+            _mergeBirimFiyatMap(yearMap);
             const _mkCount = Object.keys(birimFiyatMap).length;
-            console.log('[KM MalKabul] stok kod sayısı:', _mkCount, '| örnek:', Object.keys(birimFiyatMap).slice(0,5));
+            console.log('[KM MalKabul %s] stok kod sayısı: %d', year, Object.keys(yearMap).length);
+            // Per-year IndexedDB key
+            const dbKey = 'kmMK_' + year;
+            const entry = { rows: raw, fileName: file.name, savedAt: new Date().toISOString(), year, rowCount: raw.length };
+            // Update index
+            let index = (await dbGet('kmMK_index')) || [];
+            const existIdx = index.findIndex(x => x.year === year);
+            const meta = { key: dbKey, fileName: file.name, savedAt: entry.savedAt, year, rowCount: raw.length };
+            if (existIdx >= 0) index[existIdx] = meta; else index.push(meta);
+            await dbSet(dbKey, entry);
+            await dbSet('kmMK_index', index);
             document.getElementById('kmParetoContent').style.display = 'block';
-            document.getElementById('kmDropZone').innerHTML =
-                `<div class="icon" style="font-size:1.8em;">✅</div>
-                 <p style="color:#065f46;font-size:0.92em;font-weight:600;">${file.name} yüklendi — ${raw.length.toLocaleString('tr')} satır</p>
-                 <p class="hint">${_mkCount.toLocaleString('tr')} farklı stok kodu &nbsp;|&nbsp; <span style="color:#b91c1c;cursor:pointer;text-decoration:underline" onclick="_clearKmMalKabul()">Temizle</span></p>`;
+            _renderKmFileList(index);
             renderKaliteMaliyetiPareto();
             renderKmBirimFiyatTable();
-            // IndexedDB'ye kaydet (sayfa yenilenince geri yüklensin)
-            dbSet('kmMalKabul', { rows: raw, fileName: file.name, savedAt: new Date().toISOString() }).catch(() => {});
-            showToast(`✅ Mal Kabul: ${raw.length.toLocaleString('tr')} satır, ${_mkCount.toLocaleString('tr')} stok kodu`);
+            showToast(`✅ Mal Kabul ${year}: ${raw.length.toLocaleString('tr')} satır, ${Object.keys(yearMap).length.toLocaleString('tr')} stok kodu`);
         } catch(err) {
             showToast('❌ Dosya okunamadı: ' + err.message, 'error');
         }
@@ -4579,32 +4692,41 @@ function downloadKmChartPNG() {
 }
 
 // ─── SEVKLER (MAMUL) ──────────────────────────────────────────────────────
-function processSevklerFile(file) {
+async function processSevklerFile(file) {
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
         showToast('Lütfen .xlsx veya .xls dosyası seçin!', 'error'); return;
     }
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const wb  = XLSX.read(e.target.result, { type: 'array', cellDates: true });
             const ws  = wb.Sheets[wb.SheetNames[0]];
             const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
-            sevkRows             = raw;
-            sevkBirimFiyatMap    = buildSevkBirimFiyatMap(raw);
-            sevkBirimFiyatDetail = sevkBirimFiyatDetail; // rebuilt inside buildSevkBirimFiyatMap
+            // Build year map (also populates sevkBirimFiyatDetail temporarily)
+            sevkBirimFiyatDetail = [];
+            const yearMap = buildSevkBirimFiyatMap(raw);
+            const detailSnap = [...sevkBirimFiyatDetail];
+            const year = _detectFileYear(detailSnap);
+            // Merge into global map
+            _mergeSevkBirimFiyatMap(yearMap);
             const _svCount = Object.keys(sevkBirimFiyatMap).length;
-            console.log('[KM Sevkler] stok kod sayısı:', _svCount, '| örnek:', Object.keys(sevkBirimFiyatMap).slice(0,5));
-            document.getElementById('svDropZone').innerHTML =
-                `<div class="icon" style="font-size:1.8em;">✅</div>
-                 <p style="color:#1e3a8a;font-size:0.92em;font-weight:600;">${file.name} yüklendi — ${raw.length.toLocaleString('tr')} satır</p>
-                 <p class="hint">${_svCount.toLocaleString('tr')} farklı stok kodu &nbsp;|&nbsp; <span style="color:#b91c1c;cursor:pointer;text-decoration:underline" onclick="_clearKmSevkler()">Temizle</span></p>`;
+            console.log('[KM Sevkler %s] stok kod sayısı: %d', year, Object.keys(yearMap).length);
+            // Per-year IndexedDB key
+            const dbKey = 'kmSV_' + year;
+            const entry = { rows: raw, fileName: file.name, savedAt: new Date().toISOString(), year, rowCount: raw.length };
+            // Update index
+            let index = (await dbGet('kmSV_index')) || [];
+            const existIdx = index.findIndex(x => x.year === year);
+            const meta = { key: dbKey, fileName: file.name, savedAt: entry.savedAt, year, rowCount: raw.length };
+            if (existIdx >= 0) index[existIdx] = meta; else index.push(meta);
+            await dbSet(dbKey, entry);
+            await dbSet('kmSV_index', index);
             // Tek pareto üzerinde her iki kaynak birlikte gösterilir
             document.getElementById('kmParetoContent').style.display = 'block';
+            _renderSvFileList(index);
             renderKaliteMaliyetiPareto();
             renderKmBirimFiyatTable();
-            // IndexedDB'ye kaydet
-            dbSet('kmSevkler', { rows: raw, fileName: file.name, savedAt: new Date().toISOString() }).catch(() => {});
-            showToast(`✅ Sevkler: ${raw.length.toLocaleString('tr')} satır, ${_svCount.toLocaleString('tr')} stok kodu`);
+            showToast(`✅ Sevkler ${year}: ${raw.length.toLocaleString('tr')} satır, ${Object.keys(yearMap).length.toLocaleString('tr')} stok kodu`);
         } catch(err) {
             showToast('❌ Dosya okunamadı: ' + err.message, 'error');
         }
@@ -9502,7 +9624,13 @@ function loadFromStorage() {
 }
 
 function clearStorage() {
-    Promise.all([dbDelete('data'), dbDelete('meta'), dbDelete('kmMalKabul'), dbDelete('kmSevkler')]).then(() => {
+    // Önce km/sv index'lerini al, sonra hem index hem per-year anahtarlarını sil
+    Promise.all([dbGet('kmMK_index'), dbGet('kmSV_index')]).then(([mkIdx, svIdx]) => {
+        const toDelete = ['data','meta','kmMalKabul','kmSevkler','kmMK_index','kmSV_index'];
+        (mkIdx || []).forEach(e => toDelete.push(e.key));
+        (svIdx || []).forEach(e => toDelete.push(e.key));
+        return Promise.all(toDelete.map(k => dbDelete(k).catch(() => {})));
+    }).then(() => {
         allData = []; filteredData = []; tableSearchData = [];
         document.getElementById('fileInfo').style.display = 'none';
         document.getElementById('statsRow').style.display = 'none';
@@ -9511,12 +9639,10 @@ function clearStorage() {
         document.getElementById('emptyState').style.display = 'block';
         if (paretoChartInst) { paretoChartInst.destroy(); paretoChartInst = null; }
         // KM verilerini de sıfırla
-        malKabulRows = null; birimFiyatMap = {};
+        malKabulRows = null; birimFiyatMap = {}; birimFiyatDetail = [];
         sevkRows = null; sevkBirimFiyatMap = {}; sevkBirimFiyatDetail = [];
-        const kmDz = document.getElementById('kmDropZone');
-        if (kmDz) kmDz.innerHTML = `<div class="icon" style="font-size:1.8em;">📂</div><p style="color:#065f46;font-size:0.88em;">Mal Kabul Excel'ini sürükleyin veya tıklayın</p><p class="hint">Sütunlar: <strong>Stok Kodu · Miktar · İrsaliye Tutar TL · İrsaliye Tarihi</strong></p>`;
-        const svDz = document.getElementById('svDropZone');
-        if (svDz) svDz.innerHTML = `<div class="icon" style="font-size:1.8em;">🚚</div><p style="color:#1e3a8a;font-size:0.88em;">Sevkler Excel'ini sürükleyin veya tıklayın</p><p class="hint">Sütunlar: <strong>Stok Kodu · İrsaliye Miktar · Tutar · İrsaliye Tarihi</strong></p>`;
+        _renderKmFileList([]);
+        _renderSvFileList([]);
         const kmPc = document.getElementById('kmParetoContent');
         if (kmPc) kmPc.style.display = 'none';
         showToast('Hafıza temizlendi. Yeni dosya yükleyebilirsiniz.');
@@ -9524,59 +9650,141 @@ function clearStorage() {
 }
 
 /* ── Mal Kabul / Sevkler kalıcı depolama yardımcıları ── */
-function _restoreKmData() {
-    Promise.all([dbGet('kmMalKabul'), dbGet('kmSevkler')]).then(([mk, sv]) => {
-        let anyLoaded = false;
-        if (mk && mk.rows && mk.rows.length) {
-            malKabulRows  = mk.rows;
-            birimFiyatMap = buildBirimFiyatMap(mk.rows);
-            const savedAt = new Date(mk.savedAt).toLocaleString('tr-TR');
-            const dz = document.getElementById('kmDropZone');
-            if (dz) dz.innerHTML =
-                `<div class="icon" style="font-size:1.8em;">✅</div>
-                 <p style="color:#065f46;font-size:0.92em;font-weight:600;">${mk.fileName} — ${mk.rows.length.toLocaleString('tr')} satır</p>
-                 <p class="hint">💾 ${savedAt} tarihinde kaydedildi &nbsp;|&nbsp; <span style="color:#b91c1c;cursor:pointer;text-decoration:underline" onclick="_clearKmMalKabul()">Temizle</span></p>`;
+async function _restoreKmData() {
+    let anyLoaded = false;
+
+    // ── Mal Kabul ──────────────────────────────────────────
+    let mkIndex = (await dbGet('kmMK_index')) || [];
+
+    // Eski tek-dosya formatını (kmMalKabul) geçişe taşı
+    if (!mkIndex.length) {
+        const legacy = await dbGet('kmMalKabul').catch(() => null);
+        if (legacy && legacy.rows && legacy.rows.length) {
+            birimFiyatDetail = [];
+            const m = buildBirimFiyatMap(legacy.rows);
+            const detSnap = [...birimFiyatDetail];
+            const year = _detectFileYear(detSnap);
+            const dbKey = 'kmMK_' + year;
+            const meta = { key: dbKey, fileName: legacy.fileName, savedAt: legacy.savedAt, year, rowCount: legacy.rows.length };
+            await dbSet(dbKey, { rows: legacy.rows, fileName: legacy.fileName, savedAt: legacy.savedAt, year, rowCount: legacy.rows.length });
+            mkIndex = [meta];
+            await dbSet('kmMK_index', mkIndex);
+            await dbDelete('kmMalKabul').catch(() => {});
+        }
+    }
+
+    birimFiyatMap = {};
+    birimFiyatDetail = [];
+    for (const e of mkIndex) {
+        const stored = await dbGet(e.key).catch(() => null);
+        if (stored && stored.rows && stored.rows.length) {
+            const m = buildBirimFiyatMap(stored.rows);
+            _mergeBirimFiyatMap(m);
             anyLoaded = true;
         }
-        if (sv && sv.rows && sv.rows.length) {
-            sevkRows          = sv.rows;
-            sevkBirimFiyatMap = buildSevkBirimFiyatMap(sv.rows);
-            const savedAt = new Date(sv.savedAt).toLocaleString('tr-TR');
-            const dz2 = document.getElementById('svDropZone');
-            if (dz2) dz2.innerHTML =
-                `<div class="icon" style="font-size:1.8em;">✅</div>
-                 <p style="color:#1e3a8a;font-size:0.92em;font-weight:600;">${sv.fileName} — ${sv.rows.length.toLocaleString('tr')} satır</p>
-                 <p class="hint">💾 ${savedAt} tarihinde kaydedildi &nbsp;|&nbsp; <span style="color:#b91c1c;cursor:pointer;text-decoration:underline" onclick="_clearKmSevkler()">Temizle</span></p>`;
+    }
+    _renderKmFileList(mkIndex);
+
+    // ── Sevkler ────────────────────────────────────────────
+    let svIndex = (await dbGet('kmSV_index')) || [];
+
+    // Eski tek-dosya formatını (kmSevkler) geçişe taşı
+    if (!svIndex.length) {
+        const legacy = await dbGet('kmSevkler').catch(() => null);
+        if (legacy && legacy.rows && legacy.rows.length) {
+            sevkBirimFiyatDetail = [];
+            const m = buildSevkBirimFiyatMap(legacy.rows);
+            const detSnap = [...sevkBirimFiyatDetail];
+            const year = _detectFileYear(detSnap);
+            const dbKey = 'kmSV_' + year;
+            const meta = { key: dbKey, fileName: legacy.fileName, savedAt: legacy.savedAt, year, rowCount: legacy.rows.length };
+            await dbSet(dbKey, { rows: legacy.rows, fileName: legacy.fileName, savedAt: legacy.savedAt, year, rowCount: legacy.rows.length });
+            svIndex = [meta];
+            await dbSet('kmSV_index', svIndex);
+            await dbDelete('kmSevkler').catch(() => {});
+        }
+    }
+
+    sevkBirimFiyatMap = {};
+    sevkBirimFiyatDetail = [];
+    for (const e of svIndex) {
+        const stored = await dbGet(e.key).catch(() => null);
+        if (stored && stored.rows && stored.rows.length) {
+            const m = buildSevkBirimFiyatMap(stored.rows);
+            _mergeSevkBirimFiyatMap(m);
             anyLoaded = true;
         }
-        if (anyLoaded) {
-            document.getElementById('kmParetoContent').style.display = 'block';
-            renderKaliteMaliyetiPareto();
-            if (malKabulRows) renderKmBirimFiyatTable();
+    }
+    _renderSvFileList(svIndex);
+
+    if (anyLoaded) {
+        document.getElementById('kmParetoContent').style.display = 'block';
+        renderKaliteMaliyetiPareto();
+        if (Object.keys(birimFiyatMap).length) renderKmBirimFiyatTable();
+    }
+}
+
+async function _clearKmMalKabul(year) {
+    if (year) {
+        // Belirli yılı sil
+        const key = 'kmMK_' + year;
+        let index = (await dbGet('kmMK_index')) || [];
+        index = index.filter(e => e.year !== year);
+        await dbDelete(key);
+        await dbSet('kmMK_index', index);
+        // Kalan yıllardan haritayı yeniden kur
+        await _rebuildBirimFiyatMapFromDB();
+        _renderKmFileList(index);
+        if (!Object.keys(birimFiyatMap).length && !Object.keys(sevkBirimFiyatMap).length) {
+            document.getElementById('kmParetoContent').style.display = 'none';
         }
-    }).catch(() => {});
+        renderKaliteMaliyetiPareto();
+        if (Object.keys(birimFiyatMap).length) renderKmBirimFiyatTable();
+        showToast(`${year} Mal Kabul verisi silindi.`);
+    } else {
+        // Tümünü sil
+        const index = (await dbGet('kmMK_index')) || [];
+        await Promise.all(index.map(e => dbDelete(e.key).catch(() => {})));
+        await dbDelete('kmMK_index');
+        await dbDelete('kmMalKabul').catch(() => {});
+        birimFiyatMap = {};
+        birimFiyatDetail = [];
+        _renderKmFileList([]);
+        if (!Object.keys(sevkBirimFiyatMap).length) document.getElementById('kmParetoContent').style.display = 'none';
+        renderKaliteMaliyetiPareto();
+        showToast('Tüm Mal Kabul verisi temizlendi.');
+    }
 }
 
-function _clearKmMalKabul() {
-    dbDelete('kmMalKabul').then(() => {
-        malKabulRows = null; birimFiyatMap = {};
-        const dz = document.getElementById('kmDropZone');
-        if (dz) dz.innerHTML = `<div class="icon" style="font-size:1.8em;">📂</div><p style="color:#065f46;font-size:0.88em;">Mal Kabul Excel'ini sürükleyin veya tıklayın</p><p class="hint">Sütunlar: <strong>Stok Kodu · Miktar · İrsaliye Tutar TL · İrsaliye Tarihi</strong></p>`;
-        if (!sevkRows) document.getElementById('kmParetoContent').style.display = 'none';
+async function _clearKmSevkler(year) {
+    if (year) {
+        // Belirli yılı sil
+        const key = 'kmSV_' + year;
+        let index = (await dbGet('kmSV_index')) || [];
+        index = index.filter(e => e.year !== year);
+        await dbDelete(key);
+        await dbSet('kmSV_index', index);
+        // Kalan yıllardan haritayı yeniden kur
+        await _rebuildSevkBirimFiyatMapFromDB();
+        _renderSvFileList(index);
+        if (!Object.keys(sevkBirimFiyatMap).length && !Object.keys(birimFiyatMap).length) {
+            document.getElementById('kmParetoContent').style.display = 'none';
+        }
         renderKaliteMaliyetiPareto();
-        showToast('Mal Kabul verisi temizlendi.');
-    }).catch(() => {});
-}
-
-function _clearKmSevkler() {
-    dbDelete('kmSevkler').then(() => {
-        sevkRows = null; sevkBirimFiyatMap = {}; sevkBirimFiyatDetail = [];
-        const dz2 = document.getElementById('svDropZone');
-        if (dz2) dz2.innerHTML = `<div class="icon" style="font-size:1.8em;">🚚</div><p style="color:#1e3a8a;font-size:0.88em;">Sevkler Excel'ini sürükleyin veya tıklayın</p><p class="hint">Sütunlar: <strong>Stok Kodu · İrsaliye Miktar · Tutar · İrsaliye Tarihi</strong></p>`;
-        if (!malKabulRows) document.getElementById('kmParetoContent').style.display = 'none';
+        showToast(`${year} Sevkler verisi silindi.`);
+    } else {
+        // Tümünü sil
+        const index = (await dbGet('kmSV_index')) || [];
+        await Promise.all(index.map(e => dbDelete(e.key).catch(() => {})));
+        await dbDelete('kmSV_index');
+        await dbDelete('kmSevkler').catch(() => {});
+        sevkBirimFiyatMap = {};
+        sevkBirimFiyatDetail = [];
+        _renderSvFileList([]);
+        if (!Object.keys(birimFiyatMap).length) document.getElementById('kmParetoContent').style.display = 'none';
         renderKaliteMaliyetiPareto();
-        showToast('Sevkler verisi temizlendi.');
-    }).catch(() => {});
+        showToast('Tüm Sevkler verisi temizlendi.');
+    }
 }
 
 function showFileInfo(fileName, sheetName, count, fromCache) {
