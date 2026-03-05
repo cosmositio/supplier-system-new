@@ -4053,14 +4053,11 @@ async function processMalKabulFile(file) {
             const wb  = XLSX.read(e.target.result, { type: 'array', cellDates: true });
             const ws  = wb.Sheets[wb.SheetNames[0]];
             const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
-            // Build year map (also populates birimFiyatDetail temporarily)
+            // Build year map temporarily for year detection
             birimFiyatDetail = [];
             const yearMap = buildBirimFiyatMap(raw);
             const detailSnap = [...birimFiyatDetail];
             const year = _detectFileYear(detailSnap);
-            // Merge into global map
-            _mergeBirimFiyatMap(yearMap);
-            const _mkCount = Object.keys(birimFiyatMap).length;
             console.log('[KM MalKabul %s] stok kod sayısı: %d', year, Object.keys(yearMap).length);
             // Per-year IndexedDB key
             const dbKey = 'kmMK_' + year;
@@ -4072,6 +4069,8 @@ async function processMalKabulFile(file) {
             if (existIdx >= 0) index[existIdx] = meta; else index.push(meta);
             await dbSet(dbKey, entry);
             await dbSet('kmMK_index', index);
+            // Rebuild from DB — ensures birimFiyatMap & birimFiyatDetail span all years
+            await _rebuildBirimFiyatMapFromDB();
             document.getElementById('kmParetoContent').style.display = 'block';
             _renderKmFileList(index);
             renderKaliteMaliyetiPareto();
@@ -4702,14 +4701,11 @@ async function processSevklerFile(file) {
             const wb  = XLSX.read(e.target.result, { type: 'array', cellDates: true });
             const ws  = wb.Sheets[wb.SheetNames[0]];
             const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
-            // Build year map (also populates sevkBirimFiyatDetail temporarily)
+            // Build year map temporarily for year detection
             sevkBirimFiyatDetail = [];
             const yearMap = buildSevkBirimFiyatMap(raw);
             const detailSnap = [...sevkBirimFiyatDetail];
             const year = _detectFileYear(detailSnap);
-            // Merge into global map
-            _mergeSevkBirimFiyatMap(yearMap);
-            const _svCount = Object.keys(sevkBirimFiyatMap).length;
             console.log('[KM Sevkler %s] stok kod sayısı: %d', year, Object.keys(yearMap).length);
             // Per-year IndexedDB key
             const dbKey = 'kmSV_' + year;
@@ -4721,6 +4717,8 @@ async function processSevklerFile(file) {
             if (existIdx >= 0) index[existIdx] = meta; else index.push(meta);
             await dbSet(dbKey, entry);
             await dbSet('kmSV_index', index);
+            // Rebuild from DB — ensures sevkBirimFiyatMap & Detail span all years
+            await _rebuildSevkBirimFiyatMapFromDB();
             // Tek pareto üzerinde her iki kaynak birlikte gösterilir
             document.getElementById('kmParetoContent').style.display = 'block';
             _renderSvFileList(index);
@@ -4829,7 +4827,7 @@ function _getSevkBirimFiyat(stokKodu, yearMonth) {
 }
 
 function renderSevkKaliteMaliyetiPareto() {
-    if (!sevkRows || !Object.keys(sevkBirimFiyatMap).length) return;
+    if (!Object.keys(sevkBirimFiyatMap).length) return;
 
     const groupKey    = document.getElementById('svParetoGroup').value;
     const topN        = parseInt(document.getElementById('svParetoTop').value);
@@ -9674,15 +9672,18 @@ async function _restoreKmData() {
     }
 
     birimFiyatMap = {};
-    birimFiyatDetail = [];
+    const mkAccDetail = [];
     for (const e of mkIndex) {
         const stored = await dbGet(e.key).catch(() => null);
         if (stored && stored.rows && stored.rows.length) {
+            birimFiyatDetail = [];
             const m = buildBirimFiyatMap(stored.rows);
+            mkAccDetail.push(...birimFiyatDetail);
             _mergeBirimFiyatMap(m);
             anyLoaded = true;
         }
     }
+    birimFiyatDetail = mkAccDetail;
     _renderKmFileList(mkIndex);
 
     // ── Sevkler ────────────────────────────────────────────
@@ -9706,15 +9707,18 @@ async function _restoreKmData() {
     }
 
     sevkBirimFiyatMap = {};
-    sevkBirimFiyatDetail = [];
+    const svAccDetail = [];
     for (const e of svIndex) {
         const stored = await dbGet(e.key).catch(() => null);
         if (stored && stored.rows && stored.rows.length) {
+            sevkBirimFiyatDetail = [];
             const m = buildSevkBirimFiyatMap(stored.rows);
+            svAccDetail.push(...sevkBirimFiyatDetail);
             _mergeSevkBirimFiyatMap(m);
             anyLoaded = true;
         }
     }
+    sevkBirimFiyatDetail = svAccDetail;
     _renderSvFileList(svIndex);
 
     if (anyLoaded) {
