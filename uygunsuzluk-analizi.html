@@ -1135,6 +1135,7 @@
         </div>
         <input type="file" id="fileInput" accept=".xlsx,.xls">
         <div id="fileInfo" style="margin-top:12px;font-size:0.88em;color:#555;display:none;"></div>
+        <div id="uygFileList" style="margin-top:6px;"></div>
     </div>
 
     <!-- Stats -->
@@ -2605,6 +2606,7 @@
 let allData = [];         // raw parsed rows
 let filteredData = [];    // after filters
 let tableSearchData = []; // after table search
+let _activeUygId = null;  // currently loaded file id
 let currentPage = 1;
 const PAGE_SIZE = 50;
 let sortCol = -1;
@@ -2757,7 +2759,7 @@ dropZone.addEventListener('drop', e => {
     const file = e.dataTransfer.files[0];
     if (file) processFile(file);
 });
-fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files[0]) { processFile(e.target.files[0]); e.target.value = ''; } });
 
 // ─── File Processing ──────────────────────────────────────────────────────────
 function processFile(file) {
@@ -2766,15 +2768,26 @@ function processFile(file) {
     }
     showLoading(true);
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
             const ws = wb.Sheets[wb.SheetNames[0]];
             const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
-            allData = mapColumns(raw);
+            const rows = mapColumns(raw);
+            const id = 'uyg_' + Date.now();
+            const sheetName = wb.SheetNames[0];
+            const savedAt = new Date().toISOString();
+            // Update index
+            let index = (await dbGet('uyg_index')) || [];
+            const newMeta = { id, fileName: file.name, sheetName, savedAt, rowCount: rows.length };
+            index.push(newMeta);
+            await dbSet('uyg_index', index);
+            await dbSet('uyg_data_' + id, { rows, fileName: file.name, sheetName, savedAt });
+            await dbSet('uyg_active', id);
+            _activeUygId = id;
+            allData = rows;
             filteredData = [...allData];
-            showFileInfo(file.name, wb.SheetNames[0], allData.length, false);
-            saveToStorage(file.name, wb.SheetNames[0]);
+            _renderUygFileList(index, id);
             initUI();
             showLoading(false);
             showToast(`${allData.length} kayıt başarıyla yüklendi!`, 'success');
@@ -2784,6 +2797,111 @@ function processFile(file) {
         }
     };
     reader.readAsArrayBuffer(file);
+}
+
+/* Render the stored uygunsuzluk file list */
+function _renderUygFileList(index, activeId) {
+    const fi = document.getElementById('fileInfo');
+    const fl = document.getElementById('uygFileList');
+    if (!index || !index.length) {
+        if (fi) fi.style.display = 'none';
+        if (fl) fl.innerHTML = '';
+        return;
+    }
+    // Show active file in fileInfo bar
+    const active = index.find(e => e.id === activeId) || index[index.length - 1];
+    if (fi) {
+        fi.style.display = 'block';
+        const savedAt = new Date(active.savedAt).toLocaleString('tr-TR');
+        fi.innerHTML = `✅ <strong>${active.fileName}</strong> — <strong>${active.rowCount.toLocaleString('tr')}</strong> kayıt, sayfa: <strong>${active.sheetName}</strong> &nbsp;<span style="color:#7b2d8b;font-size:0.85em">(💾 ${savedAt} tarihinde kaydedildi)</span>
+            &nbsp;&nbsp;<button onclick="_removeAllUygFiles()" style="background:#fff0f8;border:1.2px solid #b94fc4;color:#7b2d8b;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:0.82em;font-weight:600;" title="Tüm kayıtlı dosyaları sil">🗑 Tümünü Temizle</button>`;
+    }
+    // File list below
+    if (!fl) return;
+    if (index.length <= 1) { fl.innerHTML = ''; return; }
+    const sorted = [...index].sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+    fl.innerHTML = '<div style="font-size:0.78em;color:#888;margin-bottom:4px;font-weight:600;">📋 Kayıtlı dosyalar — tıklayarak geçiş yapın:</div>' +
+        sorted.map(e => {
+            const isActive = e.id === activeId;
+            const dt = new Date(e.savedAt).toLocaleDateString('tr-TR');
+            return `<div onclick="${isActive ? '' : `switchUygFile('${e.id}')`}" style="display:flex;align-items:center;gap:7px;padding:5px 10px;margin-bottom:3px;border-radius:8px;cursor:${isActive ? 'default' : 'pointer'};
+                background:${isActive ? '#f3e0ff' : '#fafafa'};border:1.5px solid ${isActive ? '#b94fc4' : '#e0e0e0'};
+                transition:all 0.15s;font-size:0.8em;" ${isActive ? '' : `onmouseover="this.style.background='#fdf5ff'" onmouseout="this.style.background='#fafafa'"`}>
+                ${isActive ? '<span style="background:#b94fc4;color:#fff;padding:1px 8px;border-radius:10px;font-weight:700;white-space:nowrap;">● Aktif</span>' : '<span style="background:#e5e7eb;color:#6b7280;padding:1px 8px;border-radius:10px;font-weight:600;white-space:nowrap;">Geç</span>'}
+                <span style="flex:1;font-weight:${isActive ? '700' : '500'};color:${isActive ? '#7b2d8b' : '#374151'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${e.fileName}">${e.fileName}</span>
+                <span style="color:#6b7280;white-space:nowrap;">${(e.rowCount||0).toLocaleString('tr')} kayıt</span>
+                <span style="color:#9ca3af;white-space:nowrap;">${dt}</span>
+                <span onclick="event.stopPropagation();removeUygFile('${e.id}')" style="color:#b91c1c;cursor:pointer;text-decoration:underline;white-space:nowrap;padding:0 4px;">Sil</span>
+            </div>`;
+        }).join('');
+}
+
+async function switchUygFile(id) {
+    showLoading(true);
+    try {
+        const stored = await dbGet('uyg_data_' + id);
+        if (!stored || !stored.rows || !stored.rows.length) {
+            showToast('Dosya bulunamadı!', 'error'); showLoading(false); return;
+        }
+        await dbSet('uyg_active', id);
+        _activeUygId = id;
+        allData = stored.rows;
+        filteredData = [...allData];
+        const index = (await dbGet('uyg_index')) || [];
+        _renderUygFileList(index, id);
+        initUI();
+        showLoading(false);
+        showToast(`${stored.fileName} — ${allData.length.toLocaleString('tr')} kayıt yüklendi`, 'success');
+    } catch(err) {
+        showLoading(false);
+        showToast('Geçiş hatası: ' + err.message, 'error');
+    }
+}
+
+async function removeUygFile(id) {
+    let index = (await dbGet('uyg_index')) || [];
+    index = index.filter(e => e.id !== id);
+    await dbDelete('uyg_data_' + id);
+    await dbSet('uyg_index', index);
+    if (_activeUygId === id) {
+        // Switch to most recent remaining or clear
+        if (index.length) {
+            const next = [...index].sort((a,b) => new Date(b.savedAt)-new Date(a.savedAt))[0];
+            await switchUygFile(next.id);
+        } else {
+            _activeUygId = null;
+            allData = []; filteredData = []; tableSearchData = [];
+            document.getElementById('fileInfo').style.display = 'none';
+            document.getElementById('uygFileList').innerHTML = '';
+            document.getElementById('statsRow').style.display = 'none';
+            document.getElementById('filterCard').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'block';
+            if (paretoChartInst) { paretoChartInst.destroy(); paretoChartInst = null; }
+        }
+    } else {
+        _renderUygFileList(index, _activeUygId);
+    }
+    showToast('Dosya silindi.');
+}
+
+async function _removeAllUygFiles() {
+    const index = (await dbGet('uyg_index')) || [];
+    await Promise.all(index.map(e => dbDelete('uyg_data_' + e.id).catch(()=>{})));
+    await dbDelete('uyg_index');
+    await dbDelete('uyg_active');
+    // legacy
+    await dbDelete('data').catch(()=>{}); await dbDelete('meta').catch(()=>{});
+    _activeUygId = null;
+    allData = []; filteredData = []; tableSearchData = [];
+    document.getElementById('fileInfo').style.display = 'none';
+    document.getElementById('uygFileList').innerHTML = '';
+    document.getElementById('statsRow').style.display = 'none';
+    document.getElementById('filterCard').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'block';
+    if (paretoChartInst) { paretoChartInst.destroy(); paretoChartInst = null; }
+    showToast('Tüm dosyalar temizlendi.');
 }
 
 function normalizeHeader(h) {
@@ -9562,19 +9680,10 @@ function dbDelete(key) {
 }
 
 function saveToStorage(fileName, sheetName) {
-    showLoading(true);
-    Promise.all([
-        dbSet('data', allData),
-        dbSet('meta', { fileName, sheetName, savedAt: new Date().toISOString() })
-    ]).then(() => {
-        showLoading(false);
-    }).catch(err => {
-        showLoading(false);
-        showToast('Veri hafızaya kaydedilemedi: ' + err.message, 'error');
-    });
+    // Legacy: kept for any old callers, now a no-op (saving done inside processFile)
 }
 
-function loadFromStorage() {
+async function loadFromStorage_REPLACED() {
     // Önce localStorage'dan musteriSet yükle (hızlı başlangıç)
     try {
         const ls = localStorage.getItem('uyg_musteriSet');
@@ -9621,16 +9730,74 @@ function loadFromStorage() {
     }).catch(() => { _restoreKmData(); /* hiç kayıt yok ama km olabilir */ });
 }
 
+async function loadFromStorage() {
+    try { const ls = localStorage.getItem('uyg_musteriSet'); if (ls) musteriSet = new Set(JSON.parse(ls)); } catch(e) {}
+    try { const lt = localStorage.getItem('uyg_cariTagsMap'); if (lt) cariTagsMap = JSON.parse(lt); } catch(e) {}
+    try {
+        const [mSet, tagMap] = await Promise.all([dbGet('musteriSet'), dbGet('cariTagsMap')]);
+        if (mSet && Array.isArray(mSet) && mSet.length > musteriSet.size) {
+            musteriSet = new Set(mSet);
+            try { localStorage.setItem('uyg_musteriSet', JSON.stringify(mSet)); } catch(e) {}
+        }
+        if (tagMap && typeof tagMap === 'object') {
+            const idbCount = Object.keys(tagMap).length;
+            const lsCount  = Object.keys(cariTagsMap).length;
+            if (idbCount >= lsCount) cariTagsMap = tagMap;
+        }
+        musteriSet.forEach(c => {
+            if (!cariTagsMap[c]) cariTagsMap[c] = [];
+            if (!cariTagsMap[c].includes('Müşteri')) cariTagsMap[c].push('Müşteri');
+        });
+        saveCariTagsMap();
+        _refreshCariTipDropdown();
+        let index = (await dbGet('uyg_index')) || [];
+        if (!index.length) {
+            const [legacyMeta, legacyData] = await Promise.all([dbGet('meta'), dbGet('data')]);
+            if (legacyMeta && legacyData && legacyData.length) {
+                const id = 'uyg_' + Date.now();
+                const entry = { id, fileName: legacyMeta.fileName, sheetName: legacyMeta.sheetName,
+                    savedAt: legacyMeta.savedAt, rowCount: legacyData.length };
+                index = [entry];
+                await dbSet('uyg_index', index);
+                await dbSet('uyg_data_' + id, { rows: legacyData, fileName: legacyMeta.fileName,
+                    sheetName: legacyMeta.sheetName, savedAt: legacyMeta.savedAt });
+                await dbSet('uyg_active', id);
+                await dbDelete('data').catch(()=>{});
+                await dbDelete('meta').catch(()=>{});
+            }
+        }
+        if (!index.length) { _restoreKmData(); return; }
+        let activeId = await dbGet('uyg_active');
+        if (!activeId || !index.find(e => e.id === activeId)) {
+            activeId = [...index].sort((a,b) => new Date(b.savedAt) - new Date(a.savedAt))[0].id;
+        }
+        _activeUygId = activeId;
+        const stored = await dbGet('uyg_data_' + activeId);
+        if (!stored || !stored.rows || !stored.rows.length) {
+            _renderUygFileList(index, activeId); _restoreKmData(); return;
+        }
+        allData = stored.rows;
+        filteredData = [...allData];
+        _renderUygFileList(index, activeId);
+        initUI();
+        showToast('Hafızadan yüklendi: ' + allData.length.toLocaleString('tr') + ' kayıt', 'success');
+    } catch(err) { console.error('loadFromStorage hata:', err); }
+    _restoreKmData();
+}
+
 function clearStorage() {
-    // Önce km/sv index'lerini al, sonra hem index hem per-year anahtarlarını sil
-    Promise.all([dbGet('kmMK_index'), dbGet('kmSV_index')]).then(([mkIdx, svIdx]) => {
-        const toDelete = ['data','meta','kmMalKabul','kmSevkler','kmMK_index','kmSV_index'];
+    // Önce tüm index'leri al, sonra tüm per-file anahtarları sil
+    Promise.all([dbGet('uyg_index'), dbGet('kmMK_index'), dbGet('kmSV_index')]).then(([uygIdx, mkIdx, svIdx]) => {
+        const toDelete = ['data','meta','uyg_index','uyg_active','kmMalKabul','kmSevkler','kmMK_index','kmSV_index'];
+        (uygIdx || []).forEach(e => toDelete.push('uyg_data_' + e.id));
         (mkIdx || []).forEach(e => toDelete.push(e.key));
         (svIdx || []).forEach(e => toDelete.push(e.key));
         return Promise.all(toDelete.map(k => dbDelete(k).catch(() => {})));
     }).then(() => {
+        _activeUygId = null;
         allData = []; filteredData = []; tableSearchData = [];
         document.getElementById('fileInfo').style.display = 'none';
+        const ufl = document.getElementById('uygFileList'); if (ufl) ufl.innerHTML = '';
         document.getElementById('statsRow').style.display = 'none';
         document.getElementById('filterCard').style.display = 'none';
         document.getElementById('mainContent').style.display = 'none';
@@ -9792,13 +9959,14 @@ async function _clearKmSevkler(year) {
 }
 
 function showFileInfo(fileName, sheetName, count, fromCache) {
+    // Legacy shim — new code uses _renderUygFileList directly
     const el = document.getElementById('fileInfo');
     el.style.display = 'block';
     const cacheNote = fromCache
         ? ` &nbsp;<span style="color:#7b2d8b;font-size:0.85em">(💾 ${fromCache} tarihinde kaydedildi)</span>`
         : '';
     el.innerHTML = `✅ <strong>${fileName}</strong> — <strong>${count}</strong> kayıt, sayfa: <strong>${sheetName}</strong>${cacheNote}
-        &nbsp;&nbsp;<button onclick="clearStorage()" style="background:#fff0f8;border:1.2px solid #b94fc4;color:#7b2d8b;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:0.82em;font-weight:600;" title="Hafızayı temizle ve yeni dosya yükle">🗑 Temizle</button>`;
+        &nbsp;&nbsp;<button onclick="_removeAllUygFiles()" style="background:#fff0f8;border:1.2px solid #b94fc4;color:#7b2d8b;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:0.82em;font-weight:600;" title="Tüm dosyaları temizle">🗑 Temizle</button>`;
 }
 
 document.addEventListener('DOMContentLoaded', loadFromStorage);
