@@ -2849,7 +2849,13 @@ async function switchUygFile(id) {
         filteredData = [...allData];
         const index = (await dbGet('uyg_index')) || [];
         _renderUygFileList(index, id);
+        _invalidateUygMap();
         initUI();
+        // Kalite Maliyeti paretosu yeni dosyadaki uygunsuzlukları baz alsın
+        if (Object.keys(birimFiyatMap).length || Object.keys(sevkBirimFiyatMap).length) {
+            renderKaliteMaliyetiPareto();
+            renderKmBirimFiyatTable();
+        }
         showLoading(false);
         showToast(`${stored.fileName} — ${allData.length.toLocaleString('tr')} kayıt yüklendi`, 'success');
     } catch(err) {
