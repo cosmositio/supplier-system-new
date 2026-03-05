@@ -4111,7 +4111,7 @@ function _renderKmFileList(index) {
             <span style="flex:1;color:#065f46;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${e.fileName}">${e.fileName}</span>
             <span style="color:#6b7280;white-space:nowrap;">${(e.rowCount||0).toLocaleString('tr')} satır</span>
             <span style="color:#9ca3af;white-space:nowrap;">${new Date(e.savedAt).toLocaleDateString('tr-TR')}</span>
-            <span style="color:#b91c1c;cursor:pointer;text-decoration:underline;white-space:nowrap;" onclick="_clearKmMalKabul('${e.year}')">Sil</span>
+            <span style="color:#b91c1c;cursor:pointer;text-decoration:underline;white-space:nowrap;" onclick="_clearKmMalKabul('${e.key}')">Sil</span>
         </div>`
     ).join('');
 }
@@ -4129,7 +4129,7 @@ function _renderSvFileList(index) {
             <span style="flex:1;color:#1e3a8a;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${e.fileName}">${e.fileName}</span>
             <span style="color:#6b7280;white-space:nowrap;">${(e.rowCount||0).toLocaleString('tr')} satır</span>
             <span style="color:#9ca3af;white-space:nowrap;">${new Date(e.savedAt).toLocaleDateString('tr-TR')}</span>
-            <span style="color:#b91c1c;cursor:pointer;text-decoration:underline;white-space:nowrap;" onclick="_clearKmSevkler('${e.year}')">Sil</span>
+            <span style="color:#b91c1c;cursor:pointer;text-decoration:underline;white-space:nowrap;" onclick="_clearKmSevkler('${e.key}')">Sil</span>
         </div>`
     ).join('');
 }
@@ -4183,14 +4183,14 @@ async function processMalKabulFile(file) {
             const detailSnap = [...birimFiyatDetail];
             const year = _detectFileYear(detailSnap);
             console.log('[KM MalKabul %s] stok kod sayısı: %d', year, Object.keys(yearMap).length);
-            // Per-year IndexedDB key
-            const dbKey = 'kmMK_' + year;
-            const entry = { rows: raw, fileName: file.name, savedAt: new Date().toISOString(), year, rowCount: raw.length };
-            // Update index
+            // Per-file unique IndexedDB key (timestamp-based, allows multiple files per year)
+            const dbKey = 'kmMK_' + Date.now();
+            const savedAt = new Date().toISOString();
+            const entry = { rows: raw, fileName: file.name, savedAt, year, rowCount: raw.length };
+            // Always add as new entry
             let index = (await dbGet('kmMK_index')) || [];
-            const existIdx = index.findIndex(x => x.year === year);
-            const meta = { key: dbKey, fileName: file.name, savedAt: entry.savedAt, year, rowCount: raw.length };
-            if (existIdx >= 0) index[existIdx] = meta; else index.push(meta);
+            const meta = { key: dbKey, fileName: file.name, savedAt, year, rowCount: raw.length };
+            index.push(meta);
             await dbSet(dbKey, entry);
             await dbSet('kmMK_index', index);
             // Rebuild from DB — ensures birimFiyatMap & birimFiyatDetail span all years
@@ -4831,14 +4831,14 @@ async function processSevklerFile(file) {
             const detailSnap = [...sevkBirimFiyatDetail];
             const year = _detectFileYear(detailSnap);
             console.log('[KM Sevkler %s] stok kod sayısı: %d', year, Object.keys(yearMap).length);
-            // Per-year IndexedDB key
-            const dbKey = 'kmSV_' + year;
-            const entry = { rows: raw, fileName: file.name, savedAt: new Date().toISOString(), year, rowCount: raw.length };
-            // Update index
+            // Per-file unique IndexedDB key (timestamp-based, allows multiple files per year)
+            const dbKey = 'kmSV_' + Date.now();
+            const savedAt = new Date().toISOString();
+            const entry = { rows: raw, fileName: file.name, savedAt, year, rowCount: raw.length };
+            // Always add as new entry
             let index = (await dbGet('kmSV_index')) || [];
-            const existIdx = index.findIndex(x => x.year === year);
-            const meta = { key: dbKey, fileName: file.name, savedAt: entry.savedAt, year, rowCount: raw.length };
-            if (existIdx >= 0) index[existIdx] = meta; else index.push(meta);
+            const meta = { key: dbKey, fileName: file.name, savedAt, year, rowCount: raw.length };
+            index.push(meta);
             await dbSet(dbKey, entry);
             await dbSet('kmSV_index', index);
             // Rebuild from DB — ensures sevkBirimFiyatMap & Detail span all years
@@ -9901,15 +9901,15 @@ async function _restoreKmData() {
     }
 }
 
-async function _clearKmMalKabul(year) {
-    if (year) {
-        // Belirli yılı sil
-        const key = 'kmMK_' + year;
+async function _clearKmMalKabul(key) {
+    if (key) {
+        // Belirli dosyayı sil (key = benzersiz DB anahtarı)
         let index = (await dbGet('kmMK_index')) || [];
-        index = index.filter(e => e.year !== year);
+        const entry = index.find(e => e.key === key);
+        index = index.filter(e => e.key !== key);
         await dbDelete(key);
         await dbSet('kmMK_index', index);
-        // Kalan yıllardan haritayı yeniden kur
+        // Kalan dosyalardan haritayı yeniden kur
         await _rebuildBirimFiyatMapFromDB();
         _renderKmFileList(index);
         if (!Object.keys(birimFiyatMap).length && !Object.keys(sevkBirimFiyatMap).length) {
@@ -9917,7 +9917,7 @@ async function _clearKmMalKabul(year) {
         }
         renderKaliteMaliyetiPareto();
         if (Object.keys(birimFiyatMap).length) renderKmBirimFiyatTable();
-        showToast(`${year} Mal Kabul verisi silindi.`);
+        showToast(`${entry ? entry.fileName : key} silindi.`);
     } else {
         // Tümünü sil
         const index = (await dbGet('kmMK_index')) || [];
@@ -9933,22 +9933,22 @@ async function _clearKmMalKabul(year) {
     }
 }
 
-async function _clearKmSevkler(year) {
-    if (year) {
-        // Belirli yılı sil
-        const key = 'kmSV_' + year;
+async function _clearKmSevkler(key) {
+    if (key) {
+        // Belirli dosyayı sil (key = benzersiz DB anahtarı)
         let index = (await dbGet('kmSV_index')) || [];
-        index = index.filter(e => e.year !== year);
+        const entry = index.find(e => e.key === key);
+        index = index.filter(e => e.key !== key);
         await dbDelete(key);
         await dbSet('kmSV_index', index);
-        // Kalan yıllardan haritayı yeniden kur
+        // Kalan dosyalardan haritayı yeniden kur
         await _rebuildSevkBirimFiyatMapFromDB();
         _renderSvFileList(index);
         if (!Object.keys(sevkBirimFiyatMap).length && !Object.keys(birimFiyatMap).length) {
             document.getElementById('kmParetoContent').style.display = 'none';
         }
         renderKaliteMaliyetiPareto();
-        showToast(`${year} Sevkler verisi silindi.`);
+        showToast(`${entry ? entry.fileName : key} silindi.`);
     } else {
         // Tümünü sil
         const index = (await dbGet('kmSV_index')) || [];
