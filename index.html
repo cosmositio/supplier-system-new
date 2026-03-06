@@ -2810,9 +2810,16 @@
                                     <button onclick="testStorjConnection()" class="btn btn-secondary" style="flex: 1; background: #0077cc; border-color: #0077cc; color: white;">🔍 Test Et</button>
                                 </div>
                                 <div style="margin-bottom: 8px;">
-                                    <button onclick="(function(){ const bucket = document.getElementById('storjBucket').value.trim() || ''; const url = 'https://eu1.storj.io/buckets' + (bucket ? '/' + encodeURIComponent(bucket) : ''); window.open(url, '_blank'); })()" class="btn" style="width: 100%; background: linear-gradient(135deg, #003dc4, #00a1ff); color: white; border: none; padding: 9px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.88em; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                                        🌐 Storj Panelini Aç (Bucket & Access Keys)
-                                    </button>
+                                    <div style="display: flex; gap: 6px; align-items: center;">
+                                        <button onclick="(function(){ const region = document.getElementById('storjRegionSelect').value; window.open('https://' + region + '.storj.io/buckets', '_blank'); })()" class="btn" style="flex: 1; background: linear-gradient(135deg, #003dc4, #00a1ff); color: white; border: none; padding: 9px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.88em;">
+                                            🌐 Storj Panelini Aç (Bucket & Access Keys)
+                                        </button>
+                                        <select id="storjRegionSelect" style="padding: 8px 6px; border: 1px solid #00a1ff; border-radius: 6px; font-size: 0.85em; background: #f0f8ff; color: #003dc4; font-weight: 600;">
+                                            <option value="us1">🇺🇸 us1</option>
+                                            <option value="eu1">🇪🇺 eu1</option>
+                                            <option value="ap1">🌏 ap1</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div style="font-size: 0.85em; color: #666; text-align: center;">
                                     Hesabınız yok mu? <a href="https://www.storj.io/signup" target="_blank" style="color: #00a1ff; font-weight: 600;">Buradan ücretsiz açın!</a> (Kredi kartı gerekmez)
