@@ -23565,13 +23565,14 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             const url = `https://${settings.endpoint}/${settings.bucket}/${key}`;
             const method = 'PUT';
             const path = `/${settings.bucket}/${key}`;
+            const contentType = 'application/json';
             
-            const auth = await createAwsSignature(method, path, data, settings);
+            const auth = await createAwsSignaturePut(method, path, contentType, settings);
             
             const response = await fetch(url, {
                 method: method,
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': contentType,
                     'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
                     'x-amz-date': auth.date,
                     'Authorization': auth.authorization
@@ -23585,6 +23586,37 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             }
             
             return { success: true, url: url };
+        }
+
+        // PUT için content-type'ı da imzalamak gerekiyor (GET'ten farklı)
+        async function createAwsSignaturePut(method, path, contentType, settings, queryString = '') {
+            const timestamp = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
+            const date = timestamp.substr(0, 8);
+            const region = 'us-east-1';
+            const service = 's3';
+            
+            const canonicalUri = path;
+            const canonicalQuerystring = queryString;
+            const canonicalHeaders = `content-type:${contentType}\nhost:${settings.endpoint}\nx-amz-content-sha256:UNSIGNED-PAYLOAD\nx-amz-date:${timestamp}\n`;
+            const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
+            const payloadHash = 'UNSIGNED-PAYLOAD';
+            
+            const canonicalRequest = `${method}\n${canonicalUri}\n${canonicalQuerystring}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+            
+            const credentialScope = `${date}/${region}/${service}/aws4_request`;
+            const canonicalRequestHash = await sha256(canonicalRequest);
+            const stringToSign = `AWS4-HMAC-SHA256\n${timestamp}\n${credentialScope}\n${canonicalRequestHash}`;
+            
+            const kDate = await hmacSha256('AWS4' + settings.secretKey, date);
+            const kRegion = await hmacSha256(kDate, region);
+            const kService = await hmacSha256(kRegion, service);
+            const kSigning = await hmacSha256(kService, 'aws4_request');
+            
+            const signature = await hmacSha256Hex(kSigning, stringToSign);
+            
+            const authHeader = `AWS4-HMAC-SHA256 Credential=${settings.accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+            
+            return { authorization: authHeader, date: timestamp };
         }
         
         // Storj'dan dosya indir (S3 GET)
