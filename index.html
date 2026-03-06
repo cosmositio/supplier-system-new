@@ -1637,8 +1637,17 @@
                 </div>
                 
                 <!-- Diğer İşlemler -->
-                <div style="display: flex; gap: 8px;">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                     <button class="btn" onclick="showSupplierAnalysis()" style="background: #673ab7; color: white; border-color: #673ab7;">🔍 Tedarikçi Analizi</button>
+                    <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:#f0f4ff;border:2px solid #1e3c72;border-radius:8px;">
+                        <span style="font-weight:700;color:#1e3c72;font-size:0.82em;white-space:nowrap;">🏢 Marka:</span>
+                        <select id="companyBrandSelect" onchange="setCompanyBrand(this.value)" style="padding:4px 8px;border:1px solid #1e3c72;border-radius:5px;font-weight:700;background:#1e3c72;color:white;cursor:pointer;font-size:0.88em;">
+                            <option value="SANIFOAM">SANIFOAM</option>
+                            <option value="ULTECH">ULTECH</option>
+                            <option value="COREFIX">COREFIX</option>
+                            <option value="SANİTEKS">SANİTEKS</option>
+                        </select>
+                    </div>
                     <button class="btn" onclick="openExportDialog('excel')" style="background: #28a745; color: white; border-color: #28a745;">📥 Excel İndir</button>
                     <button class="btn" onclick="openExportDialog('pdf')" style="background: #dc3545; color: white; border-color: #dc3545;">📄 PDF İndir</button>
                     <button class="btn" onclick="openEvaluationProcedure()" style="background: #3f51b5; color: white; border-color: #3f51b5;">📘 Değerlendirme Prosedürü</button>
@@ -3123,6 +3132,20 @@
                 .trim() // Başındaki/sonundaki boşlukları sil
                 .replace(/\s+/g, ' '); // Yeniden normalize et
         }
+
+        // ========= Śirket Markası (Antet) =========
+        window.selectedCompanyBrand = localStorage.getItem('selectedCompanyBrand') || 'SANIFOAM';
+        function setCompanyBrand(val) {
+            window.selectedCompanyBrand = val;
+            localStorage.setItem('selectedCompanyBrand', val);
+            const sel = document.getElementById('companyBrandSelect');
+            if (sel) sel.value = val;
+        }
+        // DOM hazır olunca selector'u senkronize et
+        document.addEventListener('DOMContentLoaded', () => {
+            const sel = document.getElementById('companyBrandSelect');
+            if (sel) sel.value = window.selectedCompanyBrand;
+        });
 
         let workbook = null;
         let workbook2 = null; // İkinci Excel dosyası için
@@ -12272,8 +12295,9 @@
             const margin = 10;
             const tableWidth = pageWidth - (2 * margin); // 277mm toplam (297-20)
             
-            // Sol üst: SANIFOAM logosu (yaklaşık %18 - 50mm)
+            // Sol üst: Śirket logo alanı (yaklaşık %18 - 50mm)
             const logoWidth = 50;
+            const _brand1 = window.selectedCompanyBrand || 'SANIFOAM';
             doc.setFillColor(230, 242, 255); // Açık mavi arka plan
             doc.rect(margin, 5, logoWidth, 15, 'F');
             doc.setDrawColor(0, 0, 0);
@@ -12282,7 +12306,7 @@
             doc.setFontSize(22);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(0, 51, 102);
-            doc.text('SANIFOAM', margin + logoWidth/2, 14.5, { align: 'center' });
+            doc.text(_brand1, margin + logoWidth/2, 14.5, { align: 'center' });
             
             // Orta: Başlık (yaklaşık %58 - 160mm)
             const titleWidth = 160;
@@ -12638,7 +12662,7 @@
             // Logo hücresi (A1:C3 birleştirilmiş)
             worksheet.mergeCells('A1:C3');
             const logoCell = worksheet.getCell('A1');
-            logoCell.value = 'SANIFOAM';
+            logoCell.value = window.selectedCompanyBrand || 'SANIFOAM';
             logoCell.font = { bold: true, size: 24, color: { argb: 'FF003366' } };
             logoCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
             logoCell.fill = {
@@ -20258,13 +20282,14 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 const titleWidth = usableWidth - logoWidth - 55;
                 const docInfoWidth = 55;
                 
-                // Sol: SANIFOAM
+                // Sol: Śirket Markası
+                const _brandTA = window.selectedCompanyBrand || 'SANIFOAM';
                 doc.setFillColor(173, 216, 230);
                 doc.rect(margin, headerY, logoWidth, 30, 'FD');
                 doc.setFontSize(20);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor(31, 73, 125);
-                doc.text('SANIFOAM', margin + logoWidth/2, headerY + 18, { align: 'center' });
+                doc.text(_brandTA, margin + logoWidth/2, headerY + 18, { align: 'center' });
                 
                 // Orta: Başlık
                 const titleX = margin + logoWidth;
@@ -20439,8 +20464,8 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 doc.setFillColor(211, 211, 211);
                 doc.rect(margin + sigWidth + 2, rowY, sigWidth, 10, 'FD');
                 doc.setTextColor(0, 0, 0);
-                doc.text('Sanifoam Kalite Guvence Yoneticisi', margin + sigWidth + 2 + sigWidth/2, rowY + 4, { align: 'center' });
-                doc.text('Head Of Quality (Sanifoam)', margin + sigWidth + 2 + sigWidth/2, rowY + 7.5, { align: 'center' });
+                doc.text(_brandTA + ' Kalite Guvence Yoneticisi', margin + sigWidth + 2 + sigWidth/2, rowY + 4, { align: 'center' });
+                doc.text('Head Of Quality (' + _brandTA + ')', margin + sigWidth + 2 + sigWidth/2, rowY + 7.5, { align: 'center' });
                 
                 // yPos değişkenini tanımla (grafik verileri ve diğer bölümler için kullanılacak)
                 let yPos = rowY + 15;
@@ -20798,7 +20823,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 // Logo alanı (A1:B4)
                 ws.mergeCells('A1:B4');
                 const logoCell = ws.getCell('A1');
-                logoCell.value = 'SANIFOAM';
+                logoCell.value = window.selectedCompanyBrand || 'SANIFOAM';
                 logoCell.alignment = centerWrap;
                 logoCell.font = { bold: true, size: 18, color: { argb: 'FF1F497D' } };
                 logoCell.border = borderThin;
@@ -21021,7 +21046,8 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
 
                 ws.mergeCells('G16:L16');
                 const unvan2Cell = ws.getCell('G16');
-                unvan2Cell.value = 'Sanifoam Kalite Güvence Yöneticisi\nHead Of Quality (Sanifoam)';
+                const _brandXL2 = window.selectedCompanyBrand || 'SANIFOAM';
+                unvan2Cell.value = _brandXL2 + ' Kalite Güvence Yöneticisi\nHead Of Quality (' + _brandXL2 + ')';
                 unvan2Cell.alignment = centerWrap;
                 unvan2Cell.font = { bold: true, size: 10 };
                 unvan2Cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFe0e0e0' } };
