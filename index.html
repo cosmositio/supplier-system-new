@@ -23902,7 +23902,14 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 
             } catch (error) {
                 console.error('❌ Yükleme hatası:', error);
-                showAlert('❌ Yükleme Hatası!\n\n' + error.message, 'error');
+                let errMsg = error.message || '';
+                let hint = '';
+                if (errMsg.includes('403') || errMsg.includes('AccessDenied') || errMsg.includes('Access Denied')) {
+                    hint = `\n\n⚠️ ÇÖZÜM — Storj Dashboard'da:\n1. Access Keys bölümüne gidin\n2. Mevcut key'i SİLİN\n3. "Create Access Key" → S3 Credentials seçin\n4. İzinler: ALL (Read + Write + List + Delete)\n5. Yeni key ve secret'ı buraya girin`;
+                } else if (errMsg.includes('net::') || errMsg.includes('Failed to fetch')) {
+                    hint = '\n\n💡 İnternet bağlantınızı ve endpoint adresini kontrol edin.';
+                }
+                showAlert('❌ Yükleme Hatası!\n\n' + errMsg + hint, 'error');
             }
         }
         
