@@ -10125,7 +10125,7 @@ function openFishboneMulti() {
     <div id="ppmChartBox">
         <button id="ppmChartClose" onclick="closePPMChart()">✕</button>
         <h2>📊 Aylık PPM Trendi</h2>
-        <p class="ppm-sub">Formül: (Aylık Hatalı Miktar / Aylık Parti Hacmi) × 1.000.000 — mevcut filtreye göre</p>
+        <p class="ppm-sub" id="ppmChartSub">Formül: (Aylık Hatalı Miktar / Aylık Sevk Miktarı) × 1.000.000 — mevcut filtreye göre</p>
         <canvas id="ppmMonthlyCanvas" height="320"></canvas>
         <div id="ppmNoData" style="display:none;text-align:center;padding:40px;color:#aaa;">⚠️ Tarih veya Parti Hacmi verisi bulunamadı.</div>
     </div>
@@ -10148,20 +10148,32 @@ function closePPMChart() {
 function _renderPPMMonthlyChart() {
     if (_ppmChartInst) { _ppmChartInst.destroy(); _ppmChartInst = null; }
 
-    // Group filteredData by YYYY-MM
-    const byMonth = {};
+    // 1) Aylık hatalı miktar — uygunsuzluk (filtrelenmiş)
+    const hataliByMonth = {};
     (filteredData || []).forEach(r => {
         const d = parseDateStr(r.uygunsuzlukTarih);
         if (!d) return;
-        const key = d.substring(0, 7); // 'YYYY-MM'
-        if (!byMonth[key]) byMonth[key] = { hatali: 0, parti: 0 };
-        byMonth[key].hatali += Number(r.hataliMiktar) || 0;
-        byMonth[key].parti  += Number(r.partiHacmi)   || 0;
+        const key = d.substring(0, 7);
+        hataliByMonth[key] = (hataliByMonth[key] || 0) + (Number(r.hataliMiktar) || 0);
     });
 
-    const keys = Object.keys(byMonth).sort();
+    // 2) Aylık sevk miktarı — sevkBirimFiyatDetail (Sevkiyat Excel'leri)
+    const sevkByMonth = {};
+    const hasSevk = typeof sevkBirimFiyatDetail !== 'undefined' && sevkBirimFiyatDetail.length > 0;
+    if (hasSevk) {
+        sevkBirimFiyatDetail.forEach(d => {
+            const key = (d.ay || '').substring(0, 7);
+            if (!key || key.length < 7) return;
+            sevkByMonth[key] = (sevkByMonth[key] || 0) + (d.sumMiktar || 0);
+        });
+    }
+
+    // 3) Tüm ilgili aylar (hatalı olan aylar üzerinden)
+    const keys = Object.keys(hataliByMonth).sort();
+
     const noData = document.getElementById('ppmNoData');
     const canvas = document.getElementById('ppmMonthlyCanvas');
+    const subEl  = document.getElementById('ppmChartSub');
 
     if (!keys.length) {
         noData.style.display = 'block';
@@ -10171,14 +10183,35 @@ function _renderPPMMonthlyChart() {
     noData.style.display = 'none';
     canvas.style.display = 'block';
 
+    // Kullanılacak bölen kaynağını belirle
+    const useSevk = hasSevk && Object.keys(sevkByMonth).length > 0;
+    if (subEl) {
+        subEl.textContent = useSevk
+            ? 'Formül: (Aylık Hatalı Miktar / Aylık Sevk Miktarı) × 1.000.000 — Sevkiyat Excel verisi kullanılıyor'
+            : 'Formül: (Aylık Hatalı Miktar / Aylık Parti Hacmi) × 1.000.000 — Sevkiyat Excel yüklenmedi, parti hacmi kullanılıyor';
+    }
+
+    // Parti hacmi fallback (sevkiyat yoksa)
+    const partiByMonth = {};
+    if (!useSevk) {
+        (filteredData || []).forEach(r => {
+            const d = parseDateStr(r.uygunsuzlukTarih);
+            if (!d) return;
+            const key = d.substring(0, 7);
+            partiByMonth[key] = (partiByMonth[key] || 0) + (Number(r.partiHacmi) || 0);
+        });
+    }
+
     const TR_MONTHS = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
     const labels = keys.map(k => {
         const [y, m] = k.split('-');
         return TR_MONTHS[parseInt(m,10)-1] + ' ' + y;
     });
+
     const ppmData = keys.map(k => {
-        const { hatali, parti } = byMonth[k];
-        return parti > 0 ? Math.round((hatali / parti) * 1_000_000) : 0;
+        const hatali = hataliByMonth[k] || 0;
+        const payda = useSevk ? (sevkByMonth[k] || 0) : (partiByMonth[k] || 0);
+        return payda > 0 ? Math.round((hatali / payda) * 1_000_000) : 0;
     });
 
     // Color bars: gradient from orange to red based on value max
@@ -10213,11 +10246,13 @@ function _renderPPMMonthlyChart() {
                         title: ctx => labels[ctx[0].dataIndex],
                         label: ctx => {
                             const k = keys[ctx.dataIndex];
-                            const { hatali, parti } = byMonth[k];
+                            const hatali = hataliByMonth[k] || 0;
+                            const payda = useSevk ? (sevkByMonth[k] || 0) : (partiByMonth[k] || 0);
+                            const paydaLabel = useSevk ? 'Sevk Miktarı' : 'Parti Hacmi';
                             return [
                                 `PPM: ${ctx.raw.toLocaleString('tr')}`,
                                 `Hatalı: ${hatali.toLocaleString('tr', {maximumFractionDigits:1})}`,
-                                `Parti Hacmi: ${parti.toLocaleString('tr', {maximumFractionDigits:1})}`,
+                                `${paydaLabel}: ${payda.toLocaleString('tr', {maximumFractionDigits:1})}`,
                             ];
                         }
                     }
@@ -10227,9 +10262,7 @@ function _renderPPMMonthlyChart() {
                 y: {
                     beginAtZero: true,
                     title: { display: true, text: 'PPM', color:'#666', font:{size:12} },
-                    ticks: {
-                        callback: v => v.toLocaleString('tr')
-                    }
+                    ticks: { callback: v => v.toLocaleString('tr') }
                 },
                 x: {
                     title: { display: true, text: 'Ay', color:'#666', font:{size:12} }
