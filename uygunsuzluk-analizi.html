@@ -115,6 +115,10 @@
         #ppmDrillTable td { padding:5px 10px; border-bottom:1px solid #eef; white-space:nowrap; }
         #ppmDrillTable tr:hover td { background:#fafbff; }
         .ppm-drill-ppm { font-weight:700; color:#b71c1c; }
+        #ppmSegmentRow { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; flex-shrink:0; }
+        .ppm-seg-btn { padding:4px 14px; border-radius:20px; border:1.5px solid #c5cae9; background:#fff; color:#555; font-size:0.82em; font-weight:600; cursor:pointer; transition:all .15s; white-space:nowrap; }
+        .ppm-seg-btn:hover { border-color:#1e3c72; color:#1e3c72; background:#e8eaf6; }
+        .ppm-seg-btn.active { background:#1e3c72; color:#fff; border-color:#1e3c72; }
 
         /* Filters */
         .filter-card {
@@ -10161,6 +10165,7 @@ function openFishboneMulti() {
         <button id="ppmChartClose" onclick="closePPMChart()">✕</button>
         <h2>📊 Aylık PPM Trendi</h2>
         <p class="ppm-sub" id="ppmChartSub">Formül: (Aylık Hatalı Miktar / Aylık Sevk Miktarı) × 1.000.000 — mevcut filtreye göre</p>
+        <div id="ppmSegmentRow"></div>
         <div id="ppmCanvasWrap">
             <canvas id="ppmMonthlyCanvas"></canvas>
             <div id="ppmNoData" style="display:none;text-align:center;padding:40px;color:#aaa;">⚠️ Tarih veya Sevk/Parti Hacmi verisi bulunamadı.</div>
@@ -10181,8 +10186,29 @@ function openFishboneMulti() {
 
 <script>
 let _ppmChartInst = null;
+let _ppmCurrentSegment = 'all';
+
+function _buildPPMSegments() {
+    const row = document.getElementById('ppmSegmentRow');
+    if (!row) return;
+    // Collect unique tipi values from current filteredData
+    const types = [...new Set((filteredData || []).map(r => (r.tipi || '').trim()).filter(Boolean))].sort();
+    const segments = [{ val: 'all', label: 'Tümü' }, ...types.map(t => ({ val: t, label: t }))];
+    row.innerHTML = segments.map(s =>
+        `<button class="ppm-seg-btn${_ppmCurrentSegment === s.val ? ' active' : ''}" onclick="_setPPMSegment('${s.val.replace(/'/g,"\\'")}')">${s.label}</button>`
+    ).join('');
+}
+
+function _setPPMSegment(val) {
+    _ppmCurrentSegment = val;
+    _buildPPMSegments();
+    document.getElementById('ppmDrillDown').style.display = 'none';
+    _renderPPMMonthlyChart();
+}
 
 function openPPMChart() {
+    _ppmCurrentSegment = 'all';
+    _buildPPMSegments();
     const modal = document.getElementById('ppmChartModal');
     modal.classList.add('open');
     _renderPPMMonthlyChart();
@@ -10197,19 +10223,24 @@ function closePPMChart() {
 function _renderPPMMonthlyChart() {
     if (_ppmChartInst) { _ppmChartInst.destroy(); _ppmChartInst = null; }
 
-    // 1) Aylık hatalı miktar — uygunsuzluk (filtrelenmiş)
+    // Segment filtresi: secili tipi yoksa tumunu kullan
+    const segFiltered = _ppmCurrentSegment === 'all'
+        ? (filteredData || [])
+        : (filteredData || []).filter(r => (r.tipi || '').trim() === _ppmCurrentSegment);
+
+    // 1) Aylık hatalı miktar — segment filtrelenmiş
     const hataliByMonth = {};
-    (filteredData || []).forEach(r => {
+    segFiltered.forEach(r => {
         const d = parseDateStr(r.uygunsuzlukTarih);
         if (!d) return;
         const key = d.substring(0, 7);
         hataliByMonth[key] = (hataliByMonth[key] || 0) + (Number(r.hataliMiktar) || 0);
     });
 
-    // 2) Aylık sevk miktarı — sevkBirimFiyatDetail (Sevkiyat Excel'leri)
+    // 2) Aylık sevk miktarı — sadece "Tümü" seçiliyken sevkiyat kullan
     const sevkByMonth = {};
     const hasSevk = typeof sevkBirimFiyatDetail !== 'undefined' && sevkBirimFiyatDetail.length > 0;
-    if (hasSevk) {
+    if (hasSevk && _ppmCurrentSegment === 'all') {
         sevkBirimFiyatDetail.forEach(d => {
             const key = (d.ay || '').substring(0, 7);
             if (!key || key.length < 7) return;
@@ -10233,17 +10264,18 @@ function _renderPPMMonthlyChart() {
     canvas.style.display = 'block';
 
     // Kullanılacak bölen kaynağını belirle
-    const useSevk = hasSevk && Object.keys(sevkByMonth).length > 0;
+    const useSevk = hasSevk && _ppmCurrentSegment === 'all' && Object.keys(sevkByMonth).length > 0;
     if (subEl) {
+        const segLabel = _ppmCurrentSegment === 'all' ? '' : ` — Segment: ${_ppmCurrentSegment}`;
         subEl.textContent = useSevk
-            ? 'Formül: (Aylık Hatalı Miktar / Aylık Sevk Miktarı) × 1.000.000 — Sevkiyat Excel verisi kullanılıyor'
-            : 'Formül: (Aylık Hatalı Miktar / Aylık Parti Hacmi) × 1.000.000 — Sevkiyat Excel yüklenmedi, parti hacmi kullanılıyor';
+            ? `Formül: (Aylık Hatalı Miktar / Aylık Sevk Miktarı) × 1.000.000 — Sevkiyat Excel verisi kullanılıyor${segLabel}`
+            : `Formül: (Aylık Hatalı Miktar / Aylık Parti Hacmi) × 1.000.000 — Parti hacmi kullanılıyor${segLabel}`;
     }
 
-    // Parti hacmi fallback (sevkiyat yoksa)
+    // Parti hacmi fallback (sevkiyat yoksa veya segment seçiliyse)
     const partiByMonth = {};
     if (!useSevk) {
-        (filteredData || []).forEach(r => {
+        segFiltered.forEach(r => {
             const d = parseDateStr(r.uygunsuzlukTarih);
             if (!d) return;
             const key = d.substring(0, 7);
@@ -10275,7 +10307,7 @@ function _renderPPMMonthlyChart() {
 
     // Drill-down verisini ay bazında hazırla — cari, stok detaylarıyla birlikte
     const drillByMonth = {};
-    (filteredData || []).forEach(r => {
+    segFiltered.forEach(r => {
         const d = parseDateStr(r.uygunsuzlukTarih);
         if (!d) return;
         const key = d.substring(0, 7);
