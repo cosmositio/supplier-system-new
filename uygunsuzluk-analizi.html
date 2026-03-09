@@ -3647,7 +3647,8 @@ function updateStats() {
     const hataTipleri = new Set(filteredData.map(r => r.hataTipi).filter(Boolean)).size;
     const cariler = new Set(filteredData.map(r => r.cariAdi).filter(Boolean)).size;
 
-    const hasSevk = typeof sevkBirimFiyatDetail !== 'undefined' && sevkBirimFiyatDetail.length > 0;
+    const hasSevk     = typeof sevkBirimFiyatDetail !== 'undefined' && sevkBirimFiyatDetail.length > 0;
+    const hasMalKabul = typeof birimFiyatDetail !== 'undefined' && birimFiyatDetail.length > 0;
 
     // Tipi filtresi veya mevcut veri kümesine göre PPM hesaplama bağlamını belirle
     const tipiFilter = (document.getElementById('fTipi')?.value || '').trim();
@@ -3657,7 +3658,12 @@ function updateStats() {
         _isTedarikciType(tipiFilter) ||
         (filteredData.length > 0 && filteredData.every(r => _isTedarikciType(r.tipi)))
     );
-    // Tarih filtresi — sevkiyat için de uygula
+    // Karma (Tümü) durum: hem Tedarikçi hem Dış kayıtlar var
+    const isMixedContext = !isIcContext && !isTedarikciContext && filteredData.length > 0 &&
+        filteredData.some(r => _isTedarikciType(r.tipi)) &&
+        filteredData.some(r => !_isTedarikciType(r.tipi) && !_isPpmNAType(r.tipi));
+
+    // Tarih filtresi — sevkiyat ve mal kabul için de uygula
     const _statFStart = (document.getElementById('fDateStart')?.value || '').substring(0, 7);
     const _statFEnd   = (document.getElementById('fDateEnd')?.value || '').substring(0, 7);
     function _sevkInRange(key) {
@@ -3675,20 +3681,38 @@ function updateStats() {
         lblText = 'PPM (İç — hesaplanamaz)';
     } else if (isTedarikciContext) {
         // Tedarikçi / Hammadde: TÜM mal kabul miktarını payda yap (uygun + uygunsuz)
-        if (hasSevk) {
-            let sevkTed = 0;
-            sevkBirimFiyatDetail.forEach(d => {
+        if (hasMalKabul) {
+            let mkTed = 0;
+            birimFiyatDetail.forEach(d => {
                 if (_sevkInRange((d.ay || '').substring(0, 7)))
-                    sevkTed += (d.sumMiktar || 0);
+                    mkTed += (d.sumMiktar || 0);
             });
-            if (sevkTed > 0) {
-                ppmDisplay = Math.round((hatali / sevkTed) * 1_000_000).toLocaleString('tr');
+            if (mkTed > 0) {
+                ppmDisplay = Math.round((hatali / mkTed) * 1_000_000).toLocaleString('tr');
                 lblText = 'PPM (Hatalı/Toplam Mal Kabul)';
             } else {
                 const ph = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
                 if (ph > 0) ppmDisplay = Math.round((hatali / ph) * 1_000_000).toLocaleString('tr');
                 lblText = 'PPM (Hatalı/Parti Hacmi — Mal Kabul yok)';
             }
+        } else {
+            const ph = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
+            if (ph > 0) ppmDisplay = Math.round((hatali / ph) * 1_000_000).toLocaleString('tr');
+            lblText = 'PPM (Hatalı/Parti Hacmi — Mal Kabul Excel yok)';
+        }
+    } else if (isMixedContext) {
+        // Karma Tümü: Tedarikçi kayıtlar → mal kabul, Dış kayıtlar → sevkiyat; ikisini topla
+        let mkTum = 0, sevkTum2 = 0;
+        if (hasMalKabul) birimFiyatDetail.forEach(d => {
+            if (_sevkInRange((d.ay || '').substring(0, 7))) mkTum += (d.sumMiktar || 0);
+        });
+        if (hasSevk) sevkBirimFiyatDetail.forEach(d => {
+            if (_sevkInRange((d.ay || '').substring(0, 7))) sevkTum2 += (d.sumMiktar || 0);
+        });
+        const combinedPayda = mkTum + sevkTum2;
+        if (combinedPayda > 0) {
+            ppmDisplay = Math.round((hatali / combinedPayda) * 1_000_000).toLocaleString('tr');
+            lblText = 'PPM (Hatalı/Mal Kabul+Sevkiyat)';
         } else {
             const ph = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
             if (ph > 0) ppmDisplay = Math.round((hatali / ph) * 1_000_000).toLocaleString('tr');
@@ -3702,6 +3726,14 @@ function updateStats() {
         });
         if (sevkTum > 0) ppmDisplay = Math.round((hatali / sevkTum) * 1_000_000).toLocaleString('tr');
         lblText = 'PPM (Hatalı/Toplam Sevkiyat)';
+    } else if (hasMalKabul) {
+        // Sadece mal kabul verisi var
+        let mkTum = 0;
+        birimFiyatDetail.forEach(d => {
+            if (_sevkInRange((d.ay || '').substring(0, 7))) mkTum += (d.sumMiktar || 0);
+        });
+        if (mkTum > 0) ppmDisplay = Math.round((hatali / mkTum) * 1_000_000).toLocaleString('tr');
+        lblText = 'PPM (Hatalı/Toplam Mal Kabul)';
     } else {
         const partiHacmi = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
         if (partiHacmi > 0) ppmDisplay = Math.round((hatali / partiHacmi) * 1_000_000).toLocaleString('tr');
@@ -10300,15 +10332,18 @@ function _renderPPMMonthlyChart() {
 
     // 2) Aylık miktarlar — tarih aralığı filtreli
     // Tedarikçi segmenti → birimFiyatDetail (MAL KABUL)
-    // Diğer (Dış/Müşteri/Genel) → sevkBirimFiyatDetail (SEVKİYAT)
+    // Dış/Müşteri segmenti → sevkBirimFiyatDetail (SEVKİYAT)
+    // Tümü → her ikisini de ayrı ayrı topla, sonra ay bazında birleştir
     const sevkByMonth  = {};  // Dış/Müşteri için sevkiyat
     const mkByMonth    = {};  // Tedarikçi için mal kabul
     const hasSevk      = typeof sevkBirimFiyatDetail !== 'undefined' && sevkBirimFiyatDetail.length > 0;
     const hasMalKabul  = typeof birimFiyatDetail     !== 'undefined' && birimFiyatDetail.length > 0;
     const isTedarikciSeg = _ppmCurrentSegment !== 'all' && _isTedarikciType(_ppmCurrentSegment);
-    // Genel (Tümü) için baskın tipi belirle
-    const allAreTedarikci = _ppmCurrentSegment === 'all' &&
-        segFiltered.length > 0 && segFiltered.every(r => _isTedarikciType(r.tipi));
+    const isDisSeg       = _ppmCurrentSegment !== 'all' && !_isTedarikciType(_ppmCurrentSegment) && !_isPpmNAType(_ppmCurrentSegment);
+    const isTumuSeg      = _ppmCurrentSegment === 'all';
+    // Tümü'de sadece tek tip varsa ona göre davran
+    const allAreTedarikci = isTumuSeg && segFiltered.length > 0 && segFiltered.every(r => _isTedarikciType(r.tipi));
+    const allAreDis       = isTumuSeg && segFiltered.length > 0 && segFiltered.every(r => !_isTedarikciType(r.tipi) && !_isPpmNAType(r.tipi));
     const useTedarikciSource = isTedarikciSeg || allAreTedarikci;
 
     const _cFStart = (document.getElementById('fDateStart')?.value || '').substring(0, 7);
@@ -10320,28 +10355,36 @@ function _renderPPMMonthlyChart() {
         return true;
     }
 
-    if (useTedarikciSource && hasMalKabul) {
-        // Tedarikçi: Mal Kabul Excel'den aylık toplam miktar
+    // Mal Kabul: Tedarikçi segmenti veya Tümü (karışık ya da hepsi Tedarikçi)
+    if (hasMalKabul && (isTedarikciSeg || allAreTedarikci || (isTumuSeg && !allAreDis))) {
         birimFiyatDetail.forEach(d => {
             const key = (d.ay || '').substring(0, 7);
             if (!_chartInRange(key)) return;
             mkByMonth[key] = (mkByMonth[key] || 0) + (d.sumMiktar || 0);
         });
-    } else if (!useTedarikciSource && hasSevk) {
-        // Dış/Müşteri: Sevkiyat Excel'den aylık toplam miktar
+    }
+    // Sevkiyat: Dış segmenti veya Tümü (karışık ya da hepsi Dış)
+    if (hasSevk && (isDisSeg || allAreDis || (isTumuSeg && !allAreTedarikci))) {
         sevkBirimFiyatDetail.forEach(d => {
             const key = (d.ay || '').substring(0, 7);
             if (!_chartInRange(key)) return;
             sevkByMonth[key] = (sevkByMonth[key] || 0) + (d.sumMiktar || 0);
         });
     }
-    // NOT: Tedarikçi için Mal Kabul Excel yoksa mkByMonth boş kalır →
-    //      partiByMonth fallback devreye girer (sevkiyat ile karıştırılmaz)
 
-    // Aktif veri kaynağı
-    const activeByMonth = useTedarikciSource ? mkByMonth : sevkByMonth;
+    // Aktif veri kaynağı: Tümü → mk + sevk birleştir; segment → ilgili kaynak
+    const combinedByMonth = {};
+    if (isTumuSeg) {
+        // Her iki kaynağı ay bazında topla
+        const allKeys = new Set([...Object.keys(mkByMonth), ...Object.keys(sevkByMonth)]);
+        allKeys.forEach(k => {
+            combinedByMonth[k] = (mkByMonth[k] || 0) + (sevkByMonth[k] || 0);
+        });
+    }
+    const activeByMonth = isTumuSeg
+        ? combinedByMonth
+        : (useTedarikciSource ? mkByMonth : sevkByMonth);
     const hasSourceData = Object.keys(activeByMonth).length > 0;
-    // Tedarikçi+Mal Kabul yoksa parti hacmi fallback kullanılır
     const useSevk = hasSourceData;
 
     // 3) Aylara ait keyler: uygunsuzluk ayları + kaynak veri ayları (boş aylar da dahil)
@@ -10365,14 +10408,14 @@ function _renderPPMMonthlyChart() {
     // Kullanılacak bölen kaynağını belirle (useSevk zaten yukarıda tanımlandı)
     if (subEl) {
         const segLabel = _ppmCurrentSegment === 'all' ? '' : ` — Segment: ${_ppmCurrentSegment}`;
-        if (useTedarikciSource && useSevk) {
-            subEl.textContent = `Formül: (Aylık Hatalı / Aylık Mal Kabul Miktarı) × 1.000.000 — Mal Kabul Excel, tüm gelen (uygun+uygunsuz)${segLabel}`;
-        } else if (!useTedarikciSource && useSevk) {
-            subEl.textContent = `Formül: (Aylık Hatalı / Aylık Sevkiyat Miktarı) × 1.000.000 — Sevkiyat Excel, uygunsuzluksuz aylar da PPM'ı düşürür${segLabel}`;
+        if (!useSevk) {
+            subEl.textContent = `Formül: (Aylık Hatalı / Parti Hacmi) × 1.000.000 — Excel yüklenmedi, uygunsuzluk kaydındaki parti hacmi kullanılıyor${segLabel}`;
+        } else if (isTumuSeg && !allAreTedarikci && !allAreDis) {
+            subEl.textContent = `Formül: (Aylık Hatalı / Mal Kabul + Sevkiyat) × 1.000.000 — Tümü: Tedarikçi→Mal Kabul, Dış→Sevkiyat, ay bazında birleştirildi`;
         } else if (useTedarikciSource) {
-            subEl.textContent = `Formül: (Aylık Hatalı / Parti Hacmi) × 1.000.000 — Mal Kabul Excel yüklenmedi, uygunsuzluk kaydındaki parti hacmi kullanılıyor${segLabel}`;
+            subEl.textContent = `Formül: (Aylık Hatalı / Aylık Mal Kabul Miktarı) × 1.000.000 — Mal Kabul Excel, tüm gelen (uygun+uygunsuz)${segLabel}`;
         } else {
-            subEl.textContent = `Formül: (Aylık Hatalı / Parti Hacmi) × 1.000.000 — Sevkiyat Excel yüklenmedi, uygunsuzluk kaydındaki parti hacmi kullanılıyor${segLabel}`;
+            subEl.textContent = `Formül: (Aylık Hatalı / Aylık Sevkiyat Miktarı) × 1.000.000 — Sevkiyat Excel, uygunsuzluksuz aylar da PPM'ı düşürür${segLabel}`;
         }
     }
 
