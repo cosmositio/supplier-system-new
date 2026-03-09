@@ -10362,8 +10362,7 @@ function _renderPPMMonthlyChart() {
     noData.style.display = 'none';
     canvas.style.display = 'block';
 
-    // Kullanılacak bölen kaynağını belirle
-    const useSevk = hasSourceData;
+    // Kullanılacak bölen kaynağını belirle (useSevk zaten yukarıda tanımlandı)
     if (subEl) {
         const segLabel = _ppmCurrentSegment === 'all' ? '' : ` — Segment: ${_ppmCurrentSegment}`;
         if (useTedarikciSource && useSevk) {
