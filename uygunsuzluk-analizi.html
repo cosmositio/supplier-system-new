@@ -3677,8 +3677,25 @@ function updateStats() {
     let lblText = 'PPM';
 
     if (isIcContext) {
-        // İç üretim verisi yok — hesaplanamaz
-        lblText = 'PPM (İç — hesaplanamaz)';
+        // İç: sevkiyat varsa onu kullan, yoksa parti hacmi
+        if (hasSevk) {
+            let sevkIc = 0;
+            sevkBirimFiyatDetail.forEach(d => {
+                if (_sevkInRange((d.ay || '').substring(0, 7))) sevkIc += (d.sumMiktar || 0);
+            });
+            if (sevkIc > 0) {
+                ppmDisplay = Math.round((hatali / sevkIc) * 1_000_000).toLocaleString('tr');
+                lblText = 'PPM (İç — Hatalı/Toplam Sevkiyat)';
+            } else {
+                const ph = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
+                if (ph > 0) ppmDisplay = Math.round((hatali / ph) * 1_000_000).toLocaleString('tr');
+                lblText = 'PPM (İç — Hatalı/Parti Hacmi)';
+            }
+        } else {
+            const ph = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
+            if (ph > 0) ppmDisplay = Math.round((hatali / ph) * 1_000_000).toLocaleString('tr');
+            lblText = 'PPM (İç — Hatalı/Parti Hacmi)';
+        }
     } else if (isTedarikciContext) {
         // Tedarikçi / Hammadde: TÜM mal kabul miktarını payda yap (uygun + uygunsuz)
         if (hasMalKabul) {
@@ -10310,21 +10327,15 @@ function _renderPPMMonthlyChart() {
     const _noDataEl  = document.getElementById('ppmNoData');
     const _canvasEl  = document.getElementById('ppmMonthlyCanvas');
     const _subEl     = document.getElementById('ppmChartSub');
-    const isNASegment = _ppmCurrentSegment !== 'all'
+    // İç tipin tespiti (N/A yerine sevkiyat/parti hacmi kullanılacak)
+    const isIcSeg = _ppmCurrentSegment !== 'all'
         ? _isPpmNAType(_ppmCurrentSegment)
         : (segFiltered.length > 0 && segFiltered.every(r => _isPpmNAType(r.tipi)));
-    if (isNASegment) {
-        const segName = _ppmCurrentSegment !== 'all' ? `"${_ppmCurrentSegment}" tipi` : 'tüm kayıtlar (iç tip)';
-        if (_noDataEl) { _noDataEl.textContent = `⚠️ ${segName} için PPM hesaplanamaz — iç toplam üretim verisi mevcut değil.`; _noDataEl.style.display = 'block'; }
-        if (_canvasEl) _canvasEl.style.display = 'none';
-        if (_subEl) _subEl.textContent = 'N/A — İç üretim verisi bu sistemde bulunmuyor';
-        return;
-    }
 
     // 1) Aylık hatalı miktar — segment filtrelenmiş (toplam + tip bazında)
     const hataliByMonth    = {};
     const tedHataliByMonth = {};  // Tedarikçi kayıtları
-    const disHataliByMonth = {};  // Dış/Müşteri kayıtları
+    const disHataliByMonth = {};  // Dış/Müşteri + İç kayıtları (sevkiyat paydası)
     segFiltered.forEach(r => {
         const d = parseDateStr(r.uygunsuzlukTarih);
         if (!d) return;
@@ -10332,7 +10343,8 @@ function _renderPPMMonthlyChart() {
         hataliByMonth[key] = (hataliByMonth[key] || 0) + (Number(r.hataliMiktar) || 0);
         if (_isTedarikciType(r.tipi)) {
             tedHataliByMonth[key] = (tedHataliByMonth[key] || 0) + (Number(r.hataliMiktar) || 0);
-        } else if (!_isPpmNAType(r.tipi)) {
+        } else {
+            // Dış ve İç tiplerinin ikisi de sevkiyat paydasını kullanır
             disHataliByMonth[key] = (disHataliByMonth[key] || 0) + (Number(r.hataliMiktar) || 0);
         }
     });
@@ -10351,10 +10363,12 @@ function _renderPPMMonthlyChart() {
     // Tümü'de sadece tek tip varsa ona göre davran
     const allAreTedarikci = isTumuSeg && segFiltered.length > 0 && segFiltered.every(r => _isTedarikciType(r.tipi));
     const allAreDis       = isTumuSeg && segFiltered.length > 0 && segFiltered.every(r => !_isTedarikciType(r.tipi) && !_isPpmNAType(r.tipi));
+    const allAreIc        = isTumuSeg && segFiltered.length > 0 && segFiltered.every(r => _isPpmNAType(r.tipi));
     const useTedarikciSource = isTedarikciSeg || allAreTedarikci;
     // Karma Tümü: hem Tedarikçi hem Dış kayıtlar mevcut → ayrı seriler göster
-    const isMixedTumu = isTumuSeg && !allAreTedarikci && !allAreDis
-        && segFiltered.some(r => _isTedarikciType(r.tipi))
+    // İç kayıtlar varsa Mixed'a katılır (sevkiyat paydası alt setinde gruplanır)
+    const isMixedTumu = isTumuSeg && !allAreTedarikci && !allAreDis && !allAreIc
+        && (segFiltered.some(r => _isTedarikciType(r.tipi)) || segFiltered.some(r => _isPpmNAType(r.tipi)))
         && segFiltered.some(r => !_isTedarikciType(r.tipi) && !_isPpmNAType(r.tipi));
 
     const _cFStart = (document.getElementById('fDateStart')?.value || '').substring(0, 7);
@@ -10366,16 +10380,16 @@ function _renderPPMMonthlyChart() {
         return true;
     }
 
-    // Mal Kabul: Tedarikçi segmenti veya Tümü (karışık ya da hepsi Tedarikçi)
-    if (hasMalKabul && (isTedarikciSeg || allAreTedarikci || (isTumuSeg && !allAreDis))) {
+    // Mal Kabul: Tedarikçi segmenti veya Tümü (karışık ya da hepsi Tedarikçi); İç segmenti dışarıda bırak
+    if (hasMalKabul && (isTedarikciSeg || allAreTedarikci || (isTumuSeg && !allAreDis && !allAreIc))) {
         birimFiyatDetail.forEach(d => {
             const key = (d.ay || '').substring(0, 7);
             if (!_chartInRange(key)) return;
             mkByMonth[key] = (mkByMonth[key] || 0) + (d.sumMiktar || 0);
         });
     }
-    // Sevkiyat: Dış segmenti veya Tümü (karışık ya da hepsi Dış)
-    if (hasSevk && (isDisSeg || allAreDis || (isTumuSeg && !allAreTedarikci))) {
+    // Sevkiyat: Dış/İç segmenti veya Tümü (karışık ya da hepsi Dış/İç)
+    if (hasSevk && (isDisSeg || isIcSeg || allAreDis || allAreIc || (isTumuSeg && !allAreTedarikci))) {
         sevkBirimFiyatDetail.forEach(d => {
             const key = (d.ay || '').substring(0, 7);
             if (!_chartInRange(key)) return;
@@ -10400,7 +10414,7 @@ function _renderPPMMonthlyChart() {
         }
         activeByMonth = isTumuSeg
             ? combinedByMonth
-            : (useTedarikciSource ? mkByMonth : sevkByMonth);
+            : (useTedarikciSource ? mkByMonth : sevkByMonth);  // İç ve Dış ikisi de sevkByMonth kullanır
         hasSourceData = Object.keys(activeByMonth).length > 0;
         useSevk = hasSourceData;
     }
@@ -10432,8 +10446,10 @@ function _renderPPMMonthlyChart() {
         const segLabel = _ppmCurrentSegment === 'all' ? '' : ` — Segment: ${_ppmCurrentSegment}`;
         if (!useSevk) {
             subEl.textContent = `Formül: (Aylık Hatalı / Parti Hacmi) × 1.000.000 — Excel yüklenmedi, uygunsuzluk kaydındaki parti hacmi kullanılıyor${segLabel}`;
+        } else if (isIcSeg || allAreIc) {
+            subEl.textContent = `Formül: (Aylık Hatalı / Aylık Sevkiyat) × 1.000.000 — İç tip, sevkiyat Excel kullanılıyor`;
         } else if (isMixedTumu) {
-            subEl.textContent = `Tedarikçi PPM = Hatalı÷Mal Kabul×1M  |  Dış PPM = Hatalı÷Sevkiyat×1M — her tip kendi paydasıyla ayrı çubuklar`;  
+            subEl.textContent = `Tedarikçi PPM = Hatalı÷Mal Kabul×1M  |  Dış/İç PPM = Hatalı÷Sevkiyat×1M — her tip kendi paydasıyla ayrı çubuklar`;  
         } else if (useTedarikciSource) {
             subEl.textContent = `Formül: (Aylık Hatalı / Aylık Mal Kabul Miktarı) × 1.000.000 — Mal Kabul Excel, tüm gelen (uygun+uygunsuz)${segLabel}`;
         } else {
@@ -10493,7 +10509,7 @@ function _renderPPMMonthlyChart() {
                 borderRadius: 5,
             },
             {
-                label: 'Dış / Müşteri PPM',
+                label: 'Dış / İç PPM',
                 data: disPpmData.map(v => v ?? 0),
                 backgroundColor: 'rgba(220,38,38,0.80)',
                 borderColor: 'rgba(220,38,38,1)',
@@ -10584,7 +10600,7 @@ function _renderPPMMonthlyChart() {
                     const selRows   = (drillByMonth[monthKey] || []).filter(r =>
                         isTed ? _isTedarikciType(r.tipi) : (!_isTedarikciType(r.tipi) && !_isPpmNAType(r.tipi))
                     );
-                    const selType = isTed ? 'Tedarikçi' : 'Dış/Müşteri';
+                    const selType = isTed ? 'Tedarikçi' : 'Dış/İç';
                     const selLbl  = isTed ? 'Mal Kabul (ay toplam)' : 'Sevkiyat (ay toplam)';
                     _showPPMDrillDown(monthKey, `${labels[idx]} — ${selType}`, selPpm, selHatali, selPayda, true, selRows, selLbl);
                 } else {
@@ -10604,7 +10620,7 @@ function _renderPPMMonthlyChart() {
                     callbacks: {
                         title: ctx => {
                             if (isMixedTumu) {
-                                const type = ctx[0]?.datasetIndex === 0 ? 'Tedarikçi' : 'Dış/Müşteri';
+                                const type = ctx[0]?.datasetIndex === 0 ? 'Tedarikçi' : 'Dış/İç';
                                 return `${labels[ctx[0].dataIndex]} — ${type} (tıkla: detay)`;
                             }
                             return labels[ctx[0].dataIndex] + (ppmData[ctx[0].dataIndex] == null ? '' : ' — tıkla: detay');
