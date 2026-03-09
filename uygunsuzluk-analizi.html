@@ -3622,15 +3622,41 @@ function parseDateStr(val) {
 function updateStats() {
     const total = filteredData.length;
     const hatali = filteredData.reduce((s, r) => s + (Number(r.hataliMiktar) || 0), 0);
-    const partiHacmi = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
     const hataTipleri = new Set(filteredData.map(r => r.hataTipi).filter(Boolean)).size;
     const cariler = new Set(filteredData.map(r => r.cariAdi).filter(Boolean)).size;
-    const ppm = partiHacmi > 0 ? Math.round((hatali / partiHacmi) * 1_000_000) : 0;
+
+    // Sevkiyat Excel yüklüyse → filtrelenmiş aylardaki toplam sevk miktarını payda kullan
+    // Yüklü değilse → uygunsuzluk verisindeki parti hacmini kullan (eski davranış)
+    const hasSevk = typeof sevkBirimFiyatDetail !== 'undefined' && sevkBirimFiyatDetail.length > 0;
+    let ppm = 0;
+    if (hasSevk) {
+        // Filtrelenmiş uygunsuzluktaki hangi aylar var?
+        const activeMonths = new Set();
+        filteredData.forEach(r => {
+            const d = parseDateStr(r.uygunsuzlukTarih);
+            if (d) activeMonths.add(d.substring(0, 7));
+        });
+        // O aylardaki toplam sevk miktarını topla
+        let totalSevk = 0;
+        sevkBirimFiyatDetail.forEach(d => {
+            const key = (d.ay || '').substring(0, 7);
+            if (activeMonths.has(key)) totalSevk += (d.sumMiktar || 0);
+        });
+        ppm = totalSevk > 0 ? Math.round((hatali / totalSevk) * 1_000_000) : 0;
+    } else {
+        const partiHacmi = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
+        ppm = partiHacmi > 0 ? Math.round((hatali / partiHacmi) * 1_000_000) : 0;
+    }
+
     document.getElementById('statTotal').textContent = total.toLocaleString('tr');
     document.getElementById('statHataliMiktar').textContent = hatali.toLocaleString('tr', {maximumFractionDigits:1});
     document.getElementById('statHataTipi').textContent = hataTipleri;
     document.getElementById('statCari').textContent = cariler;
     document.getElementById('statPPM').textContent = ppm.toLocaleString('tr');
+
+    // Kart altı yazısını güncelle
+    const lbl = document.querySelector('#statsRow .stat-card-ppm .lbl');
+    if (lbl) lbl.textContent = hasSevk ? 'PPM (Hatalı/Sevk Miktarı)' : 'PPM (Hatalı/Parti Hacmi)';
 }
 
 // ─── Pareto ───────────────────────────────────────────────────────────────────
