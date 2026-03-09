@@ -10321,31 +10321,28 @@ function _renderPPMMonthlyChart() {
     }
 
     if (useTedarikciSource && hasMalKabul) {
-        // Tedarikçi: Tüm mal kabul miktarını ay ay topla
+        // Tedarikçi: Mal Kabul Excel'den aylık toplam miktar
         birimFiyatDetail.forEach(d => {
             const key = (d.ay || '').substring(0, 7);
             if (!_chartInRange(key)) return;
             mkByMonth[key] = (mkByMonth[key] || 0) + (d.sumMiktar || 0);
         });
     } else if (!useTedarikciSource && hasSevk) {
-        // Dış/Müşteri: Tüm sevkiyat miktarını ay ay topla
+        // Dış/Müşteri: Sevkiyat Excel'den aylık toplam miktar
         sevkBirimFiyatDetail.forEach(d => {
             const key = (d.ay || '').substring(0, 7);
             if (!_chartInRange(key)) return;
             sevkByMonth[key] = (sevkByMonth[key] || 0) + (d.sumMiktar || 0);
         });
-    } else if (useTedarikciSource && hasSevk) {
-        // Mal kabul yoksa sevkiyat ile fallback (tedarikçi)
-        sevkBirimFiyatDetail.forEach(d => {
-            const key = (d.ay || '').substring(0, 7);
-            if (!_chartInRange(key)) return;
-            mkByMonth[key] = (mkByMonth[key] || 0) + (d.sumMiktar || 0);
-        });
     }
+    // NOT: Tedarikçi için Mal Kabul Excel yoksa mkByMonth boş kalır →
+    //      partiByMonth fallback devreye girer (sevkiyat ile karıştırılmaz)
 
     // Aktif veri kaynağı
     const activeByMonth = useTedarikciSource ? mkByMonth : sevkByMonth;
     const hasSourceData = Object.keys(activeByMonth).length > 0;
+    // Tedarikçi+Mal Kabul yoksa parti hacmi fallback kullanılır
+    const useSevk = hasSourceData;
 
     // 3) Aylara ait keyler: uygunsuzluk ayları + kaynak veri ayları (boş aylar da dahil)
     const keys = [...new Set([
@@ -10369,13 +10366,14 @@ function _renderPPMMonthlyChart() {
     const useSevk = hasSourceData;
     if (subEl) {
         const segLabel = _ppmCurrentSegment === 'all' ? '' : ` — Segment: ${_ppmCurrentSegment}`;
-        if (!useSevk) {
-            subEl.textContent = `Formül: (Aylık Hatalı / Parti Hacmi) × 1.000.000 — Excel yüklenmedi, tahmini${segLabel}`;
-        } else if (useTedarikciSource) {
-            const src = hasMalKabul ? 'Mal Kabul Excel' : 'Sevkiyat Excel (fallback)';
-            subEl.textContent = `Formül: (Aylık Hatalı / Aylık Mal Kabul Miktarı) × 1.000.000 — ${src}, tüm gelen (uygun+uygunsuz)${segLabel}`;
-        } else {
+        if (useTedarikciSource && useSevk) {
+            subEl.textContent = `Formül: (Aylık Hatalı / Aylık Mal Kabul Miktarı) × 1.000.000 — Mal Kabul Excel, tüm gelen (uygun+uygunsuz)${segLabel}`;
+        } else if (!useTedarikciSource && useSevk) {
             subEl.textContent = `Formül: (Aylık Hatalı / Aylık Sevkiyat Miktarı) × 1.000.000 — Sevkiyat Excel, uygunsuzluksuz aylar da PPM'ı düşürür${segLabel}`;
+        } else if (useTedarikciSource) {
+            subEl.textContent = `Formül: (Aylık Hatalı / Parti Hacmi) × 1.000.000 — Mal Kabul Excel yüklenmedi, uygunsuzluk kaydındaki parti hacmi kullanılıyor${segLabel}`;
+        } else {
+            subEl.textContent = `Formül: (Aylık Hatalı / Parti Hacmi) × 1.000.000 — Sevkiyat Excel yüklenmedi, uygunsuzluk kaydındaki parti hacmi kullanılıyor${segLabel}`;
         }
     }
 
@@ -10481,12 +10479,16 @@ function _renderPPMMonthlyChart() {
                 const pts = chart.getElementsAtEventForMode(evt.native, 'index', { intersect: false }, true);
                 if (!pts || !pts.length) return;
                 const idx = pts[0].index;
-                if (ppmData[idx] == null) return; // N/A çubuğuna tıklanmış — işlem yok
+                if (ppmData[idx] == null) return;
+                const _paydaColLbl = useSevk
+                    ? (useTedarikciSource ? 'Mal Kabul (ay toplam)' : 'Sevkiyat (ay toplam)')
+                    : 'Parti Hacmi';
                 _showPPMDrillDown(keys[idx], labels[idx], ppmData[idx],
                     hataliByMonth[keys[idx]] || 0,
                     useSevk ? (activeByMonth[keys[idx]] || 0) : (partiByMonth[keys[idx]] || 0),
                     useSevk,
-                    drillByMonth[keys[idx]] || []);
+                    drillByMonth[keys[idx]] || [],
+                    _paydaColLbl);
             },
             plugins: {
                 legend: { display: false },
@@ -10527,12 +10529,16 @@ function _renderPPMMonthlyChart() {
     });
 }
 
-function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, useSevk, rows) {
+function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, useSevk, rows, paydaColLabel) {
     const panel  = document.getElementById('ppmDrillDown');
     const title  = document.getElementById('ppmDrillTitle');
     const tbody  = document.getElementById('ppmDrillBody');
     const tfoot  = document.getElementById('ppmDrillFoot');
-    const paydaLabel = useSevk ? 'Sevk Miktarı (ay toplam)' : 'Parti Hacmi';
+    const paydaLabel = paydaColLabel || (useSevk ? 'Sevk/Mal Kabul (ay toplam)' : 'Parti Hacmi');
+
+    // Thead sütun başlığını güncelle
+    const thPayda = document.querySelector('#ppmDrillTable thead th:last-child');
+    if (thPayda) thPayda.textContent = paydaLabel;
 
     title.innerHTML = `📅 <strong>${monthLabel}</strong> — PPM: <span class="ppm-drill-ppm">${ppm.toLocaleString('tr')}</span>
         <small style="color:#888;font-weight:400;margin-left:12px;">
