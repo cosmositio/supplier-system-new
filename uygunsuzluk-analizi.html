@@ -95,6 +95,17 @@
         }
         .stat-card .val { font-size: 2em; font-weight: 800; color: #4a0a6b; }
         .stat-card .lbl { font-size: 0.8em; color: #666; margin-top: 4px; }
+        .stat-card-ppm:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(183,28,28,0.18); transition: all .2s; }
+        .stat-card-ppm { transition: all .2s; }
+
+        /* PPM Modal */
+        #ppmChartModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999; align-items:center; justify-content:center; }
+        #ppmChartModal.open { display:flex; }
+        #ppmChartBox { background:#fff; border-radius:18px; padding:32px 28px 24px; width:min(900px,96vw); max-height:90vh; overflow-y:auto; position:relative; box-shadow:0 8px 40px rgba(0,0,0,.22); }
+        #ppmChartBox h2 { margin:0 0 6px; font-size:1.25em; color:#1e3c72; }
+        #ppmChartBox .ppm-sub { font-size:.82em; color:#888; margin-bottom:18px; }
+        #ppmChartClose { position:absolute; top:16px; right:20px; background:none; border:none; font-size:1.6em; cursor:pointer; color:#888; line-height:1; }
+        #ppmChartClose:hover { color:#b71c1c; }
 
         /* Filters */
         .filter-card {
@@ -1156,9 +1167,10 @@
             <div class="val" id="statCari">0</div>
             <div class="lbl">Farklı Tedarikçi</div>
         </div>
-        <div class="stat-card" style="border-top-color:#b71c1c;">
+        <div class="stat-card stat-card-ppm" style="border-top-color:#b71c1c;cursor:pointer;" onclick="openPPMChart()" title="Aylık PPM grafiğini göster">
             <div class="val" id="statPPM">0</div>
             <div class="lbl">PPM (Hatalı/Parti Hacmi)</div>
+            <div style="font-size:0.72em;color:#b71c1c;margin-top:6px;font-weight:600;">📊 Aylık Grafik</div>
         </div>
     </div>
 
@@ -10108,5 +10120,127 @@ function openFishboneMulti() {
         </div>
     </div>
 </div>
+<!-- PPM Aylık Grafik Modalı -->
+<div id="ppmChartModal" onclick="if(event.target===this)closePPMChart()">
+    <div id="ppmChartBox">
+        <button id="ppmChartClose" onclick="closePPMChart()">✕</button>
+        <h2>📊 Aylık PPM Trendi</h2>
+        <p class="ppm-sub">Formül: (Aylık Hatalı Miktar / Aylık Parti Hacmi) × 1.000.000 — mevcut filtreye göre</p>
+        <canvas id="ppmMonthlyCanvas" height="320"></canvas>
+        <div id="ppmNoData" style="display:none;text-align:center;padding:40px;color:#aaa;">⚠️ Tarih veya Parti Hacmi verisi bulunamadı.</div>
+    </div>
+</div>
+
+<script>
+let _ppmChartInst = null;
+
+function openPPMChart() {
+    const modal = document.getElementById('ppmChartModal');
+    modal.classList.add('open');
+    _renderPPMMonthlyChart();
+}
+
+function closePPMChart() {
+    document.getElementById('ppmChartModal').classList.remove('open');
+    if (_ppmChartInst) { _ppmChartInst.destroy(); _ppmChartInst = null; }
+}
+
+function _renderPPMMonthlyChart() {
+    if (_ppmChartInst) { _ppmChartInst.destroy(); _ppmChartInst = null; }
+
+    // Group filteredData by YYYY-MM
+    const byMonth = {};
+    (filteredData || []).forEach(r => {
+        const d = parseDateStr(r.uygunsuzlukTarih);
+        if (!d) return;
+        const key = d.substring(0, 7); // 'YYYY-MM'
+        if (!byMonth[key]) byMonth[key] = { hatali: 0, parti: 0 };
+        byMonth[key].hatali += Number(r.hataliMiktar) || 0;
+        byMonth[key].parti  += Number(r.partiHacmi)   || 0;
+    });
+
+    const keys = Object.keys(byMonth).sort();
+    const noData = document.getElementById('ppmNoData');
+    const canvas = document.getElementById('ppmMonthlyCanvas');
+
+    if (!keys.length) {
+        noData.style.display = 'block';
+        canvas.style.display = 'none';
+        return;
+    }
+    noData.style.display = 'none';
+    canvas.style.display = 'block';
+
+    const TR_MONTHS = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+    const labels = keys.map(k => {
+        const [y, m] = k.split('-');
+        return TR_MONTHS[parseInt(m,10)-1] + ' ' + y;
+    });
+    const ppmData = keys.map(k => {
+        const { hatali, parti } = byMonth[k];
+        return parti > 0 ? Math.round((hatali / parti) * 1_000_000) : 0;
+    });
+
+    // Color bars: gradient from orange to red based on value max
+    const maxVal = Math.max(...ppmData, 1);
+    const bgColors = ppmData.map(v => {
+        const ratio = v / maxVal;
+        const r = Math.round(183 + (255-183)*ratio);
+        const g = Math.round(28  + (87 -28 )*(1-ratio));
+        const b = Math.round(28  * (1-ratio));
+        return `rgba(${r},${g},${b},0.82)`;
+    });
+
+    _ppmChartInst = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'PPM',
+                data: ppmData,
+                backgroundColor: bgColors,
+                borderColor: bgColors.map(c => c.replace('0.82','1')),
+                borderWidth: 1,
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: ctx => labels[ctx[0].dataIndex],
+                        label: ctx => {
+                            const k = keys[ctx.dataIndex];
+                            const { hatali, parti } = byMonth[k];
+                            return [
+                                `PPM: ${ctx.raw.toLocaleString('tr')}`,
+                                `Hatalı: ${hatali.toLocaleString('tr', {maximumFractionDigits:1})}`,
+                                `Parti Hacmi: ${parti.toLocaleString('tr', {maximumFractionDigits:1})}`,
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'PPM', color:'#666', font:{size:12} },
+                    ticks: {
+                        callback: v => v.toLocaleString('tr')
+                    }
+                },
+                x: {
+                    title: { display: true, text: 'Ay', color:'#666', font:{size:12} }
+                }
+            }
+        }
+    });
+}
+// Close on Escape
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePPMChart(); });
+</script>
+
 </body>
 </html>
