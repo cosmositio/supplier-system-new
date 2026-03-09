@@ -10296,9 +10296,10 @@ function _renderPPMMonthlyChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            onClick: (evt, elements) => {
-                if (!elements || !elements.length) return;
-                const idx = elements[0].index;
+            onClick: (evt, elements, chart) => {
+                const pts = chart.getElementsAtEventForMode(evt.native, 'index', { intersect: false }, true);
+                if (!pts || !pts.length) return;
+                const idx = pts[0].index;
                 _showPPMDrillDown(keys[idx], labels[idx], ppmData[idx],
                     hataliByMonth[keys[idx]] || 0,
                     useSevk ? (sevkByMonth[keys[idx]] || 0) : (partiByMonth[keys[idx]] || 0),
