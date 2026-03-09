@@ -10283,7 +10283,33 @@ function _renderPPMMonthlyChart() {
         drillByMonth[key].push(r);
     });
 
+    // Çubuk üstü değer etiketi plugin'i
+    const ppmLabelPlugin = {
+        id: 'ppmBarLabels',
+        afterDatasetsDraw(chart) {
+            const { ctx, data } = chart;
+            const meta = chart.getDatasetMeta(0);
+            ctx.save();
+            ctx.font = 'bold 11px Segoe UI, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            meta.data.forEach((bar, i) => {
+                const val = data.datasets[0].data[i];
+                if (val == null || val === 0) return;
+                const formatted = Number(val).toLocaleString('tr', { maximumFractionDigits: 0 });
+                const x = bar.x;
+                const y = bar.y - 4;
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                ctx.fillText(formatted, x + 1, y + 1);
+                ctx.fillStyle = '#1e3c72';
+                ctx.fillText(formatted, x, y);
+            });
+            ctx.restore();
+        }
+    };
+
     _ppmChartInst = new Chart(canvas, {
+        plugins: [ppmLabelPlugin],
         type: 'bar',
         data: {
             labels,
