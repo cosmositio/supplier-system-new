@@ -3632,44 +3632,68 @@ function parseDateStr(val) {
 }
 
 // ─── Stats ───────────────────────────────────────────────────────────────────
+// --- PPM tip yardımcıları ---
+function _isPpmNAType(tipi) {
+    // İç basarısızlık tipi: üretim verisi olmadığı için PPM hesaplanamaz
+    return !!tipi && /iç/i.test(tipi);
+}
+function _isTedarikciType(tipi) {
+    return !!tipi && /tedarik/i.test(tipi);
+}
+
 function updateStats() {
     const total = filteredData.length;
     const hatali = filteredData.reduce((s, r) => s + (Number(r.hataliMiktar) || 0), 0);
     const hataTipleri = new Set(filteredData.map(r => r.hataTipi).filter(Boolean)).size;
     const cariler = new Set(filteredData.map(r => r.cariAdi).filter(Boolean)).size;
 
-    // Sevkiyat Excel yüklüyse → filtrelenmiş aylardaki toplam sevk miktarını payda kullan
-    // Yüklü değilse → uygunsuzluk verisindeki parti hacmini kullan (eski davranış)
     const hasSevk = typeof sevkBirimFiyatDetail !== 'undefined' && sevkBirimFiyatDetail.length > 0;
-    let ppm = 0;
-    if (hasSevk) {
-        // Filtrelenmiş uygunsuzluktaki hangi aylar var?
+
+    // Tipi filtresi veya mevcut veri kümesine göre PPM hesaplama bağlamını belirle
+    const tipiFilter = (document.getElementById('fTipi')?.value || '').trim();
+    const isIcContext = _isPpmNAType(tipiFilter) ||
+        (filteredData.length > 0 && filteredData.every(r => _isPpmNAType(r.tipi)));
+    const isTedarikciContext = !isIcContext && (
+        _isTedarikciType(tipiFilter) ||
+        (filteredData.length > 0 && filteredData.every(r => _isTedarikciType(r.tipi)))
+    );
+    // Sevkiyat sadece müşteri/otomotiv tipi için geçerli
+    const useSevkForStat = hasSevk && !isIcContext && !isTedarikciContext;
+
+    let ppmDisplay = 'N/A';
+    let lblText = 'PPM';
+
+    if (isIcContext) {
+        // İç üretim verisi yok — hesaplanamaz
+        lblText = 'PPM (İç — hesaplanamaz)';
+    } else if (useSevkForStat) {
         const activeMonths = new Set();
         filteredData.forEach(r => {
             const d = parseDateStr(r.uygunsuzlukTarih);
             if (d) activeMonths.add(d.substring(0, 7));
         });
-        // O aylardaki toplam sevk miktarını topla
         let totalSevk = 0;
         sevkBirimFiyatDetail.forEach(d => {
             const key = (d.ay || '').substring(0, 7);
             if (activeMonths.has(key)) totalSevk += (d.sumMiktar || 0);
         });
-        ppm = totalSevk > 0 ? Math.round((hatali / totalSevk) * 1_000_000) : 0;
+        if (totalSevk > 0) ppmDisplay = Math.round((hatali / totalSevk) * 1_000_000).toLocaleString('tr');
+        lblText = 'PPM (Hatalı/Sevk Miktarı)';
     } else {
+        // Tedarikçi veya sevkiyatsız → parti hacmi (mal kabul miktarı)
         const partiHacmi = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
-        ppm = partiHacmi > 0 ? Math.round((hatali / partiHacmi) * 1_000_000) : 0;
+        if (partiHacmi > 0) ppmDisplay = Math.round((hatali / partiHacmi) * 1_000_000).toLocaleString('tr');
+        lblText = isTedarikciContext ? 'PPM (Hatalı/Parti Hacmi — Mal Kabul)' : 'PPM (Hatalı/Parti Hacmi)';
     }
 
     document.getElementById('statTotal').textContent = total.toLocaleString('tr');
     document.getElementById('statHataliMiktar').textContent = hatali.toLocaleString('tr', {maximumFractionDigits:1});
     document.getElementById('statHataTipi').textContent = hataTipleri;
     document.getElementById('statCari').textContent = cariler;
-    document.getElementById('statPPM').textContent = ppm.toLocaleString('tr');
+    document.getElementById('statPPM').textContent = ppmDisplay;
 
-    // Kart altı yazısını güncelle
     const lbl = document.querySelector('#statsRow .stat-card-ppm .lbl');
-    if (lbl) lbl.textContent = hasSevk ? 'PPM (Hatalı/Sevk Miktarı)' : 'PPM (Hatalı/Parti Hacmi)';
+    if (lbl) lbl.textContent = lblText;
 }
 
 // ─── Pareto ───────────────────────────────────────────────────────────────────
@@ -10228,6 +10252,21 @@ function _renderPPMMonthlyChart() {
         ? (filteredData || [])
         : (filteredData || []).filter(r => (r.tipi || '').trim() === _ppmCurrentSegment);
 
+    // İç tip seçiliyse PPM hesaplanamaz — erken çık
+    const _noDataEl  = document.getElementById('ppmNoData');
+    const _canvasEl  = document.getElementById('ppmMonthlyCanvas');
+    const _subEl     = document.getElementById('ppmChartSub');
+    const isNASegment = _ppmCurrentSegment !== 'all'
+        ? _isPpmNAType(_ppmCurrentSegment)
+        : (segFiltered.length > 0 && segFiltered.every(r => _isPpmNAType(r.tipi)));
+    if (isNASegment) {
+        const segName = _ppmCurrentSegment !== 'all' ? `"${_ppmCurrentSegment}" tipi` : 'tüm kayıtlar (iç tip)';
+        if (_noDataEl) { _noDataEl.textContent = `⚠️ ${segName} için PPM hesaplanamaz — iç toplam üretim verisi mevcut değil.`; _noDataEl.style.display = 'block'; }
+        if (_canvasEl) _canvasEl.style.display = 'none';
+        if (_subEl) _subEl.textContent = 'N/A — İç üretim verisi bu sistemde bulunmuyor';
+        return;
+    }
+
     // 1) Aylık hatalı miktar — segment filtrelenmiş
     const hataliByMonth = {};
     segFiltered.forEach(r => {
@@ -10237,10 +10276,11 @@ function _renderPPMMonthlyChart() {
         hataliByMonth[key] = (hataliByMonth[key] || 0) + (Number(r.hataliMiktar) || 0);
     });
 
-    // 2) Aylık sevk miktarı — sadece "Tümü" seçiliyken sevkiyat kullan
+    // 2) Aylık sevk miktarı — Tümü seçiliyken ve Tedarikçi tipi değilken sevkiyat kullan
     const sevkByMonth = {};
     const hasSevk = typeof sevkBirimFiyatDetail !== 'undefined' && sevkBirimFiyatDetail.length > 0;
-    if (hasSevk && _ppmCurrentSegment === 'all') {
+    const isTedarikciSeg = _ppmCurrentSegment !== 'all' && _isTedarikciType(_ppmCurrentSegment);
+    if (hasSevk && _ppmCurrentSegment === 'all' && !isTedarikciSeg) {
         sevkBirimFiyatDetail.forEach(d => {
             const key = (d.ay || '').substring(0, 7);
             if (!key || key.length < 7) return;
@@ -10264,12 +10304,16 @@ function _renderPPMMonthlyChart() {
     canvas.style.display = 'block';
 
     // Kullanılacak bölen kaynağını belirle
-    const useSevk = hasSevk && _ppmCurrentSegment === 'all' && Object.keys(sevkByMonth).length > 0;
+    const useSevk = hasSevk && _ppmCurrentSegment === 'all' && !isTedarikciSeg && Object.keys(sevkByMonth).length > 0;
     if (subEl) {
         const segLabel = _ppmCurrentSegment === 'all' ? '' : ` — Segment: ${_ppmCurrentSegment}`;
-        subEl.textContent = useSevk
-            ? `Formül: (Aylık Hatalı Miktar / Aylık Sevk Miktarı) × 1.000.000 — Sevkiyat Excel verisi kullanılıyor${segLabel}`
-            : `Formül: (Aylık Hatalı Miktar / Aylık Parti Hacmi) × 1.000.000 — Parti hacmi kullanılıyor${segLabel}`;
+        if (useSevk) {
+            subEl.textContent = `Formül: (Aylık Hatalı Miktar / Aylık Sevk Miktarı) × 1.000.000 — Sevkiyat Excel verisi kullanılıyor${segLabel}`;
+        } else if (isTedarikciSeg) {
+            subEl.textContent = `Formül: (Aylık Hatalı Miktar / Parti Hacmi) × 1.000.000 — Tedarikçi: Mal Kabul miktarı kullanılıyor${segLabel}`;
+        } else {
+            subEl.textContent = `Formül: (Aylık Hatalı Miktar / Parti Hacmi) × 1.000.000 — Parti hacmi kullanılıyor${segLabel}`;
+        }
     }
 
     // Parti hacmi fallback (sevkiyat yoksa veya segment seçiliyse)
@@ -10292,12 +10336,13 @@ function _renderPPMMonthlyChart() {
     const ppmData = keys.map(k => {
         const hatali = hataliByMonth[k] || 0;
         const payda = useSevk ? (sevkByMonth[k] || 0) : (partiByMonth[k] || 0);
-        return payda > 0 ? Math.round((hatali / payda) * 1_000_000) : 0;
+        return payda > 0 ? Math.round((hatali / payda) * 1_000_000) : null; // null = N/A (payda yok)
     });
 
-    // Color bars: gradient from orange to red based on value max
-    const maxVal = Math.max(...ppmData, 1);
+    // null değerleri N/A olarak göster; renk için null → gri
+    const maxVal = Math.max(...ppmData.filter(v => v != null), 1);
     const bgColors = ppmData.map(v => {
+        if (v == null) return 'rgba(180,180,180,0.5)';
         const ratio = v / maxVal;
         const r = Math.round(183 + (255-183)*ratio);
         const g = Math.round(28  + (87 -28 )*(1-ratio));
@@ -10315,22 +10360,31 @@ function _renderPPMMonthlyChart() {
         drillByMonth[key].push(r);
     });
 
-    // Çubuk üstü değer etiketi plugin'i
+    // Çubuk üstü değer etiketi plugin'i — null = N/A (payda yok)
     const ppmLabelPlugin = {
         id: 'ppmBarLabels',
         afterDatasetsDraw(chart) {
-            const { ctx, data } = chart;
+            const { ctx } = chart;
             const meta = chart.getDatasetMeta(0);
             ctx.save();
             ctx.font = 'bold 11px Segoe UI, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
             meta.data.forEach((bar, i) => {
-                const val = data.datasets[0].data[i];
-                if (val == null || val === 0) return;
-                const formatted = Number(val).toLocaleString('tr', { maximumFractionDigits: 0 });
+                const val = ppmData[i]; // closure üzerinden — null kontrolü için
                 const x = bar.x;
+                if (val == null) {
+                    // N/A — payda mevcut değil: gri yazı barın üstüne
+                    ctx.font = 'bold 10px Segoe UI, sans-serif';
+                    ctx.fillStyle = '#aaa';
+                    const zeroY = chart.scales.y.getPixelForValue(0);
+                    ctx.fillText('N/A', x, zeroY - 4);
+                    return;
+                }
+                if (val === 0) return;
                 const y = bar.y - 4;
+                const formatted = Number(val).toLocaleString('tr', { maximumFractionDigits: 0 });
+                ctx.font = 'bold 11px Segoe UI, sans-serif';
                 ctx.fillStyle = 'rgba(255,255,255,0.8)';
                 ctx.fillText(formatted, x + 1, y + 1);
                 ctx.fillStyle = '#1e3c72';
@@ -10340,6 +10394,9 @@ function _renderPPMMonthlyChart() {
         }
     };
 
+    // Chart.js'e null yerine 0 gönder (bar görünür kalsın), plugin ppmData closure'ından null'ı okur
+    const ppmDataChart = ppmData.map(v => v ?? 0);
+
     _ppmChartInst = new Chart(canvas, {
         plugins: [ppmLabelPlugin],
         type: 'bar',
@@ -10347,7 +10404,7 @@ function _renderPPMMonthlyChart() {
             labels,
             datasets: [{
                 label: 'PPM',
-                data: ppmData,
+                data: ppmDataChart,
                 backgroundColor: bgColors,
                 borderColor: bgColors.map(c => c.replace('0.82','1')),
                 borderWidth: 1,
@@ -10361,6 +10418,7 @@ function _renderPPMMonthlyChart() {
                 const pts = chart.getElementsAtEventForMode(evt.native, 'index', { intersect: false }, true);
                 if (!pts || !pts.length) return;
                 const idx = pts[0].index;
+                if (ppmData[idx] == null) return; // N/A çubuğuna tıklanmış — işlem yok
                 _showPPMDrillDown(keys[idx], labels[idx], ppmData[idx],
                     hataliByMonth[keys[idx]] || 0,
                     useSevk ? (sevkByMonth[keys[idx]] || 0) : (partiByMonth[keys[idx]] || 0),
@@ -10371,14 +10429,19 @@ function _renderPPMMonthlyChart() {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        title: ctx => labels[ctx[0].dataIndex] + ' — tıkla: detay',
+                        title: ctx => labels[ctx[0].dataIndex] + (ppmData[ctx[0].dataIndex] == null ? '' : ' — tıkla: detay'),
                         label: ctx => {
                             const k = keys[ctx.dataIndex];
                             const hatali = hataliByMonth[k] || 0;
                             const payda = useSevk ? (sevkByMonth[k] || 0) : (partiByMonth[k] || 0);
                             const paydaLabel = useSevk ? 'Sevk Miktarı' : 'Parti Hacmi';
+                            if (ppmData[ctx.dataIndex] == null) return [
+                                'PPM: N/A',
+                                `Hatalı: ${hatali.toLocaleString('tr', {maximumFractionDigits:1})}`,
+                                `${paydaLabel}: mevcut değil`,
+                            ];
                             return [
-                                `PPM: ${ctx.raw.toLocaleString('tr')}`,
+                                `PPM: ${ppmData[ctx.dataIndex].toLocaleString('tr')}`,
                                 `Hatalı: ${hatali.toLocaleString('tr', {maximumFractionDigits:1})}`,
                                 `${paydaLabel}: ${payda.toLocaleString('tr', {maximumFractionDigits:1})}`,
                             ];
