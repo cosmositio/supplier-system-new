@@ -101,16 +101,17 @@
         /* PPM Modal */
         #ppmChartModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999; align-items:center; justify-content:center; }
         #ppmChartModal.open { display:flex; }
-        #ppmChartBox { background:#fff; border-radius:18px; padding:28px 32px 24px; width:min(1100px,97vw); height:min(88vh,820px); overflow-y:auto; position:relative; box-shadow:0 8px 40px rgba(0,0,0,.22); display:flex; flex-direction:column; }
-        #ppmChartBox h2 { margin:0 0 4px; font-size:1.25em; color:#1e3c72; }
-        #ppmChartBox .ppm-sub { font-size:.82em; color:#888; margin-bottom:14px; }
-        #ppmChartClose { position:absolute; top:16px; right:20px; background:none; border:none; font-size:1.6em; cursor:pointer; color:#888; line-height:1; }
+        #ppmChartBox { background:#fff; border-radius:18px; padding:24px 28px 20px; width:min(1100px,97vw); height:min(90vh,860px); overflow:hidden; position:relative; box-shadow:0 8px 40px rgba(0,0,0,.22); display:flex; flex-direction:column; }
+        #ppmChartBox h2 { margin:0 0 2px; font-size:1.2em; color:#1e3c72; flex-shrink:0; }
+        #ppmChartBox .ppm-sub { font-size:.8em; color:#888; margin-bottom:10px; flex-shrink:0; }
+        #ppmChartClose { position:absolute; top:14px; right:18px; background:none; border:none; font-size:1.5em; cursor:pointer; color:#888; line-height:1; }
         #ppmChartClose:hover { color:#b71c1c; }
-        #ppmMonthlyCanvas { flex:1; min-height:0; cursor:pointer; }
-        #ppmDrillDown { border-top:2px solid #f0f0f0; margin-top:18px; padding-top:14px; display:none; }
-        #ppmDrillDown h3 { margin:0 0 10px; font-size:1em; color:#1e3c72; }
+        #ppmCanvasWrap { flex:0 0 340px; position:relative; min-height:0; }
+        #ppmMonthlyCanvas { cursor:pointer; }
+        #ppmDrillDown { border-top:2px solid #f0f0f0; margin-top:10px; padding-top:10px; display:none; flex:1 1 0; min-height:0; overflow-y:auto; }
+        #ppmDrillDown h3 { margin:0 0 8px; font-size:.95em; color:#1e3c72; position:sticky; top:0; background:#fff; padding-bottom:4px; z-index:1; }
         #ppmDrillTable { width:100%; border-collapse:collapse; font-size:.82em; }
-        #ppmDrillTable th { background:#f5f7ff; padding:6px 10px; text-align:left; font-weight:700; color:#1e3c72; border-bottom:2px solid #dde; white-space:nowrap; }
+        #ppmDrillTable th { background:#f5f7ff; padding:6px 10px; text-align:left; font-weight:700; color:#1e3c72; border-bottom:2px solid #dde; white-space:nowrap; position:sticky; top:38px; z-index:1; }
         #ppmDrillTable td { padding:5px 10px; border-bottom:1px solid #eef; white-space:nowrap; }
         #ppmDrillTable tr:hover td { background:#fafbff; }
         .ppm-drill-ppm { font-weight:700; color:#b71c1c; }
@@ -10160,8 +10161,10 @@ function openFishboneMulti() {
         <button id="ppmChartClose" onclick="closePPMChart()">✕</button>
         <h2>📊 Aylık PPM Trendi</h2>
         <p class="ppm-sub" id="ppmChartSub">Formül: (Aylık Hatalı Miktar / Aylık Sevk Miktarı) × 1.000.000 — mevcut filtreye göre</p>
-        <canvas id="ppmMonthlyCanvas"></canvas>
-        <div id="ppmNoData" style="display:none;text-align:center;padding:40px;color:#aaa;">⚠️ Tarih veya Sevk/Parti Hacmi verisi bulunamadı.</div>
+        <div id="ppmCanvasWrap">
+            <canvas id="ppmMonthlyCanvas"></canvas>
+            <div id="ppmNoData" style="display:none;text-align:center;padding:40px;color:#aaa;">⚠️ Tarih veya Sevk/Parti Hacmi verisi bulunamadı.</div>
+        </div>
         <div id="ppmDrillDown">
             <h3 id="ppmDrillTitle"></h3>
             <table id="ppmDrillTable">
@@ -10382,7 +10385,7 @@ function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, u
     </tr>`;
 
     panel.style.display = 'block';
-    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    panel.scrollTop = 0;
 }
 // Close on Escape
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePPMChart(); });
