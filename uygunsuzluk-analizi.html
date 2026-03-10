@@ -2812,6 +2812,7 @@ function processFile(file) {
             _activeUygId = id;
             allData = rows;
             filteredData = [...allData];
+            _ppmUygFileName = file.name;
             _renderUygFileList(index, id);
             initUI();
             showLoading(false);
@@ -2872,6 +2873,7 @@ async function switchUygFile(id) {
         _activeUygId = id;
         allData = stored.rows;
         filteredData = [...allData];
+        _ppmUygFileName = stored.fileName || '';
         const index = (await dbGet('uyg_index')) || [];
         _renderUygFileList(index, id);
         _invalidateUygMap();
@@ -4125,6 +4127,10 @@ function downloadChartPNG() {
 let malKabulRows     = null;   // raw rows from mal kabul excel
 let birimFiyatMap    = {};     // {stokKodu: {YYYY-MM: weightedAvgPrice}}
 let birimFiyatDetail = [];     // [{stokKodu, stokAdi, ay, sumMiktar, sumTutar, birimFiyat, kayitSayisi}]
+// PPM kaynak dosya adları (tabloda gösterim için)
+let _ppmUygFileName  = '';    // Aktif uygunsuzluk dosyası
+let _ppmMkFileNames  = [];    // Mal Kabul dosya adları
+let _ppmSvFileNames  = [];    // Sevkiyat dosya adları
 let kmParetoChartInst = null;
 let _kmBfSortCol = 'ay'; let _kmBfSortAsc = true;
 let _kmBfFiltered = [];
@@ -9934,6 +9940,7 @@ async function loadFromStorage() {
         }
         allData = stored.rows;
         filteredData = [...allData];
+        _ppmUygFileName = stored.fileName || '';
         _renderUygFileList(index, activeId);
         // KM verisini önce yükle ki PPM ilk gösterimde doğru hesaplansın
         await _restoreKmData();
@@ -10008,6 +10015,7 @@ async function _restoreKmData() {
         }
     }
     birimFiyatDetail = mkAccDetail;
+    _ppmMkFileNames = mkIndex.map(e => e.fileName).filter(Boolean);
     _renderKmFileList(mkIndex);
 
     // ── Sevkler ────────────────────────────────────────────
@@ -10043,6 +10051,7 @@ async function _restoreKmData() {
         }
     }
     sevkBirimFiyatDetail = svAccDetail;
+    _ppmSvFileNames = svIndex.map(e => e.fileName).filter(Boolean);
     _renderSvFileList(svIndex);
 
     if (anyLoaded) {
@@ -10711,6 +10720,11 @@ function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, u
         </tr>`;
     }).join('');
 
+    // Kaynak dosya adları satırı
+    const _srcUyg = _ppmUygFileName || '—';
+    const _srcMk  = _ppmMkFileNames.length ? _ppmMkFileNames.join(', ') : '—';
+    const _srcSv  = _ppmSvFileNames.length ? _ppmSvFileNames.join(', ') : '—';
+
     tfoot.innerHTML = `<tr style="background:#f5f7ff;font-weight:700;">
         <td colspan="6" style="padding:6px 10px;">TOPLAM</td>
         <td style="text-align:right;padding:6px 10px;">${totalHatali.toLocaleString('tr',{maximumFractionDigits:1})}</td>
@@ -10719,6 +10733,14 @@ function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, u
     <tr style="background:#fff3f3;">
         <td colspan="7" style="padding:6px 10px;color:#b71c1c;font-weight:700;">PPM = ${totalHatali.toLocaleString('tr',{maximumFractionDigits:1})} ÷ ${totalPayda.toLocaleString('tr',{maximumFractionDigits:1})} × 1.000.000 = <strong>${ppm.toLocaleString('tr')}</strong></td>
         <td></td>
+    </tr>
+    <tr style="background:#f8fafc;border-top:1px solid #e2e8f0;">
+        <td colspan="8" style="padding:7px 10px;font-size:0.78rem;color:#64748b;">
+            <span style="font-weight:600;color:#475569;">📂 Kaynaklar —</span>
+            <span style="margin-left:6px;">📋 Uygunsuzluk: <span style="color:#7b2d8b;font-weight:600;" title="${_srcUyg}">${_srcUyg}</span></span>
+            <span style="margin-left:12px;">📦 Mal Kabul: <span style="color:#065f46;font-weight:600;" title="${_srcMk}">${_srcMk}</span></span>
+            <span style="margin-left:12px;">🚚 Sevkiyat: <span style="color:#1e3a8a;font-weight:600;" title="${_srcSv}">${_srcSv}</span></span>
+        </td>
     </tr>`;
 
     panel.style.display = 'block';
