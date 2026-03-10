@@ -3642,10 +3642,12 @@ function _isTedarikciType(tipi) {
 }
 
 function updateStats() {
-    const total = filteredData.length;
-    const hatali = filteredData.reduce((s, r) => s + (Number(r.hataliMiktar) || 0), 0);
-    const hataTipleri = new Set(filteredData.map(r => r.hataTipi).filter(Boolean)).size;
-    const cariler = new Set(filteredData.map(r => r.cariAdi).filter(Boolean)).size;
+    // Hata tipi tick'leri dışlananları PPM ve istatistiklerden çıkar
+    const statsData  = _effectiveData();
+    const total      = statsData.length;
+    const hatali     = statsData.reduce((s, r) => s + (Number(r.hataliMiktar) || 0), 0);
+    const hataTipleri = new Set(statsData.map(r => r.hataTipi).filter(Boolean)).size;
+    const cariler     = new Set(statsData.map(r => r.cariAdi).filter(Boolean)).size;
 
     const hasSevk     = typeof sevkBirimFiyatDetail !== 'undefined' && sevkBirimFiyatDetail.length > 0;
     const hasMalKabul = typeof birimFiyatDetail !== 'undefined' && birimFiyatDetail.length > 0;
@@ -3653,15 +3655,15 @@ function updateStats() {
     // Tipi filtresi veya mevcut veri kümesine göre PPM hesaplama bağlamını belirle
     const tipiFilter = (document.getElementById('fTipi')?.value || '').trim();
     const isIcContext = _isPpmNAType(tipiFilter) ||
-        (filteredData.length > 0 && filteredData.every(r => _isPpmNAType(r.tipi)));
+        (statsData.length > 0 && statsData.every(r => _isPpmNAType(r.tipi)));
     const isTedarikciContext = !isIcContext && (
         _isTedarikciType(tipiFilter) ||
-        (filteredData.length > 0 && filteredData.every(r => _isTedarikciType(r.tipi)))
+        (statsData.length > 0 && statsData.every(r => _isTedarikciType(r.tipi)))
     );
     // Karma (Tümü) durum: hem Tedarikçi hem Dış kayıtlar var
-    const isMixedContext = !isIcContext && !isTedarikciContext && filteredData.length > 0 &&
-        filteredData.some(r => _isTedarikciType(r.tipi)) &&
-        filteredData.some(r => !_isTedarikciType(r.tipi) && !_isPpmNAType(r.tipi));
+    const isMixedContext = !isIcContext && !isTedarikciContext && statsData.length > 0 &&
+        statsData.some(r => _isTedarikciType(r.tipi)) &&
+        statsData.some(r => !_isTedarikciType(r.tipi) && !_isPpmNAType(r.tipi));
 
     // Tarih filtresi — sevkiyat ve mal kabul için de uygula
     const _statFStart = (document.getElementById('fDateStart')?.value || '').substring(0, 7);
@@ -3687,12 +3689,12 @@ function updateStats() {
                 ppmDisplay = Math.round((hatali / sevkIc) * 1_000_000).toLocaleString('tr');
                 lblText = 'PPM (İç — Hatalı/Toplam Sevkiyat)';
             } else {
-                const ph = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
+                const ph = statsData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
                 if (ph > 0) ppmDisplay = Math.round((hatali / ph) * 1_000_000).toLocaleString('tr');
                 lblText = 'PPM (İç — Hatalı/Parti Hacmi)';
             }
         } else {
-            const ph = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
+            const ph = statsData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
             if (ph > 0) ppmDisplay = Math.round((hatali / ph) * 1_000_000).toLocaleString('tr');
             lblText = 'PPM (İç — Hatalı/Parti Hacmi)';
         }
@@ -3708,12 +3710,12 @@ function updateStats() {
                 ppmDisplay = Math.round((hatali / mkTed) * 1_000_000).toLocaleString('tr');
                 lblText = 'PPM (Hatalı/Toplam Mal Kabul)';
             } else {
-                const ph = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
+                const ph = statsData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
                 if (ph > 0) ppmDisplay = Math.round((hatali / ph) * 1_000_000).toLocaleString('tr');
                 lblText = 'PPM (Hatalı/Parti Hacmi — Mal Kabul yok)';
             }
         } else {
-            const ph = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
+            const ph = statsData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
             if (ph > 0) ppmDisplay = Math.round((hatali / ph) * 1_000_000).toLocaleString('tr');
             lblText = 'PPM (Hatalı/Parti Hacmi — Mal Kabul Excel yok)';
         }
@@ -3731,7 +3733,7 @@ function updateStats() {
             ppmDisplay = Math.round((hatali / combinedPayda) * 1_000_000).toLocaleString('tr');
             lblText = 'PPM (Hatalı/Mal Kabul+Sevkiyat)';
         } else {
-            const ph = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
+            const ph = statsData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
             if (ph > 0) ppmDisplay = Math.round((hatali / ph) * 1_000_000).toLocaleString('tr');
             lblText = 'PPM (Hatalı/Parti Hacmi — tahmini)';
         }
@@ -3752,7 +3754,7 @@ function updateStats() {
         if (mkTum > 0) ppmDisplay = Math.round((hatali / mkTum) * 1_000_000).toLocaleString('tr');
         lblText = 'PPM (Hatalı/Toplam Mal Kabul)';
     } else {
-        const partiHacmi = filteredData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
+        const partiHacmi = statsData.reduce((s, r) => s + (Number(r.partiHacmi) || 0), 0);
         if (partiHacmi > 0) ppmDisplay = Math.round((hatali / partiHacmi) * 1_000_000).toLocaleString('tr');
         lblText = 'PPM (Hatalı/Parti Hacmi)';
     }
@@ -5468,6 +5470,8 @@ function toggleHataTipi(key, checked) {
     const safeId = 'bdi-' + btoa(encodeURIComponent(key)).replace(/=/g,'');
     const card = document.getElementById(safeId);
     if (card) card.classList.toggle('excluded', !checked);
+    // İstatistik kartını (PPM dahil) güncelle
+    updateStats();
     // Pareto grafiklerini güncelle
     renderPareto();
     renderKaliteMaliyetiPareto();
