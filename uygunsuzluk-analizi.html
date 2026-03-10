@@ -9851,7 +9851,7 @@ async function loadFromStorage_REPLACED() {
         if (lt) cariTagsMap = JSON.parse(lt);
     } catch(e) {}
 
-    Promise.all([dbGet('meta'), dbGet('data'), dbGet('musteriSet'), dbGet('cariTagsMap')]).then(([meta, data, mSet, tagMap]) => {
+    Promise.all([dbGet('meta'), dbGet('data'), dbGet('musteriSet'), dbGet('cariTagsMap')]).then(async ([meta, data, mSet, tagMap]) => {
         // IndexedDB musteriSet
         if (mSet && Array.isArray(mSet) && mSet.length > musteriSet.size) {
             musteriSet = new Set(mSet);
@@ -9879,10 +9879,10 @@ async function loadFromStorage_REPLACED() {
         filteredData = [...allData];
         const savedAt = new Date(meta.savedAt).toLocaleString('tr-TR');
         showFileInfo(meta.fileName, meta.sheetName, allData.length, savedAt);
+        // KM verisini önce yükle ki PPM ilk gösterimde doğru hesaplansın
+        await _restoreKmData();
         initUI();
         showToast(`Hafızadan yüklendi: ${allData.length} kayıt`, 'success');
-        // Ana veri yüklendikten sonra KM verilerini geri yükle
-        _restoreKmData();
     }).catch(() => { _restoreKmData(); /* hiç kayıt yok ama km olabilir */ });
 }
 
@@ -9935,10 +9935,11 @@ async function loadFromStorage() {
         allData = stored.rows;
         filteredData = [...allData];
         _renderUygFileList(index, activeId);
+        // KM verisini önce yükle ki PPM ilk gösterimde doğru hesaplansın
+        await _restoreKmData();
         initUI();
         showToast('Hafızadan yüklendi: ' + allData.length.toLocaleString('tr') + ' kayıt', 'success');
     } catch(err) { console.error('loadFromStorage hata:', err); }
-    _restoreKmData();
 }
 
 function clearStorage() {
@@ -10048,8 +10049,8 @@ async function _restoreKmData() {
         document.getElementById('kmParetoContent').style.display = 'block';
         renderKaliteMaliyetiPareto();
         if (Object.keys(birimFiyatMap).length) renderKmBirimFiyatTable();
-        // KM verileri yüklendikten sonra PPM kartını güncelle
-        if (filteredData && filteredData.length) updateStats();
+        // updateStats burada çağrılmaz — çağıran taraf (loadFromStorage, switchUygFile vb.)
+        // _restoreKmData tamamlandıktan sonra initUI/updateStats'ı kendisi tetikler
     }
 }
 
