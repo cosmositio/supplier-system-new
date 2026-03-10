@@ -4243,6 +4243,19 @@ function _detectFileYear(detail) {
 }
 
 /** yearMap'i global birimFiyatMap'e birleştirir (üzerine yazmaz, ekler). */
+/** Aynı fileName'e sahip girişlerden yalnızca en yeni savedAt olanı tutar.
+ *  Eski yüklemeler (duplicate kayıtlar) böylece çift sayılmaz. */
+function _dedupeByFileName(entries) {
+    const map = new Map(); // fileName → entry (en yeni)
+    for (const e of entries) {
+        const existing = map.get(e.fileName);
+        if (!existing || (e.savedAt || '') > (existing.savedAt || '')) {
+            map.set(e.fileName, e);
+        }
+    }
+    return [...map.values()];
+}
+
 function _mergeBirimFiyatMap(yearMap) {
     Object.entries(yearMap).forEach(([kod, months]) => {
         if (!birimFiyatMap[kod]) birimFiyatMap[kod] = {};
@@ -4308,8 +4321,8 @@ function _renderSvFileList(index) {
 async function _rebuildBirimFiyatMapFromDB() {
     birimFiyatMap = {};
     const index = (await dbGet('kmMK_index')) || [];
-    // Sadece aktif uyg ile ilişkili veya Tümü olanları dahil et
-    const filtered = index.filter(e => !e.uygId || e.uygId === _activeUygId);
+    // Sadece aktif uyg ile ilişkili veya Tümü olanları dahil et; aynı dosya adından sadece en yeniyi al
+    const filtered = _dedupeByFileName(index.filter(e => !e.uygId || e.uygId === _activeUygId));
     const accDetail = [];
     for (const e of filtered) {
         const stored = await dbGet(e.key);
@@ -4326,8 +4339,8 @@ async function _rebuildBirimFiyatMapFromDB() {
 async function _rebuildSevkBirimFiyatMapFromDB() {
     sevkBirimFiyatMap = {};
     const index = (await dbGet('kmSV_index')) || [];
-    // Sadece aktif uyg ile ilişkili veya Tümü olanları dahil et
-    const filtered = index.filter(e => !e.uygId || e.uygId === _activeUygId);
+    // Sadece aktif uyg ile ilişkili veya Tümü olanları dahil et; aynı dosya adından sadece en yeniyi al
+    const filtered = _dedupeByFileName(index.filter(e => !e.uygId || e.uygId === _activeUygId));
     const accDetail = [];
     for (const e of filtered) {
         const stored = await dbGet(e.key);
@@ -10040,8 +10053,8 @@ async function _restoreKmData() {
 
     birimFiyatMap = {};
     const mkAccDetail = [];
-    // Sadece aktif uygunsuzluk listesiyle ilişkili (veya "Tümü") MK dosyalarını yükle
-    const activeMkIndex = mkIndex.filter(e => !e.uygId || e.uygId === _activeUygId);
+    // Sadece aktif uygunsuzluk listesiyle ilişkili (veya "Tümü") MK dosyalarını yükle; aynı dosya adından sadece en yeniyi al
+    const activeMkIndex = _dedupeByFileName(mkIndex.filter(e => !e.uygId || e.uygId === _activeUygId));
     for (const e of activeMkIndex) {
         const stored = await dbGet(e.key).catch(() => null);
         if (stored && stored.rows && stored.rows.length) {
@@ -10079,8 +10092,8 @@ async function _restoreKmData() {
 
     sevkBirimFiyatMap = {};
     const svAccDetail = [];
-    // Sadece aktif uygunsuzluk listesiyle ilişkili (veya "Tümü") SV dosyalarını yükle
-    const activeSvIndex = svIndex.filter(e => !e.uygId || e.uygId === _activeUygId);
+    // Sadece aktif uygunsuzluk listesiyle ilişkili (veya "Tümü") SV dosyalarını yükle; aynı dosya adından sadece en yeniyi al
+    const activeSvIndex = _dedupeByFileName(svIndex.filter(e => !e.uygId || e.uygId === _activeUygId));
     for (const e of activeSvIndex) {
         const stored = await dbGet(e.key).catch(() => null);
         if (stored && stored.rows && stored.rows.length) {
