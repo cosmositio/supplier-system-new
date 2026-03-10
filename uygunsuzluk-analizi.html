@@ -4453,14 +4453,14 @@ function buildBirimFiyatMap(rows) {
         const kod    = _normKod(row[colStokKodu]);   // büyük harf + trim normalize
         if (!kod) return;
         const miktar = parseNum(row[colMiktar]);
+        if (miktar <= 0) return;
         const tutar  = parseNum(row[colTutar]);
-        if (miktar <= 0 || tutar <= 0) return;  // tutarsız satırları atla (numune, iade, transfer)
         const ym = parseYM(row[colTarih]);
         const adi = colStokAdi ? String(row[colStokAdi] || '').trim() : '';
         if (!acc[kod]) acc[kod] = {};
         if (!acc[kod][ym]) acc[kod][ym] = { sumTutar: 0, sumMiktar: 0, count: 0, stokAdi: '' };
-        acc[kod][ym].sumTutar  += tutar;
         acc[kod][ym].sumMiktar += miktar;
+        acc[kod][ym].sumTutar  += tutar;
         acc[kod][ym].count++;
         if (!acc[kod][ym].stokAdi && adi) acc[kod][ym].stokAdi = adi;
     });
@@ -5112,14 +5112,14 @@ function buildSevkBirimFiyatMap(rows) {
         const kod    = _normKod(row[colStokKodu]);   // büyük harf + trim normalize
         if (!kod) return;
         const miktar = parseNum(row[colMiktar]);
+        if (miktar <= 0) return;
         const tutar  = parseNum(row[colTutar]);
-        if (miktar <= 0 || tutar <= 0) return;  // tutarsız satırları atla (numune, iade, transfer)
         const ym  = parseYM(row[colTarih]);
         const adi = colStokAdi ? String(row[colStokAdi] || '').trim() : '';
         if (!acc[kod]) acc[kod] = {};
         if (!acc[kod][ym]) acc[kod][ym] = { sumTutar: 0, sumMiktar: 0, count: 0, stokAdi: '' };
-        acc[kod][ym].sumTutar  += tutar;
         acc[kod][ym].sumMiktar += miktar;
+        acc[kod][ym].sumTutar  += tutar;
         acc[kod][ym].count++;
         if (!acc[kod][ym].stokAdi && adi) acc[kod][ym].stokAdi = adi;
     });
@@ -10034,6 +10034,22 @@ async function _restoreKmData() {
     // ── Mal Kabul ──────────────────────────────────────────
     let mkIndex = (await dbGet('kmMK_index')) || [];
 
+    // DB'deki duplicate kayıtları kalıcı olarak temizle (aynı fileName → sadece en yeni)
+    { const seen = new Map();
+      for (const e of mkIndex) {
+        const ex = seen.get(e.fileName);
+        if (!ex) { seen.set(e.fileName, e); }
+        else if ((e.savedAt||'') > (ex.savedAt||'')) {
+            await dbDelete(ex.key).catch(()=>{});
+            seen.set(e.fileName, e);
+        } else {
+            await dbDelete(e.key).catch(()=>{});
+        }
+      }
+      mkIndex = [...seen.values()];
+      await dbSet('kmMK_index', mkIndex);
+    }
+
     // Eski tek-dosya formatını (kmMalKabul) geçişe taşı
     if (!mkIndex.length) {
         const legacy = await dbGet('kmMalKabul').catch(() => null);
@@ -10072,6 +10088,22 @@ async function _restoreKmData() {
 
     // ── Sevkler ────────────────────────────────────────────
     let svIndex = (await dbGet('kmSV_index')) || [];
+
+    // DB'deki duplicate kayıtları kalıcı olarak temizle (aynı fileName → sadece en yeni)
+    { const seen = new Map();
+      for (const e of svIndex) {
+        const ex = seen.get(e.fileName);
+        if (!ex) { seen.set(e.fileName, e); }
+        else if ((e.savedAt||'') > (ex.savedAt||'')) {
+            await dbDelete(ex.key).catch(()=>{});
+            seen.set(e.fileName, e);
+        } else {
+            await dbDelete(e.key).catch(()=>{});
+        }
+      }
+      svIndex = [...seen.values()];
+      await dbSet('kmSV_index', svIndex);
+    }
 
     // Eski tek-dosya formatını (kmSevkler) geçişe taşı
     if (!svIndex.length) {
