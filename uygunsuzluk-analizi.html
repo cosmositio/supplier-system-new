@@ -10706,20 +10706,16 @@ function _renderPPMMonthlyChart() {
                 const idx   = pts[0].index;
                 const dsIdx = pts[0].datasetIndex;
                 if (isMixedTumu) {
-                    const isTed    = dsIdx === 0;
-                    const monthKey = keys[idx];
-                    const selPpm   = isTed ? tedPpmData[idx] : disPpmData[idx];
-                    if (selPpm == null) return;
-                    const selHatali = isTed ? (tedHataliByMonth[monthKey] || 0) : (disHataliByMonth[monthKey] || 0);
-                    const selPayda  = isTed ? (mkByMonth[monthKey] || 0) : (sevkByMonth[monthKey] || 0);
-                    const selRows   = (drillByMonth[monthKey] || []).filter(r =>
-                        isTed ? _isTedarikciType(r.tipi) : (!_isTedarikciType(r.tipi) && !_isPpmNAType(r.tipi))
-                    );
-                    const selType   = isTed ? 'Tedarikçi' : 'Dış/İç';
-                    const selLbl    = isTed ? 'Mal Kabul (ay toplam)' : 'Sevkiyat (ay toplam)';
-                    const selMkFiles = isTed ? [...(mkFilesByMonth[monthKey] || [])] : [];
-                    const selSvFiles = isTed ? [] : [...(sevkFilesByMonth[monthKey] || [])];
-                    _showPPMDrillDown(monthKey, `${labels[idx]} — ${selType}`, selPpm, selHatali, selPayda, true, selRows, selLbl, { mk: selMkFiles, sv: selSvFiles });
+                    const monthKey   = keys[idx];
+                    const allRows    = drillByMonth[monthKey] || [];
+                    const mkPayda    = mkByMonth[monthKey]   || 0;
+                    const svPayda    = sevkByMonth[monthKey] || 0;
+                    const totalHat   = (tedHataliByMonth[monthKey] || 0) + (disHataliByMonth[monthKey] || 0);
+                    const selMkFiles = [...(mkFilesByMonth[monthKey] || [])];
+                    const selSvFiles = [...(sevkFilesByMonth[monthKey] || [])];
+                    _showPPMDrillDown(monthKey, `${labels[idx]} — Tümü`, null, totalHat, 0, true, allRows,
+                        'Mal Kabul / Sevkiyat', { mk: selMkFiles, sv: selSvFiles },
+                        { mkPayda, svPayda, tedPpm: tedPpmData[idx], disPpm: disPpmData[idx] });
                 } else {
                     if (ppmData[idx] == null) return;
                     const _paydaColLbl = useSevk
@@ -10787,7 +10783,7 @@ function _renderPPMMonthlyChart() {
     });
 }
 
-function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, useSevk, rows, paydaColLabel, sourceFiles) {
+function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, useSevk, rows, paydaColLabel, sourceFiles, mixedPayda) {
     const panel  = document.getElementById('ppmDrillDown');
     const title  = document.getElementById('ppmDrillTitle');
     const tbody  = document.getElementById('ppmDrillBody');
@@ -10798,19 +10794,41 @@ function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, u
     const thPayda = document.querySelector('#ppmDrillTable thead th:last-child');
     if (thPayda) thPayda.textContent = paydaLabel;
 
-    title.innerHTML = `📅 <strong>${monthLabel}</strong> — PPM: <span class="ppm-drill-ppm">${ppm.toLocaleString('tr')}</span>
-        <small style="color:#888;font-weight:400;margin-left:12px;">
-            Hatalı Toplam: ${totalHatali.toLocaleString('tr',{maximumFractionDigits:1})} ÷
-            ${paydaLabel}: ${totalPayda.toLocaleString('tr',{maximumFractionDigits:1})} × 1.000.000
-        </small>`;
-
     // Satır bazlı: bireysel PPM = (satır hatalı / toplam payda) * 1M  — toplam sevk paydası ay bazında ortak
     const sorted = [...rows].sort((a,b) => (Number(b.hataliMiktar)||0) - (Number(a.hataliMiktar)||0));
+
+    if (mixedPayda) {
+        const tedH = rows.filter(r => _isTedarikciType(r.tipi)).reduce((s,r) => s + (Number(r.hataliMiktar)||0), 0);
+        const disH = rows.filter(r => !_isTedarikciType(r.tipi) && !_isPpmNAType(r.tipi)).reduce((s,r) => s + (Number(r.hataliMiktar)||0), 0);
+        const tedPpmStr = mixedPayda.tedPpm != null ? mixedPayda.tedPpm.toLocaleString('tr') : 'N/A';
+        const disPpmStr = mixedPayda.disPpm != null ? mixedPayda.disPpm.toLocaleString('tr') : 'N/A';
+        const fmt0 = n => n.toLocaleString('tr', {maximumFractionDigits:1});
+        title.innerHTML = `📅 <strong>${monthLabel}</strong>
+            <small style="color:#888;font-weight:400;margin-left:12px;">
+                🔵 Tedarikçi PPM: <strong style="color:#1e88e5">${tedPpmStr}</strong>
+                (${fmt0(tedH)} ÷ MK ${fmt0(mixedPayda.mkPayda)})
+                &nbsp;|&nbsp;
+                🔴 Dış/İç PPM: <strong style="color:#e53935">${disPpmStr}</strong>
+                (${fmt0(disH)} ÷ Sevk ${fmt0(mixedPayda.svPayda)})
+            </small>`;
+    } else {
+        title.innerHTML = `📅 <strong>${monthLabel}</strong> — PPM: <span class="ppm-drill-ppm">${ppm.toLocaleString('tr')}</span>
+            <small style="color:#888;font-weight:400;margin-left:12px;">
+                Hatalı Toplam: ${totalHatali.toLocaleString('tr',{maximumFractionDigits:1})} ÷
+                ${paydaLabel}: ${totalPayda.toLocaleString('tr',{maximumFractionDigits:1})} × 1.000.000
+            </small>`;
+    }
+
     tbody.innerHTML = sorted.map(r => {
         const h = Number(r.hataliMiktar) || 0;
-        const p = useSevk ? totalPayda : (Number(r.partiHacmi) || 0);
+        const p = mixedPayda
+            ? (_isTedarikciType(r.tipi) ? mixedPayda.mkPayda : mixedPayda.svPayda)
+            : (useSevk ? totalPayda : (Number(r.partiHacmi) || 0));
         const rowPpm = p > 0 ? Math.round((h / p) * 1_000_000) : 0;
         const fmt = (n, dec=1) => n.toLocaleString('tr', {maximumFractionDigits: dec});
+        const paydaCell = mixedPayda
+            ? fmt(_isTedarikciType(r.tipi) ? mixedPayda.mkPayda : mixedPayda.svPayda)
+            : (useSevk ? fmt(totalPayda) : fmt(Number(r.partiHacmi)||0));
         return `<tr>
             <td>${r.uygunsuzlukSeri || '—'}</td>
             <td>${r.uygunsuzlukTarih || '—'}</td>
@@ -10819,7 +10837,7 @@ function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, u
             <td>${r.stokAdi || '—'}</td>
             <td>${r.hataTipi || '—'}</td>
             <td style="text-align:right;font-weight:600;">${fmt(h)}</td>
-            <td style="text-align:right;color:#555;">${useSevk ? fmt(totalPayda) : fmt(Number(r.partiHacmi)||0)}</td>
+            <td style="text-align:right;color:#555;">${paydaCell}</td>
         </tr>`;
     }).join('');
 
@@ -10827,17 +10845,7 @@ function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, u
     const _srcUyg = _ppmUygFileName || '—';
     const _srcMk  = (sourceFiles?.mk?.length) ? sourceFiles.mk.join(', ') : '—';
     const _srcSv  = (sourceFiles?.sv?.length) ? sourceFiles.sv.join(', ') : '—';
-
-    tfoot.innerHTML = `<tr style="background:#f5f7ff;font-weight:700;">
-        <td colspan="6" style="padding:6px 10px;">TOPLAM</td>
-        <td style="text-align:right;padding:6px 10px;">${totalHatali.toLocaleString('tr',{maximumFractionDigits:1})}</td>
-        <td style="text-align:right;padding:6px 10px;">${totalPayda.toLocaleString('tr',{maximumFractionDigits:1})}</td>
-    </tr>
-    <tr style="background:#fff3f3;">
-        <td colspan="7" style="padding:6px 10px;color:#b71c1c;font-weight:700;">PPM = ${totalHatali.toLocaleString('tr',{maximumFractionDigits:1})} ÷ ${totalPayda.toLocaleString('tr',{maximumFractionDigits:1})} × 1.000.000 = <strong>${ppm.toLocaleString('tr')}</strong></td>
-        <td></td>
-    </tr>
-    <tr style="background:#f8fafc;border-top:1px solid #e2e8f0;">
+    const srcRow = `<tr style="background:#f8fafc;border-top:1px solid #e2e8f0;">
         <td colspan="8" style="padding:7px 10px;font-size:0.78rem;color:#64748b;">
             <span style="font-weight:600;color:#475569;">📂 Kaynaklar —</span>
             <span style="margin-left:6px;">📋 Uygunsuzluk: <span style="color:#7b2d8b;font-weight:600;" title="${_srcUyg}">${_srcUyg}</span></span>
@@ -10845,6 +10853,39 @@ function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, u
             <span style="margin-left:12px;">🚚 Sevkiyat: <span style="color:#1e3a8a;font-weight:600;" title="${_srcSv}">${_srcSv}</span></span>
         </td>
     </tr>`;
+
+    if (mixedPayda) {
+        const tedH = rows.filter(r => _isTedarikciType(r.tipi)).reduce((s,r) => s + (Number(r.hataliMiktar)||0), 0);
+        const disH = rows.filter(r => !_isTedarikciType(r.tipi) && !_isPpmNAType(r.tipi)).reduce((s,r) => s + (Number(r.hataliMiktar)||0), 0);
+        const tedPpmStr = mixedPayda.tedPpm != null ? mixedPayda.tedPpm.toLocaleString('tr') : 'N/A';
+        const disPpmStr = mixedPayda.disPpm != null ? mixedPayda.disPpm.toLocaleString('tr') : 'N/A';
+        const fmt0 = n => n.toLocaleString('tr', {maximumFractionDigits:1});
+        tfoot.innerHTML = `<tr style="background:#f5f7ff;font-weight:700;">
+            <td colspan="6" style="padding:6px 10px;">TOPLAM</td>
+            <td style="text-align:right;padding:6px 10px;">${fmt0(tedH + disH)}</td>
+            <td style="text-align:right;padding:6px 10px;">—</td>
+        </tr>
+        <tr style="background:#e3f2fd;">
+            <td colspan="7" style="padding:5px 10px;color:#1565c0;font-weight:600;">🔵 Tedarikçi: ${fmt0(tedH)} ÷ MK ${fmt0(mixedPayda.mkPayda)} × 1.000.000 = <strong>${tedPpmStr}</strong> PPM</td>
+            <td></td>
+        </tr>
+        <tr style="background:#ffebee;">
+            <td colspan="7" style="padding:5px 10px;color:#c62828;font-weight:600;">🔴 Dış/İç: ${fmt0(disH)} ÷ Sevk ${fmt0(mixedPayda.svPayda)} × 1.000.000 = <strong>${disPpmStr}</strong> PPM</td>
+            <td></td>
+        </tr>
+        ${srcRow}`;
+    } else {
+        tfoot.innerHTML = `<tr style="background:#f5f7ff;font-weight:700;">
+            <td colspan="6" style="padding:6px 10px;">TOPLAM</td>
+            <td style="text-align:right;padding:6px 10px;">${totalHatali.toLocaleString('tr',{maximumFractionDigits:1})}</td>
+            <td style="text-align:right;padding:6px 10px;">${totalPayda.toLocaleString('tr',{maximumFractionDigits:1})}</td>
+        </tr>
+        <tr style="background:#fff3f3;">
+            <td colspan="7" style="padding:6px 10px;color:#b71c1c;font-weight:700;">PPM = ${totalHatali.toLocaleString('tr',{maximumFractionDigits:1})} ÷ ${totalPayda.toLocaleString('tr',{maximumFractionDigits:1})} × 1.000.000 = <strong>${ppm.toLocaleString('tr')}</strong></td>
+            <td></td>
+        </tr>
+        ${srcRow}`;
+    }
 
     panel.style.display = 'block';
     panel.scrollTop = 0;
