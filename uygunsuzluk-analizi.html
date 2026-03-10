@@ -10376,17 +10376,7 @@ function _renderPPMMonthlyChart() {
     const mkFilesByMonth   = {};  // {YYYY-MM: Set<fileName>} — o ay hangi MK dosyası kullanıldı
     const sevkFilesByMonth = {};  // {YYYY-MM: Set<fileName>} — o ay hangi Sevk dosyası kullanıldı
 
-    // Her ay için: uygunsuzluk kayıtlarındaki stok kodları — sadece bunlar paydaya girer
-    const stokKoduByMonth = {};
-    segFiltered.forEach(r => {
-        const d = parseDateStr(r.uygunsuzlukTarih);
-        if (!d) return;
-        const key = d.substring(0, 7);
-        const kod = _normKod(r.stokKodu);
-        if (!kod) return;
-        if (!stokKoduByMonth[key]) stokKoduByMonth[key] = new Set();
-        stokKoduByMonth[key].add(kod);
-    });
+
     const hasSevk      = typeof sevkBirimFiyatDetail !== 'undefined' && sevkBirimFiyatDetail.length > 0;
     const hasMalKabul  = typeof birimFiyatDetail     !== 'undefined' && birimFiyatDetail.length > 0;
     const isTedarikciSeg = _ppmCurrentSegment !== 'all' && _isTedarikciType(_ppmCurrentSegment);
@@ -10417,9 +10407,6 @@ function _renderPPMMonthlyChart() {
         birimFiyatDetail.forEach(d => {
             const key = (d.ay || '').substring(0, 7);
             if (!_chartInRange(key)) return;
-            // Sadece o ay bş uygunsuzluk kaydı olan stok kodlarını al
-            const monthSet = stokKoduByMonth[key];
-            if (!monthSet || !monthSet.has(_normKod(d.stokKodu))) return;
             mkByMonth[key] = (mkByMonth[key] || 0) + (d.sumMiktar || 0);
             if (d._fileName) {
                 if (!mkFilesByMonth[key]) mkFilesByMonth[key] = new Set();
@@ -10432,9 +10419,6 @@ function _renderPPMMonthlyChart() {
         sevkBirimFiyatDetail.forEach(d => {
             const key = (d.ay || '').substring(0, 7);
             if (!_chartInRange(key)) return;
-            // Sadece o ayın uygunsuzluklarındaki stok kodlarını al
-            const monthSet = stokKoduByMonth[key];
-            if (!monthSet || !monthSet.has(_normKod(d.stokKodu))) return;
             sevkByMonth[key] = (sevkByMonth[key] || 0) + (d.sumMiktar || 0);
             if (d._fileName) {
                 if (!sevkFilesByMonth[key]) sevkFilesByMonth[key] = new Set();
