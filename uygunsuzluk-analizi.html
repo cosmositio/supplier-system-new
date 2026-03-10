@@ -2632,6 +2632,8 @@ let allData = [];         // raw parsed rows
 let filteredData = [];    // after filters
 let tableSearchData = []; // after table search
 let _activeUygId = null;  // currently loaded file id
+let _uygIndexCache = [];  // uyg_index cache — render fonksiyonlarının kullanımı için
+let _uygAssocResolve = null; // _askUygAssociation Promise resolve handle
 let currentPage = 1;
 const PAGE_SIZE = 50;
 let sortCol = -1;
@@ -2813,6 +2815,7 @@ function processFile(file) {
             allData = rows;
             filteredData = [...allData];
             _ppmUygFileName = file.name;
+            _uygIndexCache = index;  // cache güncelle
             _renderUygFileList(index, id);
             initUI();
             showLoading(false);
@@ -2875,8 +2878,11 @@ async function switchUygFile(id) {
         filteredData = [...allData];
         _ppmUygFileName = stored.fileName || '';
         const index = (await dbGet('uyg_index')) || [];
+        _uygIndexCache = index;  // cache güncelle
         _renderUygFileList(index, id);
         _invalidateUygMap();
+        // Aktif uyg değişti — o uyg'a ait MK/SV dosyalarını yükle
+        await _restoreKmData();
         initUI();
         // Kalite Maliyeti paretosu yeni dosyadaki uygunsuzlukları baz alsın
         if (Object.keys(birimFiyatMap).length || Object.keys(sevkBirimFiyatMap).length) {
@@ -4259,15 +4265,20 @@ function _renderKmFileList(index) {
     if (!index || !index.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
     el.style.display = 'block';
     const rows = [...index].sort((a, b) => a.year.localeCompare(b.year));
-    el.innerHTML = rows.map(e =>
-        `<div style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:#f0fdf4;border:1px solid #a7f3d0;border-radius:8px;margin-bottom:4px;font-size:0.8em;">
+    el.innerHTML = rows.map(e => {
+        const isActive = !e.uygId || e.uygId === _activeUygId;
+        const uygBadge = e.uygId
+            ? `<span style="background:${isActive ? '#7c3aed' : '#9ca3af'};color:#fff;padding:1px 8px;border-radius:10px;font-size:0.72rem;font-weight:600;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;display:inline-block;" title="${e.uygFileName || e.uygId}">${e.uygFileName || 'Uyg.'}</span>`
+            : `<span style="background:#6b7280;color:#fff;padding:1px 8px;border-radius:10px;font-size:0.72rem;white-space:nowrap;">Tümü</span>`;
+        return `<div style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:${isActive ? '#f0fdf4' : '#f9fafb'};border:1px solid ${isActive ? '#a7f3d0' : '#e5e7eb'};border-radius:8px;margin-bottom:4px;font-size:0.8em;opacity:${isActive ? '1' : '0.55'};">
             <span style="background:#059669;color:#fff;padding:1px 8px;border-radius:10px;font-weight:700;white-space:nowrap;">${e.year}</span>
             <span style="flex:1;color:#065f46;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${e.fileName}">${e.fileName}</span>
+            ${uygBadge}
             <span style="color:#6b7280;white-space:nowrap;">${(e.rowCount||0).toLocaleString('tr')} satır</span>
             <span style="color:#9ca3af;white-space:nowrap;">${new Date(e.savedAt).toLocaleDateString('tr-TR')}</span>
             <span style="color:#b91c1c;cursor:pointer;text-decoration:underline;white-space:nowrap;" onclick="_clearKmMalKabul('${e.key}')">Sil</span>
-        </div>`
-    ).join('');
+        </div>`;
+    }).join('');
 }
 
 /** Stored sv files listesini DOM'da gösterir. */
@@ -4277,23 +4288,30 @@ function _renderSvFileList(index) {
     if (!index || !index.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
     el.style.display = 'block';
     const rows = [...index].sort((a, b) => a.year.localeCompare(b.year));
-    el.innerHTML = rows.map(e =>
-        `<div style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;margin-bottom:4px;font-size:0.8em;">
+    el.innerHTML = rows.map(e => {
+        const isActive = !e.uygId || e.uygId === _activeUygId;
+        const uygBadge = e.uygId
+            ? `<span style="background:${isActive ? '#7c3aed' : '#9ca3af'};color:#fff;padding:1px 8px;border-radius:10px;font-size:0.72rem;font-weight:600;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;display:inline-block;" title="${e.uygFileName || e.uygId}">${e.uygFileName || 'Uyg.'}</span>`
+            : `<span style="background:#6b7280;color:#fff;padding:1px 8px;border-radius:10px;font-size:0.72rem;white-space:nowrap;">Tümü</span>`;
+        return `<div style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:${isActive ? '#eff6ff' : '#f9fafb'};border:1px solid ${isActive ? '#93c5fd' : '#e5e7eb'};border-radius:8px;margin-bottom:4px;font-size:0.8em;opacity:${isActive ? '1' : '0.55'};">
             <span style="background:#1d4ed8;color:#fff;padding:1px 8px;border-radius:10px;font-weight:700;white-space:nowrap;">${e.year}</span>
             <span style="flex:1;color:#1e3a8a;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${e.fileName}">${e.fileName}</span>
+            ${uygBadge}
             <span style="color:#6b7280;white-space:nowrap;">${(e.rowCount||0).toLocaleString('tr')} satır</span>
             <span style="color:#9ca3af;white-space:nowrap;">${new Date(e.savedAt).toLocaleDateString('tr-TR')}</span>
             <span style="color:#b91c1c;cursor:pointer;text-decoration:underline;white-space:nowrap;" onclick="_clearKmSevkler('${e.key}')">Sil</span>
-        </div>`
-    ).join('');
+        </div>`;
+    }).join('');
 }
 
 /* Tüm kayıtlı km yıllarını yeniden yükleyip birleştirir (silinme sonrası rebuild). */
 async function _rebuildBirimFiyatMapFromDB() {
     birimFiyatMap = {};
     const index = (await dbGet('kmMK_index')) || [];
+    // Sadece aktif uyg ile ilişkili veya Tümü olanları dahil et
+    const filtered = index.filter(e => !e.uygId || e.uygId === _activeUygId);
     const accDetail = [];
-    for (const e of index) {
+    for (const e of filtered) {
         const stored = await dbGet(e.key);
         if (stored && stored.rows) {
             birimFiyatDetail = [];
@@ -4308,8 +4326,10 @@ async function _rebuildBirimFiyatMapFromDB() {
 async function _rebuildSevkBirimFiyatMapFromDB() {
     sevkBirimFiyatMap = {};
     const index = (await dbGet('kmSV_index')) || [];
+    // Sadece aktif uyg ile ilişkili veya Tümü olanları dahil et
+    const filtered = index.filter(e => !e.uygId || e.uygId === _activeUygId);
     const accDetail = [];
-    for (const e of index) {
+    for (const e of filtered) {
         const stored = await dbGet(e.key);
         if (stored && stored.rows) {
             sevkBirimFiyatDetail = [];
@@ -4340,10 +4360,13 @@ async function processMalKabulFile(file) {
             // Per-file unique IndexedDB key (timestamp-based, allows multiple files per year)
             const dbKey = 'kmMK_' + Date.now();
             const savedAt = new Date().toISOString();
-            const entry = { rows: raw, fileName: file.name, savedAt, year, rowCount: raw.length };
+            // Hangi uygunsuzluk listesiyle ilişkilendirileceğini sor
+            const uygId = await _askUygAssociation(file.name, 'mk');
+            const uygFileName = uygId ? (_uygIndexCache.find(u => u.id === uygId)?.fileName || '') : '';
+            const entry = { rows: raw, fileName: file.name, savedAt, year, rowCount: raw.length, uygId, uygFileName };
             // Always add as new entry
             let index = (await dbGet('kmMK_index')) || [];
-            const meta = { key: dbKey, fileName: file.name, savedAt, year, rowCount: raw.length };
+            const meta = { key: dbKey, fileName: file.name, savedAt, year, rowCount: raw.length, uygId, uygFileName };
             index.push(meta);
             await dbSet(dbKey, entry);
             await dbSet('kmMK_index', index);
@@ -4988,10 +5011,13 @@ async function processSevklerFile(file) {
             // Per-file unique IndexedDB key (timestamp-based, allows multiple files per year)
             const dbKey = 'kmSV_' + Date.now();
             const savedAt = new Date().toISOString();
-            const entry = { rows: raw, fileName: file.name, savedAt, year, rowCount: raw.length };
+            // Hangi uygunsuzluk listesiyle ilişkilendirileceğini sor
+            const uygId = await _askUygAssociation(file.name, 'sv');
+            const uygFileName = uygId ? (_uygIndexCache.find(u => u.id === uygId)?.fileName || '') : '';
+            const entry = { rows: raw, fileName: file.name, savedAt, year, rowCount: raw.length, uygId, uygFileName };
             // Always add as new entry
             let index = (await dbGet('kmSV_index')) || [];
-            const meta = { key: dbKey, fileName: file.name, savedAt, year, rowCount: raw.length };
+            const meta = { key: dbKey, fileName: file.name, savedAt, year, rowCount: raw.length, uygId, uygFileName };
             index.push(meta);
             await dbSet(dbKey, entry);
             await dbSet('kmSV_index', index);
@@ -9936,11 +9962,13 @@ async function loadFromStorage() {
         _activeUygId = activeId;
         const stored = await dbGet('uyg_data_' + activeId);
         if (!stored || !stored.rows || !stored.rows.length) {
+            _uygIndexCache = index;
             _renderUygFileList(index, activeId); _restoreKmData(); return;
         }
         allData = stored.rows;
         filteredData = [...allData];
         _ppmUygFileName = stored.fileName || '';
+        _uygIndexCache = index;  // cache güncelle
         _renderUygFileList(index, activeId);
         // KM verisini önce yükle ki PPM ilk gösterimde doğru hesaplansın
         await _restoreKmData();
@@ -9981,6 +10009,8 @@ function clearStorage() {
 /* ── Mal Kabul / Sevkler kalıcı depolama yardımcıları ── */
 async function _restoreKmData() {
     let anyLoaded = false;
+    // uyg_index cache'i güncel tut (MK/SV dosya listesi rozetleri için)
+    _uygIndexCache = (await dbGet('uyg_index')) || [];
 
     // ── Mal Kabul ──────────────────────────────────────────
     let mkIndex = (await dbGet('kmMK_index')) || [];
@@ -10004,7 +10034,9 @@ async function _restoreKmData() {
 
     birimFiyatMap = {};
     const mkAccDetail = [];
-    for (const e of mkIndex) {
+    // Sadece aktif uygunsuzluk listesiyle ilişkili (veya "Tümü") MK dosyalarını yükle
+    const activeMkIndex = mkIndex.filter(e => !e.uygId || e.uygId === _activeUygId);
+    for (const e of activeMkIndex) {
         const stored = await dbGet(e.key).catch(() => null);
         if (stored && stored.rows && stored.rows.length) {
             birimFiyatDetail = [];
@@ -10016,8 +10048,8 @@ async function _restoreKmData() {
         }
     }
     birimFiyatDetail = mkAccDetail;
-    _ppmMkFileNames = mkIndex.map(e => e.fileName).filter(Boolean);
-    _renderKmFileList(mkIndex);
+    _ppmMkFileNames = activeMkIndex.map(e => e.fileName).filter(Boolean);
+    _renderKmFileList(mkIndex);  // listeyi tüm dosyalarla göster (aktif olmayanlar soluk)
 
     // ── Sevkler ────────────────────────────────────────────
     let svIndex = (await dbGet('kmSV_index')) || [];
@@ -10041,7 +10073,9 @@ async function _restoreKmData() {
 
     sevkBirimFiyatMap = {};
     const svAccDetail = [];
-    for (const e of svIndex) {
+    // Sadece aktif uygunsuzluk listesiyle ilişkili (veya "Tümü") SV dosyalarını yükle
+    const activeSvIndex = svIndex.filter(e => !e.uygId || e.uygId === _activeUygId);
+    for (const e of activeSvIndex) {
         const stored = await dbGet(e.key).catch(() => null);
         if (stored && stored.rows && stored.rows.length) {
             sevkBirimFiyatDetail = [];
@@ -10053,8 +10087,8 @@ async function _restoreKmData() {
         }
     }
     sevkBirimFiyatDetail = svAccDetail;
-    _ppmSvFileNames = svIndex.map(e => e.fileName).filter(Boolean);
-    _renderSvFileList(svIndex);
+    _ppmSvFileNames = activeSvIndex.map(e => e.fileName).filter(Boolean);
+    _renderSvFileList(svIndex);  // listeyi tüm dosyalarla göster
 
     if (anyLoaded) {
         document.getElementById('kmParetoContent').style.display = 'block';
@@ -10766,7 +10800,62 @@ function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, u
 }
 // Close on Escape
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePPMChart(); });
+
+// ─── Uygunsuzluk İlişkilendirme Dialog'u ───────────────────────────────────────
+function _askUygAssociation(fileName, fileType) {
+    return new Promise(resolve => {
+        _uygAssocResolve = resolve;
+        const modal = document.getElementById('uygAssocModal');
+        document.getElementById('uygAssocFileName').textContent = fileName;
+        document.getElementById('uygAssocFileType').textContent =
+            fileType === 'mk' ? '📦 Mal Kabul' : '🚚 Sevkiyat';
+        const opts = document.getElementById('uygAssocOptions');
+        if (!_uygIndexCache.length) {
+            // Hiç uygunsuzluk yüklenmemiş — otomatik "Tümü"
+            modal.style.display = 'none';
+            resolve(null);
+            return;
+        }
+        let html = `<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;cursor:pointer;background:#f8fafc;margin-bottom:4px;">
+            <input type="radio" name="uygAssoc" value="" ${_uygIndexCache.length > 1 ? '' : ''}>
+            <span style="flex:1;">Tümü — tüm uygunsuzluk listeleri için geçerli</span>
+        </label>`;
+        _uygIndexCache.forEach(u => {
+            const isActive = u.id === _activeUygId;
+            html += `<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;cursor:pointer;background:${isActive ? '#fdf4ff' : '#f0fdf4'};border:1px solid ${isActive ? '#d8b4fe' : '#a7f3d0'};margin-bottom:4px;">
+                <input type="radio" name="uygAssoc" value="${u.id}" ${_uygIndexCache.length === 1 || isActive ? 'checked' : ''}>
+                <span style="flex:1;color:${isActive ? '#6d28d9' : '#065f46'};font-weight:600;">${u.fileName}</span>
+                <span style="font-size:0.75rem;color:#9ca3af;">${u.rowCount ? u.rowCount.toLocaleString('tr')+' kayıt' : ''}</span>
+            </label>`;
+        });
+        opts.innerHTML = html;
+        modal.style.display = 'flex';
+    });
+}
+
+function _uygAssocConfirm() {
+    const sel = document.querySelector('input[name="uygAssoc"]:checked');
+    const val = sel ? sel.value : '';
+    document.getElementById('uygAssocModal').style.display = 'none';
+    if (_uygAssocResolve) { _uygAssocResolve(val || null); _uygAssocResolve = null; }
+}
 </script>
+
+<!-- Uygunsuzluk İlişkilendirme Modali -->
+<div id="uygAssocModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.3);padding:28px 32px;max-width:480px;width:90%;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <span id="uygAssocFileType" style="font-size:1rem;font-weight:700;background:#e0e7ff;color:#3730a3;padding:3px 12px;border-radius:20px;"></span>
+            <span style="font-size:0.82rem;color:#6b7280;">dosyası ilişkilendir</span>
+        </div>
+        <p style="font-size:0.92rem;font-weight:700;color:#1e293b;margin:0 0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="uygAssocFileName"></p>
+        <p style="font-size:0.83rem;color:#64748b;margin:0 0 16px;">Bu Excel hangi uygunsuzluk listesine ait? PPM hesabında yalnızca o listeyle kullanılacak.</p>
+        <div id="uygAssocOptions" style="max-height:240px;overflow-y:auto;margin-bottom:18px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button onclick="_uygAssocConfirm()" style="background:#6d28d9;color:#fff;border:none;padding:8px 24px;border-radius:8px;font-size:0.92rem;font-weight:700;cursor:pointer;">Tamam</button>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>
