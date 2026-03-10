@@ -4377,8 +4377,11 @@ async function processMalKabulFile(file) {
             const uygId = await _askUygAssociation(file.name, 'mk');
             const uygFileName = uygId ? (_uygIndexCache.find(u => u.id === uygId)?.fileName || '') : '';
             const entry = { rows: raw, fileName: file.name, savedAt, year, rowCount: raw.length, uygId, uygFileName };
-            // Always add as new entry
+            // Aynı dosya adına sahip eski tüm kayıtları sil (duplicate'i önle)
             let index = (await dbGet('kmMK_index')) || [];
+            const oldEntries = index.filter(e => e.fileName === file.name);
+            for (const old of oldEntries) await dbDelete(old.key).catch(() => {});
+            index = index.filter(e => e.fileName !== file.name);
             const meta = { key: dbKey, fileName: file.name, savedAt, year, rowCount: raw.length, uygId, uygFileName };
             index.push(meta);
             await dbSet(dbKey, entry);
@@ -5028,8 +5031,11 @@ async function processSevklerFile(file) {
             const uygId = await _askUygAssociation(file.name, 'sv');
             const uygFileName = uygId ? (_uygIndexCache.find(u => u.id === uygId)?.fileName || '') : '';
             const entry = { rows: raw, fileName: file.name, savedAt, year, rowCount: raw.length, uygId, uygFileName };
-            // Always add as new entry
+            // Aynı dosya adına sahip eski tüm kayıtları sil (duplicate'i önle)
             let index = (await dbGet('kmSV_index')) || [];
+            const oldEntries = index.filter(e => e.fileName === file.name);
+            for (const old of oldEntries) await dbDelete(old.key).catch(() => {});
+            index = index.filter(e => e.fileName !== file.name);
             const meta = { key: dbKey, fileName: file.name, savedAt, year, rowCount: raw.length, uygId, uygFileName };
             index.push(meta);
             await dbSet(dbKey, entry);
