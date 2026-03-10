@@ -10048,6 +10048,8 @@ async function _restoreKmData() {
         document.getElementById('kmParetoContent').style.display = 'block';
         renderKaliteMaliyetiPareto();
         if (Object.keys(birimFiyatMap).length) renderKmBirimFiyatTable();
+        // KM verileri yüklendikten sonra PPM kartını güncelle
+        if (filteredData && filteredData.length) updateStats();
     }
 }
 
