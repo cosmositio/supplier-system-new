@@ -10714,7 +10714,8 @@ function _renderPPMMonthlyChart() {
             responsive: true,
             maintainAspectRatio: false,
             onClick: (evt, elements, chart) => {
-                const pts = chart.getElementsAtEventForMode(evt.native, 'index', { intersect: false }, true);
+                // 'nearest'+intersect:true → hangi çubuğa tıklandığını kesin yakala (dsIdx doğru gelir)
+                const pts = chart.getElementsAtEventForMode(evt.native, 'nearest', { intersect: true }, true);
                 if (!pts || !pts.length) return;
                 const idx   = pts[0].index;
                 const dsIdx = pts[0].datasetIndex;
