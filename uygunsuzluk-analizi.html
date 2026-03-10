@@ -4432,19 +4432,22 @@ function buildBirimFiyatMap(rows) {
 
     const colStokAdi = _findMkCol(headers, ['Stok Adı','Stok Adi','StokAdi','stok adi','Malzeme Adı','Kart Adı']);
 
-    const acc = {}; // {stokKodu: {YYYY-MM: {sumTutar, sumMiktar, count, stokAdi}}}
+    const acc = {}; // {stokKodu: {YYYY-MM: {sumTutar, sumMiktar, sumMiktarPriced, count, stokAdi}}}
     rows.forEach(row => {
         const kod    = _normKod(row[colStokKodu]);   // büyük harf + trim normalize
         if (!kod) return;
-        const tutar  = parseNum(row[colTutar]);
         const miktar = parseNum(row[colMiktar]);
-        if (miktar <= 0 || tutar <= 0) return;
+        if (miktar <= 0) return;  // miktarsız satırı atla — tutar olmayabilir (PPM için sadece miktar gerekli)
+        const tutar  = parseNum(row[colTutar]);
         const ym = parseYM(row[colTarih]);
         const adi = colStokAdi ? String(row[colStokAdi] || '').trim() : '';
         if (!acc[kod]) acc[kod] = {};
-        if (!acc[kod][ym]) acc[kod][ym] = { sumTutar: 0, sumMiktar: 0, count: 0, stokAdi: '' };
-        acc[kod][ym].sumTutar  += tutar;
-        acc[kod][ym].sumMiktar += miktar;
+        if (!acc[kod][ym]) acc[kod][ym] = { sumTutar: 0, sumMiktar: 0, sumMiktarPriced: 0, count: 0, stokAdi: '' };
+        acc[kod][ym].sumMiktar += miktar;          // tüm miktarlar (PPM payda)
+        if (tutar > 0) {
+            acc[kod][ym].sumTutar        += tutar;
+            acc[kod][ym].sumMiktarPriced += miktar; // birim fiyat için sadece fiyatlı satırlar
+        }
         acc[kod][ym].count++;
         if (!acc[kod][ym].stokAdi && adi) acc[kod][ym].stokAdi = adi;
     });
@@ -4453,8 +4456,8 @@ function buildBirimFiyatMap(rows) {
     birimFiyatDetail = []; // global detail array sıfırla
     Object.entries(acc).forEach(([kod, months]) => {
         map[kod] = {};
-        Object.entries(months).forEach(([ym, {sumTutar, sumMiktar, count, stokAdi}]) => {
-            const bf = sumMiktar > 0 ? sumTutar / sumMiktar : 0;
+        Object.entries(months).forEach(([ym, {sumTutar, sumMiktar, sumMiktarPriced, count, stokAdi}]) => {
+            const bf = sumMiktarPriced > 0 ? sumTutar / sumMiktarPriced : 0;
             map[kod][ym] = bf;
             birimFiyatDetail.push({ stokKodu: kod, stokAdi, ay: ym || '(Tarihsiz)', sumMiktar, sumTutar, birimFiyat: bf, kayitSayisi: count });
         });
@@ -5092,15 +5095,18 @@ function buildSevkBirimFiyatMap(rows) {
     rows.forEach(row => {
         const kod    = _normKod(row[colStokKodu]);   // büyük harf + trim normalize
         if (!kod) return;
-        const tutar  = parseNum(row[colTutar]);
         const miktar = parseNum(row[colMiktar]);
-        if (miktar <= 0 || tutar <= 0) return;
+        if (miktar <= 0) return;  // miktarsız satırı atla
+        const tutar  = parseNum(row[colTutar]);
         const ym  = parseYM(row[colTarih]);
         const adi = colStokAdi ? String(row[colStokAdi] || '').trim() : '';
         if (!acc[kod]) acc[kod] = {};
-        if (!acc[kod][ym]) acc[kod][ym] = { sumTutar: 0, sumMiktar: 0, count: 0, stokAdi: '' };
-        acc[kod][ym].sumTutar  += tutar;
-        acc[kod][ym].sumMiktar += miktar;
+        if (!acc[kod][ym]) acc[kod][ym] = { sumTutar: 0, sumMiktar: 0, sumMiktarPriced: 0, count: 0, stokAdi: '' };
+        acc[kod][ym].sumMiktar += miktar;          // tüm miktarlar (PPM payda)
+        if (tutar > 0) {
+            acc[kod][ym].sumTutar        += tutar;
+            acc[kod][ym].sumMiktarPriced += miktar;
+        }
         acc[kod][ym].count++;
         if (!acc[kod][ym].stokAdi && adi) acc[kod][ym].stokAdi = adi;
     });
@@ -5109,8 +5115,8 @@ function buildSevkBirimFiyatMap(rows) {
     sevkBirimFiyatDetail = [];
     Object.entries(acc).forEach(([kod, months]) => {
         map[kod] = {};
-        Object.entries(months).forEach(([ym, {sumTutar, sumMiktar, count, stokAdi}]) => {
-            const bf = sumMiktar > 0 ? sumTutar / sumMiktar : 0;
+        Object.entries(months).forEach(([ym, {sumTutar, sumMiktar, sumMiktarPriced, count, stokAdi}]) => {
+            const bf = sumMiktarPriced > 0 ? sumTutar / sumMiktarPriced : 0;
             map[kod][ym] = bf;
             sevkBirimFiyatDetail.push({ stokKodu: kod, stokAdi, ay: ym || '(Tarihsiz)', sumMiktar, sumTutar, birimFiyat: bf, kayitSayisi: count });
         });
