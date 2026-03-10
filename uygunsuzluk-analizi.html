@@ -10714,11 +10714,23 @@ function _renderPPMMonthlyChart() {
             responsive: true,
             maintainAspectRatio: false,
             onClick: (evt, elements, chart) => {
-                // 'nearest'+intersect:true → hangi çubuğa tıklandığını kesin yakala (dsIdx doğru gelir)
-                const pts = chart.getElementsAtEventForMode(evt.native, 'nearest', { intersect: true }, true);
+                // 'index'+intersect:false → tüm x'teki noktalar (küçük/sıfır çubuklar da tıklanabilir)
+                const pts = chart.getElementsAtEventForMode(evt.native, 'index', { intersect: false }, true);
                 if (!pts || !pts.length) return;
-                const idx   = pts[0].index;
-                const dsIdx = pts[0].datasetIndex;
+                const idx = pts[0].index;
+                // Hangi dataset: fare x'ine en yakın bar'ın dataset'i (dsIdx)
+                let dsIdx = 0;
+                if (isMixedTumu && pts.length > 1) {
+                    const mouseX = evt.native.offsetX;
+                    let minDist = Infinity;
+                    pts.forEach(pt => {
+                        const barX = chart.getDatasetMeta(pt.datasetIndex).data[pt.index]?.x ?? Infinity;
+                        const dist = Math.abs(barX - mouseX);
+                        if (dist < minDist) { minDist = dist; dsIdx = pt.datasetIndex; }
+                    });
+                } else if (pts.length === 1) {
+                    dsIdx = pts[0].datasetIndex;
+                }
                 if (isMixedTumu) {
                     const monthKey   = keys[idx];
                     const allRows    = drillByMonth[monthKey] || [];
