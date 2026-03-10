@@ -10009,6 +10009,7 @@ async function _restoreKmData() {
         if (stored && stored.rows && stored.rows.length) {
             birimFiyatDetail = [];
             const m = buildBirimFiyatMap(stored.rows);
+            birimFiyatDetail.forEach(d => { d._fileName = e.fileName; });
             mkAccDetail.push(...birimFiyatDetail);
             _mergeBirimFiyatMap(m);
             anyLoaded = true;
@@ -10045,6 +10046,7 @@ async function _restoreKmData() {
         if (stored && stored.rows && stored.rows.length) {
             sevkBirimFiyatDetail = [];
             const m = buildSevkBirimFiyatMap(stored.rows);
+            sevkBirimFiyatDetail.forEach(d => { d._fileName = e.fileName; });
             svAccDetail.push(...sevkBirimFiyatDetail);
             _mergeSevkBirimFiyatMap(m);
             anyLoaded = true;
@@ -10369,8 +10371,10 @@ function _renderPPMMonthlyChart() {
     // Tedarikçi segmenti → birimFiyatDetail (MAL KABUL)
     // Dış/Müşteri segmenti → sevkBirimFiyatDetail (SEVKİYAT)
     // Tümü → her ikisini de ayrı ayrı topla, sonra ay bazında birleştir
-    const sevkByMonth  = {};  // Dış/Müşteri için sevkiyat
-    const mkByMonth    = {};  // Tedarikçi için mal kabul
+    const sevkByMonth      = {};  // Dış/Müşteri için sevkiyat
+    const mkByMonth        = {};  // Tedarikçi için mal kabul
+    const mkFilesByMonth   = {};  // {YYYY-MM: Set<fileName>} — o ay hangi MK dosyası kullanıldı
+    const sevkFilesByMonth = {};  // {YYYY-MM: Set<fileName>} — o ay hangi Sevk dosyası kullanıldı
     const hasSevk      = typeof sevkBirimFiyatDetail !== 'undefined' && sevkBirimFiyatDetail.length > 0;
     const hasMalKabul  = typeof birimFiyatDetail     !== 'undefined' && birimFiyatDetail.length > 0;
     const isTedarikciSeg = _ppmCurrentSegment !== 'all' && _isTedarikciType(_ppmCurrentSegment);
@@ -10402,6 +10406,10 @@ function _renderPPMMonthlyChart() {
             const key = (d.ay || '').substring(0, 7);
             if (!_chartInRange(key)) return;
             mkByMonth[key] = (mkByMonth[key] || 0) + (d.sumMiktar || 0);
+            if (d._fileName) {
+                if (!mkFilesByMonth[key]) mkFilesByMonth[key] = new Set();
+                mkFilesByMonth[key].add(d._fileName);
+            }
         });
     }
     // Sevkiyat: Dış/İç segmenti veya Tümü (karışık ya da hepsi Dış/İç)
@@ -10410,6 +10418,10 @@ function _renderPPMMonthlyChart() {
             const key = (d.ay || '').substring(0, 7);
             if (!_chartInRange(key)) return;
             sevkByMonth[key] = (sevkByMonth[key] || 0) + (d.sumMiktar || 0);
+            if (d._fileName) {
+                if (!sevkFilesByMonth[key]) sevkFilesByMonth[key] = new Set();
+                sevkFilesByMonth[key].add(d._fileName);
+            }
         });
     }
 
@@ -10616,18 +10628,22 @@ function _renderPPMMonthlyChart() {
                     const selRows   = (drillByMonth[monthKey] || []).filter(r =>
                         isTed ? _isTedarikciType(r.tipi) : (!_isTedarikciType(r.tipi) && !_isPpmNAType(r.tipi))
                     );
-                    const selType = isTed ? 'Tedarikçi' : 'Dış/İç';
-                    const selLbl  = isTed ? 'Mal Kabul (ay toplam)' : 'Sevkiyat (ay toplam)';
-                    _showPPMDrillDown(monthKey, `${labels[idx]} — ${selType}`, selPpm, selHatali, selPayda, true, selRows, selLbl);
+                    const selType   = isTed ? 'Tedarikçi' : 'Dış/İç';
+                    const selLbl    = isTed ? 'Mal Kabul (ay toplam)' : 'Sevkiyat (ay toplam)';
+                    const selMkFiles = isTed ? [...(mkFilesByMonth[monthKey] || [])] : [];
+                    const selSvFiles = isTed ? [] : [...(sevkFilesByMonth[monthKey] || [])];
+                    _showPPMDrillDown(monthKey, `${labels[idx]} — ${selType}`, selPpm, selHatali, selPayda, true, selRows, selLbl, { mk: selMkFiles, sv: selSvFiles });
                 } else {
                     if (ppmData[idx] == null) return;
                     const _paydaColLbl = useSevk
                         ? (useTedarikciSource ? 'Mal Kabul (ay toplam)' : 'Sevkiyat (ay toplam)')
                         : 'Parti Hacmi';
+                    const _mkFiles = (useSevk && useTedarikciSource)  ? [...(mkFilesByMonth[keys[idx]]   || [])] : [];
+                    const _svFiles = (useSevk && !useTedarikciSource) ? [...(sevkFilesByMonth[keys[idx]] || [])] : [];
                     _showPPMDrillDown(keys[idx], labels[idx], ppmData[idx],
                         hataliByMonth[keys[idx]] || 0,
                         useSevk ? (activeByMonth[keys[idx]] || 0) : (partiByMonth[keys[idx]] || 0),
-                        useSevk, drillByMonth[keys[idx]] || [], _paydaColLbl);
+                        useSevk, drillByMonth[keys[idx]] || [], _paydaColLbl, { mk: _mkFiles, sv: _svFiles });
                 }
             },
             plugins: {
@@ -10684,7 +10700,7 @@ function _renderPPMMonthlyChart() {
     });
 }
 
-function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, useSevk, rows, paydaColLabel) {
+function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, useSevk, rows, paydaColLabel, sourceFiles) {
     const panel  = document.getElementById('ppmDrillDown');
     const title  = document.getElementById('ppmDrillTitle');
     const tbody  = document.getElementById('ppmDrillBody');
@@ -10720,10 +10736,10 @@ function _showPPMDrillDown(monthKey, monthLabel, ppm, totalHatali, totalPayda, u
         </tr>`;
     }).join('');
 
-    // Kaynak dosya adları satırı
+    // Kaynak dosya adları satırı — yalnızca bu aya ait dosyalar
     const _srcUyg = _ppmUygFileName || '—';
-    const _srcMk  = _ppmMkFileNames.length ? _ppmMkFileNames.join(', ') : '—';
-    const _srcSv  = _ppmSvFileNames.length ? _ppmSvFileNames.join(', ') : '—';
+    const _srcMk  = (sourceFiles?.mk?.length) ? sourceFiles.mk.join(', ') : '—';
+    const _srcSv  = (sourceFiles?.sv?.length) ? sourceFiles.sv.join(', ') : '—';
 
     tfoot.innerHTML = `<tr style="background:#f5f7ff;font-weight:700;">
         <td colspan="6" style="padding:6px 10px;">TOPLAM</td>
