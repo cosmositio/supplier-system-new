@@ -4406,7 +4406,7 @@ function buildBirimFiyatMap(rows) {
     const colStokKodu = _findMkCol(headers, ['Stok Kodu','StokKodu','Stok_Kodu','Kart Kodu','KartKodu','stok kodu']);
     const colMiktar   = _findMkCol(headers, ['Miktar','Quantity','Qty','miktar']);
     const colTutar    = _findMkCol(headers, ['Irsaliye Tutar TL','İrsaliye Tutar TL','Irsaliye Tutar','İrsaliye Tutar','Tutar TL','irsaliye tutar tl']);
-    const colTarih    = _findMkCol(headers, ['Irsaliye Tarihi','İrsaliye Tarihi','Tarih','Date','İrsaliye tarih','irsaliye tarihi']);
+    const colTarih    = _findMkCol(headers, ['Irsaliye Tarih','İrsaliye Tarih','irsaliye tarih','Irsaliye Tarihi','İrsaliye Tarihi','Tarih','Date','İrsaliye tarih','irsaliye tarihi']);
 
     /* Show a warning if required columns not found */
     if (!colStokKodu || !colMiktar || !colTutar) {
@@ -5061,7 +5061,7 @@ function buildSevkBirimFiyatMap(rows) {
     const colStokKodu = _findMkCol(headers, ['Stok Kodu','StokKodu','Stok_Kodu','Kart Kodu','KartKodu','stok kodu']);
     const colMiktar   = _findMkCol(headers, ['İrsaliye Miktarı','İrsaliye Miktar','Irsaliye Miktari','Irsaliye Miktar','İrsaliye Mik.','Irsaliye Mik.','irsaliye miktar','IrsaliyeMiktar']);
     const colTutar    = _findMkCol(headers, ['Tutar','tutar','Toplam Tutar','TL Tutar','İrsaliye Tutar']);
-    const colTarih    = _findMkCol(headers, ['İrsaliye Tarihi','Irsaliye Tarihi','İrsaliye Tar.','Irsaliye Tar.','Kayit Tarihi','Kayıt Tarihi','Tarih','Date']);
+    const colTarih    = _findMkCol(headers, ['Irsaliye Tarih','İrsaliye Tarih','irsaliye tarih','İrsaliye Tarihi','Irsaliye Tarihi','İrsaliye Tar.','Irsaliye Tar.','Kayit Tarihi','Kayıt Tarihi','Tarih','Date']);
     const colStokAdi  = _findMkCol(headers, ['Stok Adı','Stok Adi','StokAdi','Malzeme Adı','Kart Adı']);
 
     if (!colStokKodu || !colMiktar || !colTutar) {
